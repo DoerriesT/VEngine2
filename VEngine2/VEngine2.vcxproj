@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{d205e9bb-48ee-4f3e-8cda-beefafcd8baf}</ProjectGuid>
+    <RootNamespace>VEngine2</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>../libs/include;./src;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>../libs/include;./src;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>../libs/include;./src;$(IncludePath)</IncludePath>
+    <LibraryPath>../libs/lib/64/debug;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>../libs/include;./src;$(IncludePath)</IncludePath>
+    <LibraryPath>../libs/lib/64/release;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>WinPixEventRuntime.lib;d3d12.lib;dxgi.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>WinPixEventRuntime.lib;d3d12.lib;dxgi.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Engine.h" />
+    <ClInclude Include="src\graphics\gal\dx12\CommandListDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\CommandListPoolDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\D3D12MemAlloc.h" />
+    <ClInclude Include="src\graphics\gal\dx12\DescriptorSetDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\GraphicsDeviceDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\PipelineDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\QueryPoolDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\QueueDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\ResourceDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\SemaphoreDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\SwapChainDx12.h" />
+    <ClInclude Include="src\graphics\gal\dx12\UtilityDx12.h" />
+    <ClInclude Include="src\graphics\gal\FwdDecl.h" />
+    <ClInclude Include="src\graphics\gal\GraphicsAbstractionLayer.h" />
+    <ClInclude Include="src\graphics\gal\Initializers.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\CommandListPoolVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\CommandListVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\DescriptorSetVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\FramebufferCacheVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\FramebufferDescriptionVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\GraphicsDeviceVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\MemoryAllocatorVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\PipelineVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\QueryPoolVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\QueueVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\RenderPassCacheVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\RenderPassDescriptionVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\ResourceVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\SemaphoreVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\SwapChainVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\UtilityVk.h" />
+    <ClInclude Include="src\graphics\gal\vulkan\volk.h" />
+    <ClInclude Include="src\Log.h" />
+    <ClInclude Include="src\utility\ContainerUtility.h" />
+    <ClInclude Include="src\utility\Enum.h" />
+    <ClInclude Include="src\utility\ObjectPool.h" />
+    <ClInclude Include="src\utility\TLSFAllocator.h" />
+    <ClInclude Include="src\utility\Utility.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\CommandListDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\CommandListPoolDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\D3D12MemAlloc.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\DescriptorSetDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\GraphicsDeviceDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\PipelineDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\QueryPoolDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\QueueDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\ResourceDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\SemaphoreDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\SwapChainDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\dx12\UtilityDx12.cpp" />
+    <ClCompile Include="src\graphics\gal\GraphicsAbstractionLayer.cpp" />
+    <ClCompile Include="src\graphics\gal\Initializers.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\CommandListPoolVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\CommandListVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\DescriptorSetVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\FramebufferCacheVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\GraphicsDeviceVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\MemoryAllocatorVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\PipelineVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\QueryPoolVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\QueueVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\RenderPassCacheVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\ResourceVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\SemaphoreVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\SwapChainVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\UtilityVk.cpp" />
+    <ClCompile Include="src\graphics\gal\vulkan\volk.c" />
+    <ClCompile Include="src\Log.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\utility\TLSFAllocator.cpp" />
+    <ClCompile Include="src\utility\Utility.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

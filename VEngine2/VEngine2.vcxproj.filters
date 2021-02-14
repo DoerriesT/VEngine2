@@ -1,0 +1,246 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{bf182f10-9ad5-4a09-a242-f607ef36d0b7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\graphics">
+      <UniqueIdentifier>{4802a9dc-7d53-4002-b658-e08d51e248e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\graphics\gal">
+      <UniqueIdentifier>{a082829d-089b-4aa3-bce5-6b7025db9d54}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\utility">
+      <UniqueIdentifier>{c9297f90-ad50-497d-980a-011f5487699d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\graphics\gal\dx12">
+      <UniqueIdentifier>{a59fed5e-e677-4f75-b767-b492ff5f08eb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\graphics\gal\vulkan">
+      <UniqueIdentifier>{8e7cfef8-8753-4140-ac3b-b1794edd085f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Engine.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Log.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\FwdDecl.h">
+      <Filter>src\graphics\gal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\GraphicsAbstractionLayer.h">
+      <Filter>src\graphics\gal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\Initializers.h">
+      <Filter>src\graphics\gal</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\Enum.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\CommandListDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\CommandListPoolDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\D3D12MemAlloc.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\DescriptorSetDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\GraphicsDeviceDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\QueryPoolDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\QueueDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\ResourceDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\SemaphoreDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\SwapChainDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\UtilityDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\CommandListPoolVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\CommandListVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\DescriptorSetVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\FramebufferCacheVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\FramebufferDescriptionVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\GraphicsDeviceVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\MemoryAllocatorVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\QueryPoolVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\QueueVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\RenderPassCacheVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\RenderPassDescriptionVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\ResourceVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\SemaphoreVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\SwapChainVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\UtilityVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\volk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\ObjectPool.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\TLSFAllocator.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\Utility.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\dx12\PipelineDx12.h">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\gal\vulkan\PipelineVk.h">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\ContainerUtility.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Engine.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Log.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\GraphicsAbstractionLayer.cpp">
+      <Filter>src\graphics\gal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\Initializers.cpp">
+      <Filter>src\graphics\gal</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\CommandListDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\CommandListPoolDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\D3D12MemAlloc.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\DescriptorSetDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\GraphicsDeviceDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\QueryPoolDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\QueueDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\ResourceDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\SemaphoreDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\SwapChainDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\UtilityDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\CommandListPoolVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\CommandListVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\DescriptorSetVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\FramebufferCacheVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\GraphicsDeviceVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\MemoryAllocatorVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\QueryPoolVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\QueueVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\RenderPassCacheVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\ResourceVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\SemaphoreVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\SwapChainVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\UtilityVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\volk.c">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\TLSFAllocator.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Utility.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\dx12\PipelineDx12.cpp">
+      <Filter>src\graphics\gal\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\gal\vulkan\PipelineVk.cpp">
+      <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
