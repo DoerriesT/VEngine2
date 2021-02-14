@@ -440,11 +440,21 @@ void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
 			const auto &barrier = barriers[i];
 			assert(bool(barrier.m_image) != bool(barrier.m_buffer));
 
+			// the vulkan backend currently does not support split barriers,
+			// so we just ignore the first half and treat the second as a regular pipeline barrier
+			if ((barrier.m_flags & BarrierFlags::BARRIER_BEGIN) != 0)
+			{
+				continue;
+			}
+
 			const auto beforeStateInfo = getResourceStateInfo(barrier.m_stateBefore, UtilityVk::translatePipelineStageFlags(barrier.m_stagesBefore), bool(barrier.m_image));
 			const auto afterStateInfo = getResourceStateInfo(barrier.m_stateAfter, UtilityVk::translatePipelineStageFlags(barrier.m_stagesAfter), bool(barrier.m_image));
 
-			const bool imageBarrierRequired = barrier.m_image && (beforeStateInfo.m_layout != afterStateInfo.m_layout || barrier.m_queueOwnershipAcquireBarrier || barrier.m_queueOwnershipReleaseBarrier);
-			const bool bufferBarrierRequired = barrier.m_buffer && (barrier.m_queueOwnershipAcquireBarrier || barrier.m_queueOwnershipReleaseBarrier);
+			const bool queueAcquire = (barrier.m_flags & BarrierFlags::QUEUE_OWNERSHIP_AQUIRE) != 0;
+			const bool queueRelease = (barrier.m_flags & BarrierFlags::QUEUE_OWNERSHIP_RELEASE) != 0;
+
+			const bool imageBarrierRequired = barrier.m_image && (beforeStateInfo.m_layout != afterStateInfo.m_layout || queueAcquire || queueRelease);
+			const bool bufferBarrierRequired = barrier.m_buffer && (queueAcquire || queueRelease);
 			const bool memoryBarrierRequired = beforeStateInfo.m_writeAccess && !imageBarrierRequired && !bufferBarrierRequired;
 			const bool executionBarrierRequired = beforeStateInfo.m_writeAccess || afterStateInfo.m_writeAccess || memoryBarrierRequired || bufferBarrierRequired || imageBarrierRequired;
 
@@ -458,8 +468,8 @@ void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
 
 				auto &imageBarrier = imageBarriers[imageBarrierCount++];
 				imageBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-				imageBarrier.srcAccessMask = barrier.m_queueOwnershipAcquireBarrier ? 0 : beforeStateInfo.m_accessMask;
-				imageBarrier.dstAccessMask = barrier.m_queueOwnershipReleaseBarrier ? 0 : afterStateInfo.m_accessMask;
+				imageBarrier.srcAccessMask = queueAcquire ? 0 : beforeStateInfo.m_accessMask;
+				imageBarrier.dstAccessMask = queueRelease ? 0 : afterStateInfo.m_accessMask;
 				imageBarrier.oldLayout = beforeStateInfo.m_layout;
 				imageBarrier.newLayout = afterStateInfo.m_layout;
 				imageBarrier.srcQueueFamilyIndex = barrier.m_srcQueue ? srcQueueVk->m_queueFamily : VK_QUEUE_FAMILY_IGNORED;
@@ -471,8 +481,8 @@ void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
 			{
 				auto &bufferBarrier = bufferBarriers[bufferBarrierCount++];
 				bufferBarrier = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
-				bufferBarrier.srcAccessMask = barrier.m_queueOwnershipAcquireBarrier ? 0 : beforeStateInfo.m_accessMask;
-				bufferBarrier.dstAccessMask = barrier.m_queueOwnershipReleaseBarrier ? 0 : afterStateInfo.m_accessMask;
+				bufferBarrier.srcAccessMask = queueAcquire ? 0 : beforeStateInfo.m_accessMask;
+				bufferBarrier.dstAccessMask = queueRelease ? 0 : afterStateInfo.m_accessMask;
 				bufferBarrier.srcQueueFamilyIndex = barrier.m_srcQueue ? srcQueueVk->m_queueFamily : VK_QUEUE_FAMILY_IGNORED;
 				bufferBarrier.dstQueueFamilyIndex = barrier.m_dstQueue ? dstQueueVk->m_queueFamily : VK_QUEUE_FAMILY_IGNORED;
 				bufferBarrier.buffer = (VkBuffer)barrier.m_buffer->getNativeHandle();
@@ -488,8 +498,8 @@ void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
 
 			if (executionBarrierRequired)
 			{
-				srcStages |= barrier.m_queueOwnershipAcquireBarrier ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : beforeStateInfo.m_stageMask;
-				dstStages |= barrier.m_queueOwnershipReleaseBarrier ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : afterStateInfo.m_stageMask;
+				srcStages |= queueAcquire ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : beforeStateInfo.m_stageMask;
+				dstStages |= queueRelease ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : afterStateInfo.m_stageMask;
 			}
 		}
 

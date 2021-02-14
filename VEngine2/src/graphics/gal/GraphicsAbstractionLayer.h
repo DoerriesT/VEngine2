@@ -612,6 +612,17 @@ namespace gal
 	DEF_ENUM_FLAG_OPERATORS(DescriptorBindingFlags);
 
 
+	enum class BarrierFlags
+	{
+		QUEUE_OWNERSHIP_RELEASE = 1u << 0u,
+		QUEUE_OWNERSHIP_AQUIRE = 1u << 1u,
+		FIRST_ACCESS_IN_SUBMISSION = 1u << 2u,
+		BARRIER_BEGIN = 1u << 3u,
+		BARRIER_END = 1u << 4u
+	};
+	DEF_ENUM_FLAG_OPERATORS(BarrierFlags);
+
+
 
 	// STRUCTS
 
@@ -813,9 +824,7 @@ namespace gal
 		Queue *m_srcQueue;
 		Queue *m_dstQueue;
 		ImageSubresourceRange m_imageSubresourceRange;
-		bool m_queueOwnershipReleaseBarrier;
-		bool m_queueOwnershipAcquireBarrier;
-		bool m_firstAccessInSubmission;
+		BarrierFlags m_flags;
 	};
 
 	struct ColorAttachmentDescription

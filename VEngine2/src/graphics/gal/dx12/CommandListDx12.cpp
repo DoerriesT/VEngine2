@@ -709,7 +709,7 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 
 		// d3d12 doesnt have queue ownership transfers, but there might still be resource transitions
 		// in the barriers, so we only ignore the acquire barrier
-		if (barrier.m_queueOwnershipAcquireBarrier)
+		if ((barrier.m_flags & BarrierFlags::QUEUE_OWNERSHIP_AQUIRE) != 0)
 		{
 			continue;
 		}
@@ -723,7 +723,7 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 		auto beforeState = getResourceStateDx12(barrier.m_stateBefore, barrier.m_stagesBefore, imageDesc.m_format, barrier.m_image != nullptr);
 		auto afterState = getResourceStateDx12(barrier.m_stateAfter, barrier.m_stagesAfter, imageDesc.m_format, barrier.m_image != nullptr);
 
-		if (barrier.m_buffer && barrier.m_firstAccessInSubmission)
+		if (barrier.m_buffer && (barrier.m_flags & BarrierFlags::FIRST_ACCESS_IN_SUBMISSION) != 0)
 		{
 			// automatic resource state decay
 			beforeState = D3D12_RESOURCE_STATE_COMMON;
@@ -789,14 +789,14 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 		// transition barrier
 		else if (!uploadHeapResource && !readbackHeapResource)
 		{
-			if (barrier.m_buffer && barrier.m_firstAccessInSubmission)
+			if (barrier.m_buffer && (barrier.m_flags & BarrierFlags::FIRST_ACCESS_IN_SUBMISSION) != 0)
 			{
 				// resource is automatically promoted to the correct state
 				continue;
 			}
 
 			// transitions on placed render targets / depth-stencil textures from UNDEFINED require us to discard the resource
-			if (barrier.m_image && !isCommittedImageResource && barrier.m_stateBefore == ResourceState::UNDEFINED && barrier.m_firstAccessInSubmission)
+			if (barrier.m_image && !isCommittedImageResource && barrier.m_stateBefore == ResourceState::UNDEFINED && (barrier.m_flags & BarrierFlags::FIRST_ACCESS_IN_SUBMISSION) != 0)
 			{
 				bool dsvImage = (imageDesc.m_usageFlags & ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT) != 0;
 				bool rtvImage = (imageDesc.m_usageFlags & ImageUsageFlags::COLOR_ATTACHMENT_BIT) != 0;
@@ -827,6 +827,15 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 						barrierDx.Transition.pResource = resouceDx;
 						barrierDx.Transition.StateBefore = beforeState;
 						barrierDx.Transition.StateAfter = newAfterState;
+
+						if ((barrier.m_flags & BarrierFlags::BARRIER_BEGIN) != 0)
+						{
+							barrierDx.Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
+						}
+						else if ((barrier.m_flags & BarrierFlags::BARRIER_END) != 0)
+						{
+							barrierDx.Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
+						}
 
 						// collapse individual barriers for each subresource into a single barrier if all subresources are transitioned
 						if (baseLayer == 0 && baseLevel == 0 && layerCount == imageDesc.m_layers && levelCount == imageDesc.m_levels)
