@@ -1,7 +1,14 @@
 #pragma once
 
+class Window;
+class Renderer;
+
 class Engine
 {
 public:
-	void start(int argc, char *argv[]);
+	int start(int argc, char *argv[]);
+
+private:
+	Window *m_window = nullptr;
+	Renderer *m_renderer = nullptr;
 };

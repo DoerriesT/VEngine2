@@ -19,6 +19,12 @@
     <Filter Include="src\graphics\gal\vulkan">
       <UniqueIdentifier>{8e7cfef8-8753-4140-ac3b-b1794edd085f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\input">
+      <UniqueIdentifier>{584c91db-ae44-4ab6-8f5a-b26fd6f5ac81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\window">
+      <UniqueIdentifier>{276fecd4-7181-4cba-acc1-b9a7806d5e30}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -138,6 +144,21 @@
     <ClInclude Include="src\utility\ContainerUtility.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\input\IInputListener.h">
+      <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\input\InputTokens.h">
+      <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\input\UserInput.h">
+      <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\window\Window.h">
+      <Filter>src\window</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\Renderer.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -241,6 +262,15 @@
     </ClCompile>
     <ClCompile Include="src\graphics\gal\vulkan\PipelineVk.cpp">
       <Filter>src\graphics\gal\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="src\input\UserInput.cpp">
+      <Filter>src\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window\Window.cpp">
+      <Filter>src\window</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\Renderer.cpp">
+      <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

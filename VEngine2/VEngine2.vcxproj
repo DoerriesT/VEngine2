@@ -180,12 +180,17 @@
     <ClInclude Include="src\graphics\gal\vulkan\SwapChainVk.h" />
     <ClInclude Include="src\graphics\gal\vulkan\UtilityVk.h" />
     <ClInclude Include="src\graphics\gal\vulkan\volk.h" />
+    <ClInclude Include="src\graphics\Renderer.h" />
+    <ClInclude Include="src\input\IInputListener.h" />
+    <ClInclude Include="src\input\InputTokens.h" />
+    <ClInclude Include="src\input\UserInput.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\utility\ContainerUtility.h" />
     <ClInclude Include="src\utility\Enum.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
     <ClInclude Include="src\utility\TLSFAllocator.h" />
     <ClInclude Include="src\utility\Utility.h" />
+    <ClInclude Include="src\window\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp" />
@@ -218,10 +223,13 @@
     <ClCompile Include="src\graphics\gal\vulkan\SwapChainVk.cpp" />
     <ClCompile Include="src\graphics\gal\vulkan\UtilityVk.cpp" />
     <ClCompile Include="src\graphics\gal\vulkan\volk.c" />
+    <ClCompile Include="src\graphics\Renderer.cpp" />
+    <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\utility\TLSFAllocator.cpp" />
     <ClCompile Include="src\utility\Utility.cpp" />
+    <ClCompile Include="src\window\Window.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

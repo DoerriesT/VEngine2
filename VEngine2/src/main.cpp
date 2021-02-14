@@ -4,5 +4,5 @@
 int main(int argc, char *argv[])
 {
 	Engine engine;
-	engine.start(argc, argv);
+	return engine.start(argc, argv);
 }

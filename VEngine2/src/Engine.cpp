@@ -1,11 +1,29 @@
 #include "Engine.h"
 #include "Log.h"
+#include "window/Window.h"
+#include "graphics/Renderer.h"
 
-void Engine::start(int argc, char *argv[])
+int Engine::start(int argc, char *argv[])
 {
-	for (int i = 0; i < argc; ++i)
+	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
+	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
+
+	while (!m_window->shouldClose())
 	{
-		Log::info(argv[i]);
+		m_window->pollEvents();
+
+		if (m_window->configurationChanged())
+		{
+			m_renderer->resize(m_window->getWidth(), m_window->getHeight());
+		}
+
+		m_renderer->render();
 	}
-	Log::err("Test");
+
+	delete m_window;
+	m_window = nullptr;
+	delete m_renderer;
+	m_renderer = nullptr;
+
+	return 0;
 }
