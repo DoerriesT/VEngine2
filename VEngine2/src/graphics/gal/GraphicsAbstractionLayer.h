@@ -652,8 +652,9 @@ namespace gal
 
 	struct DescriptorSetLayoutBinding
 	{
-		uint32_t m_binding;
 		DescriptorType m_descriptorType;
+		uint32_t m_binding;
+		uint32_t m_space;
 		uint32_t m_descriptorCount;
 		ShaderStageFlags m_stageFlags;
 		DescriptorBindingFlags m_bindingFlags;
@@ -937,14 +938,19 @@ namespace gal
 		Format m_depthStencilFormat = Format::UNDEFINED;
 	};
 
+	struct DescriptorSetLayoutDeclaration
+	{
+		DescriptorSetLayout *m_layout;
+		uint32_t m_usedBindingCount;
+		DescriptorSetLayoutBinding *m_usedBindings;
+	};
+
 	struct PipelineLayoutCreateInfo
 	{
 		uint32_t m_descriptorSetLayoutCount;
-		DescriptorSetLayout *m_descriptorSetLayouts[4];
+		DescriptorSetLayoutDeclaration m_descriptorSetLayoutDeclarations[4];
 		uint32_t m_pushConstRange;
 		ShaderStageFlags m_pushConstStageFlags;
-		bool m_reflect;
-		ShaderStageFlags m_embeddedRootSignature;
 	};
 
 	struct GraphicsPipelineCreateInfo

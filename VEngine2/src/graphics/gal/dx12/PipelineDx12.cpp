@@ -9,14 +9,12 @@ static constexpr UINT s_rootConstRegister = 0;
 static constexpr UINT s_rootConstSpace = 5000;
 
 static std::vector<char> loadShaderFile(const char *filename);
-static ID3D12RootSignature *createRootSignature(ID3D12Device *device, 
-	bool useIA, 
-	uint32_t &rootDescriptorSetIndex, 
-	uint32_t &rootDescriptorCount, 
-	uint32_t &descriptorTableOffset, 
-	const PipelineLayoutCreateInfo &layoutCreateInfo,
-	void *shaderData,
-	SIZE_T shaderDataSize);
+static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
+	bool useIA,
+	uint32_t &rootDescriptorSetIndex,
+	uint32_t &rootDescriptorCount,
+	uint32_t &descriptorTableOffset,
+	const PipelineLayoutCreateInfo &layoutCreateInfo);
 
 gal::GraphicsPipelineDx12::GraphicsPipelineDx12(ID3D12Device *device, const GraphicsPipelineCreateInfo &createInfo)
 	:m_pipeline(),
@@ -54,46 +52,13 @@ gal::GraphicsPipelineDx12::GraphicsPipelineDx12(ID3D12Device *device, const Grap
 		psCode = loadShaderFile(createInfo.m_pixelShader.m_path);
 	}
 
-	// try to select a shader with embedded root signature. 
-	// any shader will do because all shaders with embedded RS must have an identical RS
-	void *rootSigShader = nullptr;
-	SIZE_T rootSigShaderSize = 0;
-
-	if ((createInfo.m_layoutCreateInfo.m_embeddedRootSignature & ShaderStageFlags::VERTEX_BIT) != 0)
-	{
-		rootSigShader = vsCode.data();
-		rootSigShaderSize = vsCode.size();
-	}
-	else if ((createInfo.m_layoutCreateInfo.m_embeddedRootSignature & ShaderStageFlags::HULL_BIT) != 0)
-	{
-		rootSigShader = hsCode.data();
-		rootSigShaderSize = hsCode.size();
-	}
-	else if ((createInfo.m_layoutCreateInfo.m_embeddedRootSignature & ShaderStageFlags::DOMAIN_BIT) != 0)
-	{
-		rootSigShader = dsCode.data();
-		rootSigShaderSize = dsCode.size();
-	}
-	else if ((createInfo.m_layoutCreateInfo.m_embeddedRootSignature & ShaderStageFlags::GEOMETRY_BIT) != 0)
-	{
-		rootSigShader = gsCode.data();
-		rootSigShaderSize = gsCode.size();
-	}
-	else if ((createInfo.m_layoutCreateInfo.m_embeddedRootSignature & ShaderStageFlags::PIXEL_BIT) != 0)
-	{
-		rootSigShader = psCode.data();
-		rootSigShaderSize = psCode.size();
-	}
-
 	// create root signature from reflection data
-	m_rootSignature = createRootSignature(device, 
-		createInfo.m_vertexInputState.m_vertexAttributeDescriptionCount > 0, 
-		m_rootDescriptorSetIndex, 
+	m_rootSignature = createRootSignature(device,
+		createInfo.m_vertexInputState.m_vertexAttributeDescriptionCount > 0,
+		m_rootDescriptorSetIndex,
 		m_rootDescriptorCount,
-		m_descriptorTableOffset, 
-		createInfo.m_layoutCreateInfo,
-		rootSigShader,
-		rootSigShaderSize);
+		m_descriptorTableOffset,
+		createInfo.m_layoutCreateInfo);
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC stateDesc{};
 	stateDesc.pRootSignature = m_rootSignature;
@@ -297,7 +262,7 @@ gal::ComputePipelineDx12::ComputePipelineDx12(ID3D12Device *device, const Comput
 	std::vector<char> csCode = loadShaderFile(createInfo.m_computeShader.m_path);
 
 	// create root signature
-	m_rootSignature = createRootSignature(device, false, m_rootDescriptorSetIndex, m_rootDescriptorCount, m_descriptorTableOffset, createInfo.m_layoutCreateInfo, csCode.data(), csCode.size());
+	m_rootSignature = createRootSignature(device, false, m_rootDescriptorSetIndex, m_rootDescriptorCount, m_descriptorTableOffset, createInfo.m_layoutCreateInfo);
 
 	D3D12_COMPUTE_PIPELINE_STATE_DESC stateDesc{};
 	stateDesc.pRootSignature = m_rootSignature;
@@ -357,18 +322,53 @@ static std::vector<char> loadShaderFile(const char *filename)
 }
 
 
-static ID3D12RootSignature *createRootSignature(ID3D12Device *device, 
-	bool useIA, 
-	uint32_t &rootDescriptorSetIndex, 
-	uint32_t &rootDescriptorCount, 
-	uint32_t &descriptorTableOffset, 
-	const PipelineLayoutCreateInfo &layoutCreateInfo,
-	void *shaderData,
-	SIZE_T shaderDataSize)
+static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
+	bool useIA,
+	uint32_t &rootDescriptorSetIndex,
+	uint32_t &rootDescriptorCount,
+	uint32_t &descriptorTableOffset,
+	const PipelineLayoutCreateInfo &layoutCreateInfo)
 {
 	rootDescriptorSetIndex = ~uint32_t(0);
 	rootDescriptorCount = 0;
 	descriptorTableOffset = 0;
+
+	// process descriptor set layouts
+	bool rootDescriptorSets[4] = {};
+	size_t totalDescriptorRangeCount = 0;
+	for (size_t i = 0; i < layoutCreateInfo.m_descriptorSetLayoutCount; ++i)
+	{
+		const auto &setDecl = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i];
+
+		bool hasSamplers = false;
+		bool hasNonSamplers = false;
+		bool hasRootDescriptors = false;
+		bool hasNonRootDescriptors = false;
+
+		for (size_t j = 0; j < setDecl.m_usedBindingCount; ++j)
+		{
+			auto type = setDecl.m_usedBindings[j].m_descriptorType;
+			rootDescriptorSets[i] = rootDescriptorSets[i] || (type == DescriptorType::OFFSET_CONSTANT_BUFFER);
+			hasSamplers = hasSamplers || type == DescriptorType::SAMPLER;
+			hasNonSamplers = hasNonSamplers || type != DescriptorType::SAMPLER;
+			hasRootDescriptors = hasRootDescriptors || type == DescriptorType::OFFSET_CONSTANT_BUFFER;
+			hasNonRootDescriptors = hasNonRootDescriptors || type != DescriptorType::OFFSET_CONSTANT_BUFFER;
+		}
+
+		if (hasSamplers && hasNonSamplers)
+		{
+			util::fatalExit("Tried to create descriptor set layout with both sampler and non-sampler descriptors!", EXIT_FAILURE);
+		}
+		if (hasRootDescriptors && hasNonRootDescriptors)
+		{
+			util::fatalExit("Tried to create descriptor set layout with both root descriptors and non-root descriptors!", EXIT_FAILURE);
+		}
+
+		if (!rootDescriptorSets[i])
+		{
+			totalDescriptorRangeCount += setDecl.m_usedBindingCount;
+		}
+	}
 
 	// check for root signature 1.1 support
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE rootSigFeatureData{};
@@ -378,14 +378,14 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		rootSigFeatureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 	}
 
-	std::vector<D3D12_DESCRIPTOR_RANGE1> descriptorRanges1_1;
-	descriptorRanges1_1.reserve(layoutCreateInfo.m_descriptorSetLayoutCount * 32); // reserve worst case space so we dont invalidate any pointers
-
-	D3D12_ROOT_PARAMETER1 rootParams1_1[5 + 32]; // 1 root constant and 4 descriptor tables maximum and 32 root descriptors maximum
 	UINT rootParamCount = 0;
+	D3D12_ROOT_PARAMETER1 rootParams1_1[5 + 32]; // 1 root constant and 4 descriptor tables maximum and 32 root descriptors maximum
+	D3D12_ROOT_PARAMETER rootParams1_0[std::size(rootParams1_1)];
+	std::vector<D3D12_DESCRIPTOR_RANGE1> descriptorRanges1_1;
+	std::vector<D3D12_DESCRIPTOR_RANGE> descriptorRanges1_0;
+	descriptorRanges1_1.reserve(totalDescriptorRangeCount); // reserve space to guarantee pointer stability 
 
-	// keep track of all stages requiring access to resources. we might be able to use DENY flags for some stages
-	ShaderStageFlags mergedStageMask = (ShaderStageFlags)0;
+	D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSig{ rootSigFeatureData.HighestVersion };
 
 	// fill root signature with params
 	{
@@ -410,6 +410,9 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 			}
 		};
 
+		// keep track of all stages requiring access to resources. we might be able to use DENY flags for some stages
+		ShaderStageFlags mergedStageMask = (ShaderStageFlags)0;
+
 		// root consts
 		if (layoutCreateInfo.m_pushConstRange)
 		{
@@ -431,10 +434,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		// root descriptors
 		for (uint32_t i = 0; i < layoutCreateInfo.m_descriptorSetLayoutCount; ++i)
 		{
-			auto *layoutDx = dynamic_cast<const DescriptorSetLayoutDx12 *>(layoutCreateInfo.m_descriptorSetLayouts[i]);
-			assert(layoutDx);
-
-			if (layoutDx->getRootDescriptorMask())
+			if (rootDescriptorSets[i])
 			{
 				// we currently only support a single set root descriptor set per pipeline
 				if (rootDescriptorSetIndex != ~uint32_t(0))
@@ -446,9 +446,9 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 				descriptorTableOffset;
 				rootDescriptorSetIndex = i;
 
-				rootDescriptorCount = layoutDx->getBindingCount();
+				rootDescriptorCount = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindingCount;
 				descriptorTableOffset += rootDescriptorCount;
-				const auto *bindings = layoutDx->getBindings();
+				const auto *bindings = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindings;
 
 				// iterate over all bindings
 				for (uint32_t j = 0; j < rootDescriptorCount; ++j)
@@ -457,7 +457,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 					param = {};
 					param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 					param.Descriptor.ShaderRegister = bindings[j].m_binding;
-					param.Descriptor.RegisterSpace = i;
+					param.Descriptor.RegisterSpace = bindings[j].m_space;
 					param.Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_DATA_VOLATILE;
 					param.ShaderVisibility = determineShaderVisibility(bindings[j].m_stageFlags);
 
@@ -469,18 +469,13 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		// descriptor tables
 		for (uint32_t i = 0; i < layoutCreateInfo.m_descriptorSetLayoutCount; ++i)
 		{
-			auto *layoutDx = dynamic_cast<const DescriptorSetLayoutDx12 *>(layoutCreateInfo.m_descriptorSetLayouts[i]);
-			assert(layoutDx);
-
-			if (layoutDx->getRootDescriptorMask() == 0)
+			if (!rootDescriptorSets[i])
 			{
 				const size_t rangeOffset = descriptorRanges1_1.size();
 				ShaderStageFlags tableStageMask = (ShaderStageFlags)0;
 
-				UINT highestDescriptorIndex = 0;
-
-				const uint32_t bindingCount = layoutDx->getBindingCount();
-				const auto *bindings = layoutDx->getBindings();
+				const uint32_t bindingCount = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindingCount;
+				const auto *bindings = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindings;
 
 				// iterate over all bindings
 				for (uint32_t j = 0; j < bindingCount; ++j)
@@ -488,7 +483,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 					D3D12_DESCRIPTOR_RANGE1 range{};
 					range.NumDescriptors = bindings[j].m_descriptorCount;
 					range.BaseShaderRegister = bindings[j].m_binding;
-					range.RegisterSpace = i;
+					range.RegisterSpace = bindings[j].m_space;
 					range.OffsetInDescriptorsFromTableStart = range.BaseShaderRegister;
 
 					switch (bindings[j].m_descriptorType)
@@ -530,7 +525,6 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 					}
 
 					descriptorRanges1_1.push_back(range);
-					highestDescriptorIndex = max(range.BaseShaderRegister + range.NumDescriptors, highestDescriptorIndex);
 					tableStageMask |= bindings[j].m_stageFlags;
 				}
 
@@ -571,11 +565,6 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 				rootSigFlags |= D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
 			}
 		}
-
-		D3D12_ROOT_PARAMETER rootParams1_0[std::size(rootParams1_1)];
-		std::vector<D3D12_DESCRIPTOR_RANGE> descriptorRanges1_0;
-
-		D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSig{ rootSigFeatureData.HighestVersion };
 
 		// fallback for version 1.0: translate all data to their 1.0 version
 		if (rootSig.Version == D3D_ROOT_SIGNATURE_VERSION_1_0)
@@ -636,27 +625,19 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 			rootSig.Desc_1_1.Flags = useIA ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
 			rootSig.Desc_1_1.Flags |= rootSigFlags;
 		}
+	}
 
-		// root signature might already be embedded in the shader
-		void *rootSignatureBlobPtr = shaderData;
-		SIZE_T rootSignatureBlobSize = shaderDataSize;
-
+	{
+		// create root signature
 		ID3DBlob *serializedRootSig;
 		ID3DBlob *errorBlob;
-		if (layoutCreateInfo.m_embeddedRootSignature == 0)
+		if (!SUCCEEDED(UtilityDx12::checkResult(D3D12SerializeVersionedRootSignature(&rootSig, &serializedRootSig, &errorBlob), "Failed to serialize root signature", false)))
 		{
-			if (!SUCCEEDED(UtilityDx12::checkResult(D3D12SerializeVersionedRootSignature(&rootSig, &serializedRootSig, &errorBlob), "Failed to serialize root signature", false)))
-			{
-				printf((char *)errorBlob->GetBufferPointer());
-			}
-
-			// overwrite with API created root signature
-			rootSignatureBlobPtr = serializedRootSig->GetBufferPointer();
-			rootSignatureBlobSize = serializedRootSig->GetBufferSize();
+			printf((char *)errorBlob->GetBufferPointer());
 		}
 
 		ID3D12RootSignature *rootSignature;
-		UtilityDx12::checkResult(device->CreateRootSignature(0, rootSignatureBlobPtr, rootSignatureBlobSize, __uuidof(ID3D12RootSignature), (void **)&rootSignature));
+		UtilityDx12::checkResult(device->CreateRootSignature(0, serializedRootSig->GetBufferPointer(), serializedRootSig->GetBufferSize(), __uuidof(ID3D12RootSignature), (void **)&rootSignature));
 
 		return rootSignature;
 	}

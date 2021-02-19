@@ -82,7 +82,7 @@ namespace gal
 		void setColorAttachmentFormats(uint32_t count, Format *formats);
 		void setColorAttachmentFormat(Format format);
 		void setDepthStencilAttachmentFormat(Format format);
-		void setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayout **setLayouts, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags);
+		void setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags);
 
 	private:
 		GraphicsPipelineCreateInfo &m_createInfo;
@@ -93,7 +93,7 @@ namespace gal
 	public:
 		explicit ComputePipelineBuilder(ComputePipelineCreateInfo &createInfo);
 		void setComputeShader(const char *path);
-		void setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayout **setLayouts, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags);
+		void setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags);
 
 	private:
 		ComputePipelineCreateInfo &m_createInfo;

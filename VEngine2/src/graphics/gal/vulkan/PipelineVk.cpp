@@ -373,7 +373,7 @@ static void createPipelineLayout(VkDevice device, const PipelineLayoutCreateInfo
 	VkDescriptorSetLayout layoutsVk[4];
 	for (size_t i = 0; i < layoutCreateInfo.m_descriptorSetLayoutCount; ++i)
 	{
-		DescriptorSetLayoutVk *layoutVk = dynamic_cast<DescriptorSetLayoutVk *>(layoutCreateInfo.m_descriptorSetLayouts[i]);
+		DescriptorSetLayoutVk *layoutVk = dynamic_cast<DescriptorSetLayoutVk *>(layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_layout);
 		assert(layoutVk);
 		layoutsVk[i] = (VkDescriptorSetLayout)layoutVk->getNativeHandle();
 	}

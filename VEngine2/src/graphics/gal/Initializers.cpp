@@ -494,7 +494,6 @@ GraphicsPipelineBuilder::GraphicsPipelineBuilder(GraphicsPipelineCreateInfo &cre
 	m_createInfo.m_multiSampleState.m_rasterizationSamples = SampleCount::_1;
 	m_createInfo.m_multiSampleState.m_sampleMask = 0xFFFFFFFF;
 	m_createInfo.m_rasterizationState.m_lineWidth = 1.0f;
-	m_createInfo.m_layoutCreateInfo.m_reflect = true;
 }
 
 void GraphicsPipelineBuilder::setVertexShader(const char *path)
@@ -700,13 +699,12 @@ void GraphicsPipelineBuilder::setDepthStencilAttachmentFormat(Format format)
 	m_createInfo.m_attachmentFormats.m_depthStencilFormat = format;
 }
 
-void GraphicsPipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayout **setLayouts, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags)
+void GraphicsPipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags)
 {
-	m_createInfo.m_layoutCreateInfo.m_reflect = false;
 	m_createInfo.m_layoutCreateInfo.m_descriptorSetLayoutCount = setLayoutCount;
 	for (size_t i = 0; i < setLayoutCount; ++i)
 	{
-		m_createInfo.m_layoutCreateInfo.m_descriptorSetLayouts[i] = setLayouts[i];
+		m_createInfo.m_layoutCreateInfo.m_descriptorSetLayoutDeclarations[i] = setLayoutDeclarations[i];
 	}
 	m_createInfo.m_layoutCreateInfo.m_pushConstRange = pushConstRange;
 	m_createInfo.m_layoutCreateInfo.m_pushConstStageFlags = pushConstStageFlags;
@@ -716,7 +714,6 @@ ComputePipelineBuilder::ComputePipelineBuilder(ComputePipelineCreateInfo &create
 	:m_createInfo(createInfo)
 {
 	memset(&m_createInfo, 0, sizeof(m_createInfo));
-	m_createInfo.m_layoutCreateInfo.m_reflect = true;
 }
 
 void ComputePipelineBuilder::setComputeShader(const char *path)
@@ -724,13 +721,12 @@ void ComputePipelineBuilder::setComputeShader(const char *path)
 	strcpy_s(m_createInfo.m_computeShader.m_path, path);
 }
 
-void ComputePipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayout **setLayouts, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags)
+void ComputePipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags)
 {
-	m_createInfo.m_layoutCreateInfo.m_reflect = false;
 	m_createInfo.m_layoutCreateInfo.m_descriptorSetLayoutCount = setLayoutCount;
 	for (size_t i = 0; i < setLayoutCount; ++i)
 	{
-		m_createInfo.m_layoutCreateInfo.m_descriptorSetLayouts[i] = setLayouts[i];
+		m_createInfo.m_layoutCreateInfo.m_descriptorSetLayoutDeclarations[i] = setLayoutDeclarations[i];
 	}
 	m_createInfo.m_layoutCreateInfo.m_pushConstRange = pushConstRange;
 	m_createInfo.m_layoutCreateInfo.m_pushConstStageFlags = pushConstStageFlags;
