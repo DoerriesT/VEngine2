@@ -866,6 +866,28 @@ DXGI_FORMAT gal::UtilityDx12::translate(Format format)
 	return DXGI_FORMAT();
 }
 
+D3D12_SHADER_VISIBILITY gal::UtilityDx12::translate(ShaderStageFlags shaderStageFlags)
+{
+	switch (shaderStageFlags)
+	{
+	case ShaderStageFlags::VERTEX_BIT:
+		return D3D12_SHADER_VISIBILITY_VERTEX;
+	case ShaderStageFlags::HULL_BIT:
+		return D3D12_SHADER_VISIBILITY_HULL;
+	case ShaderStageFlags::DOMAIN_BIT:
+		return D3D12_SHADER_VISIBILITY_DOMAIN;
+	case ShaderStageFlags::GEOMETRY_BIT:
+		return D3D12_SHADER_VISIBILITY_GEOMETRY;
+	case ShaderStageFlags::PIXEL_BIT:
+		return D3D12_SHADER_VISIBILITY_PIXEL;
+	case ShaderStageFlags::COMPUTE_BIT:
+		return D3D12_SHADER_VISIBILITY_ALL;
+	default:
+		return D3D12_SHADER_VISIBILITY_ALL;
+	}
+	return D3D12_SHADER_VISIBILITY_ALL;
+}
+
 template<typename T>
 static bool testFlagBit(T flags, T bit)
 {

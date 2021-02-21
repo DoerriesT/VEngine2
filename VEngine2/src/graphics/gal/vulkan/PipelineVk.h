@@ -1,6 +1,7 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include "volk.h"
+#include <vector>
 
 namespace gal
 {
@@ -21,10 +22,16 @@ namespace gal
 		uint32_t getDescriptorSetLayoutCount() const override;
 		const DescriptorSetLayout *getDescriptorSetLayout(uint32_t index) const override;
 		VkPipelineLayout getLayout() const;
+		void bindStaticSamplerSet(VkCommandBuffer cmdBuf) const;
 	private:
 		VkPipeline m_pipeline;
 		VkPipelineLayout m_pipelineLayout;
 		GraphicsDeviceVk *m_device;
+		uint32_t m_staticSamplerDescriptorSetIndex;
+		VkDescriptorSetLayout m_staticSamplerDescriptorSetLayout;
+		VkDescriptorPool m_staticSamplerDescriptorPool;
+		VkDescriptorSet m_staticSamplerDescriptorSet;
+		std::vector<VkSampler> m_staticSamplers;
 	};
 
 	class ComputePipelineVk : public ComputePipeline
@@ -40,9 +47,15 @@ namespace gal
 		uint32_t getDescriptorSetLayoutCount() const override;
 		const DescriptorSetLayout *getDescriptorSetLayout(uint32_t index) const override;
 		VkPipelineLayout getLayout() const;
+		void bindStaticSamplerSet(VkCommandBuffer cmdBuf) const;
 	private:
 		VkPipeline m_pipeline;
 		VkPipelineLayout m_pipelineLayout;
 		GraphicsDeviceVk *m_device;
+		uint32_t m_staticSamplerDescriptorSetIndex;
+		VkDescriptorSetLayout m_staticSamplerDescriptorSetLayout;
+		VkDescriptorPool m_staticSamplerDescriptorPool;
+		VkDescriptorSet m_staticSamplerDescriptorSet;
+		std::vector<VkSampler> m_staticSamplers;
 	};
 }

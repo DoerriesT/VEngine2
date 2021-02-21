@@ -384,6 +384,8 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 	std::vector<D3D12_DESCRIPTOR_RANGE1> descriptorRanges1_1;
 	std::vector<D3D12_DESCRIPTOR_RANGE> descriptorRanges1_0;
 	descriptorRanges1_1.reserve(totalDescriptorRangeCount); // reserve space to guarantee pointer stability 
+	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplerDescs;
+	staticSamplerDescs.reserve(layoutCreateInfo.m_staticSamplerCount);
 
 	D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSig{ rootSigFeatureData.HighestVersion };
 
@@ -539,6 +541,39 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 			}
 		}
 
+		// static samplers
+		for (size_t i = 0; i < layoutCreateInfo.m_staticSamplerCount; ++i)
+		{
+			D3D12_STATIC_BORDER_COLOR borderColors[]
+			{
+				D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+				D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+				D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
+				D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK,
+				D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE,
+				D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE,
+			};
+
+			const auto &samplerDesc = layoutCreateInfo.m_staticSamplerDescriptions[i];
+
+			D3D12_STATIC_SAMPLER_DESC samplerDescDx{};
+			samplerDescDx.Filter = UtilityDx12::translate(samplerDesc.m_magFilter, samplerDesc.m_minFilter, samplerDesc.m_mipmapMode, samplerDesc.m_compareEnable, samplerDesc.m_anisotropyEnable);
+			samplerDescDx.AddressU = UtilityDx12::translate(samplerDesc.m_addressModeU);
+			samplerDescDx.AddressV = UtilityDx12::translate(samplerDesc.m_addressModeV);
+			samplerDescDx.AddressW = UtilityDx12::translate(samplerDesc.m_addressModeW);
+			samplerDescDx.MipLODBias = samplerDesc.m_mipLodBias;
+			samplerDescDx.MaxAnisotropy = (UINT)samplerDesc.m_maxAnisotropy;
+			samplerDescDx.ComparisonFunc = UtilityDx12::translate(samplerDesc.m_compareOp);
+			samplerDescDx.BorderColor = borderColors[static_cast<size_t>(samplerDesc.m_borderColor)];
+			samplerDescDx.MinLOD = samplerDesc.m_minLod;
+			samplerDescDx.MaxLOD = samplerDesc.m_maxLod;
+			samplerDescDx.ShaderRegister = samplerDesc.m_binding;
+			samplerDescDx.RegisterSpace = samplerDesc.m_space;
+			samplerDescDx.ShaderVisibility = UtilityDx12::translate(samplerDesc.m_stageFlags);
+
+			staticSamplerDescs.push_back(samplerDescDx);
+		}
+
 		D3D12_ROOT_SIGNATURE_FLAGS rootSigFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
 		// try to add DENY flags
@@ -615,6 +650,8 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 
 			rootSig.Desc_1_0.NumParameters = rootParamCount;
 			rootSig.Desc_1_0.pParameters = rootParams1_0;
+			rootSig.Desc_1_0.NumStaticSamplers = (UINT)staticSamplerDescs.size();
+			rootSig.Desc_1_0.pStaticSamplers = staticSamplerDescs.data();
 			rootSig.Desc_1_0.Flags = useIA ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
 			rootSig.Desc_1_0.Flags |= rootSigFlags;
 		}
@@ -622,6 +659,8 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		{
 			rootSig.Desc_1_1.NumParameters = rootParamCount;
 			rootSig.Desc_1_1.pParameters = rootParams1_1;
+			rootSig.Desc_1_1.NumStaticSamplers = (UINT)staticSamplerDescs.size();
+			rootSig.Desc_1_1.pStaticSamplers = staticSamplerDescs.data();
 			rootSig.Desc_1_1.Flags = useIA ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
 			rootSig.Desc_1_1.Flags |= rootSigFlags;
 		}

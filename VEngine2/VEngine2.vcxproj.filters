@@ -159,6 +159,12 @@
     <ClInclude Include="src\graphics\Renderer.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\RenderView.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\RenderViewResources.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -270,6 +276,12 @@
       <Filter>src\window</Filter>
     </ClCompile>
     <ClCompile Include="src\graphics\Renderer.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\RenderView.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\RenderViewResources.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>

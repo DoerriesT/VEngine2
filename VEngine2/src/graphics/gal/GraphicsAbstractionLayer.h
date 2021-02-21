@@ -938,6 +938,28 @@ namespace gal
 		Format m_depthStencilFormat = Format::UNDEFINED;
 	};
 
+	struct StaticSamplerDescription
+	{
+		uint32_t m_binding;
+		uint32_t m_space;
+		ShaderStageFlags m_stageFlags;
+		Filter m_magFilter;
+		Filter m_minFilter;
+		SamplerMipmapMode m_mipmapMode;
+		SamplerAddressMode m_addressModeU;
+		SamplerAddressMode m_addressModeV;
+		SamplerAddressMode m_addressModeW;
+		float m_mipLodBias;
+		bool m_anisotropyEnable;
+		float m_maxAnisotropy;
+		bool m_compareEnable;
+		CompareOp m_compareOp;
+		float m_minLod;
+		float m_maxLod;
+		BorderColor m_borderColor;
+		bool m_unnormalizedCoordinates;
+	};
+
 	struct DescriptorSetLayoutDeclaration
 	{
 		DescriptorSetLayout *m_layout;
@@ -951,6 +973,9 @@ namespace gal
 		DescriptorSetLayoutDeclaration m_descriptorSetLayoutDeclarations[4];
 		uint32_t m_pushConstRange;
 		ShaderStageFlags m_pushConstStageFlags;
+		uint32_t m_staticSamplerSet;
+		uint32_t m_staticSamplerCount;
+		const StaticSamplerDescription *m_staticSamplerDescriptions;
 	};
 
 	struct GraphicsPipelineCreateInfo

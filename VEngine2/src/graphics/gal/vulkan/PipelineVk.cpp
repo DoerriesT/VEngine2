@@ -7,7 +7,13 @@
 using namespace gal;
 
 static void createShaderStage(VkDevice device, const ShaderStageCreateInfo &stageDesc, VkShaderStageFlagBits stageFlag, VkShaderModule &shaderModule, VkPipelineShaderStageCreateInfo &stageCreateInfo);
-static void createPipelineLayout(VkDevice device, const PipelineLayoutCreateInfo &layoutCreateInfo, VkPipelineLayout &pipelineLayout);
+static void createPipelineLayout(VkDevice device,
+	const PipelineLayoutCreateInfo &layoutCreateInfo,
+	VkPipelineLayout &pipelineLayout,
+	VkDescriptorSetLayout &staticSamplerDescriptorSetLayout,
+	VkDescriptorPool &staticSamplerDescriptorPool,
+	VkDescriptorSet &staticSamplerDescriptorSet,
+	std::vector<VkSampler> &staticSamplers);
 
 gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const GraphicsPipelineCreateInfo &createInfo)
 	:m_pipeline(VK_NULL_HANDLE),
@@ -112,7 +118,15 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 	}
 
 	// create pipeline layout
-	createPipelineLayout(deviceVk, createInfo.m_layoutCreateInfo, m_pipelineLayout);
+	m_staticSamplerDescriptorSetIndex = createInfo.m_layoutCreateInfo.m_staticSamplerSet;
+	createPipelineLayout(
+		deviceVk, 
+		createInfo.m_layoutCreateInfo, 
+		m_pipelineLayout,
+		m_staticSamplerDescriptorSetLayout,
+		m_staticSamplerDescriptorPool,
+		m_staticSamplerDescriptorSet,
+		m_staticSamplers);
 
 	VkPipelineVertexInputStateCreateInfo vertexInputState{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 	VkVertexInputBindingDescription vertexBindingDescriptions[VertexInputState::MAX_VERTEX_BINDING_DESCRIPTIONS];
@@ -279,6 +293,13 @@ gal::GraphicsPipelineVk::~GraphicsPipelineVk()
 	VkDevice deviceVk = m_device->getDevice();
 	vkDestroyPipeline(deviceVk, m_pipeline, nullptr);
 	vkDestroyPipelineLayout(deviceVk, m_pipelineLayout, nullptr);
+	vkDestroyDescriptorPool(deviceVk, m_staticSamplerDescriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(deviceVk, m_staticSamplerDescriptorSetLayout, nullptr);
+
+	for (auto sampler : m_staticSamplers)
+	{
+		vkDestroySampler(deviceVk, sampler, nullptr);
+	}
 }
 
 void *gal::GraphicsPipelineVk::getNativeHandle() const
@@ -301,6 +322,14 @@ VkPipelineLayout gal::GraphicsPipelineVk::getLayout() const
 	return m_pipelineLayout;
 }
 
+void gal::GraphicsPipelineVk::bindStaticSamplerSet(VkCommandBuffer cmdBuf) const
+{
+	if (m_staticSamplerDescriptorSet != VK_NULL_HANDLE)
+	{
+		vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, m_staticSamplerDescriptorSetIndex, 1, &m_staticSamplerDescriptorSet, 0, nullptr);
+	}
+}
+
 gal::ComputePipelineVk::ComputePipelineVk(GraphicsDeviceVk &device, const ComputePipelineCreateInfo &createInfo)
 	:m_pipeline(VK_NULL_HANDLE),
 	m_pipelineLayout(VK_NULL_HANDLE),
@@ -312,7 +341,15 @@ gal::ComputePipelineVk::ComputePipelineVk(GraphicsDeviceVk &device, const Comput
 
 	createShaderStage(deviceVk, createInfo.m_computeShader, VK_SHADER_STAGE_COMPUTE_BIT, compShaderModule, compShaderStageInfo);
 
-	createPipelineLayout(deviceVk, createInfo.m_layoutCreateInfo, m_pipelineLayout);
+	m_staticSamplerDescriptorSetIndex = createInfo.m_layoutCreateInfo.m_staticSamplerSet;
+	createPipelineLayout(
+		deviceVk, 
+		createInfo.m_layoutCreateInfo, 
+		m_pipelineLayout,
+		m_staticSamplerDescriptorSetLayout,
+		m_staticSamplerDescriptorPool,
+		m_staticSamplerDescriptorSet,
+		m_staticSamplers);
 
 	VkComputePipelineCreateInfo pipelineInfo{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
 	pipelineInfo.stage = compShaderStageInfo;
@@ -328,6 +365,13 @@ gal::ComputePipelineVk::~ComputePipelineVk()
 	VkDevice deviceVk = m_device->getDevice();
 	vkDestroyPipeline(deviceVk, m_pipeline, nullptr);
 	vkDestroyPipelineLayout(deviceVk, m_pipelineLayout, nullptr);
+	vkDestroyDescriptorPool(deviceVk, m_staticSamplerDescriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(deviceVk, m_staticSamplerDescriptorSetLayout, nullptr);
+
+	for (auto sampler : m_staticSamplers)
+	{
+		vkDestroySampler(deviceVk, sampler, nullptr);
+	}
 }
 
 void *gal::ComputePipelineVk::getNativeHandle() const
@@ -350,6 +394,14 @@ VkPipelineLayout gal::ComputePipelineVk::getLayout() const
 	return m_pipelineLayout;
 }
 
+void gal::ComputePipelineVk::bindStaticSamplerSet(VkCommandBuffer cmdBuf) const
+{
+	if (m_staticSamplerDescriptorSet != VK_NULL_HANDLE)
+	{
+		vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelineLayout, m_staticSamplerDescriptorSetIndex, 1, &m_staticSamplerDescriptorSet, 0, nullptr);
+	}
+}
+
 static void createShaderStage(VkDevice device, const ShaderStageCreateInfo &stageDesc, VkShaderStageFlagBits stageFlag, VkShaderModule &shaderModule, VkPipelineShaderStageCreateInfo &stageCreateInfo)
 {
 	char path[gal::ShaderStageCreateInfo::MAX_PATH_LENGTH + 5];
@@ -368,14 +420,94 @@ static void createShaderStage(VkDevice device, const ShaderStageCreateInfo &stag
 	stageCreateInfo.pName = "main";
 }
 
-static void createPipelineLayout(VkDevice device, const PipelineLayoutCreateInfo &layoutCreateInfo, VkPipelineLayout &pipelineLayout)
+static void createPipelineLayout(
+	VkDevice device,
+	const PipelineLayoutCreateInfo &layoutCreateInfo,
+	VkPipelineLayout &pipelineLayout,
+	VkDescriptorSetLayout &staticSamplerDescriptorSetLayout,
+	VkDescriptorPool &staticSamplerDescriptorPool,
+	VkDescriptorSet &staticSamplerDescriptorSet,
+	std::vector<VkSampler> &staticSamplers)
 {
-	VkDescriptorSetLayout layoutsVk[4];
+	staticSamplerDescriptorSetLayout = VK_NULL_HANDLE;
+	staticSamplerDescriptorPool = VK_NULL_HANDLE;
+	staticSamplerDescriptorSet = VK_NULL_HANDLE;
+	staticSamplers.clear();
+
+	// create static sampler set
+	if (layoutCreateInfo.m_staticSamplerCount > 0)
+	{
+		staticSamplers.reserve(layoutCreateInfo.m_staticSamplerCount);
+		std::vector<VkDescriptorSetLayoutBinding> staticSamplerBindings;
+		staticSamplerBindings.reserve(layoutCreateInfo.m_staticSamplerCount);
+
+		for (size_t i = 0; i < layoutCreateInfo.m_staticSamplerCount; ++i)
+		{
+			const auto &staticSamplerDesc = layoutCreateInfo.m_staticSamplerDescriptions[i];
+
+			VkSamplerCreateInfo samplerCreateInfoVk{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+			samplerCreateInfoVk.magFilter = UtilityVk::translate(staticSamplerDesc.m_magFilter);
+			samplerCreateInfoVk.minFilter = UtilityVk::translate(staticSamplerDesc.m_minFilter);
+			samplerCreateInfoVk.mipmapMode = UtilityVk::translate(staticSamplerDesc.m_mipmapMode);
+			samplerCreateInfoVk.addressModeU = UtilityVk::translate(staticSamplerDesc.m_addressModeU);
+			samplerCreateInfoVk.addressModeV = UtilityVk::translate(staticSamplerDesc.m_addressModeV);
+			samplerCreateInfoVk.addressModeW = UtilityVk::translate(staticSamplerDesc.m_addressModeW);
+			samplerCreateInfoVk.mipLodBias = staticSamplerDesc.m_mipLodBias;
+			samplerCreateInfoVk.anisotropyEnable = staticSamplerDesc.m_anisotropyEnable;
+			samplerCreateInfoVk.maxAnisotropy = staticSamplerDesc.m_maxAnisotropy;
+			samplerCreateInfoVk.compareEnable = staticSamplerDesc.m_compareEnable;
+			samplerCreateInfoVk.compareOp = UtilityVk::translate(staticSamplerDesc.m_compareOp);
+			samplerCreateInfoVk.minLod = staticSamplerDesc.m_minLod;
+			samplerCreateInfoVk.maxLod = staticSamplerDesc.m_maxLod;
+			samplerCreateInfoVk.borderColor = UtilityVk::translate(staticSamplerDesc.m_borderColor);
+			samplerCreateInfoVk.unnormalizedCoordinates = staticSamplerDesc.m_unnormalizedCoordinates;
+
+			VkSampler sampler = {};
+			UtilityVk::checkResult(vkCreateSampler(device, &samplerCreateInfoVk, nullptr, &sampler), "Failed to create Sampler!");
+			staticSamplers.push_back(sampler);
+
+			VkDescriptorSetLayoutBinding bindingVk{};
+			bindingVk.binding = staticSamplerDesc.m_binding;
+			bindingVk.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+			bindingVk.descriptorCount = 1;
+			bindingVk.stageFlags = UtilityVk::translateShaderStageFlags(staticSamplerDesc.m_stageFlags);
+			bindingVk.pImmutableSamplers = &staticSamplers.back();
+
+			staticSamplerBindings.push_back(bindingVk);
+		}
+
+		VkDescriptorSetLayoutCreateInfo samplerSetLayoutCreateInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+		samplerSetLayoutCreateInfo.bindingCount = layoutCreateInfo.m_staticSamplerCount;
+		samplerSetLayoutCreateInfo.pBindings = staticSamplerBindings.data();
+
+		gal::UtilityVk::checkResult(vkCreateDescriptorSetLayout(device, &samplerSetLayoutCreateInfo, nullptr, &staticSamplerDescriptorSetLayout), "Failed to create static sampler descriptor set layout!");
+
+		VkDescriptorPoolSize descriptorPoolSize{ VK_DESCRIPTOR_TYPE_SAMPLER, layoutCreateInfo.m_staticSamplerCount };
+		VkDescriptorPoolCreateInfo staticSamplerDescriptorPoolCreateInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		staticSamplerDescriptorPoolCreateInfo.maxSets = 1;
+		staticSamplerDescriptorPoolCreateInfo.poolSizeCount = 1;
+		staticSamplerDescriptorPoolCreateInfo.pPoolSizes = &descriptorPoolSize;
+
+		gal::UtilityVk::checkResult(vkCreateDescriptorPool(device, &staticSamplerDescriptorPoolCreateInfo, nullptr, &staticSamplerDescriptorPool), "Failed to create static sampler descriptor pool!");
+
+		VkDescriptorSetAllocateInfo staticSamplerDescriptorSetAllocateInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		staticSamplerDescriptorSetAllocateInfo.descriptorPool = staticSamplerDescriptorPool;
+		staticSamplerDescriptorSetAllocateInfo.descriptorSetCount = 1;
+		staticSamplerDescriptorSetAllocateInfo.pSetLayouts = &staticSamplerDescriptorSetLayout;
+
+		gal::UtilityVk::checkResult(vkAllocateDescriptorSets(device, &staticSamplerDescriptorSetAllocateInfo, &staticSamplerDescriptorSet), "Failed to allocate static sampler descriptor set!");
+	}
+
+	VkDescriptorSetLayout layoutsVk[5];
 	for (size_t i = 0; i < layoutCreateInfo.m_descriptorSetLayoutCount; ++i)
 	{
 		DescriptorSetLayoutVk *layoutVk = dynamic_cast<DescriptorSetLayoutVk *>(layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_layout);
 		assert(layoutVk);
 		layoutsVk[i] = (VkDescriptorSetLayout)layoutVk->getNativeHandle();
+	}
+	if (staticSamplerDescriptorSetLayout != VK_NULL_HANDLE)
+	{
+		layoutsVk[layoutCreateInfo.m_staticSamplerSet] = staticSamplerDescriptorSetLayout;
 	}
 
 	VkPushConstantRange pushConstantRange;
@@ -384,7 +516,7 @@ static void createPipelineLayout(VkDevice device, const PipelineLayoutCreateInfo
 	pushConstantRange.size = layoutCreateInfo.m_pushConstRange;
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-	pipelineLayoutCreateInfo.setLayoutCount = layoutCreateInfo.m_descriptorSetLayoutCount;
+	pipelineLayoutCreateInfo.setLayoutCount = (staticSamplerDescriptorSetLayout != VK_NULL_HANDLE) ? (layoutCreateInfo.m_descriptorSetLayoutCount + 1) : layoutCreateInfo.m_descriptorSetLayoutCount;
 	pipelineLayoutCreateInfo.pSetLayouts = layoutsVk;
 	pipelineLayoutCreateInfo.pushConstantRangeCount = layoutCreateInfo.m_pushConstRange > 0 ? 1 : 0;
 	pipelineLayoutCreateInfo.pPushConstantRanges = layoutCreateInfo.m_pushConstRange > 0 ? &pushConstantRange : nullptr;

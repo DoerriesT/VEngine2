@@ -34,12 +34,20 @@ void gal::CommandListVk::end()
 
 void gal::CommandListVk::bindPipeline(const GraphicsPipeline *pipeline)
 {
+	const auto *pipelineVk = dynamic_cast<const GraphicsPipelineVk *>(pipeline);
+	assert(pipelineVk);
+
 	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, (VkPipeline)pipeline->getNativeHandle());
+	pipelineVk->bindStaticSamplerSet(m_commandBuffer);
 }
 
 void gal::CommandListVk::bindPipeline(const ComputePipeline *pipeline)
 {
+	const auto *pipelineVk = dynamic_cast<const ComputePipelineVk *>(pipeline);
+	assert(pipelineVk);
+
 	vkCmdBindPipeline(m_commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, (VkPipeline)pipeline->getNativeHandle());
+	pipelineVk->bindStaticSamplerSet(m_commandBuffer);
 }
 
 void gal::CommandListVk::setViewport(uint32_t firstViewport, uint32_t viewportCount, const Viewport *viewports)

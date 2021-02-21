@@ -18,6 +18,7 @@ namespace gal
 		D3D12_PRIMITIVE_TOPOLOGY translate(PrimitiveTopology topology, uint32_t patchControlPoints);
 		D3D12_QUERY_HEAP_TYPE translate(QueryType queryType);
 		DXGI_FORMAT translate(Format format);
+		D3D12_SHADER_VISIBILITY translate(ShaderStageFlags shaderStageFlags);
 		D3D12_RESOURCE_FLAGS translateImageUsageFlags(ImageUsageFlags flags);
 		D3D12_RESOURCE_FLAGS translateBufferUsageFlags(BufferUsageFlags flags);
 		UINT formatByteSize(Format format);

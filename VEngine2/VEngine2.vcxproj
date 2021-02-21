@@ -181,6 +181,8 @@
     <ClInclude Include="src\graphics\gal\vulkan\UtilityVk.h" />
     <ClInclude Include="src\graphics\gal\vulkan\volk.h" />
     <ClInclude Include="src\graphics\Renderer.h" />
+    <ClInclude Include="src\graphics\RenderView.h" />
+    <ClInclude Include="src\graphics\RenderViewResources.h" />
     <ClInclude Include="src\input\IInputListener.h" />
     <ClInclude Include="src\input\InputTokens.h" />
     <ClInclude Include="src\input\UserInput.h" />
@@ -224,6 +226,8 @@
     <ClCompile Include="src\graphics\gal\vulkan\UtilityVk.cpp" />
     <ClCompile Include="src\graphics\gal\vulkan\volk.c" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
+    <ClCompile Include="src\graphics\RenderView.cpp" />
+    <ClCompile Include="src\graphics\RenderViewResources.cpp" />
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\main.cpp" />
