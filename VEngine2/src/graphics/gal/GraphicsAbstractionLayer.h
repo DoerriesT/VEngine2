@@ -455,6 +455,7 @@ namespace gal
 		GEOMETRY_BIT = 0x00000008,
 		PIXEL_BIT = 0x00000010,
 		COMPUTE_BIT = 0x00000020,
+		ALL_STAGES = VERTEX_BIT | HULL_BIT | DOMAIN_BIT | GEOMETRY_BIT | PIXEL_BIT | COMPUTE_BIT,
 	};
 	DEF_ENUM_FLAG_OPERATORS(ShaderStageFlags);
 
@@ -1188,8 +1189,8 @@ namespace gal
 		virtual void setStencilCompareMask(StencilFaceFlags faceMask, uint32_t compareMask) = 0;
 		virtual void setStencilWriteMask(StencilFaceFlags faceMask, uint32_t writeMask) = 0;
 		virtual void setStencilReference(StencilFaceFlags faceMask, uint32_t reference) = 0;
-		virtual void bindDescriptorSets2(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) = 0;
-		virtual void bindDescriptorSets2(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) = 0;
+		virtual void bindDescriptorSets(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) = 0;
+		virtual void bindDescriptorSets(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) = 0;
 		virtual void bindIndexBuffer(const Buffer *buffer, uint64_t offset, IndexType indexType) = 0;
 		virtual void bindVertexBuffers(uint32_t firstBinding, uint32_t count, const Buffer *const *buffers, uint64_t *offsets) = 0;
 		virtual void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) = 0;

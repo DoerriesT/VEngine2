@@ -95,7 +95,7 @@ void gal::CommandListVk::setStencilReference(StencilFaceFlags faceMask, uint32_t
 	vkCmdSetStencilReference(m_commandBuffer, UtilityVk::translateStencilFaceFlags(faceMask), reference);
 }
 
-void gal::CommandListVk::bindDescriptorSets2(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
+void gal::CommandListVk::bindDescriptorSets(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
 {
 	const auto *pipelineVk = dynamic_cast<const GraphicsPipelineVk *>(pipeline);
 	assert(pipelineVk);
@@ -120,7 +120,7 @@ void gal::CommandListVk::bindDescriptorSets2(const GraphicsPipeline *pipeline, u
 	}
 }
 
-void gal::CommandListVk::bindDescriptorSets2(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
+void gal::CommandListVk::bindDescriptorSets(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
 {
 	const auto *pipelineVk = dynamic_cast<const ComputePipelineVk *>(pipeline);
 	assert(pipelineVk);

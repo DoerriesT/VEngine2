@@ -699,7 +699,14 @@ void GraphicsPipelineBuilder::setDepthStencilAttachmentFormat(Format format)
 	m_createInfo.m_attachmentFormats.m_depthStencilFormat = format;
 }
 
-void GraphicsPipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags)
+void GraphicsPipelineBuilder::setPipelineLayoutDescription(
+	uint32_t setLayoutCount, 
+	const DescriptorSetLayoutDeclaration *setLayoutDeclarations, 
+	uint32_t pushConstRange, 
+	ShaderStageFlags pushConstStageFlags, 
+	uint32_t staticSamplerCount, 
+	const StaticSamplerDescription *staticSamplerDescriptions,
+	uint32_t staticSamplerSet)
 {
 	m_createInfo.m_layoutCreateInfo.m_descriptorSetLayoutCount = setLayoutCount;
 	for (size_t i = 0; i < setLayoutCount; ++i)
@@ -708,6 +715,9 @@ void GraphicsPipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCou
 	}
 	m_createInfo.m_layoutCreateInfo.m_pushConstRange = pushConstRange;
 	m_createInfo.m_layoutCreateInfo.m_pushConstStageFlags = pushConstStageFlags;
+	m_createInfo.m_layoutCreateInfo.m_staticSamplerCount = staticSamplerCount;
+	m_createInfo.m_layoutCreateInfo.m_staticSamplerDescriptions = staticSamplerDescriptions;
+	m_createInfo.m_layoutCreateInfo.m_staticSamplerSet = staticSamplerSet;
 }
 
 ComputePipelineBuilder::ComputePipelineBuilder(ComputePipelineCreateInfo &createInfo)
@@ -721,7 +731,7 @@ void ComputePipelineBuilder::setComputeShader(const char *path)
 	strcpy_s(m_createInfo.m_computeShader.m_path, path);
 }
 
-void ComputePipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags)
+void gal::ComputePipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCount, const DescriptorSetLayoutDeclaration *setLayoutDeclarations, uint32_t pushConstRange, ShaderStageFlags pushConstStageFlags, uint32_t staticSamplerCount, const StaticSamplerDescription *staticSamplerDescriptions, uint32_t staticSamplerSet)
 {
 	m_createInfo.m_layoutCreateInfo.m_descriptorSetLayoutCount = setLayoutCount;
 	for (size_t i = 0; i < setLayoutCount; ++i)
@@ -730,6 +740,9 @@ void ComputePipelineBuilder::setPipelineLayoutDescription(uint32_t setLayoutCoun
 	}
 	m_createInfo.m_layoutCreateInfo.m_pushConstRange = pushConstRange;
 	m_createInfo.m_layoutCreateInfo.m_pushConstStageFlags = pushConstStageFlags;
+	m_createInfo.m_layoutCreateInfo.m_staticSamplerCount = staticSamplerCount;
+	m_createInfo.m_layoutCreateInfo.m_staticSamplerDescriptions = staticSamplerDescriptions;
+	m_createInfo.m_layoutCreateInfo.m_staticSamplerSet = staticSamplerSet;
 }
 
 DescriptorSetUpdate Initializers::sampler(const Sampler *const *samplers, uint32_t binding, uint32_t arrayElement, uint32_t count)

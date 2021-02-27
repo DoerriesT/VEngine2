@@ -25,6 +25,9 @@
     <Filter Include="src\window">
       <UniqueIdentifier>{276fecd4-7181-4cba-acc1-b9a7806d5e30}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\graphics\pass">
+      <UniqueIdentifier>{e94689cc-c441-4f24-8295-4c70b7600bdc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -165,6 +168,12 @@
     <ClInclude Include="src\graphics\RenderViewResources.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\pass\GridPass.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\BufferStackAllocator.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -282,6 +291,12 @@
       <Filter>src\graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\graphics\RenderViewResources.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\GridPass.cpp">
+      <Filter>src\graphics\pass</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\BufferStackAllocator.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>

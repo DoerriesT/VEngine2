@@ -24,8 +24,8 @@ namespace gal
 		void setStencilCompareMask(StencilFaceFlags faceMask, uint32_t compareMask) override;
 		void setStencilWriteMask(StencilFaceFlags faceMask, uint32_t writeMask) override;
 		void setStencilReference(StencilFaceFlags faceMask, uint32_t reference) override;
-		void bindDescriptorSets2(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) override;
-		void bindDescriptorSets2(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) override;
+		void bindDescriptorSets(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) override;
+		void bindDescriptorSets(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets) override;
 		void bindIndexBuffer(const Buffer *buffer, uint64_t offset, IndexType indexType) override;
 		void bindVertexBuffers(uint32_t firstBinding, uint32_t count, const Buffer *const *buffers, uint64_t *offsets) override;
 		void draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override;

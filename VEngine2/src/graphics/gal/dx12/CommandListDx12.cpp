@@ -128,7 +128,7 @@ void gal::CommandListDx12::setStencilReference(StencilFaceFlags faceMask, uint32
 	m_commandList->OMSetStencilRef(reference);
 }
 
-void gal::CommandListDx12::bindDescriptorSets2(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
+void gal::CommandListDx12::bindDescriptorSets(const GraphicsPipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
 {
 	const auto *pipelineDx = dynamic_cast<const GraphicsPipelineDx12 *>(pipeline);
 	assert(pipelineDx);
@@ -174,7 +174,7 @@ void gal::CommandListDx12::bindDescriptorSets2(const GraphicsPipeline *pipeline,
 	}
 }
 
-void gal::CommandListDx12::bindDescriptorSets2(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
+void gal::CommandListDx12::bindDescriptorSets(const ComputePipeline *pipeline, uint32_t firstSet, uint32_t count, const DescriptorSet *const *sets, uint32_t offsetCount, uint32_t *offsets)
 {
 	const auto *pipelineDx = dynamic_cast<const ComputePipelineDx12 *>(pipeline);
 	assert(pipelineDx);
