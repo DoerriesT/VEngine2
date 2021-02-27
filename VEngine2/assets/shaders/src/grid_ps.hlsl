@@ -33,7 +33,7 @@ float4 main(PSInput input) : SV_Target0
 	// find screen space derivatives of grid space
 	float2 dudv = float2(length(float2(ddx(uv.x), ddy(uv.x))), length(float2(ddx(uv.y), ddy(uv.y))));
 	
-	const float minPixelsBetweenCells = 1.0f;
+	const float minPixelsBetweenCells = 2.0f;
 	
 	float lodLevel = max(0.0f, log10((length(dudv) * minPixelsBetweenCells) / g_Constants.cellSize) + 1.0f);
 	float lodFade = frac(lodLevel);
@@ -60,7 +60,8 @@ float4 main(PSInput input) : SV_Target0
 	// calculate opacity falloff based on distance to grid extents and gracing angle
 	float3 viewDir = normalize(g_Constants.cameraPos - input.worldSpacePos);
 	float opacityGracing = 1.0f - pow(1.0f - abs(dot(viewDir, g_Constants.gridNormal)), 16.0f);
-	float opacityDistance = (1.0f - saturate(length(uv) / g_Constants.gridSize));
+	const float halfGridSize = g_Constants.gridSize * 0.5f;
+	float opacityDistance = (1.0f - saturate(length(uv - halfGridSize) / halfGridSize));
 	float opacity = opacityGracing * opacityDistance;
 	
 	// blend between LOD level alphas and scale with opacity falloff

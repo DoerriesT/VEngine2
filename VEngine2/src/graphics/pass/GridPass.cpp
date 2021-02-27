@@ -2,21 +2,6 @@
 #include "graphics/gal/Initializers.h"
 #include "graphics/BufferStackAllocator.h"
 
-namespace
-{
-	struct GridConstants
-	{
-		glm::mat4 modelMatrix;
-		glm::mat4 viewProjectionMatrix;
-		glm::vec4 thinLineColor;
-		glm::vec4 thickLineColor;
-		glm::vec3 cameraPos;
-		float cellSize;
-		glm::vec3 gridNormal;
-		float gridSize;
-	};
-}
-
 GridPass::GridPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout)
 	:m_device(device)
 {
@@ -53,14 +38,27 @@ GridPass::~GridPass()
 
 void GridPass::record(gal::CommandList *cmdList, const Data &data)
 {
+	struct GridConstants
+	{
+		float modelMatrix[16];
+		float viewProjectionMatrix[16];
+		float thinLineColor[4];
+		float thickLineColor[4];
+		float cameraPos[3];
+		float cellSize;
+		float gridNormal[3];
+		float gridSize;
+	};
+
+	glm::vec3 gridNormal = glm::normalize(glm::vec3(data.m_modelMatrix[1]));
 	GridConstants consts{};
-	consts.modelMatrix = data.m_modelMatrix;
-	consts.viewProjectionMatrix = data.m_viewProjectionMatrix;
-	consts.thinLineColor = data.m_thinLineColor;
-	consts.thickLineColor = data.m_thickLineColor;
-	consts.cameraPos = data.m_cameraPos;
+	memcpy(consts.modelMatrix, &data.m_modelMatrix, sizeof(consts.modelMatrix));
+	memcpy(consts.viewProjectionMatrix, &data.m_viewProjectionMatrix, sizeof(consts.viewProjectionMatrix));
+	memcpy(consts.thinLineColor, &data.m_thinLineColor, sizeof(consts.thinLineColor));
+	memcpy(consts.thickLineColor, &data.m_thickLineColor, sizeof(consts.thickLineColor));
+	memcpy(consts.cameraPos, &data.m_cameraPos, sizeof(consts.cameraPos));
 	consts.cellSize = data.m_cellSize;
-	consts.gridNormal = glm::normalize(glm::vec3(data.m_modelMatrix[1]));
+	memcpy(consts.gridNormal, &gridNormal, sizeof(consts.gridNormal));
 	consts.gridSize = data.m_gridSize;
 
 	uint64_t allocSize = sizeof(consts);
@@ -68,15 +66,23 @@ void GridPass::record(gal::CommandList *cmdList, const Data &data)
 	auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
 	memcpy(mappedPtr, &consts, sizeof(consts));
 
-	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::CLEAR, gal::AttachmentStoreOp::STORE };
+	gal::ClearColorValue clearColor{};
+	clearColor.m_float32[0] = 1.0f;
+	clearColor.m_float32[1] = 1.0f;
+	clearColor.m_float32[2] = 1.0f;
+	clearColor.m_float32[3] = 1.0f;
+
+	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::CLEAR, gal::AttachmentStoreOp::STORE, clearColor };
 	gal::Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
 	cmdList->beginRenderPass(1, &attachmentDesc, nullptr, renderRect, false);
 	{
 		cmdList->bindPipeline(m_pipeline);
 
-		gal::Viewport viewport{}
-		cmdList->setViewport(0, 1, )
+		gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+		cmdList->setViewport(0, 1, &viewport);
+		gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+		cmdList->setScissor(0, 1, &scissor);
 		
 		uint32_t allocOffset32 = (uint32_t)allocOffset;
 		cmdList->bindDescriptorSets(m_pipeline, 0, 1, &data.m_offsetBufferSet, 1, &allocOffset32);

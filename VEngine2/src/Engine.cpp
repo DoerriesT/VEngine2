@@ -7,6 +7,7 @@
 #include <glm/vec2.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/transform.hpp>
 
 namespace
 {
@@ -95,10 +96,10 @@ namespace
 		}
 
 	private:
-		glm::mat4 m_viewMatrix = {};
-		glm::mat4 m_projectionMatrix = {};
+		glm::mat4 m_viewMatrix = glm::mat4(1.0f);
+		glm::mat4 m_projectionMatrix = glm::mat4(1.0f);
 		glm::vec3 m_position = {};
-		glm::quat m_orientation = {};
+		glm::quat m_orientation = glm::quat(glm::vec3(0.0f));
 		float m_aspectRatio = 1.0f;
 		float m_fovy = glm::pi<float>() * 0.5f;
 		float m_near = 0.1f;
@@ -106,8 +107,7 @@ namespace
 
 		void updateViewMatrix()
 		{
-			glm::mat4 translationMatrix;
-			m_viewMatrix = glm::mat4_cast(glm::inverse(m_orientation)) * glm::translate(translationMatrix, -m_position);
+			m_viewMatrix = glm::mat4_cast(glm::inverse(m_orientation)) * glm::translate(-m_position);
 		}
 		void updateProjectionMatrix()
 		{
@@ -125,16 +125,16 @@ int Engine::start(int argc, char *argv[])
 	bool grabbedMouse = false;
 	glm::vec2 mouseHistory{};
 	Camera camera;
-	camera.setAspectRatio(m_window->getWidth() / (float)m_window->getHeight());
+	camera.setPosition(glm::vec3(0.0f, 2.0f, 0.0f));
 
 	while (!m_window->shouldClose())
 	{
 		m_window->pollEvents();
-
+		m_userInput->input();
 		{
 			bool pressed = false;
 			float mod = 1.0f;
-			glm::vec3 cameraTranslation;
+			glm::vec3 cameraTranslation = glm::vec3(0.0f);
 
 			glm::vec2 mouseDelta = {};
 
@@ -216,6 +216,7 @@ int Engine::start(int argc, char *argv[])
 			m_renderer->resize(m_window->getWidth(), m_window->getHeight());
 		}
 
+		camera.setAspectRatio(m_window->getWidth() / (float)m_window->getHeight());
 		auto viewMatrix = camera.getViewMatrix();
 		auto projMatrix = camera.getProjectionMatrix();
 		auto pos = camera.getPosition();

@@ -37,7 +37,8 @@ void gal::DescriptorSetDx12::update(uint32_t count, const DescriptorSetUpdate *u
 		{
 			assert(update.m_dstBinding < 32);
 			assert(update.m_descriptorCount == 1);
-			m_rootDescriptorAddresses[update.m_dstBinding] = ((ID3D12Resource *)update.m_bufferInfo->m_buffer->getNativeHandle())->GetGPUVirtualAddress() + update.m_bufferInfo->m_offset;
+			const auto &bufferInfo = update.m_bufferInfo ? update.m_bufferInfo[0] : update.m_bufferInfo1;
+			m_rootDescriptorAddresses[update.m_dstBinding] = ((ID3D12Resource *)bufferInfo.m_buffer->getNativeHandle())->GetGPUVirtualAddress() + bufferInfo.m_offset;
 			continue;
 		}
 

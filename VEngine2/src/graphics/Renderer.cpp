@@ -12,7 +12,7 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 
 	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::VULKAN);
 	m_graphicsQueue = m_device->getGraphicsQueue();
-	m_device->createSwapChain(m_graphicsQueue, width, height, false, gal::PresentMode::IMMEDIATE, &m_swapChain);
+	m_device->createSwapChain(m_graphicsQueue, width, height, false, gal::PresentMode::V_SYNC, &m_swapChain);
 	m_device->createSemaphore(0, &m_semaphore);
 	m_device->createCommandListPool(m_graphicsQueue, &m_cmdListPools[0]);
 	m_device->createCommandListPool(m_graphicsQueue, &m_cmdListPools[1]);
@@ -103,11 +103,11 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 		gridPassData.m_colorAttachment = m_imageViews[m_swapChain->getCurrentImageIndex()];
 		gridPassData.m_modelMatrix = glm::mat4(1.0f);
 		gridPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
-		gridPassData.m_thinLineColor = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-		gridPassData.m_thickLineColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+		gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+		gridPassData.m_thickLineColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
 		gridPassData.m_cameraPos = glm::make_vec3(cameraPosition);
-		gridPassData.m_cellSize = 0.2f;
-		gridPassData.m_gridSize = 5.0f;
+		gridPassData.m_cellSize = 1.0f;
+		gridPassData.m_gridSize = 1000.0f;
 
 		m_gridPass->record(cmdList, gridPassData);
 
@@ -150,5 +150,6 @@ void Renderer::resize(uint32_t width, uint32_t height)
 	for (size_t i = 0; i < 3; ++i)
 	{
 		m_device->destroyImageView(m_imageViews[i]);
+		m_imageViews[i] = nullptr;
 	}
 }
