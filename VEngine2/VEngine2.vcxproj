@@ -126,7 +126,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>WinPixEventRuntime.lib;d3d12.lib;dxgi.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>EASTL.lib;WinPixEventRuntime.lib;d3d12.lib;dxgi.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -143,7 +143,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>WinPixEventRuntime.lib;d3d12.lib;dxgi.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>EASTL.lib;WinPixEventRuntime.lib;d3d12.lib;dxgi.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -238,6 +238,9 @@
     <ClCompile Include="src\utility\TLSFAllocator.cpp" />
     <ClCompile Include="src\utility\Utility.cpp" />
     <ClCompile Include="src\window\Window.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\libs\EASTL.natvis" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

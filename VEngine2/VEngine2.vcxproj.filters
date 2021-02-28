@@ -300,4 +300,7 @@
       <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\libs\EASTL.natvis" />
+  </ItemGroup>
 </Project>
