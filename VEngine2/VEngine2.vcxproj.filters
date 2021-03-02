@@ -28,6 +28,9 @@
     <Filter Include="src\graphics\pass">
       <UniqueIdentifier>{e94689cc-c441-4f24-8295-4c70b7600bdc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\task">
+      <UniqueIdentifier>{74268f91-4813-4eed-88b1-57555e76c66f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -174,6 +177,12 @@
     <ClInclude Include="src\graphics\BufferStackAllocator.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\task\Fiber.h">
+      <Filter>src\task</Filter>
+    </ClInclude>
+    <ClInclude Include="src\task\Task.h">
+      <Filter>src\task</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -298,6 +307,12 @@
     </ClCompile>
     <ClCompile Include="src\graphics\BufferStackAllocator.cpp">
       <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\task\Fiber.cpp">
+      <Filter>src\task</Filter>
+    </ClCompile>
+    <ClCompile Include="src\task\Task.cpp">
+      <Filter>src\task</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

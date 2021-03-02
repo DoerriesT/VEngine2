@@ -189,6 +189,8 @@
     <ClInclude Include="src\input\InputTokens.h" />
     <ClInclude Include="src\input\UserInput.h" />
     <ClInclude Include="src\Log.h" />
+    <ClInclude Include="src\task\Fiber.h" />
+    <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\ContainerUtility.h" />
     <ClInclude Include="src\utility\Enum.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
@@ -235,6 +237,8 @@
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\task\Fiber.cpp" />
+    <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\TLSFAllocator.cpp" />
     <ClCompile Include="src\utility\Utility.cpp" />
     <ClCompile Include="src\window\Window.cpp" />
