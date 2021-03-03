@@ -194,6 +194,8 @@
     <ClInclude Include="src\utility\ContainerUtility.h" />
     <ClInclude Include="src\utility\Enum.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
+    <ClInclude Include="src\utility\PoolAllocator.h" />
+    <ClInclude Include="src\utility\StackAllocator.h" />
     <ClInclude Include="src\utility\TLSFAllocator.h" />
     <ClInclude Include="src\utility\Utility.h" />
     <ClInclude Include="src\window\Window.h" />
@@ -239,6 +241,8 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
+    <ClCompile Include="src\utility\PoolAllocator.cpp" />
+    <ClCompile Include="src\utility\StackAllocator.cpp" />
     <ClCompile Include="src\utility\TLSFAllocator.cpp" />
     <ClCompile Include="src\utility\Utility.cpp" />
     <ClCompile Include="src\window\Window.cpp" />

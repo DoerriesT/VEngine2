@@ -183,6 +183,12 @@
     <ClInclude Include="src\task\Task.h">
       <Filter>src\task</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\PoolAllocator.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\StackAllocator.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -313,6 +319,12 @@
     </ClCompile>
     <ClCompile Include="src\task\Task.cpp">
       <Filter>src\task</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\PoolAllocator.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\StackAllocator.cpp">
+      <Filter>src\utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
