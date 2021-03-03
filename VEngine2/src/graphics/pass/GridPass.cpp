@@ -1,6 +1,7 @@
 #include "GridPass.h"
 #include "graphics/gal/Initializers.h"
 #include "graphics/BufferStackAllocator.h"
+#include <optick.h>
 
 GridPass::GridPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout)
 	:m_device(device)
@@ -38,6 +39,7 @@ GridPass::~GridPass()
 
 void GridPass::record(gal::CommandList *cmdList, const Data &data)
 {
+	OPTICK_GPU_EVENT("GridPass");
 	struct GridConstants
 	{
 		float modelMatrix[16];

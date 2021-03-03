@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
+#include <optick.h>
 
 namespace
 {
@@ -129,6 +130,8 @@ int Engine::start(int argc, char *argv[])
 
 	while (!m_window->shouldClose())
 	{
+		OPTICK_FRAME("MainThread");
+
 		m_window->pollEvents();
 		m_userInput->input();
 		{

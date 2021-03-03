@@ -9,6 +9,7 @@
 #include "MemoryAllocatorVk.h"
 #include "UtilityVk.h"
 #include "SwapChainVk.h"
+#include <optick.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -524,6 +525,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 	m_framebufferCache = new FramebufferCacheVk(m_device);
 	m_gpuMemoryAllocator = new MemoryAllocatorVk();
 	m_gpuMemoryAllocator->init(m_device, m_physicalDevice, supportsMemoryBudgetExtension);
+
+	OPTICK_GPU_INIT_VULKAN(&m_device, &m_physicalDevice, &m_graphicsQueue.m_queue, &m_graphicsQueue.m_queueFamily, 1);
 }
 
 gal::GraphicsDeviceVk::~GraphicsDeviceVk()

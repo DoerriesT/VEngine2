@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <assert.h>
 
 namespace util
 {
@@ -22,6 +23,14 @@ namespace util
 	inline T alignDown(T value, T alignment)
 	{
 		return value / alignment * alignment;
+	}
+
+	template <typename T>
+	inline T alignPow2Up(T value, T alignment)
+	{
+		const T mask = alignment - 1;
+		assert((alignment & mask) == 0);
+		return (value + mask) & ~mask;
 	}
 
 	template <class T>

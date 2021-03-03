@@ -4,6 +4,7 @@
 #include "BufferStackAllocator.h"
 #include "pass/GridPass.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <optick.h>
 
 Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 {
@@ -79,6 +80,7 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 
 	cmdList->begin();
 	{
+		OPTICK_GPU_CONTEXT((VkCommandBuffer)cmdList->getNativeHandle());
 		auto swapchainIndex = m_swapChain->getCurrentImageIndex();
 		gal::Image *image = m_swapChain->getImage(swapchainIndex);
 		if (!m_imageViews[swapchainIndex])
@@ -133,7 +135,7 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 
 	m_graphicsQueue->submit(1, &submitInfo);
 
-
+	OPTICK_GPU_FLIP(m_swapChain->getNativeHandle());
 	m_swapChain->present(m_semaphore, m_semaphoreValue, m_semaphore, m_semaphoreValue + 1);
 	++m_semaphoreValue;
 	m_waitValues[m_frame & 1] = m_semaphoreValue;
