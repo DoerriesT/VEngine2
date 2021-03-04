@@ -186,7 +186,10 @@
     <ClInclude Include="src\utility\PoolAllocator.h">
       <Filter>src\utility</Filter>
     </ClInclude>
-    <ClInclude Include="src\utility\StackAllocator.h">
+    <ClInclude Include="src\utility\LinearAllocator.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\SpinLock.h">
       <Filter>src\utility</Filter>
     </ClInclude>
   </ItemGroup>
@@ -323,7 +326,10 @@
     <ClCompile Include="src\utility\PoolAllocator.cpp">
       <Filter>src\utility</Filter>
     </ClCompile>
-    <ClCompile Include="src\utility\StackAllocator.cpp">
+    <ClCompile Include="src\utility\LinearAllocator.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\SpinLock.cpp">
       <Filter>src\utility</Filter>
     </ClCompile>
   </ItemGroup>
