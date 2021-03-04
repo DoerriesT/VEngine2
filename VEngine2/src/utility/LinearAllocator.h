@@ -1,20 +1,20 @@
 #pragma once
 #include <stdint.h>
 
-class StackAllocator
+class LinearAllocator
 {
 public:
 	typedef size_t Marker;
 
-	explicit StackAllocator(char *memory, size_t stackSizeBytes, const char *name = nullptr) noexcept;
-	explicit StackAllocator(size_t stackSizeBytes, const char *name = nullptr) noexcept;
-	StackAllocator(StackAllocator &&other) noexcept;
+	explicit LinearAllocator(char *memory, size_t stackSizeBytes, const char *name = nullptr) noexcept;
+	explicit LinearAllocator(size_t stackSizeBytes, const char *name = nullptr) noexcept;
+	LinearAllocator(LinearAllocator &&other) noexcept;
 
-	StackAllocator(const StackAllocator &) noexcept = delete;
-	StackAllocator &operator=(const StackAllocator &) noexcept = delete;
-	StackAllocator &operator=(StackAllocator &&other) noexcept = delete;
+	LinearAllocator(const LinearAllocator &) noexcept = delete;
+	LinearAllocator &operator=(const LinearAllocator &) noexcept = delete;
+	LinearAllocator &operator=(LinearAllocator &&other) noexcept = delete;
 
-	~StackAllocator();
+	~LinearAllocator();
 	
 	// EASTL allocator interface:
 	
