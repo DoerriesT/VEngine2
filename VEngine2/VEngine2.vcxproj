@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -190,6 +190,8 @@
     <ClInclude Include="src\graphics\Renderer.h" />
     <ClInclude Include="src\graphics\RenderView.h" />
     <ClInclude Include="src\graphics\RenderViewResources.h" />
+    <ClInclude Include="src\graphics\ResourceViewRegistry.h" />
+    <ClInclude Include="src\graphics\ViewHandles.h" />
     <ClInclude Include="src\input\IInputListener.h" />
     <ClInclude Include="src\input\InputTokens.h" />
     <ClInclude Include="src\input\UserInput.h" />
@@ -198,6 +200,7 @@
     <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\ContainerUtility.h" />
     <ClInclude Include="src\utility\Enum.h" />
+    <ClInclude Include="src\utility\HandleManager.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
     <ClInclude Include="src\utility\PoolAllocator.h" />
     <ClInclude Include="src\utility\LinearAllocator.h" />
@@ -246,11 +249,13 @@
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RenderView.cpp" />
     <ClCompile Include="src\graphics\RenderViewResources.cpp" />
+    <ClCompile Include="src\graphics\ResourceViewRegistry.cpp" />
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
+    <ClCompile Include="src\utility\HandleManager.cpp" />
     <ClCompile Include="src\utility\PoolAllocator.cpp" />
     <ClCompile Include="src\utility\LinearAllocator.cpp" />
     <ClCompile Include="src\utility\SpinLock.cpp" />

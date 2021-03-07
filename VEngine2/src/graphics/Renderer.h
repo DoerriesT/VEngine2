@@ -3,7 +3,8 @@
 #include <stdint.h>
 
 class BufferStackAllocator;
-class GridPass;
+class RenderView;
+class ResourceViewRegistry;
 
 class Renderer
 {
@@ -31,6 +32,6 @@ private:
 	gal::DescriptorSetPool *m_offsetBufferDescriptorSetPool;
 	gal::DescriptorSet *m_offsetBufferDescriptorSets[2] = {};
 	gal::ImageView *m_imageViews[3] = {};
-
-	GridPass *m_gridPass = nullptr;
+	ResourceViewRegistry *m_viewRegistry = nullptr;
+	RenderView *m_renderView = nullptr;
 };

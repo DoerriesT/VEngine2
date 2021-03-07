@@ -207,6 +207,15 @@
     <ClInclude Include="src\asset\AssetHandler.h">
       <Filter>src\asset</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\ResourceViewRegistry.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\ViewHandles.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\HandleManager.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -358,6 +367,12 @@
     </ClCompile>
     <ClCompile Include="src\asset\AssetHandler.cpp">
       <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\ResourceViewRegistry.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\HandleManager.cpp">
+      <Filter>src\utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
