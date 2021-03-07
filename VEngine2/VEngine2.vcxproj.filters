@@ -31,6 +31,9 @@
     <Filter Include="src\task">
       <UniqueIdentifier>{74268f91-4813-4eed-88b1-57555e76c66f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\asset">
+      <UniqueIdentifier>{c5b73013-cc3f-41fa-b901-f31b2127a9cf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -192,6 +195,18 @@
     <ClInclude Include="src\utility\SpinLock.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\AssetManager.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\Asset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UUID.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\AssetHandler.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -331,6 +346,18 @@
     </ClCompile>
     <ClCompile Include="src\utility\SpinLock.cpp">
       <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AssetManager.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\Asset.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UUID.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AssetHandler.cpp">
+      <Filter>src\asset</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
