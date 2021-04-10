@@ -3,16 +3,19 @@
 #include "gal/Initializers.h"
 #include "BufferStackAllocator.h"
 #include "ResourceViewRegistry.h"
+#include "RendererResources.h"
 #include "RenderView.h"
+#include "pass/ImGuiPass.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <optick.h>
+#include "imgui/imgui.h"
 
 Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 {
 	m_width = width;
 	m_height = height;
 
-	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::VULKAN);
+	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::D3D12);
 	m_graphicsQueue = m_device->getGraphicsQueue();
 	m_device->createSwapChain(m_graphicsQueue, width, height, false, gal::PresentMode::V_SYNC, &m_swapChain);
 	m_device->createSemaphore(0, &m_semaphore);
@@ -22,7 +25,10 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 	m_cmdListPools[1]->allocate(1, &m_cmdLists[1]);
 
 	m_viewRegistry = new ResourceViewRegistry(m_device);
-	m_renderView = new RenderView(m_device, m_viewRegistry, m_offsetBufferDescriptorSetLayout, width, height);
+	m_rendererResources = new RendererResources(m_device, m_viewRegistry);
+	m_renderView = new RenderView(m_device, m_viewRegistry, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
+
+	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
 }
 
 Renderer::~Renderer()
@@ -35,16 +41,9 @@ Renderer::~Renderer()
 	m_device->destroySemaphore(m_semaphore);
 	m_device->destroySwapChain();
 
-	delete m_constantBufferStackAllocators[0];
-	delete m_constantBufferStackAllocators[1];
-
-	m_device->destroyBuffer(m_mappableConstantBuffers[0]);
-	m_device->destroyBuffer(m_mappableConstantBuffers[1]);
-
-	m_device->destroyDescriptorSetPool(m_offsetBufferDescriptorSetPool);
-	m_device->destroyDescriptorSetLayout(m_offsetBufferDescriptorSetLayout);
-
+	delete m_imguiPass;
 	delete m_renderView;
+	delete m_rendererResources;
 	delete m_viewRegistry;
 
 	for (size_t i = 0; i < 3; ++i)
@@ -61,7 +60,9 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 	m_semaphore->wait(m_waitValues[m_frame & 1]);
 
 	m_cmdListPools[m_frame & 1]->reset();
-	m_constantBufferStackAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_constantBufferStackAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_indexBufferStackAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1]->reset();
 
 	m_viewRegistry->flushChanges();
 
@@ -73,7 +74,7 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 
 		// render views
 
-		m_renderView->render(cmdList, m_constantBufferStackAllocators[m_frame & 1], m_offsetBufferDescriptorSets[m_frame & 1], viewMatrix, projectionMatrix, cameraPosition, false);
+		m_renderView->render(cmdList, m_rendererResources->m_constantBufferStackAllocators[m_frame & 1], m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], viewMatrix, projectionMatrix, cameraPosition, false);
 
 
 		if (m_width != 0 && m_height != 0)
@@ -94,20 +95,48 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 
 			cmdList->barrier(1, &b0);
 
-			gal::ImageCopy imageCopy{};
-			imageCopy.m_srcLayerCount = 1;
-			imageCopy.m_dstLayerCount = 1;
-			imageCopy.m_extent = { m_width, m_height, 1 };
-			cmdList->copyImage(m_renderView->getResultImage(), image, 1, &imageCopy);
+			// copy view to swap chain
+			{
+				gal::ImageCopy imageCopy{};
+				imageCopy.m_srcLayerCount = 1;
+				imageCopy.m_dstLayerCount = 1;
+				imageCopy.m_extent = { m_width, m_height, 1 };
+				cmdList->copyImage(m_renderView->getResultImage(), image, 1, &imageCopy);
+			}
+			
 
 			gal::Barrier b1 = gal::Initializers::imageBarrier(
 				image,
 				gal::PipelineStageFlags::TRANSFER_BIT,
-				gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
+				gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
 				gal::ResourceState::WRITE_TRANSFER,
-				gal::ResourceState::PRESENT);
+				gal::ResourceState::WRITE_COLOR_ATTACHMENT);
 
 			cmdList->barrier(1, &b1);
+
+			// imgui
+			{
+				ImGuiPass::Data imguiPassData{};
+				imguiPassData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1];
+				imguiPassData.m_indexBufferAllocator = m_rendererResources->m_indexBufferStackAllocators[m_frame & 1];
+				imguiPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+				imguiPassData.m_width = m_width;
+				imguiPassData.m_height = m_height;
+				imguiPassData.m_colorAttachment = m_imageViews[swapchainIndex];
+				imguiPassData.m_clear = false;
+				imguiPassData.m_imGuiDrawData = ImGui::GetDrawData();
+
+				m_imguiPass->record(cmdList, imguiPassData);
+			}
+
+			gal::Barrier b2 = gal::Initializers::imageBarrier(
+				image,
+				gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
+				gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
+				gal::ResourceState::WRITE_COLOR_ATTACHMENT,
+				gal::ResourceState::PRESENT);
+
+			cmdList->barrier(1, &b2);
 		}
 
 		

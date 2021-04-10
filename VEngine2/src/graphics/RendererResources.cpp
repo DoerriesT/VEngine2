@@ -2,19 +2,17 @@
 #include "BufferStackAllocator.h"
 #include "ResourceViewRegistry.h"
 #include "imgui/imgui.h"
+#include "utility/Utility.h"
+#include "gal/Initializers.h"
+#include <assert.h>
 
-RendererResources::RendererResources(gal::GraphicsDevice *device) noexcept
+RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry) noexcept
+	:m_device(device),
+	m_resourceViewRegistry(resourceViewRegistry)
 {
-	create();
-}
+	m_device->createCommandListPool(m_device->getGraphicsQueue(), &m_commandListPool);
+	m_commandListPool->allocate(1, &m_commandList);
 
-RendererResources::~RendererResources()
-{
-	destroy();
-}
-
-void RendererResources::create() noexcept
-{
 	// constant buffer
 	{
 		gal::BufferCreateInfo createInfo{ 1024 * 1024 * 4, {}, gal::BufferUsageFlags::CONSTANT_BUFFER_BIT };
@@ -66,7 +64,14 @@ void RendererResources::create() noexcept
 		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 		size_t upload_size = width * height * 4 * sizeof(char);
 
-		assert(upload_size <= m_stagingBuffer->getDescription().m_size);
+		gal::Buffer *stagingBuffer = nullptr;
+		{
+			gal::BufferCreateInfo bufferCreateInfo{};
+			bufferCreateInfo.m_size = upload_size;
+			bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_SRC_BIT;
+
+			m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::HOST_COHERENT_BIT | gal::MemoryPropertyFlags::HOST_VISIBLE_BIT, {}, false, &stagingBuffer);
+		}
 
 		// create image and view
 		{
@@ -92,12 +97,12 @@ void RendererResources::create() noexcept
 			m_imguiFontTextureViewHandle = m_resourceViewRegistry->createTextureViewHandle(m_imguiFontTextureView);
 		}
 
-		size_t rowPitch = Utility::alignUp((size_t)(width * 4u), (size_t)m_graphicsDevice->getBufferCopyRowPitchAlignment());
+		size_t rowPitch = util::alignUp((size_t)(width * 4u), (size_t)m_device->getBufferCopyRowPitchAlignment());
 
 		// Upload to Buffer:
 		{
 			uint8_t *map = nullptr;
-			m_stagingBuffer->map((void **)&map);
+			stagingBuffer->map((void **)&map);
 			{
 				// keep track of current offset in staging buffer
 				size_t currentOffset = 0;
@@ -111,7 +116,7 @@ void RendererResources::create() noexcept
 					currentOffset += rowPitch;
 				}
 			}
-			m_stagingBuffer->unmap();
+			stagingBuffer->unmap();
 		}
 
 		// Copy to Image:
@@ -120,10 +125,15 @@ void RendererResources::create() noexcept
 			m_commandList->begin();
 			{
 				// transition from UNDEFINED to TRANSFER_DST
-				Barrier b0 = Initializers::imageBarrier(m_imGuiFontsTexture, PipelineStageFlagBits::HOST_BIT, PipelineStageFlagBits::TRANSFER_BIT, ResourceState::UNDEFINED, ResourceState::WRITE_IMAGE_TRANSFER);
+				gal::Barrier b0 = gal::Initializers::imageBarrier(
+					m_imguiFontTexture,
+					gal::PipelineStageFlags::HOST_BIT,
+					gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::ResourceState::UNDEFINED,
+					gal::ResourceState::WRITE_TRANSFER);
 				m_commandList->barrier(1, &b0);
 
-				BufferImageCopy bufferCopyRegion{};
+				gal::BufferImageCopy bufferCopyRegion{};
 				bufferCopyRegion.m_imageMipLevel = 0;
 				bufferCopyRegion.m_imageBaseLayer = 0;
 				bufferCopyRegion.m_imageLayerCount = 1;
@@ -134,22 +144,30 @@ void RendererResources::create() noexcept
 				bufferCopyRegion.m_bufferRowLength = (uint32_t)rowPitch / 4u; // this is in pixels
 				bufferCopyRegion.m_bufferImageHeight = height;
 
-				m_commandList->copyBufferToImage(m_stagingBuffer, m_imGuiFontsTexture, 1, &bufferCopyRegion);
+				m_commandList->copyBufferToImage(stagingBuffer, m_imguiFontTexture, 1, &bufferCopyRegion);
 
 				// transition from TRANSFER_DST to TEXTURE
-				Barrier b1 = Initializers::imageBarrier(m_imGuiFontsTexture, PipelineStageFlagBits::TRANSFER_BIT, PipelineStageFlagBits::FRAGMENT_SHADER_BIT, ResourceState::WRITE_IMAGE_TRANSFER, ResourceState::READ_TEXTURE);
+				gal::Barrier b1 = gal::Initializers::imageBarrier(
+					m_imguiFontTexture,
+					gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::PipelineStageFlags::PIXEL_SHADER_BIT,
+					gal::ResourceState::WRITE_TRANSFER,
+					gal::ResourceState::READ_RESOURCE);
 				m_commandList->barrier(1, &b1);
 			}
 			m_commandList->end();
-			Initializers::submitSingleTimeCommands(m_graphicsDevice->getGraphicsQueue(), m_commandList);
+			gal::Initializers::submitSingleTimeCommands(m_device->getGraphicsQueue(), m_commandList);
 		}
 
+		// free staging buffer
+		m_device->destroyBuffer(stagingBuffer);
+
 		// Store our identifier
-		//io.Fonts->TexID = (ImTextureID)m_imGuiFontsTexture;
+		ImGui::GetIO().Fonts->SetTexID((ImTextureID)(size_t)m_imguiFontTextureViewHandle);
 	}
 }
 
-void RendererResources::destroy() noexcept
+RendererResources::~RendererResources()
 {
 	delete m_constantBufferStackAllocators[0];
 	delete m_constantBufferStackAllocators[1];
@@ -164,6 +182,10 @@ void RendererResources::destroy() noexcept
 	m_device->destroyBuffer(m_mappableIndexBuffers[1]);
 	m_device->destroyBuffer(m_mappableVertexBuffers[0]);
 	m_device->destroyBuffer(m_mappableVertexBuffers[1]);
+
+	m_resourceViewRegistry->destroyHandle(m_imguiFontTextureViewHandle);
+	m_device->destroyImageView(m_imguiFontTextureView);
+	m_device->destroyImage(m_imguiFontTexture);
 
 	m_device->destroyDescriptorSetPool(m_offsetBufferDescriptorSetPool);
 	m_device->destroyDescriptorSetLayout(m_offsetBufferDescriptorSetLayout);

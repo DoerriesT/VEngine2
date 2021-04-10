@@ -124,8 +124,6 @@ int Engine::start(int argc, char *argv[])
 {
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
 	Timer::init();
-	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
-	m_userInput = new UserInput(*m_window);
 
 	// Setup Dear ImGui context
 	{
@@ -145,6 +143,9 @@ int Engine::start(int argc, char *argv[])
 		// Setup Platform/Renderer bindings
 		//ImGui_ImplGlfw_InitForVulkan((GLFWwindow *)m_window->getWindowHandle(), true);
 	}
+
+	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
+	m_userInput = new UserInput(*m_window);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());

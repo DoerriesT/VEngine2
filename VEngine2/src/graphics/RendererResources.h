@@ -5,10 +5,15 @@
 class BufferStackAllocator;
 class ResourceViewRegistry;
 
-struct RendererResources
+class RendererResources
 {
+public:
 	gal::GraphicsDevice *m_device = nullptr;
 	ResourceViewRegistry *m_resourceViewRegistry = nullptr;
+
+	gal::CommandListPool *m_commandListPool = nullptr;
+	gal::CommandList *m_commandList = nullptr;
+
 	gal::Buffer *m_mappableConstantBuffers[2] = {};
 	gal::Buffer *m_mappableIndexBuffers[2] = {};
 	gal::Buffer *m_mappableVertexBuffers[2] = {};
@@ -25,8 +30,4 @@ struct RendererResources
 
 	explicit RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry) noexcept;
 	~RendererResources();
-
-private:
-	void create() noexcept;
-	void destroy() noexcept;
 };

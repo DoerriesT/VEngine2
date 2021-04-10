@@ -67,7 +67,7 @@ private:
 	SpinLock m_rwByteBufferHandleManagerMutex;
 
 	void addUpdate(const gal::DescriptorSetUpdate &update, bool transient);
-	uint32_t createHandle(HandleManager &manager, SpinLock &managerMutex, uint32_t binding, bool transient, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo);
-	void updateHandle(uint32_t handle, uint32_t binding, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo);
+	uint32_t createHandle(HandleManager &manager, SpinLock &managerMutex, uint32_t binding, bool transient, gal::DescriptorType descriptorType, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo);
+	void updateHandle(uint32_t handle, uint32_t binding, gal::DescriptorType descriptorType, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo);
 	void destroyHandle(HandleManager &manager, uint32_t handle, uint32_t binding);
 };

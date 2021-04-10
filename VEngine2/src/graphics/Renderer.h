@@ -5,6 +5,8 @@
 class BufferStackAllocator;
 class RenderView;
 class ResourceViewRegistry;
+class RendererResources;
+class ImGuiPass;
 
 class Renderer
 {
@@ -28,5 +30,7 @@ private:
 	uint32_t m_height = 1;
 	gal::ImageView *m_imageViews[3] = {};
 	ResourceViewRegistry *m_viewRegistry = nullptr;
+	RendererResources *m_rendererResources = nullptr;
 	RenderView *m_renderView = nullptr;
+	ImGuiPass *m_imguiPass = nullptr;
 };

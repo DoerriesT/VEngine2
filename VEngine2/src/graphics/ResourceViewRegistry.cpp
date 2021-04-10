@@ -41,82 +41,82 @@ ResourceViewRegistry::~ResourceViewRegistry()
 
 TextureViewHandle ResourceViewRegistry::createTextureViewHandle(gal::ImageView *imageView, bool transient) noexcept
 {
-	return (TextureViewHandle)createHandle(m_textureHandleManager, m_textureHandleManagerMutex, s_textureBinding, transient, imageView, nullptr, nullptr);
+	return (TextureViewHandle)createHandle(m_textureHandleManager, m_textureHandleManagerMutex, s_textureBinding, transient, gal::DescriptorType::TEXTURE, imageView, nullptr, nullptr);
 }
 
 RWTextureViewHandle ResourceViewRegistry::createRWTextureViewHandle(gal::ImageView *imageView, bool transient) noexcept
 {
-	return (RWTextureViewHandle)createHandle(m_rwTextureHandleManager, m_rwTextureHandleManagerMutex, s_rwTextureBinding, transient, imageView, nullptr, nullptr);
+	return (RWTextureViewHandle)createHandle(m_rwTextureHandleManager, m_rwTextureHandleManagerMutex, s_rwTextureBinding, transient, gal::DescriptorType::RW_TEXTURE, imageView, nullptr, nullptr);
 }
 
 TypedBufferViewHandle ResourceViewRegistry::createTypedBufferViewHandle(gal::BufferView *bufferView, bool transient) noexcept
 {
-	return (TypedBufferViewHandle)createHandle(m_typedBufferHandleManager, m_typedBufferHandleManagerMutex, s_typedBufferBinding, transient, nullptr, bufferView, nullptr);
+	return (TypedBufferViewHandle)createHandle(m_typedBufferHandleManager, m_typedBufferHandleManagerMutex, s_typedBufferBinding, transient, gal::DescriptorType::TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 RWTypedBufferViewHandle ResourceViewRegistry::createRWTypedBufferViewHandle(gal::BufferView *bufferView, bool transient) noexcept
 {
-	return (RWTypedBufferViewHandle)createHandle(m_rwTypedBufferHandleManager, m_rwTypedBufferHandleManagerMutex, s_rwTypedBufferBinding, transient, nullptr, bufferView, nullptr);
+	return (RWTypedBufferViewHandle)createHandle(m_rwTypedBufferHandleManager, m_rwTypedBufferHandleManagerMutex, s_rwTypedBufferBinding, transient, gal::DescriptorType::RW_TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 ByteBufferViewHandle ResourceViewRegistry::createByteBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (ByteBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, s_byteBufferBinding, transient, nullptr, nullptr, &bufferInfo);
+	return (ByteBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, s_byteBufferBinding, transient, gal::DescriptorType::BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 RWByteBufferViewHandle ResourceViewRegistry::createRWByteBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (RWByteBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, s_rwByteBufferBinding, transient, nullptr, nullptr, &bufferInfo);
+	return (RWByteBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, s_rwByteBufferBinding, transient, gal::DescriptorType::RW_BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 StructuredBufferViewHandle ResourceViewRegistry::createStructuredBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (StructuredBufferViewHandle)createByteBufferViewHandle(bufferInfo, transient);
+	return (StructuredBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, s_byteBufferBinding, transient, gal::DescriptorType::STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 RWStructuredBufferViewHandle ResourceViewRegistry::createRWStructuredBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (RWStructuredBufferViewHandle)createRWByteBufferViewHandle(bufferInfo, transient);
+	return (RWStructuredBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, s_rwByteBufferBinding, transient, gal::DescriptorType::RW_STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(TextureViewHandle handle, gal::ImageView *imageView) noexcept
 {
-	updateHandle(handle, s_textureBinding, imageView, nullptr, nullptr);
+	updateHandle(handle, s_textureBinding, gal::DescriptorType::TEXTURE, imageView, nullptr, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(RWTextureViewHandle handle, gal::ImageView *imageView) noexcept
 {
-	updateHandle(handle, s_rwTextureBinding, imageView, nullptr, nullptr);
+	updateHandle(handle, s_rwTextureBinding, gal::DescriptorType::RW_TEXTURE, imageView, nullptr, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(TypedBufferViewHandle handle, gal::BufferView *bufferView) noexcept
 {
-	updateHandle(handle, s_typedBufferBinding, nullptr, bufferView, nullptr);
+	updateHandle(handle, s_typedBufferBinding, gal::DescriptorType::TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(RWTypedBufferViewHandle handle, gal::BufferView *bufferView) noexcept
 {
-	updateHandle(handle, s_rwTypedBufferBinding, nullptr, bufferView, nullptr);
+	updateHandle(handle, s_rwTypedBufferBinding, gal::DescriptorType::RW_TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(ByteBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle(handle, s_byteBufferBinding, nullptr, nullptr, &bufferInfo);
+	updateHandle(handle, s_byteBufferBinding, gal::DescriptorType::BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(RWByteBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle(handle, s_rwByteBufferBinding, nullptr, nullptr, &bufferInfo);
+	updateHandle(handle, s_rwByteBufferBinding, gal::DescriptorType::RW_BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(StructuredBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle((ByteBufferViewHandle)handle, bufferInfo);
+	updateHandle(handle, s_byteBufferBinding, gal::DescriptorType::STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(RWStructuredBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle((RWByteBufferViewHandle)handle, bufferInfo);
+	updateHandle(handle, s_rwByteBufferBinding, gal::DescriptorType::RW_STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::destroyHandle(TextureViewHandle handle) noexcept
@@ -219,13 +219,13 @@ void ResourceViewRegistry::addUpdate(const gal::DescriptorSetUpdate &update, boo
 	}
 }
 
-uint32_t ResourceViewRegistry::createHandle(HandleManager &manager, SpinLock &managerMutex, uint32_t binding, bool transient, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo)
+uint32_t ResourceViewRegistry::createHandle(HandleManager &manager, SpinLock &managerMutex, uint32_t binding, bool transient, gal::DescriptorType descriptorType, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo)
 {
 	uint32_t handle = 0;
 
 	{
 		SpinLockHolder holder(managerMutex);
-		m_textureHandleManager.allocate(transient);
+		handle = m_textureHandleManager.allocate(transient);
 	}
 
 	// allocation failed
@@ -235,6 +235,7 @@ uint32_t ResourceViewRegistry::createHandle(HandleManager &manager, SpinLock &ma
 	}
 
 	gal::DescriptorSetUpdate update{};
+	update.m_descriptorType = descriptorType;
 	update.m_dstBinding = binding;
 	update.m_dstArrayElement = (uint32_t)handle;
 	update.m_descriptorCount = 1;
@@ -250,9 +251,10 @@ uint32_t ResourceViewRegistry::createHandle(HandleManager &manager, SpinLock &ma
 	return handle;
 }
 
-void ResourceViewRegistry::updateHandle(uint32_t handle, uint32_t binding, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo)
+void ResourceViewRegistry::updateHandle(uint32_t handle, uint32_t binding, gal::DescriptorType descriptorType, gal::ImageView *imageView, gal::BufferView *bufferView, const gal::DescriptorBufferInfo *bufferInfo)
 {
 	gal::DescriptorSetUpdate update{};
+	update.m_descriptorType = descriptorType;
 	update.m_dstBinding = binding;
 	update.m_dstArrayElement = (uint32_t)handle;
 	update.m_descriptorCount = 1;

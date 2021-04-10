@@ -526,6 +526,11 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 						break;
 					}
 
+					if ((bindings[j].m_bindingFlags & (gal::DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | gal::DescriptorBindingFlags::UPDATE_UNUSED_WHILE_PENDING_BIT | gal::DescriptorBindingFlags::PARTIALLY_BOUND_BIT)) != 0)
+					{
+						range.Flags |= D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+					}
+
 					descriptorRanges1_1.push_back(range);
 					tableStageMask |= bindings[j].m_stageFlags;
 				}

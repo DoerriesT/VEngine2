@@ -24,7 +24,7 @@ private:
 	ImGuiContext *m_context = nullptr;
 	UserInput &m_input;
 	Window &m_window;
-	Timer m_timer = {};
+	Timer m_timer;
 	bool m_mouseJustPressed[8] = {};
 	uint32_t m_width = 1;
 	uint32_t m_height = 1;
