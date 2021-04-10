@@ -21,28 +21,6 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 	m_cmdListPools[0]->allocate(1, &m_cmdLists[0]);
 	m_cmdListPools[1]->allocate(1, &m_cmdLists[1]);
 
-	{
-		gal::BufferCreateInfo createInfo{ 1024 * 1024 * 4, {}, gal::BufferUsageFlags::CONSTANT_BUFFER_BIT };
-		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableConstantBuffers[0]);
-		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableConstantBuffers[1]);
-
-		m_constantBufferStackAllocators[0] = new BufferStackAllocator(m_mappableConstantBuffers[0]);
-		m_constantBufferStackAllocators[1] = new BufferStackAllocator(m_mappableConstantBuffers[1]);
-	}
-	
-
-	gal::DescriptorSetLayoutBinding binding{ gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, gal::ShaderStageFlags::ALL_STAGES };
-	m_device->createDescriptorSetLayout(1, &binding, &m_offsetBufferDescriptorSetLayout);
-	m_device->createDescriptorSetPool(2, m_offsetBufferDescriptorSetLayout, &m_offsetBufferDescriptorSetPool);
-	m_offsetBufferDescriptorSetPool->allocateDescriptorSets(2, m_offsetBufferDescriptorSets);
-
-	for (size_t i = 0; i < 2; ++i)
-	{
-		gal::DescriptorSetUpdate update{0, 0, 1, gal::DescriptorType::OFFSET_CONSTANT_BUFFER };
-		update.m_bufferInfo1 = { m_mappableConstantBuffers[i], 0, 1024/*m_mappableConstantBuffers[i]->getDescription().m_size*/, 0 };
-		m_offsetBufferDescriptorSets[i]->update(1, &update);
-	}
-
 	m_viewRegistry = new ResourceViewRegistry(m_device);
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_offsetBufferDescriptorSetLayout, width, height);
 }

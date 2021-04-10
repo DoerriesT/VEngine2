@@ -34,6 +34,9 @@
     <Filter Include="src\asset">
       <UniqueIdentifier>{c5b73013-cc3f-41fa-b901-f31b2127a9cf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\graphics\imgui">
+      <UniqueIdentifier>{7a56cc2f-1810-4e5e-becc-87dc916eacbe}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -216,6 +219,36 @@
     <ClInclude Include="src\utility\HandleManager.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imconfig.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imgui.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imgui_internal.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imstb_rectpack.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imstb_textedit.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imstb_truetype.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\input\ImGuiInputAdapter.h">
+      <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\Timer.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\pass\ImGuiPass.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\RendererResources.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -373,6 +406,33 @@
     </ClCompile>
     <ClCompile Include="src\utility\HandleManager.cpp">
       <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imgui.cpp">
+      <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imgui_demo.cpp">
+      <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imgui_draw.cpp">
+      <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imgui_tables.cpp">
+      <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imgui_widgets.cpp">
+      <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\input\ImGuiInputAdapter.cpp">
+      <Filter>src\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Timer.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\ImGuiPass.cpp">
+      <Filter>src\graphics\pass</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\RendererResources.cpp">
+      <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -21,16 +21,11 @@ private:
 	gal::Semaphore *m_semaphore = nullptr;
 	gal::CommandListPool *m_cmdListPools[2] = {};
 	gal::CommandList *m_cmdLists[2] = {};
-	gal::Buffer *m_mappableConstantBuffers[2] = {};
-	BufferStackAllocator *m_constantBufferStackAllocators[2] = {};
 	uint64_t m_semaphoreValue = 0;
 	uint64_t m_waitValues[2] = {};
 	uint64_t m_frame = 0;
 	uint32_t m_width = 1;
 	uint32_t m_height = 1;
-	gal::DescriptorSetLayout *m_offsetBufferDescriptorSetLayout;
-	gal::DescriptorSetPool *m_offsetBufferDescriptorSetPool;
-	gal::DescriptorSet *m_offsetBufferDescriptorSets[2] = {};
 	gal::ImageView *m_imageViews[3] = {};
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RenderView *m_renderView = nullptr;

@@ -1,6 +1,7 @@
 #include "Initializers.h"
-#include <cstring>
-#include <cassert>
+#include <string.h>
+#include <assert.h>
+#include <float.h>
 
 using namespace gal;
 
@@ -469,6 +470,156 @@ gal::Initializers::FormatInfo gal::Initializers::getFormatInfo(Format format)
 		break;
 	}
 	return FormatInfo{};
+}
+
+StaticSamplerDescription gal::Initializers::staticPointClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	StaticSamplerDescription desc{};
+	desc.m_binding = binding;
+	desc.m_space = space;
+	desc.m_stageFlags = stageFlags;
+	desc.m_magFilter = Filter::NEAREST;
+	desc.m_minFilter = Filter::NEAREST;
+	desc.m_mipmapMode = SamplerMipmapMode::NEAREST;
+	desc.m_addressModeU = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_addressModeV = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_addressModeW = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_mipLodBias = 0.0f;
+	desc.m_anisotropyEnable = false;
+	desc.m_maxAnisotropy = 1.0f;
+	desc.m_compareEnable = false;
+	desc.m_compareOp = CompareOp::ALWAYS;
+	desc.m_minLod = 0.0f;
+	desc.m_maxLod = FLT_MAX;
+	desc.m_borderColor = BorderColor::FLOAT_OPAQUE_BLACK;
+	desc.m_unnormalizedCoordinates = false;
+
+	return desc;
+}
+
+StaticSamplerDescription gal::Initializers::staticPointRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	StaticSamplerDescription desc{};
+	desc.m_binding = binding;
+	desc.m_space = space;
+	desc.m_stageFlags = stageFlags;
+	desc.m_magFilter = Filter::NEAREST;
+	desc.m_minFilter = Filter::NEAREST;
+	desc.m_mipmapMode = SamplerMipmapMode::NEAREST;
+	desc.m_addressModeU = SamplerAddressMode::REPEAT;
+	desc.m_addressModeV = SamplerAddressMode::REPEAT;
+	desc.m_addressModeW = SamplerAddressMode::REPEAT;
+	desc.m_mipLodBias = 0.0f;
+	desc.m_anisotropyEnable = false;
+	desc.m_maxAnisotropy = 1.0f;
+	desc.m_compareEnable = false;
+	desc.m_compareOp = CompareOp::ALWAYS;
+	desc.m_minLod = 0.0f;
+	desc.m_maxLod = FLT_MAX;
+	desc.m_borderColor = BorderColor::FLOAT_OPAQUE_BLACK;
+	desc.m_unnormalizedCoordinates = false;
+
+	return desc;
+}
+
+StaticSamplerDescription gal::Initializers::staticLinearClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	StaticSamplerDescription desc{};
+	desc.m_binding = binding;
+	desc.m_space = space;
+	desc.m_stageFlags = stageFlags;
+	desc.m_magFilter = Filter::LINEAR;
+	desc.m_minFilter = Filter::LINEAR;
+	desc.m_mipmapMode = SamplerMipmapMode::LINEAR;
+	desc.m_addressModeU = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_addressModeV = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_addressModeW = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_mipLodBias = 0.0f;
+	desc.m_anisotropyEnable = false;
+	desc.m_maxAnisotropy = 1.0f;
+	desc.m_compareEnable = false;
+	desc.m_compareOp = CompareOp::ALWAYS;
+	desc.m_minLod = 0.0f;
+	desc.m_maxLod = FLT_MAX;
+	desc.m_borderColor = BorderColor::FLOAT_OPAQUE_BLACK;
+	desc.m_unnormalizedCoordinates = false;
+
+	return desc;
+}
+
+StaticSamplerDescription gal::Initializers::staticLinearRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	StaticSamplerDescription desc{};
+	desc.m_binding = binding;
+	desc.m_space = space;
+	desc.m_stageFlags = stageFlags;
+	desc.m_magFilter = Filter::LINEAR;
+	desc.m_minFilter = Filter::LINEAR;
+	desc.m_mipmapMode = SamplerMipmapMode::LINEAR;
+	desc.m_addressModeU = SamplerAddressMode::REPEAT;
+	desc.m_addressModeV = SamplerAddressMode::REPEAT;
+	desc.m_addressModeW = SamplerAddressMode::REPEAT;
+	desc.m_mipLodBias = 0.0f;
+	desc.m_anisotropyEnable = false;
+	desc.m_maxAnisotropy = 1.0f;
+	desc.m_compareEnable = false;
+	desc.m_compareOp = CompareOp::ALWAYS;
+	desc.m_minLod = 0.0f;
+	desc.m_maxLod = FLT_MAX;
+	desc.m_borderColor = BorderColor::FLOAT_OPAQUE_BLACK;
+	desc.m_unnormalizedCoordinates = false;
+
+	return desc;
+}
+
+StaticSamplerDescription gal::Initializers::staticAnisotropicClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	StaticSamplerDescription desc{};
+	desc.m_binding = binding;
+	desc.m_space = space;
+	desc.m_stageFlags = stageFlags;
+	desc.m_magFilter = Filter::LINEAR;
+	desc.m_minFilter = Filter::LINEAR;
+	desc.m_mipmapMode = SamplerMipmapMode::LINEAR;
+	desc.m_addressModeU = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_addressModeV = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_addressModeW = SamplerAddressMode::CLAMP_TO_EDGE;
+	desc.m_mipLodBias = 0.0f;
+	desc.m_anisotropyEnable = true;
+	desc.m_maxAnisotropy = 16.0f;
+	desc.m_compareEnable = false;
+	desc.m_compareOp = CompareOp::ALWAYS;
+	desc.m_minLod = 0.0f;
+	desc.m_maxLod = FLT_MAX;
+	desc.m_borderColor = BorderColor::FLOAT_OPAQUE_BLACK;
+	desc.m_unnormalizedCoordinates = false;
+
+	return desc;
+}
+
+StaticSamplerDescription gal::Initializers::staticAnisotropicRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	StaticSamplerDescription desc{};
+	desc.m_binding = binding;
+	desc.m_space = space;
+	desc.m_stageFlags = stageFlags;
+	desc.m_magFilter = Filter::LINEAR;
+	desc.m_minFilter = Filter::LINEAR;
+	desc.m_mipmapMode = SamplerMipmapMode::LINEAR;
+	desc.m_addressModeU = SamplerAddressMode::REPEAT;
+	desc.m_addressModeV = SamplerAddressMode::REPEAT;
+	desc.m_addressModeW = SamplerAddressMode::REPEAT;
+	desc.m_mipLodBias = 0.0f;
+	desc.m_anisotropyEnable = true;
+	desc.m_maxAnisotropy = 16.0f;
+	desc.m_compareEnable = false;
+	desc.m_compareOp = CompareOp::ALWAYS;
+	desc.m_minLod = 0.0f;
+	desc.m_maxLod = FLT_MAX;
+	desc.m_borderColor = BorderColor::FLOAT_OPAQUE_BLACK;
+	desc.m_unnormalizedCoordinates = false;
+
+	return desc;
 }
 
 const PipelineColorBlendAttachmentState GraphicsPipelineBuilder::s_defaultBlendAttachment =

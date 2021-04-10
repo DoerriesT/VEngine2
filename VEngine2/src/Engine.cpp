@@ -9,6 +9,9 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
 #include <optick.h>
+#include "utility/Timer.h"
+#include "graphics/imgui/imgui.h"
+#include "input/ImGuiInputAdapter.h"
 
 namespace
 {
@@ -120,8 +123,31 @@ namespace
 int Engine::start(int argc, char *argv[])
 {
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
+	Timer::init();
 	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_userInput = new UserInput(*m_window);
+
+	// Setup Dear ImGui context
+	{
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGuiIO &io = ImGui::GetIO(); (void)io;
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+		io.ConfigDockingWithShift = true;
+
+		// Setup Dear ImGui style
+		ImGui::StyleColorsDark();
+		//ImGui::StyleColorsClassic();
+
+		// Setup Platform/Renderer bindings
+		//ImGui_ImplGlfw_InitForVulkan((GLFWwindow *)m_window->getWindowHandle(), true);
+	}
+
+	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
+	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
 
 	bool grabbedMouse = false;
 	glm::vec2 mouseHistory{};
@@ -133,7 +159,17 @@ int Engine::start(int argc, char *argv[])
 		OPTICK_FRAME("MainThread");
 
 		m_window->pollEvents();
+
+		if (m_window->configurationChanged())
+		{
+			imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
+			m_renderer->resize(m_window->getWidth(), m_window->getHeight());
+		}
+
 		m_userInput->input();
+		imguiInputAdapter.update();
+		ImGui::NewFrame();
+
 		{
 			bool pressed = false;
 			float mod = 1.0f;
@@ -214,10 +250,9 @@ int Engine::start(int argc, char *argv[])
 			}
 		}
 
-		if (m_window->configurationChanged())
-		{
-			m_renderer->resize(m_window->getWidth(), m_window->getHeight());
-		}
+		ImGui::ShowDemoWindow();
+
+		ImGui::Render();
 
 		camera.setAspectRatio(m_window->getWidth() / (float)m_window->getHeight());
 		auto viewMatrix = camera.getViewMatrix();

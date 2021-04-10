@@ -44,6 +44,12 @@ namespace gal
 		bool isDepthFormat(Format format);
 		bool isStencilFormat(Format format);
 		FormatInfo getFormatInfo(Format format);
+		StaticSamplerDescription staticPointClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
+		StaticSamplerDescription staticPointRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
+		StaticSamplerDescription staticLinearClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
+		StaticSamplerDescription staticLinearRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
+		StaticSamplerDescription staticAnisotropicClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
+		StaticSamplerDescription staticAnisotropicRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
 	}
 
 	class GraphicsPipelineBuilder
