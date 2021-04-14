@@ -249,6 +249,15 @@
     <ClInclude Include="src\graphics\RendererResources.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\TextureLoader.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Handles.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\TextureManager.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -432,6 +441,12 @@
       <Filter>src\graphics\pass</Filter>
     </ClCompile>
     <ClCompile Include="src\graphics\RendererResources.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\TextureLoader.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\TextureManager.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>

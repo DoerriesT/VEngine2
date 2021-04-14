@@ -199,7 +199,10 @@
     <ClInclude Include="src\graphics\RenderView.h" />
     <ClInclude Include="src\graphics\RenderViewResources.h" />
     <ClInclude Include="src\graphics\ResourceViewRegistry.h" />
+    <ClInclude Include="src\graphics\TextureLoader.h" />
+    <ClInclude Include="src\graphics\TextureManager.h" />
     <ClInclude Include="src\graphics\ViewHandles.h" />
+    <ClInclude Include="src\Handles.h" />
     <ClInclude Include="src\input\IInputListener.h" />
     <ClInclude Include="src\input\ImGuiInputAdapter.h" />
     <ClInclude Include="src\input\InputTokens.h" />
@@ -267,6 +270,8 @@
     <ClCompile Include="src\graphics\RenderView.cpp" />
     <ClCompile Include="src\graphics\RenderViewResources.cpp" />
     <ClCompile Include="src\graphics\ResourceViewRegistry.cpp" />
+    <ClCompile Include="src\graphics\TextureLoader.cpp" />
+    <ClCompile Include="src\graphics\TextureManager.cpp" />
     <ClCompile Include="src\input\ImGuiInputAdapter.cpp" />
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />

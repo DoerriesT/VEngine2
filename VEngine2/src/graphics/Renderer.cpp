@@ -9,13 +9,15 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <optick.h>
 #include "imgui/imgui.h"
+#include "TextureLoader.h"
+#include "TextureManager.h"
 
 Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 {
 	m_width = width;
 	m_height = height;
 
-	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::D3D12);
+	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::VULKAN);
 	m_graphicsQueue = m_device->getGraphicsQueue();
 	m_device->createSwapChain(m_graphicsQueue, width, height, false, gal::PresentMode::V_SYNC, &m_swapChain);
 	m_device->createSemaphore(0, &m_semaphore);
@@ -26,6 +28,10 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 
 	m_viewRegistry = new ResourceViewRegistry(m_device);
 	m_rendererResources = new RendererResources(m_device, m_viewRegistry);
+
+	m_textureLoader = new TextureLoader(m_device);
+	m_textureManager = new TextureManager(m_device, m_viewRegistry);
+
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
@@ -43,6 +49,8 @@ Renderer::~Renderer()
 
 	delete m_imguiPass;
 	delete m_renderView;
+	delete m_textureLoader;
+	delete m_textureManager;
 	delete m_rendererResources;
 	delete m_viewRegistry;
 
@@ -71,6 +79,9 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 	cmdList->begin();
 	{
 		OPTICK_GPU_CONTEXT((VkCommandBuffer)cmdList->getNativeHandle());
+
+		// upload textures
+		m_textureLoader->flushUploadCopies(cmdList, m_frame);
 
 		// render views
 
@@ -184,4 +195,26 @@ void Renderer::resize(uint32_t width, uint32_t height)
 			m_imageViews[i] = nullptr;
 		}
 	}
+}
+
+TextureHandle Renderer::loadTexture(size_t fileSize, const char *fileData, const char *textureName) noexcept
+{
+	gal::Image *image = nullptr;
+	gal::ImageView *view = nullptr;
+	if (!m_textureLoader->load(fileSize, fileData, textureName, &image, &view))
+	{
+		return TextureHandle();
+	}
+	
+	return m_textureManager->add(image, view);
+}
+
+void Renderer::destroyTexture(TextureHandle handle) noexcept
+{
+	m_textureManager->free(handle);
+}
+
+ImTextureID Renderer::getImGuiTextureID(TextureHandle handle) noexcept
+{
+	return (ImTextureID)(size_t)m_textureManager->getViewHandle(handle);
 }

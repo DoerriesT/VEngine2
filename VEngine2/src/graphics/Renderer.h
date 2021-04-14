@@ -1,12 +1,17 @@
 #pragma once
 #include "gal/FwdDecl.h"
 #include <stdint.h>
+#include "Handles.h"
 
 class BufferStackAllocator;
 class RenderView;
 class ResourceViewRegistry;
 class RendererResources;
+class TextureLoader;
+class TextureManager;
 class ImGuiPass;
+
+typedef void *ImTextureID;
 
 class Renderer
 {
@@ -15,6 +20,9 @@ public:
 	~Renderer();
 	void render(const float *viewMatrix, const float *projectionMatrix, const float *cameraPosition);
 	void resize(uint32_t width, uint32_t height);
+	TextureHandle loadTexture(size_t fileSize, const char *fileData, const char *textureName) noexcept;
+	void destroyTexture(TextureHandle handle) noexcept;
+	ImTextureID getImGuiTextureID(TextureHandle handle) noexcept;
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
@@ -31,6 +39,8 @@ private:
 	gal::ImageView *m_imageViews[3] = {};
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;
+	TextureLoader *m_textureLoader = nullptr;
+	TextureManager *m_textureManager = nullptr;
 	RenderView *m_renderView = nullptr;
 	ImGuiPass *m_imguiPass = nullptr;
 };
