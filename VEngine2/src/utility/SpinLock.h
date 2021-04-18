@@ -1,6 +1,18 @@
 #pragma once
 #include <EASTL/atomic.h>
 
+#ifndef CONCAT_
+#define CONCAT_(A, B) A ## B
+#endif // CONCAT_
+
+#ifndef CONCAT
+#define CONCAT(A, B) CONCAT_(A, B)
+#endif // CONCAT
+
+#ifndef LOCK_HOLDER
+#define LOCK_HOLDER(lock) SpinLockHolder CONCAT(lockHolder, __LINE__)(lock)
+#endif // LOCK_HOLDER
+
 class SpinLock
 {
 public:

@@ -73,6 +73,7 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 	m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1]->reset();
 
 	m_viewRegistry->flushChanges();
+	m_textureManager->flushDeletionQueue(m_frame);
 
 	gal::CommandList *cmdList = m_cmdLists[m_frame & 1];
 
@@ -211,7 +212,7 @@ TextureHandle Renderer::loadTexture(size_t fileSize, const char *fileData, const
 
 void Renderer::destroyTexture(TextureHandle handle) noexcept
 {
-	m_textureManager->free(handle);
+	m_textureManager->free(handle, m_frame);
 }
 
 ImTextureID Renderer::getImGuiTextureID(TextureHandle handle) noexcept

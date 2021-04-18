@@ -163,7 +163,7 @@ void ResourceViewRegistry::flushChanges() noexcept
 {
 	const size_t resIdx = m_frame % 2;
 
-	SpinLockHolder holder(m_pendingUpdatesMutex[resIdx]);
+	LOCK_HOLDER(m_pendingUpdatesMutex[resIdx]);
 
 	m_descriptorSets[resIdx]->update((uint32_t)m_pendingUpdates[resIdx].size(), m_pendingUpdates[resIdx].data());
 	m_pendingUpdates[resIdx].clear();
@@ -199,7 +199,7 @@ void ResourceViewRegistry::addUpdate(const gal::DescriptorSetUpdate &update, boo
 			continue;
 		}
 
-		SpinLockHolder holder(m_pendingUpdatesMutex[frame]);
+		LOCK_HOLDER(m_pendingUpdatesMutex[frame]);
 
 		bool replacedExisting = false;
 
@@ -224,7 +224,7 @@ uint32_t ResourceViewRegistry::createHandle(HandleManager &manager, SpinLock &ma
 	uint32_t handle = 0;
 
 	{
-		SpinLockHolder holder(managerMutex);
+		LOCK_HOLDER(managerMutex);
 		handle = m_textureHandleManager.allocate(transient);
 	}
 
@@ -272,7 +272,7 @@ void ResourceViewRegistry::destroyHandle(HandleManager &manager, uint32_t handle
 {
 	for (size_t frame = 0; frame < 2; ++frame)
 	{
-		SpinLockHolder holder(m_pendingUpdatesMutex[frame]);
+		LOCK_HOLDER(m_pendingUpdatesMutex[frame]);
 
 		auto &updates = m_pendingUpdates[frame];
 		updates.erase(eastl::remove_if(updates.begin(), updates.end(), [&](const auto &u)

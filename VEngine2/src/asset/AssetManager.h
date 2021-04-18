@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "UUID.h"
 #include "Asset.h"
-#include "Utility/SpinLock.h"
+#include "utility/SpinLock.h"
 
 class AssetData;
 class AssetHandler;

@@ -55,7 +55,7 @@ Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType 
 
 	{
 		// need to hold mutex so other treads dont try to create the same asset if it couldnt be found in the map
-		SpinLockHolder holder(m_assetMutex);
+		LOCK_HOLDER(m_assetMutex);
 
 		// try to find asset in map
 		auto assetMapIt = m_assetMap.find(assetID);
@@ -74,7 +74,7 @@ Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType 
 
 		// try to find asset path
 		{
-			SpinLockHolder holder(m_assetPathMutex);
+			LOCK_HOLDER(m_assetPathMutex);
 
 			auto assetPathIt = m_assetIDToPath.find(assetID);
 
@@ -90,7 +90,7 @@ Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType 
 
 		// try to find asset handler
 		{
-			SpinLockHolder holder(m_assetHandlerMutex);
+			LOCK_HOLDER(m_assetHandlerMutex);
 
 			auto handlerIt = m_assetHandlerMap.find(assetType);
 
@@ -137,7 +137,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 
 	// try to find asset handler
 	{
-		SpinLockHolder holder(m_assetHandlerMutex);
+		LOCK_HOLDER(m_assetHandlerMutex);
 
 		auto handlerIt = m_assetHandlerMap.find(assetType);
 
@@ -154,7 +154,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 	// remove from map
 	bool erased = false;
 	{
-		SpinLockHolder holder(m_assetPathMutex);
+		LOCK_HOLDER(m_assetPathMutex);
 		erased = m_assetMap.erase(assetID) >= 1;
 	}
 
@@ -169,12 +169,12 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 
 void AssetManager::registerAssetHandler(const AssetType &assetType, AssetHandler *handler) noexcept
 {
-	SpinLockHolder holder(m_assetHandlerMutex);
+	LOCK_HOLDER(m_assetHandlerMutex);
 	m_assetHandlerMap[assetType] = handler;
 }
 
 void AssetManager::unregisterAssetHandler(const AssetType &assetType)
 {
-	SpinLockHolder holder(m_assetHandlerMutex);
+	LOCK_HOLDER(m_assetHandlerMutex);
 	m_assetHandlerMap.erase(assetType);
 }

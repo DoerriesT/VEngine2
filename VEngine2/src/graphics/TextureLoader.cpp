@@ -10,7 +10,7 @@ TextureLoader::TextureLoader(gal::GraphicsDevice *device) noexcept
 {
 }
 
-TextureLoader::~TextureLoader()
+TextureLoader::~TextureLoader() noexcept
 {
 	// destroy all staging buffers, both in pending uploads and in the deletion queue.
 	// this assumes that GraphicsDevice::waitIdle() has been called before.
@@ -20,7 +20,7 @@ TextureLoader::~TextureLoader()
 		m_device->destroyBuffer(upload.m_stagingBuffer);
 	}
 
-	while(!m_deletionQueue.empty())
+	while (!m_deletionQueue.empty())
 	{
 		auto &buffer = m_deletionQueue.front();
 		m_device->destroyBuffer(buffer.m_stagingBuffer);
@@ -71,15 +71,18 @@ bool TextureLoader::load(size_t fileSize, const char *fileData, const char *text
 		m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::HOST_COHERENT_BIT | gal::MemoryPropertyFlags::HOST_VISIBLE_BIT, {}, false, &stagingBuffer);
 	}
 
-	m_uploads.push_back({});
-
-	Upload &upload = m_uploads.back();
+	Upload upload = {};
 	upload.m_imageSubresourceRange.m_baseMipLevel = 0;
 	upload.m_imageSubresourceRange.m_levelCount = static_cast<uint32_t>(gliTex.levels());
 	upload.m_imageSubresourceRange.m_baseArrayLayer = 0;
 	upload.m_imageSubresourceRange.m_layerCount = static_cast<uint32_t>(gliTex.layers());
 	upload.m_stagingBuffer = stagingBuffer;
 	upload.m_texture = *image;
+
+	{
+		LOCK_HOLDER(m_uploadDataMutex);
+		m_uploads.push_back(upload);
+	}
 
 	// copy image data to staging buffer
 	upload.m_bufferCopyRegions.reserve(gliTex.levels());
@@ -164,6 +167,8 @@ void TextureLoader::flushUploadCopies(gal::CommandList *cmdList, uint64_t frameI
 		}
 	}
 
+	LOCK_HOLDER(m_uploadDataMutex);
+
 	if (m_uploads.empty())
 	{
 		return;
@@ -186,7 +191,7 @@ void TextureLoader::flushUploadCopies(gal::CommandList *cmdList, uint64_t frameI
 
 		cmdList->barrier((uint32_t)barriers.size(), barriers.data());
 	}
-	
+
 	// upload data
 	for (auto &upload : m_uploads)
 	{
