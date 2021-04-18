@@ -12,6 +12,8 @@
 #include "utility/Timer.h"
 #include "graphics/imgui/imgui.h"
 #include "input/ImGuiInputAdapter.h"
+#include "asset/AssetManager.h"
+#include "asset/TextureAssetHandler.h"
 
 namespace
 {
@@ -146,6 +148,9 @@ int Engine::start(int argc, char *argv[])
 
 	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_userInput = new UserInput(*m_window);
+	m_assetManager = new AssetManager();
+
+	TextureAssetHandler::init(m_assetManager, m_renderer);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());

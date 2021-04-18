@@ -1,11 +1,10 @@
 #pragma once
-#include <vector>
 #include <string>
 #include <assert.h>
 
 namespace util
 {
-	std::vector<char> readBinaryFile(const char *filepath);
+	char *readBinaryFile(const char *filepath, size_t *fileSize);
 	void fatalExit(const char *message, int exitCode);
 	std::string getFileExtension(const std::string &filepath);
 	uint32_t findFirstSetBit(uint32_t mask);

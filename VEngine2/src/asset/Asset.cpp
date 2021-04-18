@@ -1,6 +1,12 @@
 #include "Asset.h"
 #include "AssetManager.h"
 
+AssetData::AssetData(const AssetID &assetID, const AssetType &assetType) noexcept
+	:m_assetID(assetID),
+	m_assetType(assetType)
+{
+}
+
 void AssetData::acquire() noexcept
 {
 	++m_referenceCount;
@@ -29,4 +35,14 @@ AssetStatus AssetData::getAssetStatus() const noexcept
 const TUUID &AssetData::getAssetID() const noexcept
 {
 	return m_assetID;
+}
+
+const AssetType &AssetData::getAssetType() const noexcept
+{
+	return m_assetType;
+}
+
+void AssetData::setAssetStatus(AssetStatus status) noexcept
+{
+	m_assetStatus = static_cast<uint32_t>(status);
 }

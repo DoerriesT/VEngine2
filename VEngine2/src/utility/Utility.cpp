@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cmath>
 
-std::vector<char> util::readBinaryFile(const char *filepath)
+char *util::readBinaryFile(const char *filepath, size_t *fileSize)
 {
 	std::ifstream file(filepath, std::ios::binary | std::ios::ate);
 
@@ -14,11 +14,11 @@ std::vector<char> util::readBinaryFile(const char *filepath)
 		fatalExit(msg.c_str(), -1);
 	}
 
-	std::streamsize size = file.tellg();
+	*fileSize = (size_t)file.tellg();
 	file.seekg(0, std::ios::beg);
 
-	std::vector<char> buffer(size);
-	if (file.read(buffer.data(), size))
+	char *buffer = new char[*fileSize];
+	if (file.read(buffer, *fileSize))
 	{
 		return buffer;
 	}

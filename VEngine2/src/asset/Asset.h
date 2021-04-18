@@ -22,17 +22,20 @@ enum class AssetStatus : uint32_t
 class AssetData
 {
 public:
+	explicit AssetData(const AssetID &assetID, const AssetType &assetType) noexcept;
 	void acquire() noexcept;
 	void release() noexcept;
 	int32_t getReferenceCount() const noexcept;
 	AssetStatus getAssetStatus() const noexcept;
 	const AssetID &getAssetID() const noexcept;
-	virtual const AssetType &getAssetType() const noexcept = 0;
+	const AssetType &getAssetType() const noexcept;
+	void setAssetStatus(AssetStatus status) noexcept;
 
 private:
-	eastl::atomic<int32_t> m_referenceCount;
-	eastl::atomic<uint32_t> m_assetStatus;
+	eastl::atomic<int32_t> m_referenceCount = 0;
+	eastl::atomic<uint32_t> m_assetStatus = static_cast<uint32_t>(AssetStatus::UNLOADED);
 	AssetID m_assetID;
+	AssetType m_assetType;
 };
 
 template<typename T>

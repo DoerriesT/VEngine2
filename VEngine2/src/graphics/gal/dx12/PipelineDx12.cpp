@@ -8,7 +8,7 @@ using namespace gal;
 static constexpr UINT s_rootConstRegister = 0;
 static constexpr UINT s_rootConstSpace = 5000;
 
-static std::vector<char> loadShaderFile(const char *filename);
+static char *loadShaderFile(const char *filename, size_t *shaderFileSize);
 static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 	bool useIA,
 	uint32_t &rootDescriptorSetIndex,
@@ -25,31 +25,40 @@ gal::GraphicsPipelineDx12::GraphicsPipelineDx12(ID3D12Device *device, const Grap
 	m_blendFactors(),
 	m_stencilRef()
 {
-	std::vector<char> vsCode;
-	std::vector<char> dsCode;
-	std::vector<char> hsCode;
-	std::vector<char> gsCode;
-	std::vector<char> psCode;
+	size_t vsCodeSize = 0;
+	char *vsCode = nullptr;
+
+	size_t dsCodeSize = 0;
+	char *dsCode = nullptr;
+
+	size_t hsCodeSize = 0;
+	char *hsCode = nullptr;
+
+	size_t gsCodeSize = 0;
+	char *gsCode = nullptr;
+
+	size_t psCodeSize = 0;
+	char *psCode = nullptr;
 
 	if (createInfo.m_vertexShader.m_path[0])
 	{
-		vsCode = loadShaderFile(createInfo.m_vertexShader.m_path);
+		vsCode = loadShaderFile(createInfo.m_vertexShader.m_path, &vsCodeSize);
 	}
 	if (createInfo.m_hullShader.m_path[0])
 	{
-		hsCode = loadShaderFile(createInfo.m_hullShader.m_path);
+		hsCode = loadShaderFile(createInfo.m_hullShader.m_path, &dsCodeSize);
 	}
 	if (createInfo.m_domainShader.m_path[0])
 	{
-		dsCode = loadShaderFile(createInfo.m_domainShader.m_path);
+		dsCode = loadShaderFile(createInfo.m_domainShader.m_path, &hsCodeSize);
 	}
 	if (createInfo.m_geometryShader.m_path[0])
 	{
-		gsCode = loadShaderFile(createInfo.m_geometryShader.m_path);
+		gsCode = loadShaderFile(createInfo.m_geometryShader.m_path, &gsCodeSize);
 	}
 	if (createInfo.m_pixelShader.m_path[0])
 	{
-		psCode = loadShaderFile(createInfo.m_pixelShader.m_path);
+		psCode = loadShaderFile(createInfo.m_pixelShader.m_path, &psCodeSize);
 	}
 
 	// create root signature from reflection data
@@ -65,16 +74,16 @@ gal::GraphicsPipelineDx12::GraphicsPipelineDx12(ID3D12Device *device, const Grap
 
 	// shaders
 	{
-		stateDesc.VS.pShaderBytecode = vsCode.data();
-		stateDesc.VS.BytecodeLength = vsCode.size();
-		stateDesc.PS.pShaderBytecode = psCode.data();
-		stateDesc.PS.BytecodeLength = psCode.size();
-		stateDesc.DS.pShaderBytecode = dsCode.data();
-		stateDesc.DS.BytecodeLength = dsCode.size();
-		stateDesc.HS.pShaderBytecode = hsCode.data();
-		stateDesc.HS.BytecodeLength = hsCode.size();
-		stateDesc.GS.pShaderBytecode = gsCode.data();
-		stateDesc.GS.BytecodeLength = gsCode.size();
+		stateDesc.VS.pShaderBytecode = vsCode;
+		stateDesc.VS.BytecodeLength = vsCodeSize;
+		stateDesc.PS.pShaderBytecode = psCode;
+		stateDesc.PS.BytecodeLength = psCodeSize;
+		stateDesc.DS.pShaderBytecode = dsCode;
+		stateDesc.DS.BytecodeLength = dsCodeSize;
+		stateDesc.HS.pShaderBytecode = hsCode;
+		stateDesc.HS.BytecodeLength = hsCodeSize;
+		stateDesc.GS.pShaderBytecode = gsCode;
+		stateDesc.GS.BytecodeLength = gsCodeSize;
 	}
 
 	// stream output
@@ -259,15 +268,16 @@ gal::ComputePipelineDx12::ComputePipelineDx12(ID3D12Device *device, const Comput
 	m_rootSignature(),
 	m_descriptorTableOffset()
 {
-	std::vector<char> csCode = loadShaderFile(createInfo.m_computeShader.m_path);
+	size_t csCodeSize = 0;
+	char *csCode = loadShaderFile(createInfo.m_computeShader.m_path, &csCodeSize);
 
 	// create root signature
 	m_rootSignature = createRootSignature(device, false, m_rootDescriptorSetIndex, m_rootDescriptorCount, m_descriptorTableOffset, createInfo.m_layoutCreateInfo);
 
 	D3D12_COMPUTE_PIPELINE_STATE_DESC stateDesc{};
 	stateDesc.pRootSignature = m_rootSignature;
-	stateDesc.CS.pShaderBytecode = csCode.data();
-	stateDesc.CS.BytecodeLength = csCode.size();
+	stateDesc.CS.pShaderBytecode = csCode;
+	stateDesc.CS.BytecodeLength = csCodeSize;
 	stateDesc.NodeMask = 0;
 	stateDesc.CachedPSO.pCachedBlob = nullptr;
 	stateDesc.CachedPSO.CachedBlobSizeInBytes = 0;
@@ -313,12 +323,12 @@ void gal::ComputePipelineDx12::getRootDescriptorInfo(uint32_t &setIndex, uint32_
 	descriptorCount = m_rootDescriptorCount;
 }
 
-static std::vector<char> loadShaderFile(const char *filename)
+static char *loadShaderFile(const char *filename, size_t *shaderFileSize)
 {
 	char path[ShaderStageCreateInfo::MAX_PATH_LENGTH + 6];
 	strcpy_s(path, filename);
 	strcat_s(path, ".dxil");
-	return util::readBinaryFile(path);
+	return util::readBinaryFile(path, shaderFileSize);
 }
 
 

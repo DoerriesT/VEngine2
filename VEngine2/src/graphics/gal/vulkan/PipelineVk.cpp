@@ -407,10 +407,11 @@ static void createShaderStage(VkDevice device, const ShaderStageCreateInfo &stag
 	char path[gal::ShaderStageCreateInfo::MAX_PATH_LENGTH + 5];
 	strcpy_s(path, stageDesc.m_path);
 	strcat_s(path, ".spv");
-	std::vector<char> code = util::readBinaryFile(path);
+	size_t codeSize = 0;
+	char *code = util::readBinaryFile(path, &codeSize);
 	VkShaderModuleCreateInfo createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-	createInfo.codeSize = code.size();
-	createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
+	createInfo.codeSize = codeSize;
+	createInfo.pCode = reinterpret_cast<const uint32_t *>(code);
 
 	gal::UtilityVk::checkResult(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module!");
 
