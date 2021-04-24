@@ -2,13 +2,14 @@
 #include <EASTL/atomic.h>
 #include "UUID.h"
 #include <assert.h>
+#include "utility/StringID.h"
 
 #ifdef ERROR
 #undef ERROR
 #endif
 
 typedef TUUID AssetType;
-typedef TUUID AssetID;
+typedef StringID AssetID;
 
 enum class AssetStatus : uint32_t
 {
@@ -43,10 +44,14 @@ class Asset
 {
 public:
 	Asset(AssetData *assetData = nullptr) noexcept;
-	Asset(const Asset &other) noexcept;
-	Asset(Asset &&other) noexcept;
-	Asset &operator=(const Asset &other) noexcept;
-	Asset &operator=(Asset &&other) noexcept;
+	template<typename T1>
+	Asset(const Asset<T1> &other) noexcept;
+	template<typename T1>
+	Asset(Asset<T1> &&other) noexcept;
+	template<typename T1>
+	Asset &operator=(const Asset<T1> &other) noexcept;
+	template<typename T1>
+	Asset &operator=(Asset<T1> &&other) noexcept;
 	~Asset() noexcept;
 	bool release() noexcept;
 	T *get() const noexcept;
@@ -68,9 +73,10 @@ inline Asset<T>::Asset(AssetData *assetData) noexcept
 }
 
 template<typename T>
-inline Asset<T>::Asset(const Asset<T> &other) noexcept
+template<typename T1>
+inline Asset<T>::Asset(const Asset<T1> &other) noexcept
 {
-	m_assetData = other.m_assetData;
+	m_assetData = other.get();
 	if (m_assetData)
 	{
 		m_assetData->acquire();
@@ -78,9 +84,10 @@ inline Asset<T>::Asset(const Asset<T> &other) noexcept
 }
 
 template<typename T>
-inline Asset<T>::Asset(Asset<T> &&other) noexcept
+template<typename T1>
+inline Asset<T>::Asset(Asset<T1> &&other) noexcept
 {
-	m_assetData = other.m_assetData;
+	m_assetData = other.get();
 	if (m_assetData)
 	{
 		m_assetData->acquire();
@@ -88,13 +95,14 @@ inline Asset<T>::Asset(Asset<T> &&other) noexcept
 }
 
 template<typename T>
-inline Asset<T> &Asset<T>::operator=(const Asset<T> &other) noexcept
+template<typename T1>
+inline Asset<T> &Asset<T>::operator=(const Asset<T1> &other) noexcept
 {
 	if (&other != this)
 	{
 		release();
 
-		m_assetData = other.m_assetData;
+		m_assetData = other.get();
 		
 		if (m_assetData)
 		{
@@ -104,13 +112,14 @@ inline Asset<T> &Asset<T>::operator=(const Asset<T> &other) noexcept
 }
 
 template<typename T>
-inline Asset<T> &Asset<T>::operator=(Asset<T> &&other) noexcept
+template<typename T1>
+inline Asset<T> &Asset<T>::operator=(Asset<T1> &&other) noexcept
 {
 	if (&other != this)
 	{
 		release();
 
-		m_assetData = other.m_assetData;
+		m_assetData = other.get();
 
 		if (m_assetData)
 		{

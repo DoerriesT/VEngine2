@@ -32,7 +32,7 @@ AssetStatus AssetData::getAssetStatus() const noexcept
 	return static_cast<AssetStatus>(m_assetStatus.load());
 }
 
-const TUUID &AssetData::getAssetID() const noexcept
+const AssetID &AssetData::getAssetID() const noexcept
 {
 	return m_assetID;
 }

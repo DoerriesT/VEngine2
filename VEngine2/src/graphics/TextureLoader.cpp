@@ -79,11 +79,6 @@ bool TextureLoader::load(size_t fileSize, const char *fileData, const char *text
 	upload.m_stagingBuffer = stagingBuffer;
 	upload.m_texture = *image;
 
-	{
-		LOCK_HOLDER(m_uploadDataMutex);
-		m_uploads.push_back(upload);
-	}
-
 	// copy image data to staging buffer
 	upload.m_bufferCopyRegions.reserve(gliTex.levels());
 	{
@@ -142,6 +137,11 @@ bool TextureLoader::load(size_t fileSize, const char *fileData, const char *text
 		}
 
 		stagingBuffer->unmap();
+	}
+
+	{
+		LOCK_HOLDER(m_uploadDataMutex);
+		m_uploads.push_back(eastl::move(upload));
 	}
 
 	return true;

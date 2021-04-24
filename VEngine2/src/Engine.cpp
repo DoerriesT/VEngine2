@@ -14,6 +14,8 @@
 #include "input/ImGuiInputAdapter.h"
 #include "asset/AssetManager.h"
 #include "asset/TextureAssetHandler.h"
+#include "asset/TextureAsset.h"
+#include "utility/Utility.h"
 
 namespace
 {
@@ -148,12 +150,14 @@ int Engine::start(int argc, char *argv[])
 
 	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_userInput = new UserInput(*m_window);
-	m_assetManager = new AssetManager();
+	AssetManager::init();
 
-	TextureAssetHandler::init(m_assetManager, m_renderer);
+	TextureAssetHandler::init(AssetManager::get(), m_renderer);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
+
+	//auto tex = AssetManager::get()->getAsset<TextureAssetData>(SID("textures/uv_grid_small.dds"));
 
 	bool grabbedMouse = false;
 	glm::vec2 mouseHistory{};
@@ -258,6 +262,10 @@ int Engine::start(int argc, char *argv[])
 
 		ImGui::ShowDemoWindow();
 
+		//ImGui::Begin("Tex Test");
+		//ImGui::Image(m_renderer->getImGuiTextureID(tex->getTextureHandle()), ImVec2(256.0f, 256.0f));
+		//ImGui::End();
+
 		ImGui::Render();
 
 		camera.setAspectRatio(m_window->getWidth() / (float)m_window->getHeight());
@@ -267,10 +275,12 @@ int Engine::start(int argc, char *argv[])
 		m_renderer->render(&viewMatrix[0][0], &projMatrix[0][0], &pos[0]);
 	}
 
-	delete m_window;
-	m_window = nullptr;
+	//tex.release();
+	TextureAssetHandler::shutdown();
+	AssetManager::shutdown();
+	delete m_userInput;
 	delete m_renderer;
-	m_renderer = nullptr;
+	delete m_window;
 
 	return 0;
 }

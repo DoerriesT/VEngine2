@@ -17,7 +17,10 @@ void AssetManager::shutdown()
 {
 	assert(s_instance);
 
-	Log::warn(("AssetManager still had " + std::to_string(s_instance->m_assetMap.size()) + " assets loaded when shutdown() was called!").c_str());
+	if (!s_instance->m_assetMap.empty())
+	{
+		Log::warn(("AssetManager still had " + std::to_string(s_instance->m_assetMap.size()) + " assets loaded when shutdown() was called!").c_str());
+	}
 
 	// unload all remaining assets
 	for (auto p : s_instance->m_assetMap)
@@ -69,24 +72,7 @@ Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType 
 		// couldnt find asset -> try to load from disk
 		Log::info("Loading asset.");
 
-		const char *assetPath = nullptr;
 		AssetHandler *handler = nullptr;
-
-		// try to find asset path
-		{
-			LOCK_HOLDER(m_assetPathMutex);
-
-			auto assetPathIt = m_assetIDToPath.find(assetID);
-
-			// failed to find asset path
-			if (assetPathIt == m_assetIDToPath.end())
-			{
-				Log::warn("Could not find asset path!");
-				return nullptr;
-			}
-
-			assetPath = assetPathIt->second;
-		}
 
 		// try to find asset handler
 		{
@@ -105,7 +91,7 @@ Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType 
 		}
 
 		// load asset
-		AssetData *assetData = handler->createAsset(assetID, assetType);
+		assetData = handler->createAsset(assetID, assetType);
 
 		if (!assetData)
 		{
@@ -113,7 +99,7 @@ Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType 
 			return nullptr;
 		}
 
-		if (!handler->loadAssetData(assetData, assetPath))
+		if (!handler->loadAssetData(assetData, (std::string("assets/") + assetID.m_string).c_str()))
 		{
 			handler->destroyAsset(assetID, assetType, assetData);
 			Log::warn("Failed to load asset!");
@@ -154,7 +140,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 	// remove from map
 	bool erased = false;
 	{
-		LOCK_HOLDER(m_assetPathMutex);
+		LOCK_HOLDER(m_assetMutex);
 		erased = m_assetMap.erase(assetID) >= 1;
 	}
 

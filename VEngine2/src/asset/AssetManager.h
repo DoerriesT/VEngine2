@@ -24,17 +24,16 @@ public:
 
 private:
 	static AssetManager *s_instance;
-	eastl::hash_map<AssetID, AssetData *, UUIDHash> m_assetMap;
+	eastl::hash_map<AssetID, AssetData *, StringIDHash> m_assetMap;
 	eastl::hash_map<AssetType, AssetHandler *, UUIDHash> m_assetHandlerMap;
-	eastl::hash_map<AssetID, const char *, UUIDHash> m_assetIDToPath;
 	SpinLock m_assetMutex;
 	SpinLock m_assetHandlerMutex;
-	SpinLock m_assetPathMutex;
+
+	explicit AssetManager() = default;
 };
 
 template<typename T>
 inline Asset<T> AssetManager::getAsset(const AssetID &assetID) noexcept
 {
-	auto asset = getAsset(assetID);
-	return Asset<T>((T*)asset.get(), T::getAssetTypeStatic());
+	return getAsset(assetID, T::k_assetType);
 }

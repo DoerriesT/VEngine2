@@ -264,6 +264,9 @@
     <ClInclude Include="src\asset\TextureAssetHandler.h">
       <Filter>src\asset</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\StringID.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -460,6 +463,9 @@
     </ClCompile>
     <ClCompile Include="src\asset\TextureAssetHandler.cpp">
       <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\StringID.cpp">
+      <Filter>src\utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

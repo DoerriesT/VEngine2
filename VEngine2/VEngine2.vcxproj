@@ -219,6 +219,7 @@
     <ClInclude Include="src\utility\PoolAllocator.h" />
     <ClInclude Include="src\utility\LinearAllocator.h" />
     <ClInclude Include="src\utility\SpinLock.h" />
+    <ClInclude Include="src\utility\StringID.h" />
     <ClInclude Include="src\utility\Timer.h" />
     <ClInclude Include="src\utility\TLSFAllocator.h" />
     <ClInclude Include="src\utility\Utility.h" />
@@ -286,6 +287,7 @@
     <ClCompile Include="src\utility\PoolAllocator.cpp" />
     <ClCompile Include="src\utility\LinearAllocator.cpp" />
     <ClCompile Include="src\utility\SpinLock.cpp" />
+    <ClCompile Include="src\utility\StringID.cpp" />
     <ClCompile Include="src\utility\Timer.cpp" />
     <ClCompile Include="src\utility\TLSFAllocator.cpp" />
     <ClCompile Include="src\utility\Utility.cpp" />
