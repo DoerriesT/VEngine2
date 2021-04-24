@@ -211,6 +211,12 @@ gal::GraphicsPipelineDx12::GraphicsPipelineDx12(ID3D12Device *device, const Grap
 	stateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	UtilityDx12::checkResult(device->CreateGraphicsPipelineState(&stateDesc, __uuidof(ID3D12PipelineState), (void **)&m_pipeline), "Failed to create pipeline!");
+
+	delete[] vsCode;
+	delete[] dsCode;
+	delete[] hsCode;
+	delete[] gsCode;
+	delete[] psCode;
 }
 
 gal::GraphicsPipelineDx12::~GraphicsPipelineDx12()
@@ -284,6 +290,8 @@ gal::ComputePipelineDx12::ComputePipelineDx12(ID3D12Device *device, const Comput
 	stateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	UtilityDx12::checkResult(device->CreateComputePipelineState(&stateDesc, __uuidof(ID3D12PipelineState), (void **)&m_pipeline), "Failed to create pipeline!");
+
+	delete[] csCode;
 }
 
 gal::ComputePipelineDx12::~ComputePipelineDx12()

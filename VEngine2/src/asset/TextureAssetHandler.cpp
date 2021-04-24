@@ -57,6 +57,8 @@ bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) 
 
 	TextureHandle textureHandle = m_renderer->loadTexture(fileSize, fileData, path);
 
+	delete[] fileData;
+
 	if (!textureHandle)
 	{
 		Log::warn("TextureAssetHandler: Failed to load texture asset!");

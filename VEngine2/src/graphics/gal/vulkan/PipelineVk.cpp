@@ -415,6 +415,8 @@ static void createShaderStage(VkDevice device, const ShaderStageCreateInfo &stag
 
 	gal::UtilityVk::checkResult(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule), "Failed to create shader module!");
 
+	delete[] code;
+
 	stageCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 	stageCreateInfo.stage = stageFlag;
 	stageCreateInfo.module = shaderModule;
