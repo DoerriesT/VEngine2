@@ -37,6 +37,9 @@
     <Filter Include="src\graphics\imgui">
       <UniqueIdentifier>{7a56cc2f-1810-4e5e-becc-87dc916eacbe}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\ecs">
+      <UniqueIdentifier>{12545f50-0b48-47a8-9b9d-34b1304acbe5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -267,6 +270,9 @@
     <ClInclude Include="src\utility\StringID.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\ecs\ECS.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -466,6 +472,9 @@
     </ClCompile>
     <ClCompile Include="src\utility\StringID.cpp">
       <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ecs\ECS.cpp">
+      <Filter>src\ecs</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

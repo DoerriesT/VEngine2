@@ -3,6 +3,9 @@
 #include <EASTL/bitset.h>
 #include <EASTL/functional.h>
 #include <EASTL/hash_map.h>
+#include <assert.h>
+
+struct Archetype;
 
 constexpr size_t k_ecsMaxComponentTypes = 64;
 constexpr size_t k_ecsComponentsPerMemoryChunk = 1024;
@@ -10,7 +13,31 @@ constexpr size_t k_ecsComponentsPerMemoryChunk = 1024;
 using IDType = uint64_t;
 using EntityID = IDType;
 using ComponentID = IDType;
-using ArchetypeMask = eastl::bitset<k_ecsMaxComponentTypes>;
+using ComponentMask = eastl::bitset<k_ecsMaxComponentTypes>;
+
+template<typename T>
+void componentDefaultConstruct(void *mem) noexcept
+{
+	new (mem) T();
+}
+
+template<typename T>
+void componentDestructor(void *mem) noexcept
+{
+	reinterpret_cast<T *>(mem)->~T();
+}
+
+template<typename T>
+void componentMove(void *destination, void *source) noexcept
+{
+	new (destination) T(eastl::move(*reinterpret_cast<T *>(source)));
+}
+
+template<typename T>
+void componentAssign(void *destination, void *source) noexcept
+{
+	*reinterpret_cast<T *>(destination) = *reinterpret_cast<const T *>(source);
+}
 
 static IDType m_idCount;
 
@@ -25,9 +52,22 @@ struct ComponentInfo
 {
 	size_t m_size = 0;
 	size_t m_alignment = 0;
-	void (*defaultConstruct)(void *mem);
-	void (*destructor)();
-	void (*move)(void *oldMemory, void *newMemory);
+	void (*defaultConstruct)(void *mem) = nullptr;
+	void (*destructor)(void *mem) = nullptr;
+	void (*move)(void *destination, void *source) = nullptr;
+	void (*assign)(void *destination, void *source) = nullptr;
+};
+
+struct ArchetypeSlot
+{
+	uint32_t m_chunkIdx = 0;
+	uint32_t m_chunkSlotIdx = 0;
+};
+
+struct EntityRecord
+{
+	Archetype *m_archetype = nullptr;
+	ArchetypeSlot m_slot = {};
 };
 
 struct ArchetypeMemoryChunk
@@ -38,34 +78,19 @@ struct ArchetypeMemoryChunk
 
 struct Archetype
 {
-	ArchetypeMask m_componentMask = {};
+	ComponentMask m_componentMask = {};
+	const ComponentInfo *m_componentInfo = nullptr;
+	size_t m_memoryChunkSize = 0;
 	eastl::vector<ArchetypeMemoryChunk> m_memoryChunks;
 	eastl::vector<size_t> m_componentArrayOffsets;
-	Archetype *m_addComponentEdges[k_ecsMaxComponentTypes] = {}; // index with ComponentID
-	Archetype *m_removeComponentEdges[k_ecsMaxComponentTypes] = {}; // index with ComponentID
 
-	template<typename T>
-	inline size_t getComponentArrayOffset() noexcept
-	{
-		const auto componentID = getID<T>;
-		size_t lastFoundComponentID = componentID;
-		size_t numPrevComponents = 0;
-		while (lastFoundComponentID != k_ecsMaxComponentTypes)
-		{
-			lastFoundComponentID = m_componentMask.DoFindPrev(lastFoundComponentID);
-			++numPrevComponents;
-		}
-
-		return m_componentArrayOffsets[numPrevComponents - 1];
-	}
-
-	explicit Archetype(Archetype *parent, ComponentID componentID, size_t additionalTypeSize, size_t additionalTypeAlignment) noexcept;
-};
-
-struct EntityRecord
-{
-	Archetype *m_archetype = nullptr;
-	size_t m_index = 0;
+	explicit Archetype(const ComponentMask &componentMask, const ComponentInfo *componentInfo) noexcept;
+	size_t getComponentArrayOffset(ComponentID componentID) noexcept;
+	ArchetypeSlot allocateDataSlot() noexcept;
+	void freeDataSlot(const ArchetypeSlot &slot) noexcept;
+	EntityRecord migrate(EntityID entity, const EntityRecord &oldRecord, bool skipConstructorOfComponent = false, ComponentID componentToSkipConstructor = 0) noexcept;
+	uint8_t *getComponent(const ArchetypeSlot &slot, ComponentID componentID) noexcept;
+	void forEachComponentType(const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept;
 };
 
 class ECS
@@ -78,11 +103,14 @@ public:
 	};
 
 	EntityID createEntity() noexcept;
-	void destroyEntity() noexcept;
+	void destroyEntity(EntityID entity) noexcept;
+
+	template<typename T>
+	void registerComponent() noexcept;
 
 	template<typename T, typename ...Args>
 	inline T &addComponent(EntityID entity, Args &&...args) noexcept;
-	
+
 	template<typename T>
 	inline bool removeComponent(EntityID entity) noexcept;
 
@@ -96,45 +124,167 @@ public:
 	inline void iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func);
 
 private:
-
+	EntityID m_nextFreeEntityId = 1;
 	eastl::vector<Archetype *> m_archetypes;
 	eastl::hash_map<EntityID, EntityRecord> m_entityRecords;
-	Archetype *m_addComponentRootEdges[k_ecsMaxComponentTypes] = {}; // index with ComponentID
 	ComponentInfo m_componentInfo[k_ecsMaxComponentTypes] = {};
 };
 
-template<typename T, typename ...Args>
-inline T &ECS::addComponent(EntityID entity, Args && ...args) noexcept
+template<typename T>
+inline void ECS::registerComponent() noexcept
 {
-	EntityRecord &record = m_entityRecords[entity];
-	ComponentID componentID = getID<T>;
+	ComponentInfo info{};
+	info.m_size = sizeof(T);
+	info.m_alignment = alignof(T);
+	info.defaultConstruct = componentDefaultConstruct<T>;
+	info.destructor = componentDestructor<T>;
+	info.move = componentMove<T>;
+	info.assign = componentAssign<T>;
 
-	auto &addComponentEdgeMap = record.m_archetype ? record.m_archetype->m_addComponentEdges : m_addComponentRootEdges;
+	m_componentInfo[getID<T>()] = info;
+}
 
-	Archetype *newArchetype = addComponentEdgeMap[componentID];
+template<typename T, typename ...Args>
+inline T &ECS::addComponent(EntityID entity, Args &&...args) noexcept
+{
+	const ComponentID componentID = getID<T>();
 
-	if (!newArchetype)
+	// assert that the component was registered
+	assert(m_componentInfo[componentID].defaultConstruct);
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	
+	EntityRecord &entityRecord = m_entityRecords[entity];
+
+	T *newComponent = nullptr;
+
+	// component already exists
+	if (entityRecord.m_archetype && entityRecord.m_archetype->m_componentMask[componentID])
 	{
-		addComponentEdgeMap
+		newComponent = (T *)entityRecord.m_archetype->getComponent(entityRecord.m_slot, componentID);
+	}
+	else
+	{
+		ComponentMask newMask = entityRecord.m_archetype ? entityRecord.m_archetype->m_componentMask : 0;
+		newMask.set(componentID, true);
+
+		// find archetype
+		Archetype *newArchetype = nullptr;
+		for (auto &atPtr : m_archetypes)
+		{
+			if (atPtr->m_componentMask == newMask)
+			{
+				newArchetype = atPtr;
+				break;
+			}
+		}
+
+		// create new archetype
+		if (!newArchetype)
+		{
+			newArchetype = new Archetype(newMask, m_componentInfo);
+			m_archetypes.push_back(newArchetype);
+		}
+
+		// migrate to new archetype
+		entityRecord = newArchetype->migrate(entity, entityRecord, true, componentID);
+		newComponent = (T*)newArchetype->getComponent(entityRecord.m_slot, componentID);
 	}
 
-	// entity has no components
-	if (!record.m_archetype)
-	{
+	*newComponent = T(eastl::forward<Args>(args)...);
+	return *newComponent;
+}
 
+template<typename T>
+inline bool ECS::removeComponent(EntityID entity) noexcept
+{
+	const ComponentID componentID = getID<T>();
+
+	// assert that the component was registered
+	assert(m_componentInfo[componentID].defaultConstruct);
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	EntityRecord &entityRecord = m_entityRecords[entity];
+
+	T *newComponent = nullptr;
+
+	// entity does not have this component
+	if (!entityRecord.m_archetype || !entityRecord.m_archetype->m_componentMask[componentID])
+	{
+		return false;
 	}
+	else
+	{
+		ComponentMask newMask = entityRecord.m_archetype->m_componentMask;
+		newMask.set(componentID, false);
+
+		// find archetype
+		Archetype *newArchetype = nullptr;
+		for (auto &atPtr : m_archetypes)
+		{
+			if (atPtr->m_componentMask == newMask)
+			{
+				newArchetype = atPtr;
+				break;
+			}
+		}
+
+		// create new archetype
+		if (!newArchetype)
+		{
+			newArchetype = new Archetype(newMask, m_componentInfo);
+			m_archetypes.push_back(newArchetype);
+		}
+
+		// migrate to new archetype
+		entityRecord = newArchetype->migrate(entity, entityRecord);
+
+		return true;
+	}
+}
+
+template<typename T>
+inline T *ECS::getComponent(EntityID entity) noexcept
+{
+	const ComponentID componentID = getID<T>();
+
+	// assert that the component was registered
+	assert(m_componentInfo[componentID].defaultConstruct);
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	auto record = m_entityRecords[entity];
+
+	if (record.m_archetype)
+	{
+		return (T *)record.m_archetype->getComponent(record.m_slot, componentID);
+	}
+
+	return nullptr;
+}
+
+template<typename T>
+inline bool ECS::hasComponent(EntityID entity) noexcept
+{
+	const ComponentID componentID = getID<T>();
+
+	// assert that the component was registered
+	assert(m_componentInfo[componentID].defaultConstruct);
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	auto record = m_entityRecords[entity];
+	return record.m_archetype && record.m_archetype->m_componentMask[componentID];
 }
 
 template<typename ...T>
 inline void ECS::iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func)
 {
 	// build search mask
-	ArchetypeMask searchMask;
+	ComponentMask searchMask = 0;
 
-	IDType ids[] = { (getID<T>())... };
-	for (id : ids)
+	IDType ids[sizeof...(T)] = { (getID<T>())... };
+	
+	for (size_t j = 0; j < sizeof...(T); ++j)
 	{
-		searchMask.set(id, true);
+		searchMask.set(ids[j], true);
 	}
 
 	// search through all archetypes and look for matching masks
@@ -148,7 +298,7 @@ inline void ECS::iterate(const typename Identity<eastl::function<void(size_t, co
 			{
 				if (chunk.m_size > 0)
 				{
-					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(chunk.m_memory + at.getComponentArrayOffset<T>()))...);
+					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(chunk.m_memory + at.getComponentArrayOffset(getID<T>())))...);
 				}
 			}
 		}
