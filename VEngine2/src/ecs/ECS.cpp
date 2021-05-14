@@ -1,5 +1,8 @@
 #include "ECS.h"
 #include <assert.h>
+#include "utility/Utility.h"
+
+ComponentID ComponentIDGenerator::m_idCount = 0;
 
 Archetype::Archetype(const ComponentMask &componentMask, const ComponentInfo *componentInfo) noexcept
 	:m_componentMask(componentMask),
@@ -16,6 +19,7 @@ Archetype::Archetype(const ComponentMask &componentMask, const ComponentInfo *co
 	forEachComponentType([this](size_t index, ComponentID componentID)
 		{
 			const auto &compInfo = m_componentInfo[componentID];
+			m_memoryChunkSize = util::alignPow2Up<size_t>(m_memoryChunkSize, compInfo.m_alignment);
 			m_componentArrayOffsets.push_back(m_memoryChunkSize);
 			m_memoryChunkSize += compInfo.m_size * k_ecsComponentsPerMemoryChunk;
 		});
@@ -74,15 +78,15 @@ void Archetype::freeDataSlot(const ArchetypeSlot &slot) noexcept
 			uint8_t *lastComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * (chunk.m_size - 1);
 
 			// call destructor on to be freed element
-			compInfo.destructor(freedComp);
+			compInfo.m_destructor(freedComp);
 
 			if (freedComp != lastComp)
 			{
 				// move last element into free slot
-				compInfo.move(freedComp, lastComp);
+				compInfo.m_moveConstructor(freedComp, lastComp);
 
 				// call destructor on last element
-				compInfo.destructor(lastComp);
+				compInfo.m_destructor(lastComp);
 			}
 		});
 
@@ -93,8 +97,13 @@ void Archetype::freeDataSlot(const ArchetypeSlot &slot) noexcept
 	--chunk.m_size;
 }
 
-EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, bool skipConstructorOfComponent, ComponentID componentToSkipConstructor) noexcept
+EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, bool skipConstructorOfMissingComponents) noexcept
 {
+	if (oldRecord.m_archetype == this)
+	{
+		return oldRecord;
+	}
+
 	const auto slot = allocateDataSlot();
 	const size_t chunkIdx = slot.m_chunkIdx;
 	const size_t chunkSlotIdx = slot.m_chunkSlotIdx;
@@ -110,11 +119,6 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 	// iterate over all components in this archetype and initialize them
 	forEachComponentType([&](size_t index, ComponentID componentID)
 		{
-			if (skipConstructorOfComponent && componentID == componentToSkipConstructor)
-			{
-				return;
-			}
-
 			const auto &compInfo = m_componentInfo[componentID];
 
 			uint8_t *newComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * chunkSlotIdx;
@@ -123,12 +127,12 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 			if (oldRecord.m_archetype && oldRecord.m_archetype->m_componentMask[componentID])
 			{
 				uint8_t *oldComp = oldChunk->m_memory + oldRecord.m_archetype->getComponentArrayOffset(componentID) + compInfo.m_size * oldChunkSlotIdx;
-				compInfo.move(newComp, oldComp);
+				compInfo.m_moveConstructor(newComp, oldComp);
 			}
 			// old archetype does not share this component -> default construct it
-			else
+			else if (!skipConstructorOfMissingComponents)
 			{
-				compInfo.defaultConstruct(newComp);
+				compInfo.m_defaultConstructor(newComp);
 			}
 		});
 
@@ -147,7 +151,7 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 	return newRecord;
 }
 
-uint8_t *Archetype::getComponent(const ArchetypeSlot &slot, ComponentID componentID) noexcept
+uint8_t *Archetype::getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) noexcept
 {
 	if (!m_componentMask[componentID] || slot.m_chunkIdx >= m_memoryChunks.size() || slot.m_chunkSlotIdx >= m_memoryChunks[slot.m_chunkIdx].m_size)
 	{
@@ -188,4 +192,175 @@ void ECS::destroyEntity(EntityID entity) noexcept
 		// delete entity
 		m_entityRecords.erase(it);
 	}
+}
+
+EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const*componentData, ComponentConstructorType constructorType) noexcept
+{
+	EntityID entityID = m_nextFreeEntityId++;
+
+	if (componentCount == 0)
+	{
+		m_entityRecords[entityID] = {};
+		return entityID;
+	}
+
+	// build component mask
+	ComponentMask compMask = 0;
+
+	for (size_t j = 0; j < componentCount; ++j)
+	{
+		compMask.set(componentIDs[j], true);
+	}
+
+	// find archetype
+	Archetype *archetype = findOrCreateArchetype(compMask);
+
+	// allocate slot for entity
+	auto slot = archetype->allocateDataSlot();
+
+	switch (constructorType)
+	{
+	case ECS::ComponentConstructorType::DEFAULT:
+	{
+		for (size_t j = 0; j < componentCount; ++j)
+		{
+			m_componentInfo[componentIDs[j]].m_defaultConstructor(archetype->getComponentMemory(slot, componentIDs[j]));
+		}
+		break;
+	}
+	case ECS::ComponentConstructorType::COPY:
+	{
+		for (size_t j = 0; j < componentCount; ++j)
+		{
+			m_componentInfo[componentIDs[j]].m_copyConstructor(archetype->getComponentMemory(slot, componentIDs[j]), componentData[j]);
+		}
+		break;
+	}
+	case ECS::ComponentConstructorType::MOVE:
+	{
+		for (size_t j = 0; j < componentCount; ++j)
+		{
+			// const_cast is legal assuming that componentData is an array of non-const void * in the move constructor case
+			m_componentInfo[componentIDs[j]].m_moveConstructor(archetype->getComponentMemory(slot, componentIDs[j]), const_cast<void *>(componentData[j]));
+		}
+		break;
+	}
+	default:
+		assert(false);
+		break;
+	}
+	
+
+	EntityRecord record{};
+	record.m_archetype = archetype;
+	record.m_slot = slot;
+
+	m_entityRecords[entityID] = record;
+
+	return entityID;
+}
+
+void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept
+{
+	assert(componentCount > 0);
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	EntityRecord &entityRecord = m_entityRecords[entity];
+
+	// build new component mask
+	ComponentMask oldMask = entityRecord.m_archetype ? entityRecord.m_archetype->m_componentMask : 0;
+	ComponentMask newMask = oldMask;
+
+	for (size_t j = 0; j < componentCount; ++j)
+	{
+		newMask.set(componentIDs[j], true);
+	}
+
+	const bool allComponentsPresent = oldMask == newMask;
+	Archetype *newArchetype = allComponentsPresent ? entityRecord.m_archetype : findOrCreateArchetype(newMask);
+	if (!allComponentsPresent)
+	{
+		entityRecord = newArchetype->migrate(entity, entityRecord, true);
+	}
+
+	switch (constructorType)
+	{
+	case ECS::ComponentConstructorType::DEFAULT:
+	{
+		for (size_t j = 0; j < componentCount; ++j)
+		{
+			auto *componentMem = newArchetype->getComponentMemory(entityRecord.m_slot, componentIDs[j]);
+
+			// component was present in old archetype and moved into new one during migration:
+			// call destructor to ensure clean default construction
+			if (oldMask[componentIDs[j]])
+			{
+				m_componentInfo[componentIDs[j]].m_destructor(componentMem);
+			}
+			m_componentInfo[componentIDs[j]].m_defaultConstructor(componentMem);
+		}
+		break;
+	}
+	case ECS::ComponentConstructorType::COPY:
+	{
+		for (size_t j = 0; j < componentCount; ++j)
+		{
+			auto *componentMem = newArchetype->getComponentMemory(entityRecord.m_slot, componentIDs[j]);
+
+			// component was present in old archetype and moved into new one during migration:
+			// call destructor to ensure clean default construction
+			if (oldMask[componentIDs[j]])
+			{
+				m_componentInfo[componentIDs[j]].m_destructor(componentMem);
+			}
+			m_componentInfo[componentIDs[j]].m_copyConstructor(componentMem, componentData[j]);
+		}
+		break;
+	}
+	case ECS::ComponentConstructorType::MOVE:
+	{
+		for (size_t j = 0; j < componentCount; ++j)
+		{
+			auto *componentMem = newArchetype->getComponentMemory(entityRecord.m_slot, componentIDs[j]);
+
+			// component was present in old archetype and moved into new one during migration:
+			// call destructor to ensure clean default construction
+			if (oldMask[componentIDs[j]])
+			{
+				m_componentInfo[componentIDs[j]].m_destructor(componentMem);
+			}
+			// const_cast is legal assuming that componentData is an array of non-const void * in the move constructor case
+			m_componentInfo[componentIDs[j]].m_moveConstructor(componentMem, const_cast<void *>(componentData[j]));
+		}
+		break;
+	}
+	default:
+		assert(false);
+		break;
+	}
+}
+
+Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
+{
+	assert(mask.any());
+
+	// find archetype
+	Archetype *archetype = nullptr;
+	for (auto &atPtr : m_archetypes)
+	{
+		if (atPtr->m_componentMask == mask)
+		{
+			archetype = atPtr;
+			break;
+		}
+	}
+
+	// create new archetype
+	if (!archetype)
+	{
+		archetype = new Archetype(mask, m_componentInfo);
+		m_archetypes.push_back(archetype);
+	}
+
+	return archetype;
 }

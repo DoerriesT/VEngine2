@@ -40,13 +40,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -282,7 +282,6 @@
     <ClCompile Include="src\input\ImGuiInputAdapter.cpp" />
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
-    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\HandleManager.cpp" />
