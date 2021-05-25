@@ -43,6 +43,14 @@ struct TUUID
 	static TUUID createRandom() noexcept;
 
 	/// <summary>
+	/// Combines two UUIDs to create a new one.
+	/// </summary>
+	/// <param name="lhs">The first UUID to combine.</param>
+	/// <param name="rhs">The second UUID to combine.</param>
+	/// <returns>The result of combining both UUIDs.</returns>
+	inline static constexpr TUUID combine(const TUUID &lhs, const TUUID &rhs) noexcept;
+
+	/// <summary>
 	/// Converts UUID to string representation.
 	/// </summary>
 	/// <param name="str">[In/Out] Pointer to a char array with it least 37 elements. Will contain the resulting null-terminated string</param>
@@ -63,6 +71,7 @@ private:
 	inline static constexpr uint8_t hexToNumber(char c) noexcept;
 	inline static constexpr char numberToHex(uint8_t n) noexcept;
 	inline static constexpr uint8_t processByte(char c0, char c1, bool &valid) noexcept;
+	inline static constexpr void setVariant(uint8_t *data) noexcept;
 };
 
 /// <summary>
@@ -124,7 +133,15 @@ constexpr uint8_t TUUID::processByte(char c0, char c1, bool &valid) noexcept
 	c1 = toLower(c1);
 
 	return (hexToNumber(c0) << 4) | hexToNumber(c1);
-};
+}
+
+inline constexpr void TUUID::setVariant(uint8_t *data) noexcept
+{
+	data[6] &= 0x0F; // clear version
+	data[6] |= 0x40; // set to version 4
+	data[7] &= 0x3F; // clear variant
+	data[7] |= 0x80; // set to IETF variant
+}
 
 constexpr TUUID::TUUID(const char *str) noexcept
 	:m_data()
@@ -161,6 +178,10 @@ constexpr TUUID::TUUID(const char *str) noexcept
 		m_data64[1] = 0;
 		// memset(m_data, 0, 16); // not constexpr
 	}
+	else
+	{
+		setVariant(m_data);
+	}
 }
 
 constexpr TUUID::TUUID(const uint8_t *data) noexcept
@@ -171,6 +192,22 @@ constexpr TUUID::TUUID(const uint8_t *data) noexcept
 		m_data[i] = data[i];
 	}
 	// memcpy(m_data, data, 16); // not constexpr
+
+	setVariant(m_data);
+}
+
+inline constexpr TUUID TUUID::combine(const TUUID &lhs, const TUUID &rhs) noexcept
+{
+	union
+	{
+		uint64_t data[2] = {};
+		uint8_t data8[16];
+	} u;
+	
+	u.data[0] = lhs.m_data64[0] ^ (rhs.m_data64[0] + 0x9e3779b9 + (lhs.m_data64[0] << 6) + (lhs.m_data64[0] >> 2));
+	u.data[1] = lhs.m_data64[1] ^ (rhs.m_data64[1] + 0x9e3779b9 + (lhs.m_data64[1] << 6) + (lhs.m_data64[1] >> 2));
+
+	return TUUID(u.data8);
 }
 
 constexpr void TUUID::toString(char *str) const noexcept

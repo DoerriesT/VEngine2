@@ -155,6 +155,7 @@
     <ClInclude Include="src\asset\TextureAsset.h" />
     <ClInclude Include="src\asset\TextureAssetHandler.h" />
     <ClInclude Include="src\ecs\ECS.h" />
+    <ClInclude Include="src\ecs\ECSTypeIDTranslator.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\graphics\BufferStackAllocator.h" />
     <ClInclude Include="src\graphics\gal\dx12\CommandListDx12.h" />
@@ -206,11 +207,14 @@
     <ClInclude Include="src\graphics\TextureManager.h" />
     <ClInclude Include="src\graphics\ViewHandles.h" />
     <ClInclude Include="src\Handles.h" />
+    <ClInclude Include="src\IGameLogic.h" />
     <ClInclude Include="src\input\IInputListener.h" />
     <ClInclude Include="src\input\ImGuiInputAdapter.h" />
     <ClInclude Include="src\input\InputTokens.h" />
     <ClInclude Include="src\input\UserInput.h" />
     <ClInclude Include="src\Log.h" />
+    <ClInclude Include="src\reflection\Reflection.h" />
+    <ClInclude Include="src\reflection\TypeInfo.h" />
     <ClInclude Include="src\task\Fiber.h" />
     <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\ContainerUtility.h" />
@@ -234,6 +238,7 @@
     <ClCompile Include="src\asset\TextureAsset.cpp" />
     <ClCompile Include="src\asset\TextureAssetHandler.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
+    <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\graphics\BufferStackAllocator.cpp" />
     <ClCompile Include="src\graphics\gal\dx12\CommandListDx12.cpp" />

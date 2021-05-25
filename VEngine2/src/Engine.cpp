@@ -16,6 +16,7 @@
 #include "asset/TextureAssetHandler.h"
 #include "asset/TextureAsset.h"
 #include "utility/Utility.h"
+#include "IGameLogic.h"
 
 // these are needed for EASTL
 
@@ -136,8 +137,9 @@ namespace
 	};
 }
 
-int Engine::start(int argc, char *argv[])
+int Engine::start(int argc, char *argv[], IGameLogic *gameLogic)
 {
+	m_gameLogic = gameLogic;
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
 	Timer::init();
 
@@ -175,6 +177,8 @@ int Engine::start(int argc, char *argv[])
 	glm::vec2 mouseHistory{};
 	Camera camera;
 	camera.setPosition(glm::vec3(0.0f, 2.0f, 0.0f));
+
+	m_gameLogic->init(this);
 
 	while (!m_window->shouldClose())
 	{
@@ -278,6 +282,8 @@ int Engine::start(int argc, char *argv[])
 		//ImGui::Image(m_renderer->getImGuiTextureID(tex->getTextureHandle()), ImVec2(256.0f, 256.0f));
 		//ImGui::End();
 
+		m_gameLogic->update(1.0f / 60.0f);
+
 		ImGui::Render();
 
 		camera.setAspectRatio(m_window->getWidth() / (float)m_window->getHeight());
@@ -287,6 +293,7 @@ int Engine::start(int argc, char *argv[])
 		m_renderer->render(&viewMatrix[0][0], &projMatrix[0][0], &pos[0]);
 	}
 
+	m_gameLogic->shutdown();
 	//tex.release();
 	TextureAssetHandler::shutdown();
 	AssetManager::shutdown();

@@ -40,6 +40,9 @@
     <Filter Include="src\ecs">
       <UniqueIdentifier>{12545f50-0b48-47a8-9b9d-34b1304acbe5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\reflection">
+      <UniqueIdentifier>{1f0d0d0d-9364-4098-aa6d-6593b69d20ef}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -273,6 +276,18 @@
     <ClInclude Include="src\ecs\ECS.h">
       <Filter>src\ecs</Filter>
     </ClInclude>
+    <ClInclude Include="src\reflection\Reflection.h">
+      <Filter>src\reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reflection\TypeInfo.h">
+      <Filter>src\reflection</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ecs\ECSTypeIDTranslator.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IGameLogic.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -471,6 +486,9 @@
       <Filter>src\utility</Filter>
     </ClCompile>
     <ClCompile Include="src\ecs\ECS.cpp">
+      <Filter>src\ecs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp">
       <Filter>src\ecs</Filter>
     </ClCompile>
   </ItemGroup>
