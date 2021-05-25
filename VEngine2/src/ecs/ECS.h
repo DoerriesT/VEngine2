@@ -154,6 +154,25 @@ public:
 	inline EntityID createEntity(T &&...components) noexcept;
 
 	/// <summary>
+	/// Creates a new entity with default constructed components as given by the array of ComponentIDs.
+	/// </summary>
+	/// <param name="componentCount">The number of components to add to the new entity.</param>
+	/// <param name="componentIDs">A pointer to an array of ComponentIDs of the components to add to the new entity.</param>
+	/// <returns>The EntityID of the new entity or the null entity if the call failed.</returns>
+	EntityID createEntityTypeless(size_t componentCount, const ComponentID *componentIDs) noexcept;
+
+	/// <summary>
+	/// Creates a new entity with copy constructed components as given by the array of ComponentIDs.
+	/// </summary>
+	/// <param name="componentCount">The number of components to add to the new entity.</param>
+	/// <param name="componentIDs">A pointer to an array of ComponentIDs of the components to add to the new entity.</param>
+	/// <param name="componentData">A pointer to an array of void* where each void* is interpreted as a pointer
+	/// to the component corresponding to the ComponentID in the componentIDs array at the same offset.
+	/// This data is used to copy construct the new components.</param>
+	/// <returns>The EntityID of the new entity or the null entity if the call failed.</returns>
+	EntityID createEntityTypeless(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData) noexcept;
+
+	/// <summary>
 	/// Destroys the given entity, invalidating the EntityID and removing all attached components.
 	/// </summary>
 	/// <param name="entity">The entity to destroy. May be the null entity.</param>
@@ -197,6 +216,25 @@ public:
 	inline void addComponents(EntityID entity, T &&...components) noexcept;
 
 	/// <summary>
+	/// Adds one or more default constructed components to an entity.
+	/// </summary>
+	/// <param name="entity">The entity to add the components to.</param>
+	/// <param name="componentCount">The number of component types to add.</param>
+	/// <param name="componentIDs">A pointer to an array of ComponentIDs to add.</param>
+	void addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
+	
+	/// <summary>
+	/// Adds one or more copy constructed components to an entity.
+	/// </summary>
+	/// <param name="entity">The entity to add the components to.</param>
+	/// <param name="componentCount">The number of component types to add.</param>
+	/// <param name="componentIDs">A pointer to an array of ComponentIDs to add.</param>
+	/// <param name="componentData">A pointer to an array of void* where each void* is interpreted as a pointer
+	/// to the component corresponding to the ComponentID in the componentIDs array at the same offset.
+	/// This data is used to copy construct the new components.</param>
+	void addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData) noexcept;
+
+	/// <summary>
 	/// Removes a single component from the entity.
 	/// </summary>
 	/// <typeparam name="T">The type of the component to remove.</typeparam>
@@ -213,6 +251,15 @@ public:
 	/// <returns>True if any component was removed and false if no component of types ...T is attached to the given entity.</returns>
 	template<typename ...T>
 	inline bool removeComponents(EntityID entity) noexcept;
+
+	/// <summary>
+	/// Removes one or more components from the entity.
+	/// </summary>
+	/// <param name="entity">The entity to remove the components from.</param>
+	/// <param name="componentCount">The number of components to remove.</param>
+	/// <param name="componentIDs">A pointer to an array of the ComponentIDs to remove.</param>
+	/// <returns>True if any component was removed and false if none of the components is attached to the given entity.</returns>
+	bool removeComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
 
 	/// <summary>
 	/// Adds a component to the entity and removes another.
@@ -236,6 +283,14 @@ public:
 	inline T *getComponent(EntityID entity) noexcept;
 
 	/// <summary>
+	/// Gets a void * to a component of an entity.
+	/// </summary>
+	/// <param name="entity">The entity from which to get the component.</param>
+	/// <param name="componentID">The ComponentID of the component to get.</param>
+	/// <returns>A pointer to the requested component or nullptr if no such component is attached to the entity.</returns>
+	void *getComponentTypeless(EntityID entity, ComponentID componentID) noexcept;
+
+	/// <summary>
 	/// Tests if a given entity has a certain component.
 	/// </summary>
 	/// <typeparam name="T">The type of the component to check for.</typeparam>
@@ -252,6 +307,24 @@ public:
 	/// <returns>True if the entity has all the given components.</returns>
 	template<typename ...T>
 	inline bool hasComponents(EntityID entity) noexcept;
+
+	/// <summary>
+	/// Tests if a given entity has a certain set of components.
+	/// </summary>
+	/// <param name="entity">The entity to test for the components.</param>
+	/// <param name="componentCount">The number of component types to check for.</param>
+	/// <param name="componentIDs">A pointer to an array of ComponentIDs to check for.</param>
+	/// <returns>True if all components are present.</returns>
+	bool hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
+
+	/// <summary>
+	/// Gets a mask of all components attached to this entity.
+	/// </summary>
+	/// <param name="entity">The entity to get the component mask for.</param>
+	/// <returns>A mask of all components attached to this entity.</returns>
+	ComponentMask getComponentMask(EntityID entity) noexcept;
+
+	ComponentMask getRegisteredComponentMask() noexcept;
 
 	/// <summary>
 	/// Invokes the given function on all entity/component arrays that contain the requested components.
@@ -274,9 +347,11 @@ private:
 
 	template<typename ...T>
 	inline bool isRegisteredComponent() noexcept;
+	bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept;
 
 	EntityID createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	void addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
+	bool removeComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
 	Archetype *findOrCreateArchetype(const ComponentMask &mask) noexcept;
 };
 
@@ -395,88 +470,17 @@ inline void ECS::addComponents(EntityID entity, T && ...components) noexcept
 template<typename T>
 inline bool ECS::removeComponent(EntityID entity) noexcept
 {
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
 	assert(isRegisteredComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
-	EntityRecord &entityRecord = m_entityRecords[entity];
-
-	// entity does not have this component
-	if (!entityRecord.m_archetype || !entityRecord.m_archetype->m_componentMask[componentID])
-	{
-		return false;
-	}
-	else
-	{
-		ComponentMask newMask = entityRecord.m_archetype->m_componentMask;
-		newMask.set(componentID, false);
-		assert(newMask.count() == (entityRecord.m_archetype->m_componentMask.count() - 1));
-
-		if (newMask.none())
-		{
-			// entity has no more components, so set the archetype to null
-			entityRecord = {};
-		}
-		else
-		{
-			// find archetype
-			Archetype *newArchetype = findOrCreateArchetype(newMask);
-
-			// migrate to new archetype
-			entityRecord = newArchetype->migrate(entity, entityRecord);
-		}
-
-		return true;
-	}
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+	return removeComponentsInternal(entity, 1, &componentID);
 }
 
 template<typename ...T>
 inline bool ECS::removeComponents(EntityID entity) noexcept
 {
 	assert(isRegisteredComponent<T...>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
 	ComponentID componentIDs[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-
-	EntityRecord &entityRecord = m_entityRecords[entity];
-
-	// entity has no components at all
-	if (!entityRecord.m_archetype)
-	{
-		return false;
-	}
-
-	// build new component mask
-	ComponentMask oldMask = entityRecord.m_archetype->m_componentMask;
-	ComponentMask newMask = oldMask;
-
-	for (size_t j = 0; j < sizeof...(T); ++j)
-	{
-		newMask.set(componentIDs[j], false);
-	}
-
-	// entity does not have any of the to be removed components
-	if (newMask == oldMask)
-	{
-		return false;
-	}
-
-	if (newMask.none())
-	{
-		// entity has no more components, so set the archetype to null
-		entityRecord = {};
-	}
-	else
-	{
-		// find archetype
-		Archetype *newArchetype = findOrCreateArchetype(newMask);
-
-		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord);
-	}
-
-	return true;
+	return removeComponentsInternal(entity, sizeof...(T), componentIDs);
 }
 
 template<typename TAdd, typename TRemove, typename ...Args>
@@ -555,6 +559,11 @@ inline bool ECS::hasComponents(EntityID entity) noexcept
 {
 	assert(isRegisteredComponent<T...>());
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	if (sizeof...(T) == 0)
+	{
+		return true;
+	}
 
 	auto record = m_entityRecords[entity];
 	return record.m_archetype && (... && (record.m_archetype->m_componentMask[ComponentIDGenerator::getID<T>()]));

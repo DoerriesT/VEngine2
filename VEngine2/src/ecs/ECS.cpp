@@ -181,6 +181,18 @@ EntityID ECS::createEntity() noexcept
 	return id;
 }
 
+EntityID ECS::createEntityTypeless(size_t componentCount, const ComponentID *componentIDs) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	return createEntityInternal(componentCount, componentIDs, nullptr, ComponentConstructorType::DEFAULT);
+}
+
+EntityID ECS::createEntityTypeless(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	return createEntityInternal(componentCount, componentIDs, componentData, ComponentConstructorType::COPY);
+}
+
 void ECS::destroyEntity(EntityID entity) noexcept
 {
 	auto it = m_entityRecords.find(entity);
@@ -194,7 +206,100 @@ void ECS::destroyEntity(EntityID entity) noexcept
 	}
 }
 
-EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const*componentData, ComponentConstructorType constructorType) noexcept
+void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	addComponentsInternal(entity, componentCount, componentIDs, nullptr, ComponentConstructorType::DEFAULT);
+}
+
+void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	addComponentsInternal(entity, componentCount, componentIDs, componentData, ComponentConstructorType::COPY);
+}
+
+bool ECS::removeComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	return removeComponentsInternal(entity, componentCount, componentIDs);
+}
+
+void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) noexcept
+{
+	assert(isRegisteredComponent(1, &componentID));
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	auto record = m_entityRecords[entity];
+
+	if (record.m_archetype)
+	{
+		return record.m_archetype->getComponentMemory(record.m_slot, componentID);
+	}
+
+	return nullptr;
+}
+
+bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	if (componentCount == 0)
+	{
+		return true;
+	}
+
+	auto record = m_entityRecords[entity];
+
+	if (componentCount > 0 && !record.m_archetype)
+	{
+		return false;
+	}
+
+	for (size_t j = 0; j < componentCount; ++j)
+	{
+		if (!record.m_archetype->m_componentMask[componentIDs[j]])
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+ComponentMask ECS::getComponentMask(EntityID entity) noexcept
+{
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	auto record = m_entityRecords[entity];
+
+	return record.m_archetype ? record.m_archetype->m_componentMask : 0;
+}
+
+ComponentMask ECS::getRegisteredComponentMask() noexcept
+{
+	ComponentMask mask = 0;
+
+	for (size_t i = 0; i < mask.kSize; ++i)
+	{
+		mask[i] = m_componentInfo[i].m_defaultConstructor != nullptr;
+	}
+
+	return mask;
+}
+
+bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept
+{
+	for (size_t i = 0; i < count; ++i)
+	{
+		if (!m_componentInfo[componentIDs[i]].m_defaultConstructor)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept
 {
 	EntityID entityID = m_nextFreeEntityId++;
 
@@ -249,7 +354,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 		assert(false);
 		break;
 	}
-	
+
 
 	EntityRecord record{};
 	record.m_archetype = archetype;
@@ -338,6 +443,50 @@ void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const Co
 		assert(false);
 		break;
 	}
+}
+
+bool ECS::removeComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
+{
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	EntityRecord &entityRecord = m_entityRecords[entity];
+
+	// entity has no components at all
+	if (!entityRecord.m_archetype)
+	{
+		return false;
+	}
+
+	// build new component mask
+	ComponentMask oldMask = entityRecord.m_archetype->m_componentMask;
+	ComponentMask newMask = oldMask;
+
+	for (size_t j = 0; j < componentCount; ++j)
+	{
+		newMask.set(componentIDs[j], false);
+	}
+
+	// entity does not have any of the to be removed components
+	if (newMask == oldMask)
+	{
+		return false;
+	}
+
+	if (newMask.none())
+	{
+		// entity has no more components, so set the archetype to null
+		entityRecord = {};
+	}
+	else
+	{
+		// find archetype
+		Archetype *newArchetype = findOrCreateArchetype(newMask);
+
+		// migrate to new archetype
+		entityRecord = newArchetype->migrate(entity, entityRecord);
+	}
+
+	return true;
 }
 
 Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
