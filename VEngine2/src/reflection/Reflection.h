@@ -2,6 +2,11 @@
 #include <EASTL/vector.h>
 #include <EASTL/hash_map.h>
 #include "TypeInfo.h"
+#include <glm/vec3.hpp>
+
+class Reflection;
+
+extern Reflection g_Reflection;
 
 struct Field
 {
@@ -189,3 +194,14 @@ private:
 		}
 	}
 };
+
+DEFINE_TYPE_INFO(glm::vec3, "24BC398F-AA63-4674-BA24-09F222B3C8FD")
+
+template<>
+inline void reflect<glm::vec3>(Reflection &refl) noexcept
+{
+	refl.addClass<glm::vec3>()
+		.addField("x", &glm::vec3::x, "X", "The x-component.")
+		.addField("y", &glm::vec3::y, "Y", "The y-component.")
+		.addField("z", &glm::vec3::z, "Z", "The z-component.");
+}

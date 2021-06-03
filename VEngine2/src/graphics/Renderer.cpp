@@ -11,15 +11,21 @@
 #include "imgui/imgui.h"
 #include "TextureLoader.h"
 #include "TextureManager.h"
+#include "component/TransformComponent.h"
+#include "component/CameraComponent.h"
+#include "Camera.h"
 
-Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
+Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height) noexcept
+	:m_ecs(ecs)
 {
+	m_swapchainWidth = width;
+	m_swapchainHeight = height;
 	m_width = width;
 	m_height = height;
 
 	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::VULKAN);
 	m_graphicsQueue = m_device->getGraphicsQueue();
-	m_device->createSwapChain(m_graphicsQueue, width, height, false, gal::PresentMode::V_SYNC, &m_swapChain);
+	m_device->createSwapChain(m_graphicsQueue, m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::V_SYNC, &m_swapChain);
 	m_device->createSemaphore(0, &m_semaphore);
 	m_device->createCommandListPool(m_graphicsQueue, &m_cmdListPools[0]);
 	m_device->createCommandListPool(m_graphicsQueue, &m_cmdListPools[1]);
@@ -37,7 +43,7 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height)
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
 }
 
-Renderer::~Renderer()
+Renderer::~Renderer() noexcept
 {
 	m_device->waitIdle();
 	m_cmdListPools[0]->free(1, &m_cmdLists[0]);
@@ -63,7 +69,7 @@ Renderer::~Renderer()
 	gal::GraphicsDevice::destroy(m_device);
 }
 
-void Renderer::render(const float *viewMatrix, const float *projectionMatrix, const float *cameraPosition)
+void Renderer::render() noexcept
 {
 	m_semaphore->wait(m_waitValues[m_frame & 1]);
 
@@ -85,11 +91,29 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 		m_textureLoader->flushUploadCopies(cmdList, m_frame);
 
 		// render views
+		if (m_cameraEntity != k_nullEntity)
+		{
+			TransformComponent *tc = m_ecs->getComponent<TransformComponent>(m_cameraEntity);
+			CameraComponent *cc = m_ecs->getComponent<CameraComponent>(m_cameraEntity);
 
-		m_renderView->render(cmdList, m_rendererResources->m_constantBufferStackAllocators[m_frame & 1], m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], viewMatrix, projectionMatrix, cameraPosition, false);
+			if (tc && cc)
+			{
+				Camera camera(*tc, *cc);
+				auto viewMatrix = camera.getViewMatrix();
+				auto projMatrix = camera.getProjectionMatrix();
+
+				m_renderView->render(
+					cmdList, 
+					m_rendererResources->m_constantBufferStackAllocators[m_frame & 1],
+					m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], 
+					&viewMatrix[0][0], 
+					&projMatrix[0][0], 
+					&tc->m_translation.x, m_editorMode);
+			}
+		}
 
 
-		if (m_width != 0 && m_height != 0)
+		if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 		{
 			auto swapchainIndex = m_swapChain->getCurrentImageIndex();
 			gal::Image *image = m_swapChain->getImage(swapchainIndex);
@@ -98,57 +122,68 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 				m_device->createImageView(image, &m_imageViews[swapchainIndex]);
 			}
 
-			gal::Barrier b0 = gal::Initializers::imageBarrier(
-				image,
-				gal::PipelineStageFlags::TOP_OF_PIPE_BIT,
-				gal::PipelineStageFlags::TRANSFER_BIT,
-				gal::ResourceState::UNDEFINED,
-				gal::ResourceState::WRITE_TRANSFER);
-
-			cmdList->barrier(1, &b0);
-
 			// copy view to swap chain
+			if (!m_editorMode)
 			{
+				gal::Barrier b0 = gal::Initializers::imageBarrier(
+					image,
+					gal::PipelineStageFlags::TOP_OF_PIPE_BIT,
+					gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::ResourceState::UNDEFINED,
+					gal::ResourceState::WRITE_TRANSFER);
+
+				cmdList->barrier(1, &b0);
+
 				gal::ImageCopy imageCopy{};
 				imageCopy.m_srcLayerCount = 1;
 				imageCopy.m_dstLayerCount = 1;
-				imageCopy.m_extent = { m_width, m_height, 1 };
+				imageCopy.m_extent = { m_swapchainWidth, m_swapchainHeight, 1 };
 				cmdList->copyImage(m_renderView->getResultImage(), image, 1, &imageCopy);
+
+				gal::Barrier b1 = gal::Initializers::imageBarrier(
+					image,
+					gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
+					gal::ResourceState::WRITE_TRANSFER,
+					gal::ResourceState::PRESENT);
+
+				cmdList->barrier(1, &b1);
 			}
-			
-
-			gal::Barrier b1 = gal::Initializers::imageBarrier(
-				image,
-				gal::PipelineStageFlags::TRANSFER_BIT,
-				gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
-				gal::ResourceState::WRITE_TRANSFER,
-				gal::ResourceState::WRITE_COLOR_ATTACHMENT);
-
-			cmdList->barrier(1, &b1);
-
-			// imgui
+			else
 			{
-				ImGuiPass::Data imguiPassData{};
-				imguiPassData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1];
-				imguiPassData.m_indexBufferAllocator = m_rendererResources->m_indexBufferStackAllocators[m_frame & 1];
-				imguiPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
-				imguiPassData.m_width = m_width;
-				imguiPassData.m_height = m_height;
-				imguiPassData.m_colorAttachment = m_imageViews[swapchainIndex];
-				imguiPassData.m_clear = false;
-				imguiPassData.m_imGuiDrawData = ImGui::GetDrawData();
+				gal::Barrier b0 = gal::Initializers::imageBarrier(
+					image,
+					gal::PipelineStageFlags::TOP_OF_PIPE_BIT,
+					gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
+					gal::ResourceState::UNDEFINED,
+					gal::ResourceState::WRITE_COLOR_ATTACHMENT);
 
-				m_imguiPass->record(cmdList, imguiPassData);
+				cmdList->barrier(1, &b0);
+
+				// imgui
+				{
+					ImGuiPass::Data imguiPassData{};
+					imguiPassData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1];
+					imguiPassData.m_indexBufferAllocator = m_rendererResources->m_indexBufferStackAllocators[m_frame & 1];
+					imguiPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+					imguiPassData.m_width = m_swapchainWidth;
+					imguiPassData.m_height = m_swapchainHeight;
+					imguiPassData.m_colorAttachment = m_imageViews[swapchainIndex];
+					imguiPassData.m_clear = true;
+					imguiPassData.m_imGuiDrawData = ImGui::GetDrawData();
+
+					m_imguiPass->record(cmdList, imguiPassData);
+				}
+
+				gal::Barrier b2 = gal::Initializers::imageBarrier(
+					image,
+					gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
+					gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
+					gal::ResourceState::WRITE_COLOR_ATTACHMENT,
+					gal::ResourceState::PRESENT);
+
+				cmdList->barrier(1, &b2);
 			}
-
-			gal::Barrier b2 = gal::Initializers::imageBarrier(
-				image,
-				gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
-				gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
-				gal::ResourceState::WRITE_COLOR_ATTACHMENT,
-				gal::ResourceState::PRESENT);
-
-			cmdList->barrier(1, &b2);
 		}
 
 		
@@ -167,7 +202,7 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 	m_graphicsQueue->submit(1, &submitInfo);
 
 	OPTICK_GPU_FLIP(m_swapChain->getNativeHandle());
-	if (m_width != 0 && m_height != 0)
+	if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 	{
 		m_swapChain->present(m_semaphore, m_semaphoreValue, m_semaphore, m_semaphoreValue + 1);
 		++m_semaphoreValue;
@@ -180,22 +215,53 @@ void Renderer::render(const float *viewMatrix, const float *projectionMatrix, co
 	++m_frame;
 }
 
-void Renderer::resize(uint32_t width, uint32_t height)
+void Renderer::resize(uint32_t swapchainWidth, uint32_t swapchainHeight, uint32_t width, uint32_t height) noexcept
 {
+	m_swapchainWidth = swapchainWidth;
+	m_swapchainHeight = swapchainHeight;
 	m_width = width;
 	m_height = height;
 
-	if (width != 0 && height != 0)
+	bool isIdle = false;
+
+	if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 	{
 		m_device->waitIdle();
-		m_swapChain->resize(width, height, false, gal::PresentMode::IMMEDIATE);
-		m_renderView->resize(width, height);
+		isIdle = true;
+		m_swapChain->resize(m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::IMMEDIATE);
 		for (size_t i = 0; i < 3; ++i)
 		{
 			m_device->destroyImageView(m_imageViews[i]);
 			m_imageViews[i] = nullptr;
 		}
 	}
+
+	if (m_width != 0 && m_height != 0)
+	{
+		if (!isIdle)
+		{
+			m_device->waitIdle();
+		}
+		m_renderView->resize(m_width, m_height);
+	}
+}
+
+void Renderer::getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept
+{
+	*swapchainWidth = m_swapchainWidth;
+	*swapchainHeight = m_swapchainHeight;
+	*width = m_width;
+	*height = m_height;
+}
+
+void Renderer::setCameraEntity(EntityID cameraEntity) noexcept
+{
+	m_cameraEntity = cameraEntity;
+}
+
+EntityID Renderer::getCameraEntity() const noexcept
+{
+	return m_cameraEntity;
 }
 
 TextureHandle Renderer::loadTexture(size_t fileSize, const char *fileData, const char *textureName) noexcept
@@ -218,4 +284,19 @@ void Renderer::destroyTexture(TextureHandle handle) noexcept
 ImTextureID Renderer::getImGuiTextureID(TextureHandle handle) noexcept
 {
 	return (ImTextureID)(size_t)m_textureManager->getViewHandle(handle);
+}
+
+ImTextureID Renderer::getEditorViewportTextureID() noexcept
+{
+	return (ImTextureID)(size_t)m_renderView->getResultTextureViewHandle();
+}
+
+void Renderer::setEditorMode(bool editorMode) noexcept
+{
+	m_editorMode = editorMode;
+}
+
+bool Renderer::isEditorMode() const noexcept
+{
+	return m_editorMode;
 }

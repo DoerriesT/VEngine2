@@ -2,6 +2,7 @@
 #include "UUID.h"
 #include <assert.h>
 #include <EASTL/type_traits.h>
+#include <string.h>
 
 using TypeID = TUUID;
 

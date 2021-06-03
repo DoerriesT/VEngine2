@@ -68,6 +68,8 @@ void ImGuiPass::record(gal::CommandList *cmdList, const Data &data)
 	if (fb_width <= 0 || fb_height <= 0 || data.m_imGuiDrawData->TotalVtxCount == 0)
 		return;
 
+	cmdList->beginDebugLabel("ImGui");
+
 	// Upload vertex/index data into a single contiguous GPU buffer
 	uint64_t vertexBufferByteOffset = 0;
 	uint64_t indexBufferByteOffset = 0;
@@ -203,4 +205,6 @@ void ImGuiPass::record(gal::CommandList *cmdList, const Data &data)
 		}
 	}
 	cmdList->endRenderPass();
+
+	cmdList->endDebugLabel();
 }

@@ -3,11 +3,6 @@
 #include "window/Window.h"
 #include "graphics/Renderer.h"
 #include "input/UserInput.h"
-#include <glm/vec3.hpp>
-#include <glm/vec2.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/transform.hpp>
 #include <optick.h>
 #include "utility/Timer.h"
 #include "graphics/imgui/imgui.h"
@@ -17,6 +12,12 @@
 #include "asset/TextureAsset.h"
 #include "utility/Utility.h"
 #include "IGameLogic.h"
+#include "ecs/ECS.h"
+#include "ecs/ECSTypeIDTranslator.h"
+#include "reflection/Reflection.h"
+#include "component/TransformComponent.h"
+#include "component/CameraComponent.h"
+#include "component/LightComponent.h"
 
 // these are needed for EASTL
 
@@ -30,114 +31,15 @@ void *__cdecl operator new[](size_t size, size_t alignment, size_t alignmentOffs
 	return new uint8_t[size];
 }
 
-namespace
+template<typename T>
+static void registerComponent(ECS *ecs)
 {
-	class Camera
-	{
-	public:
-		explicit Camera()
-		{
-			updateViewMatrix();
-			updateProjectionMatrix();
-		}
-		void setRotation(const glm::quat &rotation)
-		{
-			m_orientation = rotation;
-			updateViewMatrix();
-		}
-		void setPosition(const glm::vec3 &position)
-		{
-			m_position = position;
-			updateViewMatrix();
-		}
-		void setAspectRatio(float aspectRatio)
-		{
-			m_aspectRatio = aspectRatio;
-			updateProjectionMatrix();
-		}
-		void setFovy(float fovy)
-		{
-			m_fovy = fovy;
-			updateProjectionMatrix();
-		}
-		void rotate(const glm::vec3 &pitchYawRollOffset)
-		{
-			glm::quat tmp = glm::quat(glm::vec3(-pitchYawRollOffset.x, 0.0, 0.0));
-			glm::quat tmp1 = glm::quat(glm::angleAxis(-pitchYawRollOffset.y, glm::vec3(0.0, 1.0, 0.0)));
-			m_orientation = glm::normalize(tmp1 * m_orientation * tmp);
-
-			updateViewMatrix();
-		}
-		void translate(const glm::vec3 &translationOffset)
-		{
-			glm::vec3 forward(m_viewMatrix[0][2], m_viewMatrix[1][2], m_viewMatrix[2][2]);
-			glm::vec3 strafe(m_viewMatrix[0][0], m_viewMatrix[1][0], m_viewMatrix[2][0]);
-
-			m_position += translationOffset.z * forward + translationOffset.x * strafe;
-			updateViewMatrix();
-		}
-		void lookAt(const glm::vec3 &targetPosition)
-		{
-			const glm::vec3 up(0.0, 1.0f, 0.0);
-
-			m_viewMatrix = glm::lookAt(m_position, targetPosition, up);
-			m_orientation = glm::quat_cast(m_viewMatrix);
-		}
-		glm::mat4 getViewMatrix() const
-		{
-			return m_viewMatrix;
-		}
-		glm::mat4 getProjectionMatrix() const
-		{
-			return m_projectionMatrix;
-		}
-		glm::vec3 getPosition() const
-		{
-			return m_position;
-		}
-		glm::quat getRotation() const
-		{
-			return m_orientation;
-		}
-		glm::vec3 getForwardDirection() const
-		{
-			return -glm::vec3(m_viewMatrix[0][2], m_viewMatrix[1][2], m_viewMatrix[2][2]);
-		}
-		glm::vec3 getUpDirection() const
-		{
-			return glm::vec3(m_viewMatrix[0][1], m_viewMatrix[1][1], m_viewMatrix[2][1]);
-		}
-		float getAspectRatio() const
-		{
-			return m_aspectRatio;
-		}
-		float getFovy() const
-		{
-			return m_fovy;
-		}
-
-	private:
-		glm::mat4 m_viewMatrix = glm::mat4(1.0f);
-		glm::mat4 m_projectionMatrix = glm::mat4(1.0f);
-		glm::vec3 m_position = {};
-		glm::quat m_orientation = glm::quat(glm::vec3(0.0f));
-		float m_aspectRatio = 1.0f;
-		float m_fovy = glm::pi<float>() * 0.5f;
-		float m_near = 0.1f;
-		float m_far = 1000.0f;
-
-		void updateViewMatrix()
-		{
-			m_viewMatrix = glm::mat4_cast(glm::inverse(m_orientation)) * glm::translate(-m_position);
-		}
-		void updateProjectionMatrix()
-		{
-			m_projectionMatrix = glm::perspective(m_fovy, m_aspectRatio, m_far, m_near);
-		}
-	};
+	T::reflect(g_Reflection);
+	ecs->registerComponent<T>();
+	ECSTypeIDTranslator::registerType<T>();
 }
 
-int Engine::start(int argc, char *argv[], IGameLogic *gameLogic)
+int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 {
 	m_gameLogic = gameLogic;
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
@@ -162,7 +64,13 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic)
 		//ImGui_ImplGlfw_InitForVulkan((GLFWwindow *)m_window->getWindowHandle(), true);
 	}
 
-	m_renderer = new Renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
+	m_ecs = new ECS();
+
+	registerComponent<TransformComponent>(m_ecs);
+	registerComponent<CameraComponent>(m_ecs);
+	registerComponent<LightComponent>(m_ecs);
+
+	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_userInput = new UserInput(*m_window);
 	AssetManager::init();
 
@@ -171,135 +79,92 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic)
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
 
-	//auto tex = AssetManager::get()->getAsset<TextureAssetData>(SID("textures/uv_grid_small.dds"));
-
-	bool grabbedMouse = false;
-	glm::vec2 mouseHistory{};
-	Camera camera;
-	camera.setPosition(glm::vec3(0.0f, 2.0f, 0.0f));
-
 	m_gameLogic->init(this);
+
+	Timer timer;
 
 	while (!m_window->shouldClose())
 	{
 		OPTICK_FRAME("MainThread");
 
+		timer.update();
+		float timeDelta = static_cast<float>(timer.getTimeDelta());
+
 		m_window->pollEvents();
 
-		if (m_window->configurationChanged())
+		if (m_window->configurationChanged() || m_viewportParamsDirty)
 		{
+			m_viewportParamsDirty = false;
+
 			imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
-			m_renderer->resize(m_window->getWidth(), m_window->getHeight());
+			m_renderer->resize(m_window->getWidth(), m_window->getHeight(), m_editorMode ? m_editorViewportWidth : m_window->getWidth(), m_editorMode ? m_editorViewportHeight : m_window->getHeight());
 		}
 
 		m_userInput->input();
 		imguiInputAdapter.update();
 		ImGui::NewFrame();
 
-		{
-			bool pressed = false;
-			float mod = 1.0f;
-			glm::vec3 cameraTranslation = glm::vec3(0.0f);
-
-			glm::vec2 mouseDelta = {};
-
-			if (m_userInput->isMouseButtonPressed(InputMouse::BUTTON_RIGHT))
-			{
-				if (!grabbedMouse)
-				{
-					grabbedMouse = true;
-					m_window->setMouseCursorMode(Window::MouseCursorMode::DISABLED);
-				}
-				mouseDelta = m_userInput->getMousePosDelta();
-			}
-			else
-			{
-				if (grabbedMouse)
-				{
-					grabbedMouse = false;
-					m_window->setMouseCursorMode(Window::MouseCursorMode::NORMAL);
-				}
-			}
-
-			const float timeDelta = 1.0f / 60.0f;
-			mouseHistory = glm::mix(mouseHistory, mouseDelta, timeDelta / (timeDelta + 0.05f));
-			if (glm::dot(mouseHistory, mouseHistory) > 0.0f)
-			{
-				camera.rotate(glm::vec3(mouseHistory.y * 0.005f, mouseHistory.x * 0.005f, 0.0));
-			}
-
-
-			if (m_userInput->isKeyPressed(InputKey::UP))
-			{
-				camera.rotate(glm::vec3(-timeDelta, 0.0f, 0.0));
-			}
-			if (m_userInput->isKeyPressed(InputKey::DOWN))
-			{
-				camera.rotate(glm::vec3(timeDelta, 0.0f, 0.0));
-			}
-			if (m_userInput->isKeyPressed(InputKey::LEFT))
-			{
-				camera.rotate(glm::vec3(0.0f, -timeDelta, 0.0));
-			}
-			if (m_userInput->isKeyPressed(InputKey::RIGHT))
-			{
-				camera.rotate(glm::vec3(0.0f, timeDelta, 0.0));
-			}
-
-			if (m_userInput->isKeyPressed(InputKey::LEFT_SHIFT))
-			{
-				mod = 5.0f;
-			}
-			if (m_userInput->isKeyPressed(InputKey::W))
-			{
-				cameraTranslation.z = -mod * (float)timeDelta;
-				pressed = true;
-			}
-			if (m_userInput->isKeyPressed(InputKey::S))
-			{
-				cameraTranslation.z = mod * (float)timeDelta;
-				pressed = true;
-			}
-			if (m_userInput->isKeyPressed(InputKey::A))
-			{
-				cameraTranslation.x = -mod * (float)timeDelta;
-				pressed = true;
-			}
-			if (m_userInput->isKeyPressed(InputKey::D))
-			{
-				cameraTranslation.x = mod * (float)timeDelta;
-				pressed = true;
-			}
-			if (pressed)
-			{
-				camera.translate(cameraTranslation);
-			}
-		}
 
 		ImGui::ShowDemoWindow();
 
-		//ImGui::Begin("Tex Test");
-		//ImGui::Image(m_renderer->getImGuiTextureID(tex->getTextureHandle()), ImVec2(256.0f, 256.0f));
-		//ImGui::End();
-
-		m_gameLogic->update(1.0f / 60.0f);
+		m_gameLogic->update(timeDelta);
 
 		ImGui::Render();
 
-		camera.setAspectRatio(m_window->getWidth() / (float)m_window->getHeight());
-		auto viewMatrix = camera.getViewMatrix();
-		auto projMatrix = camera.getProjectionMatrix();
-		auto pos = camera.getPosition();
-		m_renderer->render(&viewMatrix[0][0], &projMatrix[0][0], &pos[0]);
+		m_renderer->render();
 	}
 
 	m_gameLogic->shutdown();
-	//tex.release();
 	TextureAssetHandler::shutdown();
 	AssetManager::shutdown();
 	delete m_userInput;
 	delete m_renderer;
+	delete m_ecs;
 	delete m_window;
 
 	return 0;
+}
+
+ECS *Engine::getECS() noexcept
+{
+	return m_ecs;
+}
+
+Renderer *Engine::getRenderer() noexcept
+{
+	return m_renderer;
+}
+
+UserInput *Engine::getUserInput() noexcept
+{
+	return m_userInput;
+}
+
+void Engine::setEditorMode(bool editorMode) noexcept
+{
+	m_viewportParamsDirty = true;
+	m_editorMode = editorMode;
+	m_renderer->setEditorMode(editorMode);
+}
+
+bool Engine::isEditorMode() const noexcept
+{
+	return m_editorMode;
+}
+
+void Engine::setEditorViewport(int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height) noexcept
+{
+	if (m_editorViewportOffsetX != offsetX || m_editorViewportOffsetY != offsetY || m_editorViewportWidth != width || m_editorViewportHeight != height)
+	{
+		m_viewportParamsDirty = true;
+		m_editorViewportOffsetX = offsetX;
+		m_editorViewportOffsetY = offsetY;
+		m_editorViewportWidth = width;
+		m_editorViewportHeight = height;
+	}
+}
+
+void Engine::getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept
+{
+	m_renderer->getResolution(swapchainWidth, swapchainHeight, width, height);
 }

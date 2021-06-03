@@ -40,6 +40,8 @@ GridPass::~GridPass()
 void GridPass::record(gal::CommandList *cmdList, const Data &data)
 {
 	OPTICK_GPU_EVENT("GridPass");
+	cmdList->beginDebugLabel("Grid");
+
 	struct GridConstants
 	{
 		float modelMatrix[16];
@@ -92,4 +94,6 @@ void GridPass::record(gal::CommandList *cmdList, const Data &data)
 		cmdList->draw(6, 1, 0, 0);
 	}
 	cmdList->endRenderPass();
+
+	cmdList->endDebugLabel();
 }

@@ -16,7 +16,7 @@ Archetype::Archetype(const ComponentMask &componentMask, const ComponentInfo *co
 	// compute total chunk size and array offsets by looping over all components of this archetype
 	m_memoryChunkSize += k_baseArrayOffset;
 
-	forEachComponentType([this](size_t index, ComponentID componentID)
+	forEachComponentType(m_componentMask, [this](size_t index, ComponentID componentID)
 		{
 			const auto &compInfo = m_componentInfo[componentID];
 			m_memoryChunkSize = util::alignPow2Up<size_t>(m_memoryChunkSize, compInfo.m_alignment);
@@ -71,7 +71,7 @@ void Archetype::freeDataSlot(const ArchetypeSlot &slot) noexcept
 
 	auto &chunk = m_memoryChunks[chunkIdx];
 
-	forEachComponentType([&](size_t index, ComponentID componentID)
+	forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
 		{
 			const auto &compInfo = m_componentInfo[componentID];
 			uint8_t *freedComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * chunkSlotIdx;
@@ -117,7 +117,7 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 	}
 
 	// iterate over all components in this archetype and initialize them
-	forEachComponentType([&](size_t index, ComponentID componentID)
+	forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
 		{
 			const auto &compInfo = m_componentInfo[componentID];
 
@@ -159,19 +159,6 @@ uint8_t *Archetype::getComponentMemory(const ArchetypeSlot &slot, ComponentID co
 	}
 
 	return m_memoryChunks[slot.m_chunkIdx].m_memory + getComponentArrayOffset(componentID) + m_componentInfo[componentID].m_size * slot.m_chunkSlotIdx;
-}
-
-void Archetype::forEachComponentType(const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept
-{
-	size_t componentIndex = 0;
-	auto componentID = m_componentMask.DoFindFirst();
-	while (componentID != m_componentMask.kSize)
-	{
-		f(componentIndex, componentID);
-
-		componentID = m_componentMask.DoFindNext(componentID);
-		++componentIndex;
-	}
 }
 
 EntityID ECS::createEntity() noexcept
@@ -512,4 +499,17 @@ Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
 	}
 
 	return archetype;
+}
+
+void forEachComponentType(const ComponentMask &mask, const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept
+{
+	size_t componentIndex = 0;
+	auto componentID = mask.DoFindFirst();
+	while (componentID != mask.kSize)
+	{
+		f(componentIndex, componentID);
+
+		componentID = mask.DoFindNext(componentID);
+		++componentIndex;
+	}
 }

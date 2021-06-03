@@ -40,7 +40,7 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 		m_device->createImageView(m_resultImage, &m_resultImageView);
 		m_device->setDebugObjectName(gal::ObjectType::IMAGE_VIEW, m_resultImageView, "Render View Result Image View");
 
-		m_viewRegistry->createTextureViewHandle(m_resultImageView);
+		m_resultImageTextureViewHandle = m_viewRegistry->createTextureViewHandle(m_resultImageView);
 
 		m_resultImageResourceState = gal::ResourceState::UNDEFINED;
 		m_resultImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;

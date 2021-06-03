@@ -85,6 +85,8 @@ struct ArchetypeMemoryChunk
 	size_t m_size = 0;
 };
 
+void forEachComponentType(const ComponentMask &mask, const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept;
+
 struct Archetype
 {
 	ComponentMask m_componentMask = {};
@@ -99,7 +101,6 @@ struct Archetype
 	void freeDataSlot(const ArchetypeSlot &slot) noexcept;
 	EntityRecord migrate(EntityID entity, const EntityRecord &oldRecord, bool skipConstructorOfMissingComponents = false) noexcept;
 	uint8_t *getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) noexcept;
-	void forEachComponentType(const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept;
 };
 
 class ECS
