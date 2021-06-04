@@ -108,5 +108,5 @@ void Camera::updateViewMatrix() noexcept
 
 void Camera::updateProjectionMatrix() noexcept
 {
-	m_cameraComponent.m_projectionMatrix = glm::perspective(glm::radians(m_cameraComponent.m_fovy), m_cameraComponent.m_aspectRatio, m_cameraComponent.m_far, m_cameraComponent.m_near);
+	m_cameraComponent.m_projectionMatrix = glm::perspective((m_cameraComponent.m_fovy), m_cameraComponent.m_aspectRatio, m_cameraComponent.m_far, m_cameraComponent.m_near);
 }

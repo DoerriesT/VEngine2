@@ -75,19 +75,19 @@ struct TypeInfo
 		return 0;
 	}
 
-	static bool isIntegral() noexcept
+	static bool isFloatingPoint() noexcept
 	{
 		assert(false);
 		return false;
 	}
 
-	static bool isSigned() noexcept
+	static bool isSignedInteger() noexcept
 	{
 		assert(false);
 		return false;
 	}
 
-	static bool isUnsigned() noexcept
+	static bool isUnsignedInteger() noexcept
 	{
 		assert(false);
 		return false;
@@ -143,19 +143,22 @@ struct TypeInfo
 			return 0;										\
 		}													\
 															\
-		static bool isIntegral() noexcept					\
+		static bool isFloatingPoint() noexcept				\
 		{													\
-			return eastl::is_integral<TypeName>::value;		\
+			return											\
+				eastl::is_floating_point<TypeName>::value;	\
 		}													\
 															\
-		static bool isSigned() noexcept						\
+		static bool isSignedInteger() noexcept				\
 		{													\
-			return eastl::is_signed<TypeName>::value;		\
+			return eastl::is_integral<TypeName>::value		\
+				&& eastl::is_signed<TypeName>::value;		\
 		}													\
 															\
-		static bool isUnsigned() noexcept					\
+		static bool isUnsignedInteger() noexcept			\
 		{													\
-			return eastl::is_unsigned<TypeName>::value;		\
+			return eastl::is_integral<TypeName>::value		\
+				&& eastl::is_unsigned<TypeName>::value;		\
 		}													\
 	};
 
@@ -210,17 +213,17 @@ struct TypeInfo<T *>
 		return 0;
 	}
 
-	static bool isIntegral() noexcept
+	static bool isFloatingPoint() noexcept
 	{
 		return false;
 	}
 
-	static bool isSigned() noexcept
+	static bool isSignedInteger() noexcept
 	{
 		return false;
 	}
 
-	static bool isUnsigned() noexcept
+	static bool isUnsignedInteger() noexcept
 	{
 		return false;
 	}
@@ -281,17 +284,17 @@ struct TypeInfo<T[ArraySize]>
 		return ArraySize;
 	}
 
-	static bool isIntegral() noexcept
+	static bool isFloatingPoint() noexcept
 	{
 		return false;
 	}
 
-	static bool isSigned() noexcept
+	static bool isSignedInteger() noexcept
 	{
 		return false;
 	}
 
-	static bool isUnsigned() noexcept
+	static bool isUnsignedInteger() noexcept
 	{
 		return false;
 	}

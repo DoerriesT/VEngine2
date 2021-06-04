@@ -107,9 +107,148 @@ void InspectorWindow::draw(EntityID entity) noexcept
 					{
 						const char *displayName = f.m_displayName ? f.m_displayName : f.m_name;
 
+						AttributeValue minValueAtt;
+						const bool hasMinValueAtt = f.findAttribute(AttributeType::MIN, &minValueAtt);
+
+						AttributeValue maxValueAtt;
+						const bool hasMaxValueAtt = f.findAttribute(AttributeType::MAX, &maxValueAtt);
+
+						AttributeValue getterAtt;
+						const bool hasGetterAtt = f.findAttribute(AttributeType::GETTER, &getterAtt);
+
+						AttributeValue setterAtt;
+						const bool hasSetterAtt = f.findAttribute(AttributeType::SETTER, &setterAtt);
+
+						AttributeValue uiElementAtt;
+						const bool hasUIElementAtt = f.findAttribute(AttributeType::UI_ELEMENT, &uiElementAtt);
+
 						if (f.m_typeID == getTypeID<float>())
 						{
-							ImGui::DragFloat(displayName, f.getAs<float>(component));
+							float v_min = hasMinValueAtt ? minValueAtt.m_float : 0.0f;
+							float v_max = hasMaxValueAtt ? maxValueAtt.m_float : 0.0f;
+
+							if (hasMinValueAtt && !hasMaxValueAtt)
+							{
+								v_max = FLT_MAX;
+							}
+							else if (!hasMinValueAtt && hasMaxValueAtt)
+							{
+								v_min = -FLT_MAX;
+							}
+
+							float value = 0.0f;
+
+							if (hasGetterAtt)
+							{
+								getterAtt.m_getter(component, getTypeID<float>(), &value);
+							}
+							else
+							{
+								value = *f.getAs<float>(component);
+							}
+
+							AttributeUIElements uiElement = hasUIElementAtt ? uiElementAtt.m_uiElement : AttributeUIElements::DEFAULT;
+
+							bool modified = false;
+
+							switch (uiElement)
+							{
+							case AttributeUIElements::DEFAULT:
+							case AttributeUIElements::DRAG:
+								modified = ImGui::DragFloat(displayName, &value, 1.0f, v_min, v_max, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+								break;
+							case AttributeUIElements::SLIDER:
+								modified = ImGui::SliderFloat(displayName, &value, v_min, v_max, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+								break;
+							default:
+								assert(false); // unsupported or unknown ui element
+								break;
+							}
+
+							if (modified)
+							{
+								if (hasSetterAtt)
+								{
+									setterAtt.m_setter(component, getTypeID<float>(), &value);
+								}
+								else
+								{
+									f.setAs<float>(component, value);
+								}
+							}
+						}
+						else if (f.m_typeID == getTypeID<glm::quat>())
+						{
+							float v_min = hasMinValueAtt ? minValueAtt.m_float : 0.0f;
+							float v_max = hasMaxValueAtt ? maxValueAtt.m_float : 0.0f;
+
+							if (hasMinValueAtt && !hasMaxValueAtt)
+							{
+								v_max = FLT_MAX;
+							}
+							else if (!hasMinValueAtt && hasMaxValueAtt)
+							{
+								v_min = -FLT_MAX;
+							}
+
+							glm::quat value = {};
+
+							if (hasGetterAtt)
+							{
+								getterAtt.m_getter(component, getTypeID<glm::quat>(), &value);
+							}
+							else
+							{
+								value = *f.getAs<glm::quat>(component);
+							}
+
+							AttributeUIElements uiElement = hasUIElementAtt ? uiElementAtt.m_uiElement : AttributeUIElements::DEFAULT;
+							
+							bool modified = false;
+
+							switch (uiElement)
+							{
+							case AttributeUIElements::DEFAULT:
+							case AttributeUIElements::DRAG:
+								modified = ImGui::DragFloat4(displayName, &value.x, 1.0f, v_min, v_max, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+								break;
+							case AttributeUIElements::SLIDER:
+								modified = ImGui::SliderFloat4(displayName, &value.x, v_min, v_max, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+								if (modified)
+								{
+									value = glm::normalize(value);
+								}
+								break;
+							case AttributeUIElements::EULER_ANGLES:
+								glm::vec3 eulerAnglesBefore = glm::degrees(glm::eulerAngles(value));
+								glm::vec3 eulerAngles = eulerAnglesBefore;
+								modified = ImGui::DragFloat3(displayName, &eulerAngles.x, 1.0f, fmaxf(v_min, -360.0f), fminf(v_max, 360.0f), "%.3f", ImGuiSliderFlags_AlwaysClamp);
+								if (modified)
+								{
+									glm::vec3 diff = eulerAngles - eulerAnglesBefore;
+									glm::quat diffQuat = glm::quat(glm::radians(diff));
+
+									value = value * diffQuat;
+									value = glm::normalize(value);
+								}
+								
+								break;
+							default:
+								assert(false); // unsupported or unknown ui element
+								break;
+							}
+
+							if (modified)
+							{
+								if (hasSetterAtt)
+								{
+									setterAtt.m_setter(component, getTypeID<glm::quat>(), &value);
+								}
+								else
+								{
+									f.setAs<glm::quat>(component, value);
+								}
+							}
 						}
 						else if (f.m_typeID == getTypeID<glm::vec3>())
 						{

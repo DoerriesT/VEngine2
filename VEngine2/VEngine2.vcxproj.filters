@@ -531,4 +531,9 @@
   <ItemGroup>
     <Natvis Include="..\libs\EASTL.natvis" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\reflection\Reflection.inl">
+      <Filter>src\reflection</Filter>
+    </None>
+  </ItemGroup>
 </Project>

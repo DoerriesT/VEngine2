@@ -7,7 +7,7 @@ class Reflection;
 struct CameraComponent
 {
 	float m_aspectRatio = 1.0f;
-	float m_fovy = 90.0f;// 1.57f; // 90°
+	float m_fovy = 1.57079632679f; // 90 degrees
 	float m_near = 0.1f;
 	float m_far = 300.0f;
 	glm::mat4 m_viewMatrix;
