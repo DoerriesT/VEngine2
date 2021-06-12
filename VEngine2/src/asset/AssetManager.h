@@ -17,7 +17,7 @@ public:
 
 	template<typename T>
 	Asset<T> getAsset(const AssetID &assetID) noexcept;
-	Asset<AssetData> getAsset(const AssetID &assetID, const AssetType &assetType) noexcept;
+	AssetData *getAssetData(const AssetID &assetID, const AssetType &assetType) noexcept;
 	void unloadAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept;
 	void registerAssetHandler(const AssetType &assetType, AssetHandler *handler) noexcept;
 	void unregisterAssetHandler(const AssetType &assetType);
@@ -35,5 +35,5 @@ private:
 template<typename T>
 inline Asset<T> AssetManager::getAsset(const AssetID &assetID) noexcept
 {
-	return getAsset(assetID, T::k_assetType);
+	return getAssetData(assetID, T::k_assetType);
 }

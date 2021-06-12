@@ -152,6 +152,8 @@
     <ClInclude Include="src\asset\Asset.h" />
     <ClInclude Include="src\asset\AssetHandler.h" />
     <ClInclude Include="src\asset\AssetManager.h" />
+    <ClInclude Include="src\asset\MeshAsset.h" />
+    <ClInclude Include="src\asset\MeshAssetHandler.h" />
     <ClInclude Include="src\asset\TextureAsset.h" />
     <ClInclude Include="src\asset\TextureAssetHandler.h" />
     <ClInclude Include="src\component\CameraComponent.h" />
@@ -240,6 +242,8 @@
     <ClCompile Include="src\asset\Asset.cpp" />
     <ClCompile Include="src\asset\AssetHandler.cpp" />
     <ClCompile Include="src\asset\AssetManager.cpp" />
+    <ClCompile Include="src\asset\MeshAsset.cpp" />
+    <ClCompile Include="src\asset\MeshAssetHandler.cpp" />
     <ClCompile Include="src\asset\TextureAsset.cpp" />
     <ClCompile Include="src\asset\TextureAssetHandler.cpp" />
     <ClCompile Include="src\component\CameraComponent.cpp" />

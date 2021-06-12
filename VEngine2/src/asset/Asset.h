@@ -44,14 +44,10 @@ class Asset
 {
 public:
 	Asset(AssetData *assetData = nullptr) noexcept;
-	template<typename T1>
-	Asset(const Asset<T1> &other) noexcept;
-	template<typename T1>
-	Asset(Asset<T1> &&other) noexcept;
-	template<typename T1>
-	Asset &operator=(const Asset<T1> &other) noexcept;
-	template<typename T1>
-	Asset &operator=(Asset<T1> &&other) noexcept;
+	Asset(const Asset<T> &other) noexcept;
+	Asset(Asset<T> &&other) noexcept;
+	Asset &operator=(const Asset<T> &other) noexcept;
+	Asset &operator=(Asset<T> &&other) noexcept;
 	~Asset() noexcept;
 	bool release() noexcept;
 	T *get() const noexcept;
@@ -59,13 +55,19 @@ public:
 	T *operator->() const noexcept;
 
 private:
-	AssetData *m_assetData = nullptr;
+	T *m_assetData = nullptr;
 };
 
 template<typename T>
 inline Asset<T>::Asset(AssetData *assetData) noexcept
-	:m_assetData(assetData)
+	:m_assetData((T *)assetData)
 {
+	// compile time check to ensure we only use this class with class derived from AssetData
+	static_assert(eastl::is_base_of<AssetData, T>::value && !eastl::is_same<AssetData, T>::value, "Template type T in Asset<T> is not derived from AssetData!");
+
+	// run-time check to ensure that the cast from AssetData to T was valid. Note that this test is not 100% bullet proof.
+	assert(assetData->getAssetType() == T::k_assetType);
+
 	if (m_assetData)
 	{
 		m_assetData->acquire();
@@ -73,19 +75,7 @@ inline Asset<T>::Asset(AssetData *assetData) noexcept
 }
 
 template<typename T>
-template<typename T1>
-inline Asset<T>::Asset(const Asset<T1> &other) noexcept
-{
-	m_assetData = other.get();
-	if (m_assetData)
-	{
-		m_assetData->acquire();
-	}
-}
-
-template<typename T>
-template<typename T1>
-inline Asset<T>::Asset(Asset<T1> &&other) noexcept
+inline Asset<T>::Asset(const Asset<T> &other) noexcept
 {
 	m_assetData = other.get();
 	if (m_assetData)
@@ -95,8 +85,17 @@ inline Asset<T>::Asset(Asset<T1> &&other) noexcept
 }
 
 template<typename T>
-template<typename T1>
-inline Asset<T> &Asset<T>::operator=(const Asset<T1> &other) noexcept
+inline Asset<T>::Asset(Asset<T> &&other) noexcept
+{
+	m_assetData = other.get();
+	if (m_assetData)
+	{
+		m_assetData->acquire();
+	}
+}
+
+template<typename T>
+inline Asset<T> &Asset<T>::operator=(const Asset<T> &other) noexcept
 {
 	if (&other != this)
 	{
@@ -112,8 +111,7 @@ inline Asset<T> &Asset<T>::operator=(const Asset<T1> &other) noexcept
 }
 
 template<typename T>
-template<typename T1>
-inline Asset<T> &Asset<T>::operator=(Asset<T1> &&other) noexcept
+inline Asset<T> &Asset<T>::operator=(Asset<T> &&other) noexcept
 {
 	if (&other != this)
 	{
@@ -152,7 +150,7 @@ inline bool Asset<T>::release() noexcept
 template<typename T>
 inline T *Asset<T>::get() const noexcept
 {
-	return (T *)m_assetData;
+	return m_assetData;
 }
 
 template<typename T>

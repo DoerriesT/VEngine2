@@ -306,6 +306,12 @@
     <ClInclude Include="src\input\FPSCameraController.h">
       <Filter>src\input</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\MeshAsset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\MeshAssetHandler.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -526,6 +532,12 @@
     </ClCompile>
     <ClCompile Include="src\input\FPSCameraController.cpp">
       <Filter>src\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\MeshAsset.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\MeshAssetHandler.cpp">
+      <Filter>src\asset</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -10,6 +10,8 @@
 #include "asset/AssetManager.h"
 #include "asset/TextureAssetHandler.h"
 #include "asset/TextureAsset.h"
+#include "asset/MeshAssetHandler.h"
+#include "asset/MeshAsset.h"
 #include "utility/Utility.h"
 #include "IGameLogic.h"
 #include "ecs/ECS.h"
@@ -75,6 +77,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	AssetManager::init();
 
 	TextureAssetHandler::init(AssetManager::get(), m_renderer);
+	MeshAssetHandler::init(AssetManager::get(), m_renderer);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
@@ -116,6 +119,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	m_gameLogic->shutdown();
 	TextureAssetHandler::shutdown();
+	MeshAssetHandler::shutdown();
 	AssetManager::shutdown();
 	delete m_userInput;
 	delete m_renderer;

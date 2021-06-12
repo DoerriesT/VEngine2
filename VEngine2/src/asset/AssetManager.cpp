@@ -52,7 +52,7 @@ AssetManager *AssetManager::get()
 	return s_instance;
 }
 
-Asset<AssetData> AssetManager::getAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	AssetData *assetData = nullptr;
 
