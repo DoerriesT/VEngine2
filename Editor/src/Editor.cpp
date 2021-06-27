@@ -4,6 +4,7 @@
 #include <graphics/Renderer.h>
 #include "ViewportWindow.h"
 #include "InspectorWindow.h"
+#include "AssetBrowserWindow.h"
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
 
@@ -21,6 +22,7 @@ void Editor::init(Engine *engine) noexcept
 	m_engine->setEditorMode(true);
 	m_viewportWindow = new ViewportWindow(engine, &m_editorCameraEntity);
 	m_inspectorWindow = new InspectorWindow(engine);
+	m_assetBrowserWindow = new AssetBrowserWindow(engine);
 
 	m_gameLogic->init(engine);
 }
@@ -91,6 +93,7 @@ void Editor::update(float deltaTime) noexcept
 
 	m_inspectorWindow->draw(1);
 	m_viewportWindow->draw(deltaTime);
+	m_assetBrowserWindow->draw();
 
 	m_gameLogic->update(deltaTime);
 
@@ -103,4 +106,5 @@ void Editor::shutdown() noexcept
 
 	delete m_viewportWindow;
 	delete m_inspectorWindow;
+	delete m_assetBrowserWindow;
 }

@@ -276,6 +276,18 @@ TextureHandle Renderer::loadTexture(size_t fileSize, const char *fileData, const
 	return m_textureManager->add(image, view);
 }
 
+TextureHandle Renderer::loadRawRGBA8(size_t fileSize, const char *fileData, const char *textureName, uint32_t width, uint32_t height) noexcept
+{
+	gal::Image *image = nullptr;
+	gal::ImageView *view = nullptr;
+	if (!m_textureLoader->loadRawRGBA8(fileSize, fileData, textureName, width, height, &image, &view))
+	{
+		return TextureHandle();
+	}
+
+	return m_textureManager->add(image, view);
+}
+
 void Renderer::destroyTexture(TextureHandle handle) noexcept
 {
 	m_textureManager->free(handle, m_frame);

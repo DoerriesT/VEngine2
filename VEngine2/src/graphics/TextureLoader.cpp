@@ -147,6 +147,106 @@ bool TextureLoader::load(size_t fileSize, const char *fileData, const char *text
 	return true;
 }
 
+bool TextureLoader::loadRawRGBA8(size_t fileSize, const char *fileData, const char *textureName, uint32_t width, uint32_t height, gal::Image **image, gal::ImageView **imageView) noexcept
+{
+	if (width == 0 || height == 0)
+	{
+		Log::warn(("Failed to load texture: " + std::string(textureName)).c_str());
+		return false;
+	}
+
+	// create image
+	{
+		gal::ImageCreateInfo imageCreateInfo{};
+		imageCreateInfo.m_width = width;
+		imageCreateInfo.m_height = height;
+		imageCreateInfo.m_depth = 1;
+		imageCreateInfo.m_layers = 1;
+		imageCreateInfo.m_levels = 1;
+		imageCreateInfo.m_samples = gal::SampleCount::_1;
+		imageCreateInfo.m_imageType = gal::ImageType::_2D;
+		imageCreateInfo.m_format = gal::Format::R8G8B8A8_UNORM;
+		imageCreateInfo.m_createFlags = {};
+		imageCreateInfo.m_usageFlags = gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::TRANSFER_DST_BIT;
+		imageCreateInfo.m_optimizedClearValue = {};
+
+		m_device->createImage(imageCreateInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, image);
+		m_device->setDebugObjectName(gal::ObjectType::IMAGE, *image, textureName);
+
+		// create image view
+		m_device->createImageView(*image, imageView);
+		m_device->setDebugObjectName(gal::ObjectType::IMAGE_VIEW, *imageView, textureName);
+	}
+
+	// create staging buffer
+	gal::Buffer *stagingBuffer = nullptr;
+	{
+		gal::BufferCreateInfo bufferCreateInfo{};
+		bufferCreateInfo.m_size = fileSize * 2; // account for padding. TODO: calculate actual size requirement
+		bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_SRC_BIT;
+
+		m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::HOST_COHERENT_BIT | gal::MemoryPropertyFlags::HOST_VISIBLE_BIT, {}, false, &stagingBuffer);
+	}
+
+	Upload upload = {};
+	upload.m_imageSubresourceRange.m_baseMipLevel = 0;
+	upload.m_imageSubresourceRange.m_levelCount = 1;
+	upload.m_imageSubresourceRange.m_baseArrayLayer = 0;
+	upload.m_imageSubresourceRange.m_layerCount = 1;
+	upload.m_stagingBuffer = stagingBuffer;
+	upload.m_texture = *image;
+
+	// copy image data to staging buffer
+	upload.m_bufferCopyRegions.reserve(1);
+	{
+		uint8_t *data;
+		stagingBuffer->map((void **)&data);
+
+		// keep track of current offset in staging buffer
+		size_t currentOffset = 0;
+
+		{
+			// size of a texel row in bytes in the src data
+			size_t rowSize = width * 4;
+			// size of a row in the staging buffer
+			size_t rowPitch = util::alignPow2Up(rowSize, (size_t)m_device->getBufferCopyRowPitchAlignment());
+
+			// ensure each copy region starts at the proper alignment in the staging buffer
+			currentOffset = util::alignPow2Up(currentOffset, (size_t)m_device->getBufferCopyOffsetAlignment());
+			const uint8_t *srcData = (uint8_t *)fileData;
+
+			gal::BufferImageCopy bufferCopyRegion{};
+			bufferCopyRegion.m_imageMipLevel = 0;
+			bufferCopyRegion.m_imageBaseLayer = 0;
+			bufferCopyRegion.m_imageLayerCount = 1;
+			bufferCopyRegion.m_extent.m_width = width;
+			bufferCopyRegion.m_extent.m_height = height;
+			bufferCopyRegion.m_extent.m_depth = 1;
+			bufferCopyRegion.m_bufferOffset = currentOffset;
+			bufferCopyRegion.m_bufferRowLength = (uint32_t)(rowPitch / 4); // this is in pixels
+			bufferCopyRegion.m_bufferImageHeight = height;
+
+			upload.m_bufferCopyRegions.push_back(bufferCopyRegion);
+
+			for (size_t row = 0; row < height; ++row)
+			{
+				memcpy(data + currentOffset, srcData, rowSize);
+				srcData += rowSize;
+				currentOffset += rowPitch;
+			}
+		}
+
+		stagingBuffer->unmap();
+	}
+
+	{
+		LOCK_HOLDER(m_uploadDataMutex);
+		m_uploads.push_back(eastl::move(upload));
+	}
+
+	return true;
+}
+
 void TextureLoader::flushUploadCopies(gal::CommandList *cmdList, uint64_t frameIndex) noexcept
 {
 	// delete old staging buffers

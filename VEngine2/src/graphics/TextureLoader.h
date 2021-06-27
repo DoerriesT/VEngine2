@@ -27,6 +27,8 @@ public:
 	/// <returns>True if the call succeeded.</returns>
 	bool load(size_t fileSize, const char *fileData, const char *textureName, gal::Image **image, gal::ImageView **imageView) noexcept;
 
+	bool loadRawRGBA8(size_t fileSize, const char *fileData, const char *textureName, uint32_t width, uint32_t height, gal::Image **image, gal::ImageView **imageView) noexcept;
+
 	/// <summary>
 	/// Uses the given command list to copy pending textures from their respective staging buffer to their final
 	/// location in device memory. This function must be called after using load() before the texture can be used by the GPU.

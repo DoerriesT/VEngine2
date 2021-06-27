@@ -145,11 +145,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\AssetBrowserWindow.h" />
     <ClInclude Include="src\Editor.h" />
     <ClInclude Include="src\InspectorWindow.h" />
     <ClInclude Include="src\ViewportWindow.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AssetBrowserWindow.cpp" />
     <ClCompile Include="src\Editor.cpp" />
     <ClCompile Include="src\InspectorWindow.cpp" />
     <ClCompile Include="src\ViewportWindow.cpp" />

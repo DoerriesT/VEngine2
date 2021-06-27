@@ -25,6 +25,7 @@ public:
 	void setCameraEntity(EntityID cameraEntity) noexcept;
 	EntityID getCameraEntity() const noexcept;
 	TextureHandle loadTexture(size_t fileSize, const char *fileData, const char *textureName) noexcept;
+	TextureHandle loadRawRGBA8(size_t fileSize, const char *fileData, const char *textureName, uint32_t width, uint32_t height) noexcept;
 	void destroyTexture(TextureHandle handle) noexcept;
 	ImTextureID getImGuiTextureID(TextureHandle handle) noexcept;
 	ImTextureID getEditorViewportTextureID() noexcept;
