@@ -417,6 +417,7 @@ void AssetBrowserWindow::draw() noexcept
 					float itemSize = 128.0f;
 					auto contentRegionAvail = ImGui::GetContentRegionAvail();
 					int columns = (int)(contentRegionAvail.x / 128.0f);
+					columns = columns < 1 ? 1 : columns;
 					ImGui::Columns(columns, nullptr, false);
 					
 					for (int isFileOnlyRun = 0; isFileOnlyRun < 2; ++isFileOnlyRun)
