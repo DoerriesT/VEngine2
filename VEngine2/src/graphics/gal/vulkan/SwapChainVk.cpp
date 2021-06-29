@@ -334,7 +334,7 @@ void gal::SwapChainVk::destroy()
 	{
 		// call destructor and free backing memory
 		m_images[i]->~ImageVk();
-		m_imageMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageVk)> *>(m_images[i]));
+		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageVk> *>(m_images[i]));
 	}
 }
 

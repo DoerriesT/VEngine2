@@ -585,7 +585,7 @@ void gal::GraphicsDeviceVk::destroyGraphicsPipeline(GraphicsPipeline *pipeline)
 
 		// call destructor and free backing memory
 		pipelineVk->~GraphicsPipelineVk();
-		m_graphicsPipelineMemoryPool.free(reinterpret_cast<ByteArray<sizeof(GraphicsPipelineVk)> *>(pipelineVk));
+		m_graphicsPipelineMemoryPool.free(reinterpret_cast<RawView<GraphicsPipelineVk> *>(pipelineVk));
 	}
 }
 
@@ -598,7 +598,7 @@ void gal::GraphicsDeviceVk::destroyComputePipeline(ComputePipeline *pipeline)
 
 		// call destructor and free backing memory
 		pipelineVk->~ComputePipelineVk();
-		m_computePipelineMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ComputePipelineVk)> *>(pipelineVk));
+		m_computePipelineMemoryPool.free(reinterpret_cast<RawView<ComputePipelineVk> *>(pipelineVk));
 	}
 }
 
@@ -620,7 +620,7 @@ void gal::GraphicsDeviceVk::destroyCommandListPool(CommandListPool *commandListP
 
 		// call destructor and free backing memory
 		poolVk->~CommandListPoolVk();
-		m_commandListPoolMemoryPool.free(reinterpret_cast<ByteArray<sizeof(CommandListPoolVk)> *>(poolVk));
+		m_commandListPoolMemoryPool.free(reinterpret_cast<RawView<CommandListPoolVk> *>(poolVk));
 	}
 }
 
@@ -640,7 +640,7 @@ void gal::GraphicsDeviceVk::destroyQueryPool(QueryPool *queryPool)
 
 		// call destructor and free backing memory
 		poolVk->~QueryPoolVk();
-		m_queryPoolMemoryPool.free(reinterpret_cast<ByteArray<sizeof(QueryPoolVk)> *>(poolVk));
+		m_queryPoolMemoryPool.free(reinterpret_cast<RawView<QueryPoolVk> *>(poolVk));
 	}
 }
 
@@ -734,7 +734,7 @@ void gal::GraphicsDeviceVk::destroyImage(Image *image)
 
 		// call destructor and free backing memory
 		imageVk->~ImageVk();
-		m_imageMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageVk)> *>(imageVk));
+		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageVk> *>(imageVk));
 	}
 }
 
@@ -748,7 +748,7 @@ void gal::GraphicsDeviceVk::destroyBuffer(Buffer *buffer)
 
 		// call destructor and free backing memory
 		bufferVk->~BufferVk();
-		m_bufferMemoryPool.free(reinterpret_cast<ByteArray<sizeof(BufferVk)> *>(bufferVk));
+		m_bufferMemoryPool.free(reinterpret_cast<RawView<BufferVk> *>(bufferVk));
 	}
 }
 
@@ -821,7 +821,7 @@ void gal::GraphicsDeviceVk::destroyImageView(ImageView *imageView)
 
 		// call destructor and free backing memory
 		viewVk->~ImageViewVk();
-		m_imageViewMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageViewVk)> *>(viewVk));
+		m_imageViewMemoryPool.free(reinterpret_cast<RawView<ImageViewVk> *>(viewVk));
 	}
 }
 
@@ -834,7 +834,7 @@ void gal::GraphicsDeviceVk::destroyBufferView(BufferView *bufferView)
 
 		// call destructor and free backing memory
 		viewVk->~BufferViewVk();
-		m_bufferViewMemoryPool.free(reinterpret_cast<ByteArray<sizeof(BufferViewVk)> *>(viewVk));
+		m_bufferViewMemoryPool.free(reinterpret_cast<RawView<BufferViewVk> *>(viewVk));
 	}
 }
 
@@ -855,7 +855,7 @@ void gal::GraphicsDeviceVk::destroySampler(Sampler *sampler)
 
 		// call destructor and free backing memory
 		samplerVk->~SamplerVk();
-		m_samplerMemoryPool.free(reinterpret_cast<ByteArray<sizeof(SamplerVk)> *>(samplerVk));
+		m_samplerMemoryPool.free(reinterpret_cast<RawView<SamplerVk> *>(samplerVk));
 	}
 }
 
@@ -876,7 +876,7 @@ void gal::GraphicsDeviceVk::destroySemaphore(Semaphore *semaphore)
 
 		// call destructor and free backing memory
 		semaphoreVk->~SemaphoreVk();
-		m_semaphoreMemoryPool.free(reinterpret_cast<ByteArray<sizeof(SemaphoreVk)> *>(semaphoreVk));
+		m_semaphoreMemoryPool.free(reinterpret_cast<RawView<SemaphoreVk> *>(semaphoreVk));
 	}
 }
 
@@ -900,7 +900,7 @@ void gal::GraphicsDeviceVk::destroyDescriptorSetPool(DescriptorSetPool *descript
 
 		// call destructor and free backing memory
 		poolVk->~DescriptorSetPoolVk();
-		m_descriptorSetPoolMemoryPool.free(reinterpret_cast<ByteArray<sizeof(DescriptorSetPoolVk)> *>(poolVk));
+		m_descriptorSetPoolMemoryPool.free(reinterpret_cast<RawView<DescriptorSetPoolVk> *>(poolVk));
 	}
 }
 
@@ -969,7 +969,7 @@ void gal::GraphicsDeviceVk::destroyDescriptorSetLayout(DescriptorSetLayout *desc
 
 		// call destructor and free backing memory
 		layoutVk->~DescriptorSetLayoutVk();
-		m_descriptorSetLayoutMemoryPool.free(reinterpret_cast<ByteArray<sizeof(DescriptorSetLayoutVk)> *>(layoutVk));
+		m_descriptorSetLayoutMemoryPool.free(reinterpret_cast<RawView<DescriptorSetLayoutVk> *>(layoutVk));
 	}
 }
 

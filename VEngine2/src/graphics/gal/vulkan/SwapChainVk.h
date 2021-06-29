@@ -36,7 +36,7 @@ namespace gal
 		VkSwapchainKHR m_swapChain;
 		uint32_t m_imageCount;
 		ImageVk *m_images[s_maxImageCount];
-		StaticObjectPool<ByteArray<sizeof(ImageVk)>, s_maxImageCount> m_imageMemoryPool;
+		StaticObjectMemoryPool<ImageVk, s_maxImageCount> m_imageMemoryPool;
 		Format m_imageFormat;
 		Extent2D m_extent;
 		uint32_t m_currentImageIndex;

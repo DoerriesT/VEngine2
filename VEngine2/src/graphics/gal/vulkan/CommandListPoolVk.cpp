@@ -67,7 +67,7 @@ void gal::CommandListPoolVk::free(uint32_t count, CommandList **commandLists)
 
 			// call destructor and free backing memory
 			commandListVk->~CommandListVk();
-			m_commandListMemoryPool.free(reinterpret_cast<ByteArray<sizeof(CommandListVk)> *>(commandListVk));
+			m_commandListMemoryPool.free(reinterpret_cast<RawView<CommandListVk> *>(commandListVk));
 		}
 
 		vkFreeCommandBuffers(deviceVk, m_commandPool, countVk, commandBuffers);

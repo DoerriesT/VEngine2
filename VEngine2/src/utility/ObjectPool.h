@@ -2,16 +2,18 @@
 #include <vector>
 #include <cassert>
 
-template<size_t Size>
-struct ByteArray
+template<typename T>
+struct RawView
 {
-	char m_data[Size];
+	alignas(alignof(T)) char m_data[sizeof(T)];
 };
 
 template<typename T, size_t Count>
 class StaticObjectPool
 {
 public:
+	using ObjectType = T;
+
 	explicit StaticObjectPool();
 	T *alloc();
 	void free(T *value);
@@ -28,6 +30,9 @@ private:
 	size_t m_firstFreeIndex;
 	size_t m_allocationCount;
 };
+
+template<typename T, size_t Count>
+using StaticObjectMemoryPool = StaticObjectPool<RawView<T>, Count>;
 
 template<typename T, size_t Count>
 inline StaticObjectPool<T, Count>::StaticObjectPool()
@@ -79,6 +84,8 @@ template<typename T>
 class DynamicObjectPool
 {
 public:
+	using ObjectType = T;
+
 	explicit DynamicObjectPool(size_t firstBlockCapacity);
 	DynamicObjectPool(DynamicObjectPool &) = delete;
 	DynamicObjectPool(DynamicObjectPool &&) = delete;
@@ -110,6 +117,9 @@ private:
 
 	void createBlock();
 };
+
+template<typename T>
+using DynamicObjectMemoryPool = DynamicObjectPool<RawView<T>>;
 
 template<typename T>
 inline DynamicObjectPool<T>::DynamicObjectPool(size_t firstBlockCapacity)

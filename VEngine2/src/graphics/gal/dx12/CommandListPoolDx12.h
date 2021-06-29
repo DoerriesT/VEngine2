@@ -26,6 +26,6 @@ namespace gal
 		D3D12_COMMAND_LIST_TYPE m_cmdListType;
 		const CommandListRecordContextDx12 *m_recordContext;
 		std::vector<CommandListDx12 *> m_liveCmdLists;
-		DynamicObjectPool<ByteArray<sizeof(CommandListDx12)>> m_commandListMemoryPool;
+		DynamicObjectMemoryPool<CommandListDx12> m_commandListMemoryPool;
 	};
 }

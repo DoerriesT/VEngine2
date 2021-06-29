@@ -370,7 +370,7 @@ void gal::GraphicsDeviceDx12::destroyGraphicsPipeline(GraphicsPipeline *pipeline
 
 		// call destructor and free backing memory
 		pipelineDx->~GraphicsPipelineDx12();
-		m_graphicsPipelineMemoryPool.free(reinterpret_cast<ByteArray<sizeof(GraphicsPipelineDx12)> *>(pipelineDx));
+		m_graphicsPipelineMemoryPool.free(reinterpret_cast<RawView<GraphicsPipelineDx12> *>(pipelineDx));
 	}
 }
 
@@ -383,7 +383,7 @@ void gal::GraphicsDeviceDx12::destroyComputePipeline(ComputePipeline *pipeline)
 
 		// call destructor and free backing memory
 		pipelineDx->~ComputePipelineDx12();
-		m_computePipelineMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ComputePipelineDx12)> *>(pipelineDx));
+		m_computePipelineMemoryPool.free(reinterpret_cast<RawView<ComputePipelineDx12> *>(pipelineDx));
 	}
 }
 
@@ -410,7 +410,7 @@ void gal::GraphicsDeviceDx12::destroyCommandListPool(CommandListPool *commandLis
 
 		// call destructor and free backing memory
 		poolDx->~CommandListPoolDx12();
-		m_commandListPoolMemoryPool.free(reinterpret_cast<ByteArray<sizeof(CommandListPoolDx12)> *>(poolDx));
+		m_commandListPoolMemoryPool.free(reinterpret_cast<RawView<CommandListPoolDx12> *>(poolDx));
 	}
 }
 
@@ -430,7 +430,7 @@ void gal::GraphicsDeviceDx12::destroyQueryPool(QueryPool *queryPool)
 
 		// call destructor and free backing memory
 		poolDx->~QueryPoolDx12();
-		m_queryPoolMemoryPool.free(reinterpret_cast<ByteArray<sizeof(QueryPoolDx12)> *>(poolDx));
+		m_queryPoolMemoryPool.free(reinterpret_cast<RawView<QueryPoolDx12> *>(poolDx));
 	}
 }
 
@@ -603,7 +603,7 @@ void gal::GraphicsDeviceDx12::destroyImage(Image *image)
 
 		// call destructor and free backing memory
 		imageDx->~ImageDx12();
-		m_imageMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageDx12)> *>(imageDx));
+		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageDx12> *>(imageDx));
 	}
 }
 
@@ -619,7 +619,7 @@ void gal::GraphicsDeviceDx12::destroyBuffer(Buffer *buffer)
 
 		// call destructor and free backing memory
 		bufferDx->~BufferDx12();
-		m_bufferMemoryPool.free(reinterpret_cast<ByteArray<sizeof(BufferDx12)> *>(bufferDx));
+		m_bufferMemoryPool.free(reinterpret_cast<RawView<BufferDx12> *>(bufferDx));
 	}
 }
 
@@ -668,7 +668,7 @@ void gal::GraphicsDeviceDx12::destroyImageView(ImageView *imageView)
 
 		// call destructor and free backing memory
 		viewDx->~ImageViewDx12();
-		m_imageViewMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageViewDx12)> *>(viewDx));
+		m_imageViewMemoryPool.free(reinterpret_cast<RawView<ImageViewDx12> *>(viewDx));
 	}
 }
 
@@ -681,7 +681,7 @@ void gal::GraphicsDeviceDx12::destroyBufferView(BufferView *bufferView)
 
 		// call destructor and free backing memory
 		viewDx->~BufferViewDx12();
-		m_bufferViewMemoryPool.free(reinterpret_cast<ByteArray<sizeof(BufferViewDx12)> *>(viewDx));
+		m_bufferViewMemoryPool.free(reinterpret_cast<RawView<BufferViewDx12> *>(viewDx));
 	}
 }
 
@@ -702,7 +702,7 @@ void gal::GraphicsDeviceDx12::destroySampler(Sampler *sampler)
 
 		// call destructor and free backing memory
 		samplerDx->~SamplerDx12();
-		m_samplerMemoryPool.free(reinterpret_cast<ByteArray<sizeof(SamplerDx12)> *>(samplerDx));
+		m_samplerMemoryPool.free(reinterpret_cast<RawView<SamplerDx12> *>(samplerDx));
 	}
 }
 
@@ -723,7 +723,7 @@ void gal::GraphicsDeviceDx12::destroySemaphore(Semaphore *semaphore)
 
 		// call destructor and free backing memory
 		semaphoreDx->~SemaphoreDx12();
-		m_semaphoreMemoryPool.free(reinterpret_cast<ByteArray<sizeof(SemaphoreDx12)> *>(semaphoreDx));
+		m_semaphoreMemoryPool.free(reinterpret_cast<RawView<SemaphoreDx12> *>(semaphoreDx));
 	}
 }
 
@@ -753,7 +753,7 @@ void gal::GraphicsDeviceDx12::destroyDescriptorSetPool(DescriptorSetPool *descri
 
 		// call destructor and free backing memory
 		poolDx->~DescriptorSetPoolDx12();
-		m_descriptorSetPoolMemoryPool.free(reinterpret_cast<ByteArray<sizeof(DescriptorSetPoolDx12)> *>(poolDx));
+		m_descriptorSetPoolMemoryPool.free(reinterpret_cast<RawView<DescriptorSetPoolDx12> *>(poolDx));
 	}
 }
 
@@ -774,7 +774,7 @@ void gal::GraphicsDeviceDx12::destroyDescriptorSetLayout(DescriptorSetLayout *de
 
 		// call destructor and free backing memory
 		layoutDx->~DescriptorSetLayoutDx12();
-		m_descriptorSetLayoutMemoryPool.free(reinterpret_cast<ByteArray<sizeof(DescriptorSetLayoutDx12)> *>(layoutDx));
+		m_descriptorSetLayoutMemoryPool.free(reinterpret_cast<RawView<DescriptorSetLayoutDx12> *>(layoutDx));
 	}
 }
 

@@ -96,7 +96,7 @@ gal::SwapChainDx12::~SwapChainDx12()
 		((ID3D12Resource *)m_images[i]->getNativeHandle())->Release();
 		// call destructor and free backing memory
 		m_images[i]->~ImageDx12();
-		m_imageMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageDx12)> *>(m_images[i]));
+		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageDx12> *>(m_images[i]));
 	}
 	m_swapChain->Release();
 }
@@ -122,7 +122,7 @@ void gal::SwapChainDx12::resize(uint32_t width, uint32_t height, bool fullscreen
 		((ID3D12Resource *)m_images[i]->getNativeHandle())->Release();
 		// call destructor and free backing memory
 		m_images[i]->~ImageDx12();
-		m_imageMemoryPool.free(reinterpret_cast<ByteArray<sizeof(ImageDx12)> *>(m_images[i]));
+		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageDx12> *>(m_images[i]));
 	}
 
 	if (fullscreen != m_fullscreen)

@@ -25,6 +25,6 @@ namespace gal
 	private:
 		GraphicsDeviceVk *m_device;
 		VkCommandPool m_commandPool;
-		DynamicObjectPool<ByteArray<sizeof(CommandListVk)>> m_commandListMemoryPool;
+		DynamicObjectMemoryPool<CommandListVk> m_commandListMemoryPool;
 	};
 }

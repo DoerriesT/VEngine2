@@ -53,7 +53,7 @@ void gal::CommandListPoolDx12::free(uint32_t count, CommandList **commandLists)
 
 		// call destructor and free backing memory
 		cmdListDx->~CommandListDx12();
-		m_commandListMemoryPool.free(reinterpret_cast<ByteArray<sizeof(CommandListDx12)> *>(cmdListDx));
+		m_commandListMemoryPool.free(reinterpret_cast<RawView<CommandListDx12> *>(cmdListDx));
 
 		ContainerUtility::quickRemove(m_liveCmdLists, cmdListDx);
 	}

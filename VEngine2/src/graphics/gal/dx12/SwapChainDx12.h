@@ -38,7 +38,7 @@ namespace gal
 		IDXGISwapChain4 *m_swapChain;
 		uint32_t m_imageCount;
 		ImageDx12 *m_images[s_maxImageCount];
-		StaticObjectPool<ByteArray<sizeof(ImageDx12)>, s_maxImageCount> m_imageMemoryPool;
+		StaticObjectMemoryPool<ImageDx12, s_maxImageCount> m_imageMemoryPool;
 		Format m_imageFormat;
 		Extent2D m_extent;
 		uint32_t m_currentImageIndex;
