@@ -20,6 +20,7 @@
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
 #include "component/LightComponent.h"
+#include "Level.h"
 
 // these are needed for EASTL
 
@@ -46,6 +47,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	m_gameLogic = gameLogic;
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
 	Timer::init();
+
+	m_level = new Level();
 
 	// Setup Dear ImGui context
 	{
@@ -125,6 +128,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	delete m_renderer;
 	delete m_ecs;
 	delete m_window;
+	delete m_level;
 
 	return 0;
 }
@@ -142,6 +146,11 @@ Renderer *Engine::getRenderer() noexcept
 UserInput *Engine::getUserInput() noexcept
 {
 	return m_userInput;
+}
+
+Level *Engine::getLevel() noexcept
+{
+	return m_level;
 }
 
 void Engine::setEditorMode(bool editorMode) noexcept

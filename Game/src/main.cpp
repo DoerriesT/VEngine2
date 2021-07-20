@@ -17,6 +17,7 @@
 #include <input/UserInput.h>
 #include <input/FPSCameraController.h>
 #include <graphics/Camera.h>
+#include <Level.h>
 
 void visitType(const Reflection &r, const TypeID &typeID, const char *fieldName = nullptr, unsigned int indent = 0)
 {
@@ -51,6 +52,7 @@ public:
 		m_fpsCameraController = new FPSCameraController(m_engine->getUserInput());
 		m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>();
 		m_engine->getRenderer()->setCameraEntity(m_cameraEntity);
+		m_engine->getLevel()->addEntity(m_cameraEntity, "First Person Camera");
 	}
 
 	void update(float deltaTime) noexcept override

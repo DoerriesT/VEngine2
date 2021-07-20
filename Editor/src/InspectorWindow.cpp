@@ -1,6 +1,7 @@
 #include "InspectorWindow.h"
 #include <graphics/imgui/imgui.h>
 #include <Engine.h>
+#include <Level.h>
 #include <ecs/ECSTypeIDTranslator.h>
 #include <reflection/Reflection.h>
 
@@ -15,8 +16,41 @@ void InspectorWindow::draw(EntityID entity) noexcept
 	{
 		return;
 	}
+
+	if (entity != m_lastDisplayedEntity)
+	{
+		m_lastDisplayedEntity = entity;
+		memset(m_nameStringTemp, 0, sizeof(m_nameStringTemp));
+
+		// look up name of selected entity
+		if (entity != k_nullEntity)
+		{
+			Level *level = m_engine->getLevel();
+
+			const auto &sceneGraphNodes = level->getSceneGraphNodes();
+
+			for (auto *n : sceneGraphNodes)
+			{
+				if (n->m_entity == entity)
+				{
+					m_currentSceneGraphNode = n;
+					break;
+				}
+			}
+
+			static_assert(sizeof(m_nameStringTemp) == SceneGraphNode::k_maxNameLength);
+			strcpy_s(m_nameStringTemp, m_currentSceneGraphNode->m_name);
+		}
+	}
+
+	if (entity != k_nullEntity)
 	{
 		ECS &ecs = *m_engine->getECS();
+		
+		if (ImGui::InputText("Entity Name", m_nameStringTemp, IM_ARRAYSIZE(m_nameStringTemp), ImGuiInputTextFlags_EnterReturnsTrue))
+		{
+			strcpy_s(m_currentSceneGraphNode->m_name, m_nameStringTemp);
+		}
 
 		auto compMask = ecs.getComponentMask(entity);
 

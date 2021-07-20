@@ -5,6 +5,7 @@
 class InspectorWindow;
 class ViewportWindow;
 class AssetBrowserWindow;
+class SceneGraphWindow;
 
 class Editor : public IGameLogic
 {
@@ -20,5 +21,6 @@ private:
 	ViewportWindow *m_viewportWindow = nullptr;
 	InspectorWindow *m_inspectorWindow = nullptr;
 	AssetBrowserWindow *m_assetBrowserWindow = nullptr;
+	SceneGraphWindow *m_sceneGraphWindow = nullptr;
 	EntityID m_editorCameraEntity = k_nullEntity;
 };

@@ -312,6 +312,9 @@
     <ClInclude Include="src\asset\MeshAssetHandler.h">
       <Filter>src\asset</Filter>
     </ClInclude>
+    <ClInclude Include="src\Level.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -538,6 +541,9 @@
     </ClCompile>
     <ClCompile Include="src\asset\MeshAssetHandler.cpp">
       <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\Level.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

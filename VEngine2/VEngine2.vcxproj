@@ -219,6 +219,7 @@
     <ClInclude Include="src\input\ImGuiInputAdapter.h" />
     <ClInclude Include="src\input\InputTokens.h" />
     <ClInclude Include="src\input\UserInput.h" />
+    <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\reflection\Reflection.h" />
     <ClInclude Include="src\reflection\TypeInfo.h" />
@@ -247,6 +248,7 @@
     <ClCompile Include="src\asset\TextureAsset.cpp" />
     <ClCompile Include="src\asset\TextureAssetHandler.cpp" />
     <ClCompile Include="src\component\CameraComponent.cpp" />
+    <ClCompile Include="src\component\Level.cpp" />
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
