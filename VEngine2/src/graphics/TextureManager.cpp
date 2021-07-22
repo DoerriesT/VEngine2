@@ -40,7 +40,6 @@ void TextureManager::flushDeletionQueue(uint64_t frameIndex) noexcept
 {
 	LOCK_HOLDER(m_deletionQueueMutex);
 
-	// delete old staging buffers
 	while (!m_deletionQueue.empty())
 	{
 		auto &freedTexture = m_deletionQueue.front();
@@ -96,43 +95,55 @@ TextureHandle TextureManager::add(gal::Image *image, gal::ImageView *view) noexc
 		{
 			m_textures.resize((size_t)(m_textures.size() * 1.5));
 		}
+
+		auto &tex = m_textures[handle - 1];
+		tex = {};
+		tex.m_image = image;
+		tex.m_view = view;
+		tex.m_viewHandle = viewHandle;
 	}
-
-	auto &tex = m_textures[handle - 1];
-	tex = {};
-	tex.m_image = image;
-	tex.m_view = view;
-	tex.m_viewHandle = viewHandle;
-
 
 	return TextureHandle(handle);
 }
 
 void TextureManager::update(TextureHandle handle, gal::Image *image, gal::ImageView *view) noexcept
 {
-	if (!isValidHandle(handle))
+	TextureViewHandle viewHandle = {};
 	{
-		Log::warn("TextureManager: Tried to update an invalid TextureHandle!");
-		return;
+		LOCK_HOLDER(m_texturesMutex);
+		const bool validHandle = handle != 0 && handle <= m_textures.size();
+		if (!validHandle)
+		{
+			Log::warn("TextureManager: Tried to update an invalid TextureHandle!");
+			return;
+		}
+
+		auto &tex = m_textures[handle - 1];
+		tex = {};
+		tex.m_image = image;
+		tex.m_view = view;
+
+		viewHandle = tex.m_viewHandle;
 	}
 
-	auto &tex = m_textures[handle - 1];
-	tex = {};
-	tex.m_image = image;
-	tex.m_view = view;
-
-	m_viewRegistry->updateHandle(tex.m_viewHandle, view);
+	m_viewRegistry->updateHandle(viewHandle, view);
 }
 
 void TextureManager::free(TextureHandle handle, uint64_t frameIndex) noexcept
 {
-	if (!isValidHandle(handle))
+	Texture tex;
 	{
-		return;
+		LOCK_HOLDER(m_texturesMutex);
+		const bool validHandle = handle != 0 && handle <= m_textures.size();
+		if (!validHandle)
+		{
+			return;
+		}
+
+		tex = m_textures[handle - 1];
+		m_textures[handle - 1] = {};
 	}
-
-	auto &tex = m_textures[handle - 1];
-
+	
 	m_viewRegistry->destroyHandle(tex.m_viewHandle);
 
 	if (tex.m_image)
@@ -143,26 +154,20 @@ void TextureManager::free(TextureHandle handle, uint64_t frameIndex) noexcept
 		m_deletionQueue.push({ tex.m_image, tex.m_view, (frameIndex + 2) });
 	}
 
-	tex = {};
-	LOCK_HOLDER(m_handleManagerMutex);
-	m_handleManager.free(handle);
+	{
+		LOCK_HOLDER(m_handleManagerMutex);
+		m_handleManager.free(handle);
+	}
+	
 }
 
 TextureViewHandle TextureManager::getViewHandle(TextureHandle handle) const noexcept
 {
-	if (!isValidHandle(handle))
+	LOCK_HOLDER(m_texturesMutex);
+	const bool validHandle = handle != 0 && handle <= m_textures.size();
+	if (!validHandle)
 	{
 		return TextureViewHandle();
 	}
 	return m_textures[handle - 1].m_viewHandle;
-}
-
-bool TextureManager::isValidHandle(TextureHandle handle) const noexcept
-{
-	size_t textureArraySize = 0;
-	{
-		LOCK_HOLDER(m_texturesMutex);
-		textureArraySize = m_textures.size();
-	}
-	return handle != 0 && handle <= textureArraySize;
 }

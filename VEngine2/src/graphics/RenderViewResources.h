@@ -18,6 +18,12 @@ struct RenderViewResources
 	gal::ResourceState m_resultImageResourceState = gal::ResourceState::UNDEFINED;
 	gal::PipelineStageFlags m_resultImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
 
+	gal::Image *m_depthBufferImage = nullptr;
+	gal::ImageView *m_depthBufferImageView = nullptr;
+	TextureViewHandle m_depthBufferTextureViewHandle = {};
+	gal::ResourceState m_depthBufferImageResourceState = gal::ResourceState::UNDEFINED;
+	gal::PipelineStageFlags m_depthBufferImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
+
 	explicit RenderViewResources(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, uint32_t width, uint32_t height) noexcept;
 	~RenderViewResources();
 	void resize(uint32_t width, uint32_t height) noexcept;

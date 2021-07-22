@@ -1,20 +1,32 @@
 #include "RenderView.h"
+#include "pass/MeshPass.h"
 #include "pass/GridPass.h"
 #include "RenderViewResources.h"
+#include "ResourceViewRegistry.h"
 #include "gal/Initializers.h"
 #include <glm/gtc/type_ptr.hpp>
+#include "ecs/ECS.h"
+#include "component/TransformComponent.h"
+#include "component/MeshComponent.h"
+#include <glm/gtx/transform.hpp>
+#include "MeshManager.h"
 
-RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
-	:m_device(device),
+RenderView::RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
+	:m_ecs(ecs),
+	m_device(device),
+	m_viewRegistry(viewRegistry),
+	m_meshManager(meshManager),
 	m_width(width),
 	m_height(height)
 {
 	m_renderViewResources = new RenderViewResources(m_device, viewRegistry, m_width, m_height);
+	m_meshPass = new MeshPass(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_gridPass = new GridPass(m_device, offsetBufferSetLayout);
 }
 
 RenderView::~RenderView()
 {
+	delete m_meshPass;
 	delete m_gridPass;
 	delete m_renderViewResources;
 }
@@ -27,18 +39,69 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	}
 
 	{
-		gal::Barrier b0 = gal::Initializers::imageBarrier(
-			m_renderViewResources->m_resultImage,
-			m_renderViewResources->m_resultImagePipelineStages,
-			gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
-			m_renderViewResources->m_resultImageResourceState,
-			gal::ResourceState::WRITE_COLOR_ATTACHMENT);
+		gal::Barrier barriers[] =
+		{
+			gal::Initializers::imageBarrier(
+				m_renderViewResources->m_resultImage,
+				m_renderViewResources->m_resultImagePipelineStages,
+				gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
+				m_renderViewResources->m_resultImageResourceState,
+				gal::ResourceState::WRITE_COLOR_ATTACHMENT),
+			gal::Initializers::imageBarrier(
+				m_renderViewResources->m_depthBufferImage,
+				m_renderViewResources->m_depthBufferImagePipelineStages,
+				gal::PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | gal::PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT,
+				m_renderViewResources->m_depthBufferImageResourceState,
+				gal::ResourceState::READ_WRITE_DEPTH_STENCIL)
+		};
 
-		cmdList->barrier(1, &b0);
+		cmdList->barrier(2, barriers);
 
 		m_renderViewResources->m_resultImagePipelineStages = gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT;
 		m_renderViewResources->m_resultImageResourceState = gal::ResourceState::WRITE_COLOR_ATTACHMENT;
+		m_renderViewResources->m_depthBufferImagePipelineStages = gal::PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | gal::PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT;
+		m_renderViewResources->m_depthBufferImageResourceState = gal::ResourceState::READ_WRITE_DEPTH_STENCIL;
 	}
+
+	eastl::vector<glm::mat4> modelMatrices;
+	eastl::vector<SubMeshDrawInfo> meshDrawInfo;
+	eastl::vector<SubMeshBufferHandles> meshBufferHandles;
+
+
+	m_ecs->iterate<TransformComponent, MeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				auto &mc = meshC[i];
+				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
+				const auto &submeshhandles = meshC->m_mesh->getSubMeshhandles();
+				for (auto h : submeshhandles)
+				{
+					modelMatrices.push_back(modelMatrix);
+					meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
+					meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
+				}
+				
+			}
+		});
+
+	MeshPass::Data meshPassData{};
+	meshPassData.m_bufferAllocator = bufferAllocator;
+	meshPassData.m_offsetBufferSet = offsetBufferSet;
+	meshPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+	meshPassData.m_width = m_width;
+	meshPassData.m_height = m_height;
+	meshPassData.m_meshCount = modelMatrices.size();
+	meshPassData.m_colorAttachment = m_renderViewResources->m_resultImageView;
+	meshPassData.m_depthBufferAttachment = m_renderViewResources->m_depthBufferImageView;
+	meshPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
+	meshPassData.m_modelMatrices = modelMatrices.data();
+	meshPassData.m_meshDrawInfo = meshDrawInfo.data();
+	meshPassData.m_meshBufferHandles = meshBufferHandles.data();
+
+	m_meshPass->record(cmdList, meshPassData);
+	
 
 	GridPass::Data gridPassData{};
 	gridPassData.m_bufferAllocator = bufferAllocator;
@@ -46,6 +109,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	gridPassData.m_width = m_width;
 	gridPassData.m_height = m_height;
 	gridPassData.m_colorAttachment = m_renderViewResources->m_resultImageView;
+	gridPassData.m_depthBufferAttachment = m_renderViewResources->m_depthBufferImageView;
 	gridPassData.m_modelMatrix = glm::mat4(1.0f);
 	gridPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);

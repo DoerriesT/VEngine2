@@ -18,7 +18,12 @@ void Editor::init(Engine *engine) noexcept
 {
 	m_engine = engine;
 
-	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>();
+	TransformComponent transC{};
+	transC.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+	CameraComponent cameraC{};
+	cameraC.m_fovy = glm::radians(60.0f);
+
+	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>(transC, cameraC);
 
 	m_engine->setEditorMode(true);
 	m_viewportWindow = new ViewportWindow(engine, &m_editorCameraEntity);

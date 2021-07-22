@@ -1,6 +1,8 @@
 #pragma once
 #include <filesystem>
 #include <EASTL/vector.h>
+#include <EASTL/atomic.h>
+#include "importer/mesh/ModelImporter.h"
 
 class Engine;
 
@@ -13,6 +15,14 @@ public:
 	bool isVisible() const noexcept;
 
 private:
+	struct ImportAssetTask
+	{
+		ModelImporter::ImportOptions m_importOptions = {};
+		std::string m_srcPath;
+		std::string m_dstPath;
+		bool m_done = false;
+	};
+
 	Engine *m_engine = nullptr;
 	std::filesystem::path m_currentPath = std::filesystem::current_path();
 	std::filesystem::path m_subDirPopupPath;
@@ -22,7 +32,10 @@ private:
 	eastl::vector<std::filesystem::path> m_history;
 	int m_historyPointer = 0;
 	bool m_visible = true;
+	ImportAssetTask m_importAssetTask;
+	eastl::atomic_flag m_currentlyImporting = false;
 
 	void updatePathSegments() noexcept;
 	void renderTreeNode(const std::filesystem::path &path, std::filesystem::path *newPath) noexcept;
+	void importButton() noexcept;
 };

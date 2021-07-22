@@ -14,6 +14,7 @@ public:
 		uint32_t m_width;
 		uint32_t m_height;
 		gal::ImageView *m_colorAttachment;
+		gal::ImageView *m_depthBufferAttachment;
 		glm::mat4 m_modelMatrix;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::vec4 m_thinLineColor;

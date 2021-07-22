@@ -46,6 +46,9 @@
     <Filter Include="src\component">
       <UniqueIdentifier>{50398f6e-60a1-4109-a02a-c47d324d96ff}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\file">
+      <UniqueIdentifier>{b87c714a-9da9-4fe4-9e60-eacbf9f3ea5f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -315,6 +318,27 @@
     <ClInclude Include="src\Level.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\MeshManager.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\Mesh.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\Material.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\MaterialManager.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\pass\MeshPass.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
+    <ClInclude Include="src\component\MeshComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\file\FileDialog.h">
+      <Filter>src\file</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -544,6 +568,21 @@
     </ClCompile>
     <ClCompile Include="src\component\Level.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\MeshManager.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\MaterialManager.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\MeshPass.cpp">
+      <Filter>src\graphics\pass</Filter>
+    </ClCompile>
+    <ClCompile Include="src\file\FileDialog.cpp">
+      <Filter>src\file</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\MeshComponent.cpp">
+      <Filter>src\component</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

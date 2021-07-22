@@ -5,6 +5,8 @@
 #include "graphics/Renderer.h"
 #include "MeshAsset.h"
 #include "AssetManager.h"
+#include <nlohmann/json.hpp>
+#include <fstream>
 
 static AssetManager *s_assetManager = nullptr;
 static MeshAssetHandler s_meshAssetHandler;
@@ -51,7 +53,69 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 	assetData->setAssetStatus(AssetStatus::LOADING);
 
-	// TODO: implement actual asset loading
+	// load asset
+	{
+		auto *meshAssetData = static_cast<MeshAssetData *>(assetData);
+
+		nlohmann::json info;
+		{
+			std::ifstream file(std::string(path) + ".info");
+			file >> info;
+		}
+
+		// load mesh
+		{
+			size_t fileSize = 0;
+			char *meshData = util::readBinaryFile(info["meshFile"].get<std::string>().c_str(), &fileSize);
+
+			const uint32_t subMeshCount = static_cast<uint32_t>(info["subMeshes"].size());
+			std::vector<SubMeshCreateInfo> subMeshes;
+			auto &subMeshHandles = meshAssetData->m_subMeshHandles;
+
+			subMeshes.reserve(subMeshCount);
+			subMeshHandles.resize(subMeshCount);
+
+			for (const auto &subMeshInfo : info["subMeshes"])
+			{
+				size_t dataOffset = subMeshInfo["dataOffset"].get<size_t>();
+
+				SubMeshCreateInfo subMesh{};
+				subMesh.m_minCorner[0] = subMeshInfo["minCorner"][0].get<float>();
+				subMesh.m_minCorner[1] = subMeshInfo["minCorner"][1].get<float>();
+				subMesh.m_minCorner[2] = subMeshInfo["minCorner"][2].get<float>();
+				subMesh.m_maxCorner[0] = subMeshInfo["maxCorner"][0].get<float>();
+				subMesh.m_maxCorner[1] = subMeshInfo["maxCorner"][1].get<float>();
+				subMesh.m_maxCorner[2] = subMeshInfo["maxCorner"][2].get<float>();
+				subMesh.m_minTexCoord[0] = subMeshInfo["texCoordMin"][0].get<float>();
+				subMesh.m_minTexCoord[1] = subMeshInfo["texCoordMin"][1].get<float>();
+				subMesh.m_maxTexCoord[0] = subMeshInfo["texCoordMax"][0].get<float>();
+				subMesh.m_maxTexCoord[1] = subMeshInfo["texCoordMax"][1].get<float>();
+				subMesh.m_vertexCount = subMeshInfo["vertexCount"].get<uint32_t>();
+				subMesh.m_indexCount = subMeshInfo["indexCount"].get<uint32_t>();
+
+				subMesh.m_positions = (float *)(meshData + dataOffset);
+				dataOffset += subMesh.m_vertexCount * sizeof(float) * 3;
+
+				subMesh.m_normals = (float *)(meshData + dataOffset);
+				dataOffset += subMesh.m_vertexCount * sizeof(float) * 3;
+
+				subMesh.m_tangents = (float *)(meshData + dataOffset);
+				dataOffset += subMesh.m_vertexCount * sizeof(float) * 4;
+
+				subMesh.m_texCoords = (float *)(meshData + dataOffset);
+				dataOffset += subMesh.m_vertexCount * sizeof(float) * 2;
+
+				subMesh.m_indices = (uint16_t *)(meshData + dataOffset);
+				dataOffset += subMesh.m_indexCount * sizeof(uint16_t);
+
+				subMeshes.push_back(subMesh);
+			}
+
+			m_renderer->createSubMeshes(subMeshCount, subMeshes.data(), subMeshHandles.data());
+
+			delete[] meshData;
+		}
+	}
 
 	assetData->setAssetStatus(AssetStatus::READY);
 

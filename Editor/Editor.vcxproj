@@ -147,6 +147,12 @@
   <ItemGroup>
     <ClInclude Include="src\AssetBrowserWindow.h" />
     <ClInclude Include="src\Editor.h" />
+    <ClInclude Include="src\importer\mesh\GLTFLoader.h" />
+    <ClInclude Include="src\importer\mesh\ImportedModel.h" />
+    <ClInclude Include="src\importer\mesh\meshoptimizer\meshoptimizer.h" />
+    <ClInclude Include="src\importer\mesh\mikktspace.h" />
+    <ClInclude Include="src\importer\mesh\ModelImporter.h" />
+    <ClInclude Include="src\importer\mesh\WavefrontOBJLoader.h" />
     <ClInclude Include="src\InspectorWindow.h" />
     <ClInclude Include="src\SceneGraphWindow.h" />
     <ClInclude Include="src\ViewportWindow.h" />
@@ -154,6 +160,25 @@
   <ItemGroup>
     <ClCompile Include="src\AssetBrowserWindow.cpp" />
     <ClCompile Include="src\Editor.cpp" />
+    <ClCompile Include="src\importer\mesh\GLTFLoader.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\allocator.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\clusterizer.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\indexcodec.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\indexgenerator.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\overdrawanalyzer.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\overdrawoptimizer.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\simplifier.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\spatialorder.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\stripifier.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vcacheanalyzer.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vcacheoptimizer.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vertexcodec.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vertexfilter.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vfetchanalyzer.cpp" />
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vfetchoptimizer.cpp" />
+    <ClCompile Include="src\importer\mesh\mikktspace.c" />
+    <ClCompile Include="src\importer\mesh\ModelImporter.cpp" />
+    <ClCompile Include="src\importer\mesh\WavefrontOBJLoader.cpp" />
     <ClCompile Include="src\InspectorWindow.cpp" />
     <ClCompile Include="src\SceneGraphWindow.cpp" />
     <ClCompile Include="src\ViewportWindow.cpp" />

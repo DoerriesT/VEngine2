@@ -4,6 +4,15 @@
     <Filter Include="src">
       <UniqueIdentifier>{8b0443d1-c7a0-4552-a8f4-70f22114d8a5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\importer">
+      <UniqueIdentifier>{900db8ab-a35b-4f11-865e-22977e5e0b81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\importer\mesh">
+      <UniqueIdentifier>{810e9807-5807-4b84-8504-f4c3798feb8a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\importer\mesh\meshoptimizer">
+      <UniqueIdentifier>{dc33a796-b2e3-446a-9565-d36664bb481d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Editor.h">
@@ -21,6 +30,24 @@
     <ClInclude Include="src\SceneGraphWindow.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\importer\mesh\GLTFLoader.h">
+      <Filter>src\importer\mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="src\importer\mesh\ImportedModel.h">
+      <Filter>src\importer\mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="src\importer\mesh\mikktspace.h">
+      <Filter>src\importer\mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="src\importer\mesh\ModelImporter.h">
+      <Filter>src\importer\mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="src\importer\mesh\WavefrontOBJLoader.h">
+      <Filter>src\importer\mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="src\importer\mesh\meshoptimizer\meshoptimizer.h">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Editor.cpp">
@@ -37,6 +64,63 @@
     </ClCompile>
     <ClCompile Include="src\SceneGraphWindow.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\GLTFLoader.cpp">
+      <Filter>src\importer\mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\mikktspace.c">
+      <Filter>src\importer\mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\ModelImporter.cpp">
+      <Filter>src\importer\mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\WavefrontOBJLoader.cpp">
+      <Filter>src\importer\mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\allocator.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\clusterizer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\indexcodec.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\indexgenerator.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\overdrawanalyzer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\overdrawoptimizer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\simplifier.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\spatialorder.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\stripifier.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vcacheanalyzer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vcacheoptimizer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vertexcodec.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vertexfilter.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vfetchanalyzer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\importer\mesh\meshoptimizer\vfetchoptimizer.cpp">
+      <Filter>src\importer\mesh\meshoptimizer</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

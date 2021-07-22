@@ -20,7 +20,9 @@
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
 #include "component/LightComponent.h"
+#include "component/MeshComponent.h"
 #include "Level.h"
+#include "file/FileDialog.h"
 
 // these are needed for EASTL
 
@@ -44,6 +46,8 @@ static void registerComponent(ECS *ecs)
 
 int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 {
+	FileDialog::initializeCOM();
+
 	m_gameLogic = gameLogic;
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
 	Timer::init();
@@ -74,6 +78,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	registerComponent<TransformComponent>(m_ecs);
 	registerComponent<CameraComponent>(m_ecs);
 	registerComponent<LightComponent>(m_ecs);
+	registerComponent<MeshComponent>(m_ecs);
 
 	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_userInput = new UserInput(*m_window);

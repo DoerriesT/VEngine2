@@ -98,6 +98,4 @@ private:
 	HandleManager m_handleManager;
 	eastl::vector<Texture> m_textures;
 	eastl::queue<FreedTexture> m_deletionQueue;
-
-	bool isValidHandle(TextureHandle handle) const noexcept;
 };

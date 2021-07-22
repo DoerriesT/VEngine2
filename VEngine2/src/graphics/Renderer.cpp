@@ -9,8 +9,10 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <optick.h>
 #include "imgui/imgui.h"
+#include "MeshManager.h"
 #include "TextureLoader.h"
 #include "TextureManager.h"
+#include "MaterialManager.h"
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
 #include "Camera.h"
@@ -35,10 +37,12 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 	m_viewRegistry = new ResourceViewRegistry(m_device);
 	m_rendererResources = new RendererResources(m_device, m_viewRegistry);
 
+	m_meshManager = new MeshManager(m_device, m_viewRegistry);
 	m_textureLoader = new TextureLoader(m_device);
 	m_textureManager = new TextureManager(m_device, m_viewRegistry);
+	m_materialManager = new MaterialManager(m_textureManager);
 
-	m_renderView = new RenderView(m_device, m_viewRegistry, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
+	m_renderView = new RenderView(m_ecs, m_device, m_viewRegistry, m_meshManager, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
 }
@@ -55,8 +59,10 @@ Renderer::~Renderer() noexcept
 
 	delete m_imguiPass;
 	delete m_renderView;
+	delete m_materialManager;
 	delete m_textureLoader;
 	delete m_textureManager;
+	delete m_meshManager;
 	delete m_rendererResources;
 	delete m_viewRegistry;
 
@@ -80,6 +86,7 @@ void Renderer::render() noexcept
 
 	m_viewRegistry->flushChanges();
 	m_textureManager->flushDeletionQueue(m_frame);
+	m_meshManager->flushDeletionQueue(m_frame);
 
 	gal::CommandList *cmdList = m_cmdLists[m_frame & 1];
 
@@ -87,8 +94,9 @@ void Renderer::render() noexcept
 	{
 		OPTICK_GPU_CONTEXT((VkCommandBuffer)cmdList->getNativeHandle());
 
-		// upload textures
+		// upload textures and meshes
 		m_textureLoader->flushUploadCopies(cmdList, m_frame);
+		m_meshManager->flushUploadCopies(cmdList, m_frame);
 
 		// render views
 		if (m_cameraEntity != k_nullEntity)
@@ -264,6 +272,16 @@ EntityID Renderer::getCameraEntity() const noexcept
 	return m_cameraEntity;
 }
 
+void Renderer::createSubMeshes(uint32_t count, SubMeshCreateInfo *subMeshes, SubMeshHandle *handles) noexcept
+{
+	m_meshManager->createSubMeshes(count, subMeshes, handles);
+}
+
+void Renderer::destroySubMeshes(uint32_t count, SubMeshHandle *handles) noexcept
+{
+	m_meshManager->destroySubMeshes(count, handles, m_frame);
+}
+
 TextureHandle Renderer::loadTexture(size_t fileSize, const char *fileData, const char *textureName) noexcept
 {
 	gal::Image *image = nullptr;
@@ -291,6 +309,21 @@ TextureHandle Renderer::loadRawRGBA8(size_t fileSize, const char *fileData, cons
 void Renderer::destroyTexture(TextureHandle handle) noexcept
 {
 	m_textureManager->free(handle, m_frame);
+}
+
+void Renderer::createMaterials(uint32_t count, const MaterialCreateInfo *materials, MaterialHandle *handles) noexcept
+{
+	m_materialManager->createMaterials(count, materials, handles);
+}
+
+void Renderer::updateMaterials(uint32_t count, const MaterialCreateInfo *materials, MaterialHandle *handles) noexcept
+{
+	m_materialManager->updateMaterials(count, materials, handles);
+}
+
+void Renderer::destroyMaterials(uint32_t count, MaterialHandle *handles) noexcept
+{
+	m_materialManager->destroyMaterials(count, handles);
 }
 
 ImTextureID Renderer::getImGuiTextureID(TextureHandle handle) noexcept

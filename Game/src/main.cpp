@@ -12,6 +12,8 @@
 #include <component/TransformComponent.h>
 #include <component/CameraComponent.h>
 #include <component/LightComponent.h>
+#include <component/MeshComponent.h>
+#include <asset/AssetManager.h>
 #include <Editor.h>
 #include <graphics/Renderer.h>
 #include <input/UserInput.h>
@@ -50,9 +52,21 @@ public:
 	{
 		m_engine = engine;
 		m_fpsCameraController = new FPSCameraController(m_engine->getUserInput());
-		m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>();
+		TransformComponent transC1{};
+		transC1.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+		CameraComponent cameraC1{};
+		cameraC1.m_fovy = glm::radians(60.0f);
+		Camera cam(transC1, cameraC1);
+		m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>(transC1, cameraC1);
 		m_engine->getRenderer()->setCameraEntity(m_cameraEntity);
 		m_engine->getLevel()->addEntity(m_cameraEntity, "First Person Camera");
+
+		Asset<MeshAssetData> mesh = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza"));
+
+		TransformComponent transC{};
+		MeshComponent meshC{ mesh };
+		auto sphereEntity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent>(transC, meshC);
+		m_engine->getLevel()->addEntity(sphereEntity, "Sphere");
 	}
 
 	void update(float deltaTime) noexcept override

@@ -10,6 +10,11 @@
 #include <Engine.h>
 #include <UUID.h>
 #include <utility/Utility.h>
+#include <file/FileDialog.h>
+#include <Log.h>
+#include <future>
+
+static std::future<void> s_future;
 
 static TextureHandle getThumbNail(const std::filesystem::path &path, Engine *engine)
 {
@@ -254,6 +259,8 @@ void AssetBrowserWindow::draw() noexcept
 
 	ImGui::Begin("Asset Browser");
 	{
+		importButton();
+
 		auto newPath = m_currentPath;
 		bool newPathIsFromHistory = false;
 
@@ -583,5 +590,93 @@ void AssetBrowserWindow::renderTreeNode(const std::filesystem::path &path, std::
 
 		}
 		ImGui::TreePop();
+	}
+}
+
+void AssetBrowserWindow::importButton() noexcept
+{
+	if (ImGui::Button("Import"))
+	{
+		FileDialog::FileExtension extensions[]
+		{
+			{ "Wavefront OBJ", "*.obj" },
+			{ "glTF", "*.gltf" }
+		};
+
+		FileDialog::FileDialogParams dialogParams{};
+		dialogParams.m_fileExtensionCount = std::size(extensions);
+		dialogParams.m_fileExtensions = extensions;
+		dialogParams.m_multiSelection = false;
+		dialogParams.m_fileSelection = true;
+		dialogParams.m_save = false;
+
+		eastl::vector<std::filesystem::path> selectedFiles;
+		uint32_t fileExtensionIndex;
+		if (FileDialog::showFileDialog(dialogParams, selectedFiles, fileExtensionIndex))
+		{
+			Log::info(("Importing File: " + selectedFiles[0].u8string()).c_str());
+
+			m_importAssetTask = {};
+			m_importAssetTask.m_srcPath = selectedFiles[0].u8string();
+			m_importAssetTask.m_dstPath = "assets/meshes/" + selectedFiles[0].filename().replace_extension().u8string();
+
+			switch (fileExtensionIndex)
+			{
+			case 0:
+				m_importAssetTask.m_importOptions.m_fileType = ModelImporter::FileType::WAVEFRONT_OBJ; break;
+			case 1:
+				m_importAssetTask.m_importOptions.m_fileType = ModelImporter::FileType::GLTF; break;
+			default:
+				assert(false);
+				break;
+			}
+
+			ImGui::OpenPopup("Import Asset");
+		}
+	}
+
+	bool startedImport = false;
+
+	if (ImGui::BeginPopupModal("Import Asset", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Checkbox("Merge by Material", &m_importAssetTask.m_importOptions.m_mergeByMaterial);
+		ImGui::Checkbox("Invert UV Y-Component", &m_importAssetTask.m_importOptions.m_invertTexCoordY);
+
+		if (ImGui::Button("OK", ImVec2(120, 0)))
+		{
+			startedImport = true;
+			m_currentlyImporting.test_and_set();
+			s_future = std::async(std::launch::async, [this]()
+				{
+					ModelImporter::importModel(m_importAssetTask.m_importOptions, m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
+					m_currentlyImporting.clear();
+				});
+
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SetItemDefaultFocus();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	if (startedImport)
+	{
+		ImGui::OpenPopup("importing_asset_progess_indicator");
+	}
+
+	if (ImGui::BeginPopupModal("importing_asset_progess_indicator", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove))
+	{
+		//ImGui::LoadingIndicatorCircle("Importing Asset", 30.0f, ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGui::GetStyleColorVec4(ImGuiCol_WindowBg), 8, 1.0f);
+
+		if (!m_currentlyImporting.test())
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
 	}
 }

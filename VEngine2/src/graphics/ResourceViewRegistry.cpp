@@ -225,7 +225,7 @@ uint32_t ResourceViewRegistry::createHandle(HandleManager &manager, SpinLock &ma
 
 	{
 		LOCK_HOLDER(managerMutex);
-		handle = m_textureHandleManager.allocate(transient);
+		handle = manager.allocate(transient);
 	}
 
 	// allocation failed

@@ -21,8 +21,9 @@ GridPass::GridPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offset
 	builder.setVertexShader("assets/shaders/grid_vs");
 	builder.setFragmentShader("assets/shaders/grid_ps");
 	builder.setColorBlendAttachment(blendState);
+	builder.setDepthTest(true, false, gal::CompareOp::GREATER_OR_EQUAL);
 	builder.setDynamicState(gal::DynamicStateFlags::VIEWPORT_BIT | gal::DynamicStateFlags::SCISSOR_BIT);
-	//builder.setDepthStencilAttachmentFormat(gal::Format::D32_SFLOAT);
+	builder.setDepthStencilAttachmentFormat(gal::Format::D32_SFLOAT);
 	builder.setColorAttachmentFormat(gal::Format::B8G8R8A8_UNORM);
 	
 	gal::DescriptorSetLayoutBinding usedBinding{ gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, gal::ShaderStageFlags::ALL_STAGES };
@@ -70,16 +71,11 @@ void GridPass::record(gal::CommandList *cmdList, const Data &data)
 	auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
 	memcpy(mappedPtr, &consts, sizeof(consts));
 
-	gal::ClearColorValue clearColor{};
-	clearColor.m_float32[0] = 1.0f;
-	clearColor.m_float32[1] = 1.0f;
-	clearColor.m_float32[2] = 1.0f;
-	clearColor.m_float32[3] = 1.0f;
-
-	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::CLEAR, gal::AttachmentStoreOp::STORE, clearColor };
+	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE };
+	gal::DepthStencilAttachmentDescription depthBufferDesc{ data.m_depthBufferAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE };
 	gal::Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
-	cmdList->beginRenderPass(1, &attachmentDesc, nullptr, renderRect, false);
+	cmdList->beginRenderPass(1, &attachmentDesc, &depthBufferDesc, renderRect, false);
 	{
 		cmdList->bindPipeline(m_pipeline);
 
