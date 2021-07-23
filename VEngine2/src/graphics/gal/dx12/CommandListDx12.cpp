@@ -244,7 +244,7 @@ void gal::CommandListDx12::bindVertexBuffers(uint32_t firstBinding, uint32_t cou
 		auto &view = vertexBufferViews[i];
 		view = {};
 		view.BufferLocation = ((ID3D12Resource *)buffers[i]->getNativeHandle())->GetGPUVirtualAddress() + offsets[i];
-		view.SizeInBytes = static_cast<UINT>(buffers[i]->getDescription().m_size);
+		view.SizeInBytes = static_cast<UINT>(buffers[i]->getDescription().m_size - offsets[i]);
 		view.StrideInBytes = pipelineDx->getVertexBufferStride(firstBinding + i);
 	}
 

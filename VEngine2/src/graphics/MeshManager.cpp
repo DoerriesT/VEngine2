@@ -82,6 +82,7 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 			bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::INDEX_BUFFER_BIT | gal::BufferUsageFlags::TRANSFER_DST_BIT;
 
 			m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &subMeshBufferHandles.m_indexBuffer);
+			m_device->setDebugObjectName(gal::ObjectType::BUFFER, subMeshBufferHandles.m_indexBuffer, "Index Buffer");
 		}
 
 		// create vertex buffer
@@ -92,6 +93,7 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 			bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::VERTEX_BUFFER_BIT | gal::BufferUsageFlags::TRANSFER_DST_BIT;
 
 			m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &subMeshBufferHandles.m_vertexBuffer);
+			m_device->setDebugObjectName(gal::ObjectType::BUFFER, subMeshBufferHandles.m_vertexBuffer, "Vertex Buffer");
 		}
 
 		// create staging buffer
@@ -102,6 +104,7 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 			bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_SRC_BIT;
 
 			m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::HOST_COHERENT_BIT | gal::MemoryPropertyFlags::HOST_VISIBLE_BIT, {}, false, &stagingBuffer);
+			m_device->setDebugObjectName(gal::ObjectType::BUFFER, stagingBuffer, "Mesh Staging Buffer");
 		}
 
 		Upload upload = {};
@@ -152,35 +155,35 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 			m_uploads.push_back(eastl::move(upload));
 		}
 
-		// create views
-		{
-			gal::DescriptorBufferInfo descriptorBufferInfo{};
-			descriptorBufferInfo.m_buffer = subMeshBufferHandles.m_vertexBuffer;
-
-			// positions
-			descriptorBufferInfo.m_offset = 0;
-			descriptorBufferInfo.m_range = positionsBufferSize;
-			descriptorBufferInfo.m_structureByteStride = sizeof(float) * 3;
-			subMeshBufferHandles.m_positionsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
-
-			// normals
-			descriptorBufferInfo.m_offset = alignedPositionsBufferSize;
-			descriptorBufferInfo.m_range = normalsBufferSize;
-			descriptorBufferInfo.m_structureByteStride = sizeof(float) * 3;
-			subMeshBufferHandles.m_normalsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
-
-			// tangents
-			descriptorBufferInfo.m_offset = alignedPositionsBufferSize + alignedNormalsBufferSize;
-			descriptorBufferInfo.m_range = tangentsBufferSize;
-			descriptorBufferInfo.m_structureByteStride = sizeof(float) * 4;
-			subMeshBufferHandles.m_tangentsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
-
-			// tex coords
-			descriptorBufferInfo.m_offset = alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize;
-			descriptorBufferInfo.m_range = texCoordsBufferSize;
-			descriptorBufferInfo.m_structureByteStride = sizeof(float) * 2;
-			subMeshBufferHandles.m_texCoordsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
-		}
+		//// create views
+		//{
+		//	gal::DescriptorBufferInfo descriptorBufferInfo{};
+		//	descriptorBufferInfo.m_buffer = subMeshBufferHandles.m_vertexBuffer;
+		//
+		//	// positions
+		//	descriptorBufferInfo.m_offset = 0;
+		//	descriptorBufferInfo.m_range = positionsBufferSize;
+		//	descriptorBufferInfo.m_structureByteStride = sizeof(float) * 3;
+		//	subMeshBufferHandles.m_positionsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
+		//
+		//	// normals
+		//	descriptorBufferInfo.m_offset = alignedPositionsBufferSize;
+		//	descriptorBufferInfo.m_range = normalsBufferSize;
+		//	descriptorBufferInfo.m_structureByteStride = sizeof(float) * 3;
+		//	subMeshBufferHandles.m_normalsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
+		//
+		//	// tangents
+		//	descriptorBufferInfo.m_offset = alignedPositionsBufferSize + alignedNormalsBufferSize;
+		//	descriptorBufferInfo.m_range = tangentsBufferSize;
+		//	descriptorBufferInfo.m_structureByteStride = sizeof(float) * 4;
+		//	subMeshBufferHandles.m_tangentsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
+		//
+		//	// tex coords
+		//	descriptorBufferInfo.m_offset = alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize;
+		//	descriptorBufferInfo.m_range = texCoordsBufferSize;
+		//	descriptorBufferInfo.m_structureByteStride = sizeof(float) * 2;
+		//	subMeshBufferHandles.m_texCoordsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
+		//}
 
 		// store draw info
 		{
@@ -318,9 +321,9 @@ void MeshManager::flushUploadCopies(gal::CommandList *cmdList, uint64_t frameInd
 
 			barriers.push_back(gal::Initializers::bufferBarrier(upload.m_vertexBuffer,
 				gal::PipelineStageFlags::TRANSFER_BIT,
-				gal::PipelineStageFlags::VERTEX_SHADER_BIT | gal::PipelineStageFlags::PIXEL_SHADER_BIT | gal::PipelineStageFlags::COMPUTE_SHADER_BIT,
+				gal::PipelineStageFlags::VERTEX_SHADER_BIT | gal::PipelineStageFlags::PIXEL_SHADER_BIT | gal::PipelineStageFlags::COMPUTE_SHADER_BIT | gal::PipelineStageFlags::VERTEX_INPUT_BIT,
 				gal::ResourceState::WRITE_TRANSFER,
-				gal::ResourceState::READ_RESOURCE));
+				gal::ResourceState::READ_VERTEX_BUFFER));
 		}
 
 		cmdList->barrier((uint32_t)barriers.size(), barriers.data());
