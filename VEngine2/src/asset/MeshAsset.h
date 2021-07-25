@@ -14,7 +14,11 @@ public:
 
 	explicit MeshAssetData(const AssetID &assetID) noexcept;
 	inline const eastl::vector<SubMeshHandle> &getSubMeshhandles() const noexcept { return m_subMeshHandles; }
+	inline PhysicsConvexMeshHandle getPhysicsConvexMeshhandle() const noexcept { return m_physicsConvexMeshHandle; }
+	inline PhysicsTriangleMeshHandle getPhysicsTriangleMeshhandle() const noexcept { return m_physicsTriangleMeshHandle; }
 
 private:
 	eastl::vector<SubMeshHandle> m_subMeshHandles;
+	PhysicsConvexMeshHandle m_physicsConvexMeshHandle = {};
+	PhysicsTriangleMeshHandle m_physicsTriangleMeshHandle = {};
 };

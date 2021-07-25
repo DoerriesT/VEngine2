@@ -111,6 +111,8 @@ Physics::Physics(ECS *ecs) noexcept
 	}
 
 	m_materials.resize(16);
+	m_convexMeshes.resize(16);
+	m_triangleMeshes.resize(16);
 }
 
 Physics::~Physics() noexcept
@@ -166,6 +168,12 @@ void Physics::update(float deltaTime) noexcept
 						case PhysicsShapeType::PLANE:
 							actor = PxCreatePlane(*m_pxPhysics, PxPlane(pc.m_planeNx, pc.m_planeNy, pc.m_planeNz, pc.m_planeDistance), *mat);
 							break;
+						case PhysicsShapeType::CONVEX_MESH:
+							actor = PxCreateStatic(*m_pxPhysics, pxTransform, PxConvexMeshGeometry(m_convexMeshes[pc.m_convexMeshHandle - 1]), *mat);
+							break;
+						case PhysicsShapeType::TRIANGLE_MESH:
+							actor = PxCreateStatic(*m_pxPhysics, pxTransform, PxTriangleMeshGeometry(m_triangleMeshes[pc.m_triangleMeshHandle - 1]), *mat);
+							break;
 						default:
 							assert(false);
 							break;
@@ -178,6 +186,9 @@ void Physics::update(float deltaTime) noexcept
 						{
 						case PhysicsShapeType::SPHERE:
 							dynamic = PxCreateDynamic(*m_pxPhysics, pxTransform, PxSphereGeometry(pc.m_sphereRadius), *mat, pc.m_density);
+							break;
+						case PhysicsShapeType::CONVEX_MESH:
+							dynamic = PxCreateDynamic(*m_pxPhysics, pxTransform, PxConvexMeshGeometry(m_convexMeshes[pc.m_convexMeshHandle - 1]), *mat, pc.m_density);
 							break;
 						default:
 							assert(false);
@@ -268,7 +279,7 @@ void Physics::createMaterials(uint32_t count, const PhysicsMaterialCreateInfo *m
 
 		if (!handles[i])
 		{
-			Log::err("Physics: Failed to PhysicsMaterialHandle MaterialHandle!");
+			Log::err("Physics: Failed to allocate PhysicsMaterialHandle!");
 			continue;
 		}
 
@@ -324,4 +335,181 @@ void Physics::destroyMaterials(uint32_t count, PhysicsMaterialHandle *handles) n
 			m_materialHandleManager.free(handles[i]);
 		}
 	}
+}
+
+PhysicsConvexMeshHandle Physics::createConvexMesh(uint32_t size, const char *data) noexcept
+{
+	PhysicsConvexMeshHandle handle{};
+
+	// LOCK_HOLDER(m_materialsMutex);
+	
+	// allocate handle
+	{
+		// LOCK_HOLDER(m_handleManagerMutex);
+		handle = (PhysicsConvexMeshHandle)m_convexMeshHandleManager.allocate();
+	}
+
+	if (!handle)
+	{
+		Log::err("Physics: Failed to allocate PhysicsConvexMeshHandle!");
+		return {};
+	}
+
+	// create and store convex mesh
+	{
+		///LOCK_HOLDER(m_materialsMutex);
+		if (handle > m_convexMeshes.size())
+		{
+			m_convexMeshes.resize((size_t)(m_convexMeshes.size() * 1.5));
+		}
+
+		// unfortunately we need to cast the constness away, but it should still be ok because the PxDefaultMemoryInputData
+		// constructor directly assigns it to a const member.
+		PxDefaultMemoryInputData input(const_cast<PxU8 *>(reinterpret_cast<const PxU8*>(data)), size);
+		auto *mesh = m_pxPhysics->createConvexMesh(input);
+		m_convexMeshes[handle - 1] = mesh;
+	}
+
+	return handle;
+}
+
+void Physics::destroyConvexMesh(PhysicsConvexMeshHandle handle) noexcept
+{
+	// LOCK_HOLDER(m_materialsMutex);
+	{
+		const bool validHandle = handle != 0 && handle <= m_convexMeshes.size();
+
+		if (!validHandle)
+		{
+			return;
+		}
+
+		PX_RELEASE(m_convexMeshes[handle - 1]);
+
+		{
+			//LOCK_HOLDER(m_handleManagerMutex);
+			m_convexMeshHandleManager.free(handle);
+		}
+	}
+}
+
+PhysicsTriangleMeshHandle Physics::createTriangleMesh(uint32_t size, const char *data) noexcept
+{
+	PhysicsTriangleMeshHandle handle{};
+
+	// LOCK_HOLDER(m_materialsMutex);
+
+	// allocate handle
+	{
+		// LOCK_HOLDER(m_handleManagerMutex);
+		handle = (PhysicsTriangleMeshHandle)m_triangleMeshHandleManager.allocate();
+	}
+
+	if (!handle)
+	{
+		Log::err("Physics: Failed to allocate PhysicsTriangleMeshHandle!");
+		return {};
+	}
+
+	// create and store convex mesh
+	{
+		///LOCK_HOLDER(m_materialsMutex);
+		if (handle > m_triangleMeshes.size())
+		{
+			m_triangleMeshes.resize((size_t)(m_triangleMeshes.size() * 1.5));
+		}
+
+		// unfortunately we need to cast the constness away, but it should still be ok because the PxDefaultMemoryInputData
+		// constructor directly assigns it to a const member.
+		PxDefaultMemoryInputData input(const_cast<PxU8 *>(reinterpret_cast<const PxU8 *>(data)), size);
+		auto *mesh = m_pxPhysics->createTriangleMesh(input);
+		m_triangleMeshes[handle - 1] = mesh;
+	}
+
+	return handle;
+}
+
+void Physics::destroyTriangleMesh(PhysicsTriangleMeshHandle handle) noexcept
+{
+	// LOCK_HOLDER(m_materialsMutex);
+	{
+		const bool validHandle = handle != 0 && handle <= m_triangleMeshes.size();
+
+		if (!validHandle)
+		{
+			return;
+		}
+
+		PX_RELEASE(m_triangleMeshes[handle - 1]);
+
+		{
+			//LOCK_HOLDER(m_handleManagerMutex);
+			m_triangleMeshHandleManager.free(handle);
+		}
+	}
+}
+
+bool Physics::cookConvexMesh(uint32_t vertexCount, const float *vertices, uint32_t *resultBufferSize, char **resultBuffer) noexcept
+{
+	Log::info("Physics: Cooking convex mesh.");
+
+	PxConvexMeshDesc convexDesc{};
+	convexDesc.points.count = vertexCount;
+	convexDesc.points.stride = sizeof(float) * 3;
+	convexDesc.points.data = vertices;
+	convexDesc.flags = PxConvexFlag::eCOMPUTE_CONVEX;
+
+	PxDefaultMemoryOutputStream buf;
+	PxConvexMeshCookingResult::Enum result;
+	if (!m_pxCooking->cookConvexMesh(convexDesc, buf, &result))
+	{
+		Log::err("Physics: Cooking physics convex mesh failed!");
+		return false;
+	}
+
+	*resultBuffer = new char[buf.getSize()];
+	*resultBufferSize = buf.getSize();
+
+	memcpy(*resultBuffer, buf.getData(), buf.getSize());
+
+	Log::info("Physics: Cooking convex mesh finished.");
+
+	return true;
+}
+
+bool Physics::cookTriangleMesh(uint32_t indexCount, const uint32_t *indices, uint32_t vertexCount, const float *vertices, uint32_t *resultBufferSize, char **resultBuffer) noexcept
+{
+	Log::info("Physics: Cooking triangle mesh.");
+
+	assert(indexCount % 3 == 0);
+
+	PxTriangleMeshDesc meshDesc{};
+	meshDesc.points.count = vertexCount;
+	meshDesc.points.stride = sizeof(float) * 3;
+	meshDesc.points.data = vertices;
+	meshDesc.triangles.count = indexCount / 3;
+	meshDesc.triangles.stride = sizeof(indices[0]) * 3;
+	meshDesc.triangles.data = indices;
+
+	PxDefaultMemoryOutputStream buf;
+	PxTriangleMeshCookingResult::Enum result;
+	if (!m_pxCooking->cookTriangleMesh(meshDesc, buf, &result))
+	{
+		Log::err("Physics: Cooking physics triangle mesh failed!");
+		return false;
+	}
+
+	if (result == PxTriangleMeshCookingResult::Enum::eLARGE_TRIANGLE)
+	{
+		Log::warn("Physics: Encountered a triangle during mesh cooking that is too large for well-conditioned results!");
+	}
+
+	*resultBuffer = new char[buf.getSize()];
+	*resultBufferSize = buf.getSize();
+
+	memcpy(*resultBuffer, buf.getData(), buf.getSize());
+
+	Log::info("Physics: Cooking triangle mesh finished.");
+
+	return true;
 }

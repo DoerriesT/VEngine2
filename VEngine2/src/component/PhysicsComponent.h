@@ -15,6 +15,8 @@ enum class PhysicsShapeType : uint32_t
 {
 	SPHERE,
 	PLANE,
+	CONVEX_MESH,
+	TRIANGLE_MESH
 };
 
 struct PhysicsComponent
@@ -26,6 +28,8 @@ struct PhysicsComponent
 	float m_planeNy = 1.0f;
 	float m_planeNz = 0.0f;
 	float m_planeDistance = 0.0f;
+	PhysicsConvexMeshHandle m_convexMeshHandle = {};
+	PhysicsTriangleMeshHandle m_triangleMeshHandle = {};
 	float m_linearDamping = 0.05f;
 	float m_angularDamping = 0.05f;
 	float m_density = 10.0f;

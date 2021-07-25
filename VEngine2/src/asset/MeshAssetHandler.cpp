@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "utility/Utility.h"
 #include "graphics/Renderer.h"
+#include "physics/Physics.h"
 #include "MeshAsset.h"
 #include "AssetManager.h"
 #include <nlohmann/json.hpp>
@@ -11,12 +12,13 @@
 static AssetManager *s_assetManager = nullptr;
 static MeshAssetHandler s_meshAssetHandler;
 
-void MeshAssetHandler::init(AssetManager *assetManager, Renderer *renderer) noexcept
+void MeshAssetHandler::init(AssetManager *assetManager, Renderer *renderer, Physics *physics) noexcept
 {
 	if (s_assetManager == nullptr)
 	{
 		s_assetManager = assetManager;
 		s_meshAssetHandler.m_renderer = renderer;
+		s_meshAssetHandler.m_physics = physics;
 		assetManager->registerAssetHandler(MeshAssetData::k_assetType, &s_meshAssetHandler);
 	}
 }
@@ -67,6 +69,44 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 		{
 			size_t fileSize = 0;
 			char *meshData = util::readBinaryFile(info["meshFile"].get<std::string>().c_str(), &fileSize);
+
+			// physics meshes
+			{
+				// convex mesh
+				uint32_t convexMeshSize = 0;
+				uint32_t convexMeshOffset = 0;
+				if (info.contains("physicsConvexMeshDataSize"))
+				{
+					convexMeshSize = info["physicsConvexMeshDataSize"].get<uint32_t>();
+				}
+				if (info.contains("physicsConvexMeshDataOffset"))
+				{
+					convexMeshOffset = info["physicsConvexMeshDataOffset"].get<uint32_t>();
+				}
+
+				if (convexMeshSize > 0)
+				{
+					meshAssetData->m_physicsConvexMeshHandle = m_physics->createConvexMesh(convexMeshSize, meshData + convexMeshOffset);
+				}
+
+
+				// triangle mesh
+				uint32_t triangleMeshSize = 0;
+				uint32_t triangleMeshOffset = 0;
+				if (info.contains("physicsTriangleMeshDataSize"))
+				{
+					triangleMeshSize = info["physicsTriangleMeshDataSize"].get<uint32_t>();
+				}
+				if (info.contains("physicsTriangleMeshDataOffset"))
+				{
+					triangleMeshOffset = info["physicsTriangleMeshDataOffset"].get<uint32_t>();
+				}
+
+				if (triangleMeshOffset > 0)
+				{
+					meshAssetData->m_physicsTriangleMeshHandle = m_physics->createTriangleMesh(triangleMeshSize, meshData + triangleMeshOffset);
+				}
+			}
 
 			const uint32_t subMeshCount = static_cast<uint32_t>(info["subMeshes"].size());
 			std::vector<SubMeshCreateInfo> subMeshes;

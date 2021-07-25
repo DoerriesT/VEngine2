@@ -648,7 +648,7 @@ void AssetBrowserWindow::importButton() noexcept
 			m_currentlyImporting.test_and_set();
 			s_future = std::async(std::launch::async, [this]()
 				{
-					ModelImporter::importModel(m_importAssetTask.m_importOptions, m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
+					ModelImporter::importModel(m_importAssetTask.m_importOptions, m_engine->getPhysics(), m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
 					m_currentlyImporting.clear();
 				});
 

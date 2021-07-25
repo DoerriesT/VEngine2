@@ -111,19 +111,36 @@ public:
 			m_engine->getECS()->createEntity<TransformComponent, PhysicsComponent>(transC, physicsC);
 		}
 		
+		// sponza
+		{
+			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza"));
+		
+			TransformComponent transC{};
+		
+			MeshComponent meshC{ m_sponzaAsset };
+		
+			PhysicsComponent physicsC{};
+			physicsC.m_mobility = PhysicsMobility::STATIC;
+			physicsC.m_physicsShapeType = PhysicsShapeType::TRIANGLE_MESH;
+			physicsC.m_triangleMeshHandle = m_sponzaAsset->getPhysicsTriangleMeshhandle();
+			physicsC.m_materialHandle = m_physicsMaterial;
+		
+			m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
+		}
+
 		// mesh
 		{
 			m_meshAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/uvsphere"));
 
-			for (int i = 0; i < 10; ++i)
-			{
-				TransformComponent transC{};
-				transC.m_translation.y = 1.1f;// 10.0f + i * 2.5f;
-				transC.m_translation.x = ((rand() / (float)RAND_MAX) - 0.5f) * 20.0f;
-				transC.m_translation.z = ((rand() / (float)RAND_MAX) - 0.5f) * 20.0f;
-
-				createPhysicsObject(transC.m_translation, {}, PhysicsMobility::DYNAMIC);
-			}
+			//for (int i = 0; i < 10; ++i)
+			//{
+			//	TransformComponent transC{};
+			//	transC.m_translation.y = 1.1f;// 10.0f + i * 2.5f;
+			//	transC.m_translation.x = ((rand() / (float)RAND_MAX) - 0.5f) * 20.0f;
+			//	transC.m_translation.z = ((rand() / (float)RAND_MAX) - 0.5f) * 20.0f;
+			//
+			//	createPhysicsObject(transC.m_translation, {}, PhysicsMobility::DYNAMIC);
+			//}
 		}
 
 		m_engine->getUserInput()->addKeyListener(this);
@@ -158,6 +175,7 @@ private:
 	Engine *m_engine = nullptr;
 	FPSCameraController *m_fpsCameraController = nullptr;
 	Asset<MeshAssetData> m_meshAsset;
+	Asset<MeshAssetData> m_sponzaAsset;
 	EntityID m_cameraEntity;
 	EntityID m_activeCamera;
 	PhysicsMaterialHandle m_physicsMaterial = {};

@@ -1,5 +1,7 @@
 #pragma once
 
+class Physics;
+
 namespace ModelImporter
 {
 	enum class FileType
@@ -13,5 +15,5 @@ namespace ModelImporter
 		bool m_mergeByMaterial;
 		bool m_invertTexCoordY;
 	};
-	bool importModel(const ImportOptions &importOptions, const char *srcPath, const char *dstPath);
+	bool importModel(const ImportOptions &importOptions, Physics *physics, const char *srcPath, const char *dstPath);
 }

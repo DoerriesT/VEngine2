@@ -13,6 +13,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec2.hpp>
 #include <Log.h>
+#include <physics/Physics.h>
 
 namespace
 {
@@ -225,7 +226,7 @@ static IndexedMesh<T> generateOptimizedMesh(size_t faceCount, const glm::vec3 *p
 	return { indices, positionsIndexed, normalsIndexed, tangentsIndexed, texCoordsIndexed, weightsIndexed, jointsIndexed };
 }
 
-bool ModelImporter::importModel(const ImportOptions &importOptions, const char *srcPath, const char *dstPath)
+bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *physics, const char *srcPath, const char *dstPath)
 {
 	SMikkTSpaceInterface mikkTSpaceInterface = {};
 	mikkTSpaceInterface.m_getNumFaces = mikktGetNumFaces;
@@ -274,6 +275,71 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, const char *
 
 	size_t fileOffset = 0;
 	size_t subMeshIndex = 0;
+
+	// cook physics meshes
+	{
+		// generate indexed physics mesh
+		eastl::vector<float> indexedPositions;
+		eastl::vector<uint32_t> indices;
+		uint32_t vertexCount = 0;
+		uint32_t indexCount = 0;
+		{
+			eastl::vector<float> positions;
+			for (auto &mesh : model.m_meshes)
+			{
+				for (auto &p : mesh.m_positions)
+				{
+					positions.push_back(p.x);
+					positions.push_back(p.y);
+					positions.push_back(p.z);
+				}
+			}
+
+			meshopt_Stream streams[] =
+			{
+				{positions.data(), sizeof(glm::vec3), sizeof(glm::vec3)},
+			};
+
+			indexCount = (uint32_t)positions.size() / 3;
+
+			// generate indices
+			eastl::vector<unsigned int> remap(indexCount);
+			vertexCount = (uint32_t)meshopt_generateVertexRemapMulti(remap.data(), nullptr, indexCount, indexCount, streams, 1);
+
+			// fill new index and vertex buffers
+			indices.resize(indexCount);
+			indexedPositions.resize(vertexCount * 3);
+
+			meshopt_remapIndexBuffer(indices.data(), (uint32_t *)nullptr, indices.size(), remap.data());
+			meshopt_remapVertexBuffer(indexedPositions.data(), positions.data(), indexCount, sizeof(glm::vec3), remap.data());
+		}
+		
+		// cook
+		char *physicsConvexMeshData = nullptr;
+		uint32_t physicsConvexMeshSize = 0;
+		char *physicsTriangleMeshData = nullptr;
+		uint32_t physicsTriangleMeshSize = 0;
+
+		bool res = physics->cookConvexMesh(vertexCount, indexedPositions.data(), &physicsConvexMeshSize, &physicsConvexMeshData);
+		assert(res);
+		res = physics->cookTriangleMesh(indexCount, indices.data(), vertexCount, indexedPositions.data(), &physicsTriangleMeshSize, &physicsTriangleMeshData);
+		assert(res);
+
+		// write to file
+		j["physicsConvexMeshDataOffset"] = fileOffset;
+		j["physicsConvexMeshDataSize"] = physicsConvexMeshSize;
+		dstFile.write(physicsConvexMeshData, physicsConvexMeshSize);
+		fileOffset += physicsConvexMeshSize;
+
+		j["physicsTriangleMeshDataOffset"] = fileOffset;
+		j["physicsTriangleMeshDataSize"] = physicsTriangleMeshSize;
+		dstFile.write(physicsTriangleMeshData, physicsTriangleMeshSize);
+		fileOffset += physicsTriangleMeshSize;
+
+		// free memory
+		delete[] physicsConvexMeshData;
+		delete[] physicsTriangleMeshData;
+	}
 
 	uint64_t totalFaceCount = 0;
 	for (auto &mesh : model.m_meshes)

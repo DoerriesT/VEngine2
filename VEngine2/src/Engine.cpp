@@ -89,7 +89,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	AssetManager::init();
 
 	TextureAssetHandler::init(AssetManager::get(), m_renderer);
-	MeshAssetHandler::init(AssetManager::get(), m_renderer);
+	MeshAssetHandler::init(AssetManager::get(), m_renderer, m_physics);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());

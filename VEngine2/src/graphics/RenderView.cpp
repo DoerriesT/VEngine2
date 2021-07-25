@@ -75,7 +75,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 				auto &tc = transC[i];
 				auto &mc = meshC[i];
 				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
-				const auto &submeshhandles = meshC->m_mesh->getSubMeshhandles();
+				const auto &submeshhandles = mc.m_mesh->getSubMeshhandles();
 				for (auto h : submeshhandles)
 				{
 					modelMatrices.push_back(modelMatrix);
