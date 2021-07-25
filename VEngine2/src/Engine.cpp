@@ -21,6 +21,8 @@
 #include "component/CameraComponent.h"
 #include "component/LightComponent.h"
 #include "component/MeshComponent.h"
+#include "component/PhysicsComponent.h"
+#include "physics/Physics.h"
 #include "Level.h"
 #include "file/FileDialog.h"
 
@@ -79,8 +81,10 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	registerComponent<CameraComponent>(m_ecs);
 	registerComponent<LightComponent>(m_ecs);
 	registerComponent<MeshComponent>(m_ecs);
+	registerComponent<PhysicsComponent>(m_ecs);
 
 	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
+	m_physics = new Physics(m_ecs);
 	m_userInput = new UserInput(*m_window);
 	AssetManager::init();
 
@@ -118,6 +122,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 		ImGui::ShowDemoWindow();
 
+		m_physics->update(timeDelta);
+
 		m_gameLogic->update(timeDelta);
 
 		ImGui::Render();
@@ -146,6 +152,11 @@ ECS *Engine::getECS() noexcept
 Renderer *Engine::getRenderer() noexcept
 {
 	return m_renderer;
+}
+
+Physics *Engine::getPhysics() noexcept
+{
+	return m_physics;
 }
 
 UserInput *Engine::getUserInput() noexcept

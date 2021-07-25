@@ -3,6 +3,7 @@
 
 class Window;
 class Renderer;
+class Physics;
 class UserInput;
 class IGameLogic;
 class ECS;
@@ -14,6 +15,7 @@ public:
 	int start(int argc, char *argv[], IGameLogic *gameLogic) noexcept;
 	ECS *getECS() noexcept;
 	Renderer *getRenderer() noexcept;
+	Physics *getPhysics() noexcept;
 	UserInput *getUserInput() noexcept;
 	Level *getLevel() noexcept;
 	void setEditorMode(bool editorMode) noexcept;
@@ -26,6 +28,7 @@ private:
 	Window *m_window = nullptr;
 	ECS *m_ecs = nullptr;
 	Renderer *m_renderer = nullptr;
+	Physics *m_physics = nullptr;
 	UserInput *m_userInput = nullptr;
 	Level *m_level = nullptr;
 	bool m_editorMode = false;

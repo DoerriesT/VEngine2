@@ -62,7 +62,7 @@ void FPSCameraController::update(float timeDelta, Camera &camera)
 
 	if (m_userInput->isKeyPressed(InputKey::LEFT_SHIFT))
 	{
-		mod = 5.0f;
+		mod = 35.0f;
 	}
 	if (m_userInput->isKeyPressed(InputKey::W))
 	{

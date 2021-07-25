@@ -49,6 +49,9 @@
     <Filter Include="src\file">
       <UniqueIdentifier>{b87c714a-9da9-4fe4-9e60-eacbf9f3ea5f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\physics">
+      <UniqueIdentifier>{6e4a1610-557b-4bf6-a8f3-d6a945b5b72e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -339,6 +342,12 @@
     <ClInclude Include="src\file\FileDialog.h">
       <Filter>src\file</Filter>
     </ClInclude>
+    <ClInclude Include="src\component\PhysicsComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\physics\Physics.h">
+      <Filter>src\physics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -583,6 +592,12 @@
     </ClCompile>
     <ClCompile Include="src\component\MeshComponent.cpp">
       <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\PhysicsComponent.cpp">
+      <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\physics\Physics.cpp">
+      <Filter>src\physics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

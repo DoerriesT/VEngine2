@@ -66,7 +66,7 @@ inline Asset<T>::Asset(AssetData *assetData) noexcept
 	static_assert(eastl::is_base_of<AssetData, T>::value && !eastl::is_same<AssetData, T>::value, "Template type T in Asset<T> is not derived from AssetData!");
 
 	// run-time check to ensure that the cast from AssetData to T was valid. Note that this test is not 100% bullet proof.
-	assert(assetData->getAssetType() == T::k_assetType);
+	//assert(assetData->getAssetType() == T::k_assetType);
 
 	if (m_assetData)
 	{
@@ -124,6 +124,8 @@ inline Asset<T> &Asset<T>::operator=(Asset<T> &&other) noexcept
 			m_assetData->acquire();
 		}
 	}
+
+	return *this;
 }
 
 template<typename T>

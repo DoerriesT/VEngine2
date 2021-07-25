@@ -21,7 +21,7 @@ float4 main(PSInput input) : SV_Target0
 {
 	float3 lightDir = normalize(float3(1.0f, 1.0f, 1.0f));
 	
-	float3 result = float3(0.0f, 1.0f, 0.0f) * (dot(input.normal, lightDir) * 0.5f + 0.5f);
+	float3 result = float3(input.texCoord, 0.0f) * (dot(input.normal, lightDir) * 0.5f + 0.5f);
 	
 	return float4(result, 1.0f);
 }

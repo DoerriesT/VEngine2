@@ -80,12 +80,12 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../libs/include;./src;$(IncludePath)</IncludePath>
+    <IncludePath>../libs/include;../libs/include/physx;./src;$(IncludePath)</IncludePath>
     <LibraryPath>../libs/lib/64/debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../libs/include;./src;$(IncludePath)</IncludePath>
+    <IncludePath>../libs/include;../libs/include/physx;./src;$(IncludePath)</IncludePath>
     <LibraryPath>../libs/lib/64/release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -120,7 +120,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>GLM_FORCE_DEPTH_ZERO_TO_ONE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PX_PHYSX_STATIC_LIB;GLM_FORCE_DEPTH_ZERO_TO_ONE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -136,7 +136,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>GLM_FORCE_DEPTH_ZERO_TO_ONE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PX_PHYSX_STATIC_LIB;GLM_FORCE_DEPTH_ZERO_TO_ONE;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -159,6 +159,7 @@
     <ClInclude Include="src\component\CameraComponent.h" />
     <ClInclude Include="src\component\LightComponent.h" />
     <ClInclude Include="src\component\MeshComponent.h" />
+    <ClInclude Include="src\component\PhysicsComponent.h" />
     <ClInclude Include="src\component\TransformComponent.h" />
     <ClInclude Include="src\ecs\ECS.h" />
     <ClInclude Include="src\ecs\ECSTypeIDTranslator.h" />
@@ -228,6 +229,7 @@
     <ClInclude Include="src\input\UserInput.h" />
     <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\Log.h" />
+    <ClInclude Include="src\physics\Physics.h" />
     <ClInclude Include="src\reflection\Reflection.h" />
     <ClInclude Include="src\reflection\TypeInfo.h" />
     <ClInclude Include="src\task\Fiber.h" />
@@ -258,6 +260,7 @@
     <ClCompile Include="src\component\Level.cpp" />
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\MeshComponent.cpp" />
+    <ClCompile Include="src\component\PhysicsComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
     <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp" />
@@ -315,6 +318,7 @@
     <ClCompile Include="src\input\ImGuiInputAdapter.cpp" />
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
+    <ClCompile Include="src\physics\Physics.cpp" />
     <ClCompile Include="src\reflection\Reflection.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
