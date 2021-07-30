@@ -2,7 +2,7 @@
 
 namespace Log
 {
-	void info(const char *message);
-	void warn(const char *message);
-	void err(const char *message);
+	void info(const char *fmt, ...);
+	void warn(const char *fmt, ...);
+	void err(const char *fmt, ...);
 }

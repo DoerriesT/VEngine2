@@ -19,7 +19,7 @@ void AssetManager::shutdown()
 
 	if (!s_instance->m_assetMap.empty())
 	{
-		Log::warn(("AssetManager still had " + std::to_string(s_instance->m_assetMap.size()) + " assets loaded when shutdown() was called!").c_str());
+		Log::warn("AssetManager still had %u assets loaded when shutdown() was called!", (unsigned int)s_instance->m_assetMap.size());
 	}
 
 	// unload all remaining assets
@@ -34,7 +34,7 @@ void AssetManager::shutdown()
 		// failed to find handler
 		if (handlerIt == s_instance->m_assetHandlerMap.end())
 		{
-			Log::warn("Could not find asset handler!");
+			Log::warn("Could not find asset handler for asset \"%s\"!", assetID.m_string);
 			continue;
 		}
 
@@ -70,7 +70,7 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 		}
 
 		// couldnt find asset -> try to load from disk
-		Log::info("Loading asset.");
+		Log::info("Loading asset \"%s\".", assetID.m_string);
 
 		AssetHandler *handler = nullptr;
 
@@ -83,7 +83,7 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 			// failed to find handler
 			if (handlerIt == m_assetHandlerMap.end())
 			{
-				Log::warn("Could not find asset handler!");
+				Log::warn("Could not find asset handler for asset \"%s\"!", assetID.m_string);
 				return nullptr;
 			}
 
@@ -95,14 +95,14 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 
 		if (!assetData)
 		{
-			Log::warn("Failed to create asset!");
+			Log::warn("Failed to create asset \"%s\"!", assetID.m_string);
 			return nullptr;
 		}
 
 		if (!handler->loadAssetData(assetData, (std::string("assets/") + assetID.m_string).c_str()))
 		{
 			handler->destroyAsset(assetID, assetType, assetData);
-			Log::warn("Failed to load asset!");
+			Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
 			return nullptr;
 		}
 
@@ -110,14 +110,14 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 		m_assetMap[assetID] = assetData;
 	}
 
-	Log::info("Successfully loaded asset.");
+	Log::info("Successfully loaded asset \"%s\".", assetID.m_string);
 
 	return assetData;
 }
 
 void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
-	Log::info("Unloading asset.");
+	Log::info("Unloading asset \"%s\".", assetID.m_string);
 
 	AssetHandler *handler = nullptr;
 
@@ -130,7 +130,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 		// failed to find handler
 		if (handlerIt == m_assetHandlerMap.end())
 		{
-			Log::warn("Could not find asset handler!");
+			Log::warn("Could not find asset handler for asset \"%s\"!", assetID.m_string);
 			return;
 		}
 
@@ -150,7 +150,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 		handler->destroyAsset(assetID, assetType, assetData);
 	}
 
-	Log::info("Successfully unloaded asset.");
+	Log::info("Successfully unloaded asset \"%s\".", assetID.m_string);
 }
 
 void AssetManager::registerAssetHandler(const AssetType &assetType, AssetHandler *handler) noexcept
