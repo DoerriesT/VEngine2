@@ -5,6 +5,7 @@
 #include "ecs/ECS.h"
 #include "component/PhysicsComponent.h"
 #include "component/TransformComponent.h"
+#include "component/CharacterControllerComponent.h"
 
 #define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL;	}
 
@@ -109,6 +110,9 @@ Physics::Physics(ECS *ecs) noexcept
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
 		pvdClient->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
 	}
+
+	m_controllerManager = PxCreateControllerManager(*m_pxScene, true);
+	assert(m_controllerManager);
 
 	m_materials.resize(16);
 	m_convexMeshes.resize(16);
@@ -262,6 +266,45 @@ void Physics::update(float deltaTime) noexcept
 					tc.m_rotation.z = pxTc.q.z;
 					tc.m_rotation.w = pxTc.q.w;
 				}
+			}
+		});
+
+	// character controller
+	m_ecs->iterate<TransformComponent, CharacterControllerComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, CharacterControllerComponent *ccC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &cc = ccC[i];
+				auto &tc = transC[i];
+
+				constexpr float capsuleRadius = 0.25f;
+				constexpr float capsuleHeight = 1.5f;
+				const float centerToCameraHeight = capsuleHeight * 0.5f;
+
+				if (!cc.m_internalControllerHandle)
+				{
+					PxCapsuleControllerDesc  controllerDesc{};
+					controllerDesc.radius = 0.25f;
+					controllerDesc.height = 1.5f;
+					controllerDesc.position.set(tc.m_translation.x, tc.m_translation.y - centerToCameraHeight, tc.m_translation.z);
+					controllerDesc.slopeLimit = cc.m_slopeLimit;
+					controllerDesc.contactOffset = cc.m_contactOffset;
+					controllerDesc.stepOffset = cc.m_stepOffset;
+					controllerDesc.density = cc.m_density;
+					controllerDesc.material = m_pxPhysics->createMaterial(0.5f, 0.5f, 0.5f);
+
+					cc.m_internalControllerHandle = m_controllerManager->createController(controllerDesc);
+				}
+
+				PxController *controller = (PxController *)cc.m_internalControllerHandle;
+				auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.01f, deltaTime, PxControllerFilters());
+				cc.m_touchesGround = collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN);
+
+				auto centerPos = controller->getPosition();
+
+				tc.m_translation.x = (float)centerPos.x;
+				tc.m_translation.y = (float)centerPos.y + centerToCameraHeight;
+				tc.m_translation.z = (float)centerPos.z;
 			}
 		});
 }

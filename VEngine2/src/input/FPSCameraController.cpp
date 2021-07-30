@@ -2,13 +2,14 @@
 #include "graphics/Camera.h"
 #include "UserInput.h"
 #include <glm/gtc/type_ptr.hpp>
+#include "component/CharacterControllerComponent.h"
 
 FPSCameraController::FPSCameraController(UserInput *userInput)
 	:m_userInput(userInput)
 {
 }
 
-void FPSCameraController::update(float timeDelta, Camera &camera)
+void FPSCameraController::update(float timeDelta, Camera &camera, CharacterControllerComponent *ccc)
 {
 	bool pressed = false;
 	float mod = 1.0f;
@@ -62,7 +63,7 @@ void FPSCameraController::update(float timeDelta, Camera &camera)
 
 	if (m_userInput->isKeyPressed(InputKey::LEFT_SHIFT))
 	{
-		mod = 35.0f;
+		mod = 5.0f;
 	}
 	if (m_userInput->isKeyPressed(InputKey::W))
 	{
@@ -84,8 +85,75 @@ void FPSCameraController::update(float timeDelta, Camera &camera)
 		cameraTranslation.x = mod * (float)timeDelta;
 		pressed = true;
 	}
-	if (pressed)
+
+	if (ccc)
 	{
-		camera.translate(cameraTranslation);
+		ccc->m_movementDeltaX = 0.0f;
+		ccc->m_movementDeltaY = 0.0f;
+		ccc->m_movementDeltaZ = 0.0f;
+	}
+
+	//if (pressed)
+	{
+		if (ccc)
+		{
+			auto viewMat = camera.getViewMatrix();
+
+			glm::vec3 forward(viewMat[0][2], viewMat[1][2], viewMat[2][2]);
+			glm::vec3 strafe(viewMat[0][0], viewMat[1][0], viewMat[2][0]);
+
+			glm::vec3 moveDirection = cameraTranslation.z * forward + cameraTranslation.x * strafe;
+			glm::vec2 moveDir2D = glm::normalize(glm::vec2(moveDirection.x, moveDirection.z));
+			moveDir2D = glm::any(glm::isnan(moveDir2D)) ? glm::vec2(0.0f) : moveDir2D;
+			moveDirection.x = moveDir2D.x;
+			moveDirection.y = 0.0f;
+			moveDirection.z = moveDir2D.y;
+			moveDirection *= mod;
+
+			printf("%d\n", (int)ccc->m_touchesGround);
+
+			if (ccc->m_jumping && ccc->m_touchesGround)
+			{
+				ccc->m_jumping = false;
+			}
+
+			if (ccc->m_touchesGround && m_userInput->isKeyPressed(InputKey::SPACE))
+			{
+				ccc->m_jumping = true;
+				ccc->m_jumpTime = 0.0f;
+				ccc->m_jumpV0 = 80.0f;
+			}
+
+
+			float jumpHeightDelta = 0.0f;
+			float dy = 0.0f;
+
+			if (ccc->m_jumping)
+			{
+				ccc->m_jumpTime += timeDelta;
+				const float jumpGravity = -50.0f;
+				jumpHeightDelta = jumpGravity * ccc->m_jumpTime * ccc->m_jumpTime + ccc->m_jumpV0 * ccc->m_jumpTime;
+			}
+
+			if (jumpHeightDelta != 0.0f)
+			{
+				dy = jumpHeightDelta;
+			}
+			else
+			{
+				dy = -9.81f;
+			}
+
+			moveDirection.y = dy;
+			moveDirection *= (float)timeDelta;
+
+			ccc->m_movementDeltaX = moveDirection.x;
+			ccc->m_movementDeltaY = moveDirection.y;
+			ccc->m_movementDeltaZ = moveDirection.z;
+		}
+		else
+		{
+			camera.translate(cameraTranslation);
+		}
 	}
 }

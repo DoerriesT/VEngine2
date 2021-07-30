@@ -16,6 +16,7 @@ namespace physx
 	class PxMaterial;
 	class PxConvexMesh;
 	class PxTriangleMesh;
+	class PxControllerManager;
 }
 
 struct PhysicsMaterialCreateInfo
@@ -49,6 +50,7 @@ private:
 	physx::PxScene *m_pxScene = nullptr;
 	physx::PxCpuDispatcher *m_pxCpuDispatcher = nullptr;
 	physx::PxCooking *m_pxCooking = nullptr;
+	physx::PxControllerManager *m_controllerManager = nullptr;
 	HandleManager m_materialHandleManager;
 	HandleManager m_convexMeshHandleManager;
 	HandleManager m_triangleMeshHandleManager;

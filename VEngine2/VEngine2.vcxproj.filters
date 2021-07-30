@@ -348,6 +348,9 @@
     <ClInclude Include="src\physics\Physics.h">
       <Filter>src\physics</Filter>
     </ClInclude>
+    <ClInclude Include="src\component\CharacterControllerComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -598,6 +601,9 @@
     </ClCompile>
     <ClCompile Include="src\physics\Physics.cpp">
       <Filter>src\physics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\CharacterControllerComponent.cpp">
+      <Filter>src\component</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

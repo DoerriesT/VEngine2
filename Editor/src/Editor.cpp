@@ -8,6 +8,7 @@
 #include "SceneGraphWindow.h"
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
+#include <component/CharacterControllerComponent.h>
 
 Editor::Editor(IGameLogic *gameLogic) noexcept
 	:m_gameLogic(gameLogic)
@@ -22,8 +23,9 @@ void Editor::init(Engine *engine) noexcept
 	transC.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
 	CameraComponent cameraC{};
 	cameraC.m_fovy = glm::radians(60.0f);
+	CharacterControllerComponent ccC{};
 
-	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>(transC, cameraC);
+	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent>(transC, cameraC, ccC);
 
 	m_engine->setEditorMode(true);
 	m_viewportWindow = new ViewportWindow(engine, &m_editorCameraEntity);

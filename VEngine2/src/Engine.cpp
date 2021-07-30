@@ -22,6 +22,7 @@
 #include "component/LightComponent.h"
 #include "component/MeshComponent.h"
 #include "component/PhysicsComponent.h"
+#include "component/CharacterControllerComponent.h"
 #include "physics/Physics.h"
 #include "Level.h"
 #include "file/FileDialog.h"
@@ -82,6 +83,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	registerComponent<LightComponent>(m_ecs);
 	registerComponent<MeshComponent>(m_ecs);
 	registerComponent<PhysicsComponent>(m_ecs);
+	registerComponent<CharacterControllerComponent>(m_ecs);
 
 	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_physics = new Physics(m_ecs);

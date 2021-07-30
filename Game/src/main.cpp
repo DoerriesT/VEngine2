@@ -14,6 +14,7 @@
 #include <component/LightComponent.h>
 #include <component/MeshComponent.h>
 #include <component/PhysicsComponent.h>
+#include <component/CharacterControllerComponent.h>
 #include <asset/AssetManager.h>
 #include <Editor.h>
 #include <graphics/Renderer.h>
@@ -53,7 +54,7 @@ public:
 	void onKey(InputKey key, InputAction action) override
 	{
 		
-		if (key == InputKey::SPACE && action == InputAction::RELEASE)
+		if (key == InputKey::F && action == InputAction::RELEASE)
 		{
 			glm::vec3 velocity;
 			glm::vec3 pos;
@@ -87,14 +88,16 @@ public:
 			CameraComponent cameraC1{};
 			cameraC1.m_fovy = glm::radians(60.0f);
 
-			PhysicsComponent physicsC{};
-			physicsC.m_mobility = PhysicsMobility::KINEMATIC;
-			physicsC.m_physicsShapeType = PhysicsShapeType::SPHERE;
-			physicsC.m_sphereRadius = 0.5f;
-			physicsC.m_materialHandle = m_physicsMaterial;
+			//PhysicsComponent physicsC{};
+			//physicsC.m_mobility = PhysicsMobility::KINEMATIC;
+			//physicsC.m_physicsShapeType = PhysicsShapeType::SPHERE;
+			//physicsC.m_sphereRadius = 0.5f;
+			//physicsC.m_materialHandle = m_physicsMaterial;
+
+			CharacterControllerComponent ccC{};
 
 			Camera cam(transC1, cameraC1);
-			m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, PhysicsComponent>(transC1, cameraC1, physicsC);
+			m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent>(transC1, cameraC1, ccC);
 			m_engine->getRenderer()->setCameraEntity(m_cameraEntity);
 			m_engine->getLevel()->addEntity(m_cameraEntity, "First Person Camera");
 		}
@@ -163,7 +166,7 @@ public:
 
 		Camera camera(*tc, *cc);
 
-		m_fpsCameraController->update(deltaTime, camera);
+		m_fpsCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<CharacterControllerComponent>(m_cameraEntity));
 	}
 
 	void shutdown() noexcept override

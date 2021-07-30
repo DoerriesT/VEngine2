@@ -5,6 +5,7 @@
 #include <math.h>
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
+#include <component/CharacterControllerComponent.h>
 #include <input/FPSCameraController.h>
 #include <graphics/Camera.h>
 
@@ -54,7 +55,7 @@ void ViewportWindow::draw(float deltaTime) noexcept
 
 	Camera camera(*tc, *cc);
 
-	m_fpsCameraController->update(deltaTime, camera);
+	m_fpsCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<CharacterControllerComponent>(*m_editorCameraEntityPtr));
 }
 
 void ViewportWindow::setVisible(bool visible) noexcept

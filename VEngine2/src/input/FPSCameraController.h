@@ -3,12 +3,13 @@
 
 class UserInput;
 class Camera;
+struct CharacterControllerComponent;
 
 class FPSCameraController
 {
 public:
 	explicit FPSCameraController(UserInput *userInput);
-	void update(float timeDelta, Camera &camera);
+	void update(float timeDelta, Camera &camera, CharacterControllerComponent *ccc = nullptr);
 
 private:
 	UserInput *m_userInput = nullptr;
