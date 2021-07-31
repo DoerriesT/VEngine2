@@ -12,7 +12,7 @@
 ViewportWindow::ViewportWindow(Engine *engine, const EntityID *editorCameraEntity) noexcept
 	:m_engine(engine),
 	m_editorCameraEntityPtr(editorCameraEntity),
-	m_fpsCameraController(new FPSCameraController(engine->getUserInput()))
+	m_fpsCameraController(new FPSCameraController(engine->getECS()))
 {
 }
 

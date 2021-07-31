@@ -1,14 +1,16 @@
 #pragma once
 #include "IInputListener.h"
 #include <glm/vec2.hpp>
-#include <vector>
-#include <bitset>
+#include <EASTL/vector.h>
+#include <EASTL/bitset.h>
 
 class Window;
+class ECS;
+
 class UserInput : public IInputListener
 {
 public:
-	explicit UserInput(Window &window);
+	explicit UserInput(Window &window, ECS *ecs);
 	UserInput(const UserInput &) = delete;
 	UserInput(const UserInput &&) = delete;
 	UserInput &operator= (const UserInput &) = delete;
@@ -40,6 +42,7 @@ public:
 
 private:
 	Window &m_window;
+	ECS *m_ecs = nullptr;
 	int32_t m_offsetX = 0;
 	int32_t m_offsetY = 0;
 	uint32_t m_width = 0;
@@ -48,11 +51,11 @@ private:
 	glm::vec2 m_previousMousePos;
 	glm::vec2 m_mousePosDelta;
 	glm::vec2 m_scrollOffset;
-	std::vector<IKeyListener *> m_keyListeners;
-	std::vector<ICharListener *> m_charListeners;
-	std::vector<IScrollListener *> m_scrollListeners;
-	std::vector<IMouseButtonListener *> m_mouseButtonlisteners;
-	std::bitset<350> m_pressedKeys;
-	std::bitset<350> m_repeatedKeys;
-	std::bitset<8> m_pressedMouseButtons;
+	eastl::vector<IKeyListener *> m_keyListeners;
+	eastl::vector<ICharListener *> m_charListeners;
+	eastl::vector<IScrollListener *> m_scrollListeners;
+	eastl::vector<IMouseButtonListener *> m_mouseButtonlisteners;
+	eastl::bitset<350> m_pressedKeys;
+	eastl::bitset<350> m_repeatedKeys;
+	eastl::bitset<8> m_pressedMouseButtons;
 };

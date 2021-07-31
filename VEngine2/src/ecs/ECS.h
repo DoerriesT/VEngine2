@@ -4,6 +4,7 @@
 #include <EASTL/functional.h>
 #include <EASTL/hash_map.h>
 #include <assert.h>
+#include "utility/ErasedType.h"
 
 struct Archetype;
 
@@ -16,30 +17,6 @@ using ComponentID = IDType;
 using ComponentMask = eastl::bitset<k_ecsMaxComponentTypes>;
 
 constexpr EntityID k_nullEntity = 0;
-
-template<typename T>
-void componentDefaultConstruct(void *mem) noexcept
-{
-	new (mem) T();
-}
-
-template<typename T>
-void componentCopyConstruct(void *destination, const void *source) noexcept
-{
-	new (destination) T(*reinterpret_cast<const T *>(source));
-}
-
-template<typename T>
-void componentMoveConstruct(void *destination, void *source) noexcept
-{
-	new (destination) T(eastl::move(*reinterpret_cast<T *>(source)));
-}
-
-template<typename T>
-void componentDestructor(void *mem) noexcept
-{
-	reinterpret_cast<T *>(mem)->~T();
-}
 
 class ComponentIDGenerator
 {
@@ -56,16 +33,6 @@ private:
 	static ComponentID m_idCount;
 };
 
-
-struct ComponentInfo
-{
-	size_t m_size = 0;
-	size_t m_alignment = 0;
-	void (*m_defaultConstructor)(void *mem) = nullptr;
-	void (*m_copyConstructor)(void *destination, const void *source) = nullptr;
-	void (*m_moveConstructor)(void *destination, void *source) = nullptr;
-	void (*m_destructor)(void *mem) = nullptr;
-};
 
 struct ArchetypeSlot
 {
@@ -90,12 +57,12 @@ void forEachComponentType(const ComponentMask &mask, const eastl::function<void(
 struct Archetype
 {
 	ComponentMask m_componentMask = {};
-	const ComponentInfo *m_componentInfo = nullptr;
+	const ErasedType *m_componentInfo = nullptr;
 	size_t m_memoryChunkSize = 0;
 	eastl::vector<ArchetypeMemoryChunk> m_memoryChunks;
 	eastl::vector<size_t> m_componentArrayOffsets;
 
-	explicit Archetype(const ComponentMask &componentMask, const ComponentInfo *componentInfo) noexcept;
+	explicit Archetype(const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept;
 	size_t getComponentArrayOffset(ComponentID componentID) noexcept;
 	ArchetypeSlot allocateDataSlot() noexcept;
 	void freeDataSlot(const ArchetypeSlot &slot) noexcept;
@@ -113,11 +80,14 @@ public:
 	};
 
 	/// <summary>
-	/// Registers a component with the ECS. Must be called on a component type before it can be used in any way.
+	///  Registers a component with the ECS. Must be called on a component type before it can be used in any way.
 	/// </summary>
 	/// <typeparam name="T">The type of the component to register.</typeparam>
 	template<typename T>
 	inline void registerComponent() noexcept;
+
+	template<typename T>
+	inline void registerSingletonComponent(const T &component) noexcept;
 
 	/// <summary>
 	/// Creates a new empty entity with no attached components.
@@ -326,6 +296,7 @@ public:
 	ComponentMask getComponentMask(EntityID entity) noexcept;
 
 	ComponentMask getRegisteredComponentMask() noexcept;
+	ComponentMask getRegisteredComponentMaskWithSingletons() noexcept;
 
 	/// <summary>
 	/// Invokes the given function on all entity/component arrays that contain the requested components.
@@ -334,6 +305,9 @@ public:
 	/// <param name="func">The function to invoke for each set of matching entity/component arrays.</param>
 	template<typename ...T>
 	inline void iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func);
+
+	template<typename T>
+	inline T *getSingletonComponent() noexcept;
 
 private:
 	enum class ComponentConstructorType
@@ -344,11 +318,16 @@ private:
 	EntityID m_nextFreeEntityId = 1;
 	eastl::vector<Archetype *> m_archetypes;
 	eastl::hash_map<EntityID, EntityRecord> m_entityRecords;
-	ComponentInfo m_componentInfo[k_ecsMaxComponentTypes] = {};
+	ErasedType m_componentInfo[k_ecsMaxComponentTypes] = {};
+	eastl::bitset<k_ecsMaxComponentTypes> m_singletonComponentsBitset = {};
+	void *m_singletonComponents[k_ecsMaxComponentTypes] = {};
 
 	template<typename ...T>
 	inline bool isRegisteredComponent() noexcept;
+	template<typename ...T>
+	inline bool isNotSingletonComponent() noexcept;
 	bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept;
+	bool isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept;
 
 	EntityID createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	void addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
@@ -356,255 +335,4 @@ private:
 	Archetype *findOrCreateArchetype(const ComponentMask &mask) noexcept;
 };
 
-template<typename T>
-inline void ECS::registerComponent() noexcept
-{
-	ComponentInfo info{};
-	info.m_size = sizeof(T);
-	info.m_alignment = alignof(T);
-	info.m_defaultConstructor = componentDefaultConstruct<T>;
-	info.m_copyConstructor = componentCopyConstruct<T>;
-	info.m_moveConstructor = componentMoveConstruct<T>;
-	info.m_destructor = componentDestructor<T>;
-
-	m_componentInfo[ComponentIDGenerator::getID<T>()] = info;
-}
-
-template<typename ...T>
-inline EntityID ECS::createEntity() noexcept
-{
-	assert(isRegisteredComponent<T...>());
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-
-	return createEntityInternal(sizeof...(T), ids, nullptr, ComponentConstructorType::DEFAULT);
-}
-
-template<typename ...T>
-inline EntityID ECS::createEntity(const T & ...components) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-	const void *srcMemory[sizeof...(T)] = { ((const void *)&components)... };
-
-	return createEntityInternal(sizeof...(T), ids, srcMemory, ComponentConstructorType::COPY);
-}
-
-template<typename ...T>
-inline EntityID ECS::createEntity(T && ...components) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-	void *srcMemory[sizeof...(T)] = { ((void *)&components)... };
-
-	return createEntityInternal(sizeof...(T), ids, srcMemory, ComponentConstructorType::MOVE);
-}
-
-template<typename T, typename ...Args>
-inline T &ECS::addComponent(EntityID entity, Args &&...args) noexcept
-{
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
-	assert(isRegisteredComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
-	EntityRecord &entityRecord = m_entityRecords[entity];
-
-	T *newComponent = nullptr;
-
-	// component already exists
-	if (entityRecord.m_archetype && entityRecord.m_archetype->m_componentMask[componentID])
-	{
-		newComponent = (T *)entityRecord.m_archetype->getComponentMemory(entityRecord.m_slot, componentID);
-	}
-	else
-	{
-		ComponentMask newMask = entityRecord.m_archetype ? entityRecord.m_archetype->m_componentMask : 0;
-		newMask.set(componentID, true);
-
-		// find archetype
-		Archetype *newArchetype = findOrCreateArchetype(newMask);
-
-		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord, true);
-		newComponent = (T *)newArchetype->getComponentMemory(entityRecord.m_slot, componentID);
-	}
-
-	new (newComponent) T(eastl::forward<Args>(args)...);
-	return *newComponent;
-}
-
-template<typename ...T>
-inline void ECS::addComponents(EntityID entity) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-
-	addComponentsInternal(entity, sizeof...(T), ids, nullptr, ComponentConstructorType::DEFAULT);
-}
-
-template<typename ...T>
-inline void ECS::addComponents(EntityID entity, const T & ...components) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-	const void *srcMemory[sizeof...(T)] = { ((const void *)&components)... };
-
-	addComponentsInternal(entity, sizeof...(T), ids, srcMemory, ComponentConstructorType::COPY);
-}
-
-template<typename ...T>
-inline void ECS::addComponents(EntityID entity, T && ...components) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-	void *srcMemory[sizeof...(T)] = { ((void *)&components)... };
-
-	addComponentsInternal(entity, sizeof...(T), ids, srcMemory, ComponentConstructorType::MOVE);
-}
-
-template<typename T>
-inline bool ECS::removeComponent(EntityID entity) noexcept
-{
-	assert(isRegisteredComponent<T>());
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-	return removeComponentsInternal(entity, 1, &componentID);
-}
-
-template<typename ...T>
-inline bool ECS::removeComponents(EntityID entity) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-	ComponentID componentIDs[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-	return removeComponentsInternal(entity, sizeof...(T), componentIDs);
-}
-
-template<typename TAdd, typename TRemove, typename ...Args>
-inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
-{
-	assert(isRegisteredComponent<TAdd>());
-	assert(isRegisteredComponent<TRemove>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
-	const ComponentID addComponentID = ComponentIDGenerator::getID<TAdd>();
-	const ComponentID removeComponentID = ComponentIDGenerator::getID<TRemove>();
-
-	EntityRecord &entityRecord = m_entityRecords[entity];
-
-	// build new component mask
-	ComponentMask oldMask = entityRecord.m_archetype ? entityRecord.m_archetype->m_componentMask : 0;
-	ComponentMask newMask = oldMask;
-	newMask.set(removeComponentID, false);
-	newMask.set(addComponentID, true);
-
-	TAdd *newComponent = nullptr;
-
-	// archetype didnt change: overwrite old component
-	if (oldMask == newMask)
-	{
-		newComponent = (TAdd *)entityRecord.m_archetype->getComponentMemory(entityRecord.m_slot, addComponentID);
-		m_componentInfo[addComponentID].m_destructor(newComponent);
-	}
-	else
-	{
-		// find archetype
-		Archetype *newArchetype = findOrCreateArchetype(newMask);
-
-		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord, true);
-		newComponent = (TAdd *)newArchetype->getComponentMemory(entityRecord.m_slot, addComponentID);
-	}
-
-	new (newComponent) TAdd(eastl::forward<Args>(args)...);
-
-	return *newComponent;
-}
-
-template<typename T>
-inline T *ECS::getComponent(EntityID entity) noexcept
-{
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
-	assert(isRegisteredComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
-	auto record = m_entityRecords[entity];
-
-	if (record.m_archetype)
-	{
-		return (T *)record.m_archetype->getComponentMemory(record.m_slot, componentID);
-	}
-
-	return nullptr;
-}
-
-template<typename T>
-inline bool ECS::hasComponent(EntityID entity) noexcept
-{
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
-	assert(isRegisteredComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
-	auto record = m_entityRecords[entity];
-	return record.m_archetype && record.m_archetype->m_componentMask[componentID];
-}
-
-template<typename ...T>
-inline bool ECS::hasComponents(EntityID entity) noexcept
-{
-	assert(isRegisteredComponent<T...>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-
-	if (sizeof...(T) == 0)
-	{
-		return true;
-	}
-
-	auto record = m_entityRecords[entity];
-	return record.m_archetype && (... && (record.m_archetype->m_componentMask[ComponentIDGenerator::getID<T>()]));
-}
-
-template<typename ...T>
-inline void ECS::iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func)
-{
-	assert(isRegisteredComponent<T...>());
-
-	// build search mask
-	ComponentMask searchMask = 0;
-
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-
-	for (size_t j = 0; j < sizeof...(T); ++j)
-	{
-		searchMask.set(ids[j], true);
-	}
-
-	// search through all archetypes and look for matching masks
-	for (auto &atPtr : m_archetypes)
-	{
-		auto &at = *atPtr;
-		// archetype matches search mask
-		if ((at.m_componentMask & searchMask) == searchMask)
-		{
-			for (auto &chunk : at.m_memoryChunks)
-			{
-				if (chunk.m_size > 0)
-				{
-					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(chunk.m_memory + at.getComponentArrayOffset(ComponentIDGenerator::getID<T>())))...);
-				}
-			}
-		}
-	}
-}
-
-template<typename ...T>
-inline bool ECS::isRegisteredComponent() noexcept
-{
-	return (... && (m_componentInfo[ComponentIDGenerator::getID<T>()].m_defaultConstructor != nullptr));
-}
+#include "ECS.inl"

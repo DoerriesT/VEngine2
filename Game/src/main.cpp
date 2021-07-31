@@ -15,10 +15,10 @@
 #include <component/MeshComponent.h>
 #include <component/PhysicsComponent.h>
 #include <component/CharacterControllerComponent.h>
+#include <component/InputStateComponent.h>
 #include <asset/AssetManager.h>
 #include <Editor.h>
 #include <graphics/Renderer.h>
-#include <input/UserInput.h>
 #include <input/FPSCameraController.h>
 #include <graphics/Camera.h>
 #include <Level.h>
@@ -48,34 +48,13 @@ void visitType(const Reflection &r, const TypeID &typeID, const char *fieldName 
 	
 }
 
-class DummyGameLogic : public IGameLogic, public IKeyListener
+class DummyGameLogic : public IGameLogic
 {
 public:
-	void onKey(InputKey key, InputAction action) override
-	{
-		
-		if (key == InputKey::F && action == InputAction::RELEASE)
-		{
-			glm::vec3 velocity;
-			glm::vec3 pos;
-			{
-				TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(m_cameraEntity);
-				CameraComponent *cc = m_engine->getECS()->getComponent<CameraComponent>(m_cameraEntity);
-				Camera cam(*tc, *cc);
-
-				auto d = cam.getForwardDirection();
-				velocity = d * 50.0f;
-				pos = tc->m_translation + d;
-			}
-			
-			createPhysicsObject(pos, velocity, PhysicsMobility::DYNAMIC);
-		}
-	}
-
 	void init(Engine *engine) noexcept override
 	{
 		m_engine = engine;
-		m_fpsCameraController = new FPSCameraController(m_engine->getUserInput());
+		m_fpsCameraController = new FPSCameraController(m_engine->getECS());
 
 		PhysicsMaterialCreateInfo matCreateInfo{ 0.5f, 0.5f, 0.6f };
 		m_engine->getPhysics()->createMaterials(1, &matCreateInfo, &m_physicsMaterial);
@@ -145,8 +124,6 @@ public:
 			//	createPhysicsObject(transC.m_translation, {}, PhysicsMobility::DYNAMIC);
 			//}
 		}
-
-		m_engine->getUserInput()->addKeyListener(this);
 	}
 
 	void update(float deltaTime) noexcept override
@@ -167,6 +144,25 @@ public:
 		Camera camera(*tc, *cc);
 
 		m_fpsCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<CharacterControllerComponent>(m_cameraEntity));
+
+		const auto *inputState = m_engine->getECS()->getSingletonComponent<RawInputStateComponent>();
+
+		if (inputState->isKeyPressed(InputKey::F))
+		{
+			glm::vec3 velocity;
+			glm::vec3 pos;
+			{
+				TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(m_cameraEntity);
+				CameraComponent *cc = m_engine->getECS()->getComponent<CameraComponent>(m_cameraEntity);
+				Camera cam(*tc, *cc);
+
+				auto d = cam.getForwardDirection();
+				velocity = d * 50.0f;
+				pos = tc->m_translation + d;
+			}
+
+			createPhysicsObject(pos, velocity, PhysicsMobility::DYNAMIC);
+		}
 	}
 
 	void shutdown() noexcept override

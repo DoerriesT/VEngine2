@@ -15,14 +15,7 @@
 #include "utility/Utility.h"
 #include "IGameLogic.h"
 #include "ecs/ECS.h"
-#include "ecs/ECSTypeIDTranslator.h"
-#include "reflection/Reflection.h"
-#include "component/TransformComponent.h"
-#include "component/CameraComponent.h"
-#include "component/LightComponent.h"
-#include "component/MeshComponent.h"
-#include "component/PhysicsComponent.h"
-#include "component/CharacterControllerComponent.h"
+#include "component/ComponentRegistration.h"
 #include "physics/Physics.h"
 #include "Level.h"
 #include "file/FileDialog.h"
@@ -37,14 +30,6 @@ void *__cdecl operator new[](size_t size, const char *name, int flags, unsigned 
 void *__cdecl operator new[](size_t size, size_t alignment, size_t alignmentOffset, const char *pName, int flags, unsigned debugFlags, const char *file, int line)
 {
 	return new uint8_t[size];
-}
-
-template<typename T>
-static void registerComponent(ECS *ecs)
-{
-	T::reflect(g_Reflection);
-	ecs->registerComponent<T>();
-	ECSTypeIDTranslator::registerType<T>();
 }
 
 int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
@@ -78,16 +63,11 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	m_ecs = new ECS();
 
-	registerComponent<TransformComponent>(m_ecs);
-	registerComponent<CameraComponent>(m_ecs);
-	registerComponent<LightComponent>(m_ecs);
-	registerComponent<MeshComponent>(m_ecs);
-	registerComponent<PhysicsComponent>(m_ecs);
-	registerComponent<CharacterControllerComponent>(m_ecs);
+	ComponentRegistration::registerAllComponents(m_ecs);
 
 	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_physics = new Physics(m_ecs);
-	m_userInput = new UserInput(*m_window);
+	m_userInput = new UserInput(*m_window, m_ecs);
 	AssetManager::init();
 
 	TextureAssetHandler::init(AssetManager::get(), m_renderer);
@@ -161,10 +141,10 @@ Physics *Engine::getPhysics() noexcept
 	return m_physics;
 }
 
-UserInput *Engine::getUserInput() noexcept
-{
-	return m_userInput;
-}
+//UserInput *Engine::getUserInput() noexcept
+//{
+//	return m_userInput;
+//}
 
 Level *Engine::getLevel() noexcept
 {

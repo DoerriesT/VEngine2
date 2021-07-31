@@ -351,6 +351,15 @@
     <ClInclude Include="src\component\CharacterControllerComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\component\InputStateComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\ErasedType.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\component\ComponentRegistration.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -605,6 +614,9 @@
     <ClCompile Include="src\component\CharacterControllerComponent.cpp">
       <Filter>src\component</Filter>
     </ClCompile>
+    <ClCompile Include="src\component\ComponentRegistration.cpp">
+      <Filter>src\component</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\libs\EASTL.natvis" />
@@ -612,6 +624,9 @@
   <ItemGroup>
     <None Include="src\reflection\Reflection.inl">
       <Filter>src\reflection</Filter>
+    </None>
+    <None Include="src\ecs\ECS.inl">
+      <Filter>src\ecs</Filter>
     </None>
   </ItemGroup>
 </Project>

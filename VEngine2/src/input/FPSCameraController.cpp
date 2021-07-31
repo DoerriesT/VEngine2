@@ -3,28 +3,32 @@
 #include "UserInput.h"
 #include <glm/gtc/type_ptr.hpp>
 #include "component/CharacterControllerComponent.h"
+#include "component/InputStateComponent.h"
+#include "ecs/ECS.h"
 
-FPSCameraController::FPSCameraController(UserInput *userInput)
-	:m_userInput(userInput)
+FPSCameraController::FPSCameraController(ECS *ecs)
+	:m_ecs(ecs)
 {
 }
 
 void FPSCameraController::update(float timeDelta, Camera &camera, CharacterControllerComponent *ccc)
 {
+	const auto *inputState = m_ecs->getSingletonComponent<RawInputStateComponent>();
+
 	bool pressed = false;
 	float mod = 1.0f;
 	glm::vec3 cameraTranslation = glm::vec3(0.0f);
 
 	glm::vec2 mouseDelta = {};
 
-	if (m_userInput->isMouseButtonPressed(InputMouse::BUTTON_RIGHT))
+	if (inputState->isMouseButtonDown(InputMouse::BUTTON_RIGHT))
 	{
 		if (!m_grabbedMouse)
 		{
 			m_grabbedMouse = true;
 			//m_window->setMouseCursorMode(Window::MouseCursorMode::DISABLED);
 		}
-		mouseDelta = m_userInput->getMousePosDelta();
+		mouseDelta = glm::vec2(inputState->m_mousePosDeltaX, inputState->m_mousePosDeltaY);
 	}
 	else
 	{
@@ -44,43 +48,43 @@ void FPSCameraController::update(float timeDelta, Camera &camera, CharacterContr
 	m_mouseHistory[1] = mouseHistory[1];
 
 
-	if (m_userInput->isKeyPressed(InputKey::UP))
+	if (inputState->isKeyDown(InputKey::UP))
 	{
 		camera.rotate(glm::vec3(-timeDelta, 0.0f, 0.0));
 	}
-	if (m_userInput->isKeyPressed(InputKey::DOWN))
+	if (inputState->isKeyDown(InputKey::DOWN))
 	{
 		camera.rotate(glm::vec3(timeDelta, 0.0f, 0.0));
 	}
-	if (m_userInput->isKeyPressed(InputKey::LEFT))
+	if (inputState->isKeyDown(InputKey::LEFT))
 	{
 		camera.rotate(glm::vec3(0.0f, -timeDelta, 0.0));
 	}
-	if (m_userInput->isKeyPressed(InputKey::RIGHT))
+	if (inputState->isKeyDown(InputKey::RIGHT))
 	{
 		camera.rotate(glm::vec3(0.0f, timeDelta, 0.0));
 	}
 
-	if (m_userInput->isKeyPressed(InputKey::LEFT_SHIFT))
+	if (inputState->isKeyDown(InputKey::LEFT_SHIFT))
 	{
 		mod = 5.0f;
 	}
-	if (m_userInput->isKeyPressed(InputKey::W))
+	if (inputState->isKeyDown(InputKey::W))
 	{
 		cameraTranslation.z = -mod * (float)timeDelta;
 		pressed = true;
 	}
-	if (m_userInput->isKeyPressed(InputKey::S))
+	if (inputState->isKeyDown(InputKey::S))
 	{
 		cameraTranslation.z = mod * (float)timeDelta;
 		pressed = true;
 	}
-	if (m_userInput->isKeyPressed(InputKey::A))
+	if (inputState->isKeyDown(InputKey::A))
 	{
 		cameraTranslation.x = -mod * (float)timeDelta;
 		pressed = true;
 	}
-	if (m_userInput->isKeyPressed(InputKey::D))
+	if (inputState->isKeyDown(InputKey::D))
 	{
 		cameraTranslation.x = mod * (float)timeDelta;
 		pressed = true;
@@ -110,14 +114,14 @@ void FPSCameraController::update(float timeDelta, Camera &camera, CharacterContr
 			moveDirection.z = moveDir2D.y;
 			moveDirection *= mod;
 
-			printf("%d\n", (int)ccc->m_touchesGround);
+			//printf("%d\n", (int)ccc->m_touchesGround);
 
 			if (ccc->m_jumping && ccc->m_touchesGround)
 			{
 				ccc->m_jumping = false;
 			}
 
-			if (ccc->m_touchesGround && m_userInput->isKeyPressed(InputKey::SPACE))
+			if (ccc->m_touchesGround && inputState->isKeyPressed(InputKey::SPACE))
 			{
 				ccc->m_jumping = true;
 				ccc->m_jumpTime = 0.0f;

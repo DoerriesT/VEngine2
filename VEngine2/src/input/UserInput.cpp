@@ -1,9 +1,13 @@
 #include "UserInput.h"
 #include "Utility/ContainerUtility.h"
 #include "Window/Window.h"
+#include "ecs/ECS.h"
+#include "component/InputStateComponent.h"
+#include "Log.h"
 
-UserInput::UserInput(Window &window)
-	:m_window(window)
+UserInput::UserInput(Window &window, ECS *ecs)
+	:m_window(window),
+	m_ecs(ecs)
 {
 	m_window.addInputListener(this);
 }
@@ -18,6 +22,30 @@ void UserInput::resize(int32_t offsetX, int32_t offsetY, uint32_t width, uint32_
 
 void UserInput::input()
 {
+	// update input state component
+	{
+		auto *state = m_ecs->getSingletonComponent<RawInputStateComponent>();
+
+		// update indices
+		state->m_prevIndex = state->m_curIndex;
+		state->m_curIndex = (state->m_curIndex + 1) % 2;
+
+		// update mouse and delta
+		state->m_mousePosX[state->m_curIndex] = m_mousePos.x;
+		state->m_mousePosY[state->m_curIndex] = m_mousePos.y;
+		state->m_mousePosDeltaX = state->m_mousePosX[state->m_curIndex] - state->m_mousePosX[state->m_prevIndex];
+		state->m_mousePosDeltaY = state->m_mousePosY[state->m_curIndex] - state->m_mousePosY[state->m_prevIndex];
+		state->m_scrollDeltaX = m_scrollOffset.x;
+		state->m_scrollDeltaY = m_scrollOffset.y;
+
+		// update key state
+		state->m_pressedKeys[state->m_curIndex] = m_pressedKeys;
+		state->m_pressedMouseButtons[state->m_curIndex] = m_pressedMouseButtons;
+
+		// set clipboard
+		state->m_clipboardString = m_window.getClipboardText();
+	}
+
 	m_mousePosDelta = (m_mousePos - m_previousMousePos);
 	m_previousMousePos = m_mousePos;
 }
@@ -81,7 +109,7 @@ void UserInput::addKeyListener(IKeyListener *listener)
 
 void UserInput::removeKeyListener(IKeyListener *listener)
 {
-	ContainerUtility::remove(m_keyListeners, listener);
+	m_keyListeners.erase(std::remove(m_keyListeners.begin(), m_keyListeners.end(), listener), m_keyListeners.end());
 }
 
 void UserInput::addCharListener(ICharListener *listener)
@@ -91,7 +119,7 @@ void UserInput::addCharListener(ICharListener *listener)
 
 void UserInput::removeCharListener(ICharListener *listener)
 {
-	ContainerUtility::remove(m_charListeners, listener);
+	m_charListeners.erase(std::remove(m_charListeners.begin(), m_charListeners.end(), listener), m_charListeners.end());
 }
 
 void UserInput::addScrollListener(IScrollListener *listener)
@@ -101,7 +129,7 @@ void UserInput::addScrollListener(IScrollListener *listener)
 
 void UserInput::removeScrollListener(IScrollListener *listener)
 {
-	ContainerUtility::remove(m_scrollListeners, listener);
+	m_scrollListeners.erase(std::remove(m_scrollListeners.begin(), m_scrollListeners.end(), listener), m_scrollListeners.end());
 }
 
 void UserInput::addMouseButtonListener(IMouseButtonListener *listener)
@@ -111,7 +139,7 @@ void UserInput::addMouseButtonListener(IMouseButtonListener *listener)
 
 void UserInput::removeMouseButtonListener(IMouseButtonListener *listener)
 {
-	ContainerUtility::remove(m_mouseButtonlisteners, listener);
+	m_mouseButtonlisteners.erase(std::remove(m_mouseButtonlisteners.begin(), m_mouseButtonlisteners.end(), listener), m_mouseButtonlisteners.end());
 }
 
 void UserInput::onKey(InputKey key, InputAction action)
@@ -128,6 +156,7 @@ void UserInput::onKey(InputKey key, InputAction action)
 	case InputAction::RELEASE:
 		if (keyIndex < m_pressedKeys.size() && keyIndex < m_repeatedKeys.size())
 		{
+			Log::info("Released key %u", (unsigned int)keyIndex);
 			m_pressedKeys.set(static_cast<size_t>(key), false);
 			m_repeatedKeys.set(static_cast<size_t>(key), false);
 		}
@@ -135,6 +164,7 @@ void UserInput::onKey(InputKey key, InputAction action)
 	case InputAction::PRESS:
 		if (keyIndex < m_pressedKeys.size())
 		{
+			Log::info("Pressed key %u", (unsigned int)keyIndex);
 			m_pressedKeys.set(static_cast<size_t>(key), true);
 		}
 		break;

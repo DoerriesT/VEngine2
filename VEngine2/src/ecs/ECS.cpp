@@ -4,7 +4,7 @@
 
 ComponentID ComponentIDGenerator::m_idCount = 0;
 
-Archetype::Archetype(const ComponentMask &componentMask, const ComponentInfo *componentInfo) noexcept
+Archetype::Archetype(const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept
 	:m_componentMask(componentMask),
 	m_componentInfo(componentInfo),
 	m_memoryChunkSize(),
@@ -171,12 +171,14 @@ EntityID ECS::createEntity() noexcept
 EntityID ECS::createEntityTypeless(size_t componentCount, const ComponentID *componentIDs) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
 	return createEntityInternal(componentCount, componentIDs, nullptr, ComponentConstructorType::DEFAULT);
 }
 
 EntityID ECS::createEntityTypeless(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
 	return createEntityInternal(componentCount, componentIDs, componentData, ComponentConstructorType::COPY);
 }
 
@@ -196,24 +198,28 @@ void ECS::destroyEntity(EntityID entity) noexcept
 void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
 	addComponentsInternal(entity, componentCount, componentIDs, nullptr, ComponentConstructorType::DEFAULT);
 }
 
 void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
 	addComponentsInternal(entity, componentCount, componentIDs, componentData, ComponentConstructorType::COPY);
 }
 
 bool ECS::removeComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
 	return removeComponentsInternal(entity, componentCount, componentIDs);
 }
 
 void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) noexcept
 {
 	assert(isRegisteredComponent(1, &componentID));
+	assert(isNotSingletonComponent(1, &componentID));
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
 	auto record = m_entityRecords[entity];
@@ -229,6 +235,7 @@ void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) noexce
 bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
 	if (componentCount == 0)
@@ -268,6 +275,18 @@ ComponentMask ECS::getRegisteredComponentMask() noexcept
 
 	for (size_t i = 0; i < mask.kSize; ++i)
 	{
+		mask[i] = m_componentInfo[i].m_defaultConstructor != nullptr && !m_singletonComponentsBitset[i];
+	}
+
+	return mask;
+}
+
+ComponentMask ECS::getRegisteredComponentMaskWithSingletons() noexcept
+{
+	ComponentMask mask = 0;
+
+	for (size_t i = 0; i < mask.kSize; ++i)
+	{
 		mask[i] = m_componentInfo[i].m_defaultConstructor != nullptr;
 	}
 
@@ -279,6 +298,18 @@ bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) n
 	for (size_t i = 0; i < count; ++i)
 	{
 		if (!m_componentInfo[componentIDs[i]].m_defaultConstructor)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept
+{
+	for (size_t i = 0; i < count; ++i)
+	{
+		if (m_singletonComponentsBitset[componentIDs[i]])
 		{
 			return false;
 		}

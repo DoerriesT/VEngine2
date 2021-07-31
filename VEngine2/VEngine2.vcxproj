@@ -158,6 +158,8 @@
     <ClInclude Include="src\asset\TextureAssetHandler.h" />
     <ClInclude Include="src\component\CameraComponent.h" />
     <ClInclude Include="src\component\CharacterControllerComponent.h" />
+    <ClInclude Include="src\component\ComponentRegistration.h" />
+    <ClInclude Include="src\component\InputStateComponent.h" />
     <ClInclude Include="src\component\LightComponent.h" />
     <ClInclude Include="src\component\MeshComponent.h" />
     <ClInclude Include="src\component\PhysicsComponent.h" />
@@ -237,6 +239,7 @@
     <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\ContainerUtility.h" />
     <ClInclude Include="src\utility\Enum.h" />
+    <ClInclude Include="src\utility\ErasedType.h" />
     <ClInclude Include="src\utility\HandleManager.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
     <ClInclude Include="src\utility\PoolAllocator.h" />
@@ -259,6 +262,7 @@
     <ClCompile Include="src\asset\TextureAssetHandler.cpp" />
     <ClCompile Include="src\component\CameraComponent.cpp" />
     <ClCompile Include="src\component\CharacterControllerComponent.cpp" />
+    <ClCompile Include="src\component\ComponentRegistration.cpp" />
     <ClCompile Include="src\component\Level.cpp" />
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\MeshComponent.cpp" />
@@ -339,6 +343,7 @@
     <Natvis Include="..\libs\EASTL.natvis" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="src\ecs\ECS.inl" />
     <None Include="src\reflection\Reflection.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

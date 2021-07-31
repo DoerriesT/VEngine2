@@ -16,7 +16,7 @@ public:
 	ECS *getECS() noexcept;
 	Renderer *getRenderer() noexcept;
 	Physics *getPhysics() noexcept;
-	UserInput *getUserInput() noexcept;
+	//UserInput *getUserInput() noexcept;
 	Level *getLevel() noexcept;
 	void setEditorMode(bool editorMode) noexcept;
 	bool isEditorMode() const noexcept;

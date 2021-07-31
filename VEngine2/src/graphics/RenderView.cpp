@@ -92,7 +92,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	meshPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	meshPassData.m_width = m_width;
 	meshPassData.m_height = m_height;
-	meshPassData.m_meshCount = modelMatrices.size();
+	meshPassData.m_meshCount = static_cast<uint32_t>(modelMatrices.size());
 	meshPassData.m_colorAttachment = m_renderViewResources->m_resultImageView;
 	meshPassData.m_depthBufferAttachment = m_renderViewResources->m_depthBufferImageView;
 	meshPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
