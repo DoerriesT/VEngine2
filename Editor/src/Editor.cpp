@@ -9,6 +9,7 @@
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
 #include <component/CharacterControllerComponent.h>
+#include <component/PlayerMovementComponent.h>
 
 Editor::Editor(IGameLogic *gameLogic) noexcept
 	:m_gameLogic(gameLogic)
@@ -24,8 +25,10 @@ void Editor::init(Engine *engine) noexcept
 	CameraComponent cameraC{};
 	cameraC.m_fovy = glm::radians(60.0f);
 	CharacterControllerComponent ccC{};
+	PlayerMovementComponent pmC{};
+	pmC.m_active = true;
 
-	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent>(transC, cameraC, ccC);
+	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent, PlayerMovementComponent>(transC, cameraC, ccC, pmC);
 
 	m_engine->setEditorMode(true);
 	m_viewportWindow = new ViewportWindow(engine, &m_editorCameraEntity);

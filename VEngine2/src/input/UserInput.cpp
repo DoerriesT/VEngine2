@@ -3,7 +3,6 @@
 #include "Window/Window.h"
 #include "ecs/ECS.h"
 #include "component/InputStateComponent.h"
-#include "Log.h"
 
 UserInput::UserInput(Window &window, ECS *ecs)
 	:m_window(window),
@@ -156,7 +155,6 @@ void UserInput::onKey(InputKey key, InputAction action)
 	case InputAction::RELEASE:
 		if (keyIndex < m_pressedKeys.size() && keyIndex < m_repeatedKeys.size())
 		{
-			Log::info("Released key %u", (unsigned int)keyIndex);
 			m_pressedKeys.set(static_cast<size_t>(key), false);
 			m_repeatedKeys.set(static_cast<size_t>(key), false);
 		}
@@ -164,7 +162,6 @@ void UserInput::onKey(InputKey key, InputAction action)
 	case InputAction::PRESS:
 		if (keyIndex < m_pressedKeys.size())
 		{
-			Log::info("Pressed key %u", (unsigned int)keyIndex);
 			m_pressedKeys.set(static_cast<size_t>(key), true);
 		}
 		break;

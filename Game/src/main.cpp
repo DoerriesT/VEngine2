@@ -15,6 +15,7 @@
 #include <component/MeshComponent.h>
 #include <component/PhysicsComponent.h>
 #include <component/CharacterControllerComponent.h>
+#include <component/PlayerMovementComponent.h>
 #include <component/InputStateComponent.h>
 #include <asset/AssetManager.h>
 #include <Editor.h>
@@ -74,9 +75,11 @@ public:
 			//physicsC.m_materialHandle = m_physicsMaterial;
 
 			CharacterControllerComponent ccC{};
+			PlayerMovementComponent pmC{};
+			pmC.m_active = true;
 
 			Camera cam(transC1, cameraC1);
-			m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent>(transC1, cameraC1, ccC);
+			m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent, PlayerMovementComponent>(transC1, cameraC1, ccC, pmC);
 			m_engine->getRenderer()->setCameraEntity(m_cameraEntity);
 			m_engine->getLevel()->addEntity(m_cameraEntity, "First Person Camera");
 		}

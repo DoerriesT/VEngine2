@@ -277,15 +277,15 @@ void Physics::update(float deltaTime) noexcept
 				auto &cc = ccC[i];
 				auto &tc = transC[i];
 
-				constexpr float capsuleRadius = 0.25f;
-				constexpr float capsuleHeight = 1.5f;
-				const float centerToCameraHeight = capsuleHeight * 0.5f;
+				const float centerToCameraHeight = cc.m_cameraHeight - cc.m_capsuleHeight * 0.5f;
+				const float adjustedHeight = cc.m_capsuleHeight - 2.0f * cc.m_contactOffset;
+				const float adjustedRadius = cc.m_capsuleRadius - cc.m_contactOffset;
 
 				if (!cc.m_internalControllerHandle)
 				{
 					PxCapsuleControllerDesc  controllerDesc{};
-					controllerDesc.radius = 0.25f;
-					controllerDesc.height = 1.5f;
+					controllerDesc.radius = adjustedRadius;
+					controllerDesc.height = adjustedHeight - 2.0f * adjustedRadius;
 					controllerDesc.position.set(tc.m_translation.x, tc.m_translation.y - centerToCameraHeight, tc.m_translation.z);
 					controllerDesc.slopeLimit = cc.m_slopeLimit;
 					controllerDesc.contactOffset = cc.m_contactOffset;
@@ -297,8 +297,20 @@ void Physics::update(float deltaTime) noexcept
 				}
 
 				PxController *controller = (PxController *)cc.m_internalControllerHandle;
+
+				controller->resize(adjustedHeight - 2.0f * adjustedRadius);
+
 				auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.01f, deltaTime, PxControllerFilters());
-				cc.m_touchesGround = collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN);
+				
+				cc.m_collisionFlags = CharacterControllerCollisionFlags::NONE;
+				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_SIDES) ? CharacterControllerCollisionFlags::SIDES : CharacterControllerCollisionFlags::NONE;
+				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_UP) ? CharacterControllerCollisionFlags::UP : CharacterControllerCollisionFlags::NONE;
+				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN) ? CharacterControllerCollisionFlags::DOWN : CharacterControllerCollisionFlags::NONE;
+
+				// movement has been consumed
+				cc.m_movementDeltaX = 0.0f;
+				cc.m_movementDeltaY = 0.0f;
+				cc.m_movementDeltaZ = 0.0f;
 
 				auto centerPos = controller->getPosition();
 

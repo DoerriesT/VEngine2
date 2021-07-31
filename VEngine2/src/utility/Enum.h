@@ -1,5 +1,5 @@
 #pragma once
-#include "stdint.h"
+#include <stdint.h>
 
 template <size_t S>
 struct ENUM_FLAG_INTEGER_FOR_SIZE;

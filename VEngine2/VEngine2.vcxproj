@@ -163,6 +163,7 @@
     <ClInclude Include="src\component\LightComponent.h" />
     <ClInclude Include="src\component\MeshComponent.h" />
     <ClInclude Include="src\component\PhysicsComponent.h" />
+    <ClInclude Include="src\component\PlayerMovementComponent.h" />
     <ClInclude Include="src\component\TransformComponent.h" />
     <ClInclude Include="src\ecs\ECS.h" />
     <ClInclude Include="src\ecs\ECSTypeIDTranslator.h" />
@@ -267,6 +268,7 @@
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\MeshComponent.cpp" />
     <ClCompile Include="src\component\PhysicsComponent.cpp" />
+    <ClCompile Include="src\component\PlayerMovementComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
     <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp" />

@@ -360,6 +360,9 @@
     <ClInclude Include="src\component\ComponentRegistration.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\component\PlayerMovementComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -615,6 +618,9 @@
       <Filter>src\component</Filter>
     </ClCompile>
     <ClCompile Include="src\component\ComponentRegistration.cpp">
+      <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\PlayerMovementComponent.cpp">
       <Filter>src\component</Filter>
     </ClCompile>
   </ItemGroup>
