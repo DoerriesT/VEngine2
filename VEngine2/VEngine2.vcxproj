@@ -165,7 +165,9 @@
     <ClInclude Include="src\component\PhysicsComponent.h" />
     <ClInclude Include="src\component\PlayerMovementComponent.h" />
     <ClInclude Include="src\component\TransformComponent.h" />
+    <ClInclude Include="src\ecs\Archetype.h" />
     <ClInclude Include="src\ecs\ECS.h" />
+    <ClInclude Include="src\ecs\ECSCommon.h" />
     <ClInclude Include="src\ecs\ECSTypeIDTranslator.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\file\FileDialog.h" />
@@ -242,6 +244,7 @@
     <ClInclude Include="src\utility\Enum.h" />
     <ClInclude Include="src\utility\ErasedType.h" />
     <ClInclude Include="src\utility\HandleManager.h" />
+    <ClInclude Include="src\utility\DeletedCopyMove.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
     <ClInclude Include="src\utility\PoolAllocator.h" />
     <ClInclude Include="src\utility\LinearAllocator.h" />
@@ -270,6 +273,7 @@
     <ClCompile Include="src\component\PhysicsComponent.cpp" />
     <ClCompile Include="src\component\PlayerMovementComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
+    <ClCompile Include="src\ecs\Archetype.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
     <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp" />
     <ClCompile Include="src\Engine.cpp" />

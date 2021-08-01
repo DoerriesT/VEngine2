@@ -64,24 +64,33 @@ inline T &ECS::addComponent(EntityID entity, Args &&...args) noexcept
 	T *newComponent = nullptr;
 
 	// component already exists
-	if (entityRecord.m_archetype && entityRecord.m_archetype->m_componentMask[componentID])
+	if (entityRecord.m_archetype && entityRecord.m_archetype->getComponentMask()[componentID])
 	{
 		newComponent = (T *)entityRecord.m_archetype->getComponentMemory(entityRecord.m_slot, componentID);
+		
+		// move assign
+		*newComponent = eastl::move(T(eastl::forward<Args>(args)...));
 	}
+	// migration to new archetype: skip ctor call in migrate() and manually call ctor afterwards
 	else
 	{
-		ComponentMask newMask = entityRecord.m_archetype ? entityRecord.m_archetype->m_componentMask : 0;
+		ComponentMask newMask = entityRecord.m_archetype ? entityRecord.m_archetype->getComponentMask() : 0;
 		newMask.set(componentID, true);
 
 		// find archetype
 		Archetype *newArchetype = findOrCreateArchetype(newMask);
 
-		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord, true);
+		ComponentMask newCompMask = 0;
+		newCompMask.set(componentID, true);
+
+		// migrate to new archetype and skip constructor of new component
+		entityRecord = newArchetype->migrate(entity, entityRecord, &newCompMask);
 		newComponent = (T *)newArchetype->getComponentMemory(entityRecord.m_slot, componentID);
+
+		// call constructor
+		new (newComponent) T(eastl::forward<Args>(args)...);
 	}
 
-	new (newComponent) T(eastl::forward<Args>(args)...);
 	return *newComponent;
 }
 
@@ -153,7 +162,7 @@ inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 	EntityRecord &entityRecord = m_entityRecords[entity];
 
 	// build new component mask
-	ComponentMask oldMask = entityRecord.m_archetype ? entityRecord.m_archetype->m_componentMask : 0;
+	ComponentMask oldMask = entityRecord.m_archetype ? entityRecord.m_archetype->getComponentMask() : 0;
 	ComponentMask newMask = oldMask;
 	newMask.set(removeComponentID, false);
 	newMask.set(addComponentID, true);
@@ -164,19 +173,26 @@ inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 	if (oldMask == newMask)
 	{
 		newComponent = (TAdd *)entityRecord.m_archetype->getComponentMemory(entityRecord.m_slot, addComponentID);
-		m_componentInfo[addComponentID].m_destructor(newComponent);
+
+		// move assign
+		*newComponent = eastl::move(TAdd(eastl::forward<Args>(args)...));
 	}
+	// migration to new archetype: skip ctor call in migrate() and manually call ctor afterwards
 	else
 	{
 		// find archetype
 		Archetype *newArchetype = findOrCreateArchetype(newMask);
 
-		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord, true);
-		newComponent = (TAdd *)newArchetype->getComponentMemory(entityRecord.m_slot, addComponentID);
-	}
+		ComponentMask newCompMask = 0;
+		newCompMask.set(addComponentID, true);
 
-	new (newComponent) TAdd(eastl::forward<Args>(args)...);
+		// migrate to new archetype
+		entityRecord = newArchetype->migrate(entity, entityRecord, &newCompMask);
+		newComponent = (TAdd *)newArchetype->getComponentMemory(entityRecord.m_slot, addComponentID);
+
+		// call constructor
+		new (newComponent) TAdd(eastl::forward<Args>(args)...);
+	}
 
 	return *newComponent;
 }
@@ -210,7 +226,7 @@ inline bool ECS::hasComponent(EntityID entity) noexcept
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
 	auto record = m_entityRecords[entity];
-	return record.m_archetype && record.m_archetype->m_componentMask[componentID];
+	return record.m_archetype && record.m_archetype->getComponentMask()[componentID];
 }
 
 template<typename ...T>
@@ -226,7 +242,7 @@ inline bool ECS::hasComponents(EntityID entity) noexcept
 	}
 
 	auto record = m_entityRecords[entity];
-	return record.m_archetype && (... && (record.m_archetype->m_componentMask[ComponentIDGenerator::getID<T>()]));
+	return record.m_archetype && (... && (record.m_archetype->getComponentMask()[ComponentIDGenerator::getID<T>()]));
 }
 
 template<typename ...T>
@@ -250,9 +266,10 @@ inline void ECS::iterate(const typename Identity<eastl::function<void(size_t, co
 	{
 		auto &at = *atPtr;
 		// archetype matches search mask
-		if ((at.m_componentMask & searchMask) == searchMask)
+		if ((at.getComponentMask() & searchMask) == searchMask)
 		{
-			for (auto &chunk : at.m_memoryChunks)
+			const auto &memoryChunks = at.getMemoryChunks();
+			for (auto &chunk : memoryChunks)
 			{
 				if (chunk.m_size > 0)
 				{

@@ -363,6 +363,15 @@
     <ClInclude Include="src\component\PlayerMovementComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\ecs\Archetype.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ecs\ECSCommon.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\DeletedCopyMove.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -622,6 +631,9 @@
     </ClCompile>
     <ClCompile Include="src\component\PlayerMovementComponent.cpp">
       <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ecs\Archetype.cpp">
+      <Filter>src\ecs</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

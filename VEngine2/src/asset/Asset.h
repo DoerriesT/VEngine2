@@ -108,6 +108,8 @@ inline Asset<T> &Asset<T>::operator=(const Asset<T> &other) noexcept
 			m_assetData->acquire();
 		}
 	}
+
+	return *this;
 }
 
 template<typename T>

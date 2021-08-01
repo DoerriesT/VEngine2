@@ -19,6 +19,49 @@ struct CompC
 	char c;
 };
 
+template<size_t DUMMY>
+struct DestructorTestComp
+{
+	int *destructorCallCounter = nullptr;
+	
+	DestructorTestComp() = default;
+	
+	DestructorTestComp(int *p) 
+		:destructorCallCounter(p) 
+	{
+	};
+
+	DestructorTestComp(const DestructorTestComp &other) = default;
+
+	DestructorTestComp(DestructorTestComp &&other) noexcept
+	{
+		destructorCallCounter = other.destructorCallCounter;
+		other.destructorCallCounter = nullptr;
+	}
+
+	
+	DestructorTestComp &operator=(const DestructorTestComp &) = default;
+
+	DestructorTestComp &operator=(DestructorTestComp &&other) noexcept
+	{
+		if (&other != this)
+		{
+			destructorCallCounter = other.destructorCallCounter;
+			other.destructorCallCounter = nullptr;
+		}
+
+		return *this;
+	}
+
+	~DestructorTestComp()
+	{
+		if (destructorCallCounter)
+		{
+			*destructorCallCounter += 1;
+		}
+	}
+};
+
 TEST(ECSTestSuite, CreateEntity)
 {
 	ECS ecs;
@@ -509,4 +552,125 @@ TEST(ECSTestSuite, GetComponentNotPresent)
 	EXPECT_NE(entity, k_nullEntity);
 	EXPECT_FALSE(ecs.hasComponent<CompA>(entity));
 	EXPECT_EQ(nullptr, ecs.getComponent<CompA>(entity));
+}
+
+TEST(ECSTestSuite, DestructorCallSingleComponent)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+
+	int counter = 0;
+	DestructorTestComp<0> c(&counter);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>>(c);
+	EXPECT_EQ(counter, 0);
+	ecs.removeComponent<DestructorTestComp<0>>(entity);
+	EXPECT_EQ(counter, 1);
+}
+
+TEST(ECSTestSuite, DestructorCallMultipleComponents)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+	ecs.registerComponent<DestructorTestComp<1>>();
+
+	int counter0 = 0;
+	int counter1 = 0;
+	DestructorTestComp<0> c0(&counter0);
+	DestructorTestComp<1> c1(&counter1);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>, DestructorTestComp<1>>(c0, c1);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.removeComponents<DestructorTestComp<0>, DestructorTestComp<1>>(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 1);
+}
+
+TEST(ECSTestSuite, DestructorCallMultipleComponentsMigrateAdd)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+	ecs.registerComponent<DestructorTestComp<1>>();
+
+	int counter0 = 0;
+	int counter1 = 0;
+	DestructorTestComp<0> c0(&counter0);
+	DestructorTestComp<1> c1(&counter1);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>>(c0);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.addComponent<DestructorTestComp<1>>(entity, c1);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+}
+
+TEST(ECSTestSuite, DestructorCallMultipleComponentsMigrateRemove)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+	ecs.registerComponent<DestructorTestComp<1>>();
+
+	int counter0 = 0;
+	int counter1 = 0;
+	DestructorTestComp<0> c0(&counter0);
+	DestructorTestComp<1> c1(&counter1);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>, DestructorTestComp<1>>(c0, c1);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.removeComponent<DestructorTestComp<0>>(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 0);
+	ecs.removeComponent<DestructorTestComp<1>>(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 1);
+}
+
+TEST(ECSTestSuite, DestructorCallMultipleComponentsMigrateAddAndRemove)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+	ecs.registerComponent<DestructorTestComp<1>>();
+
+	int counter0 = 0;
+	int counter1 = 0;
+	DestructorTestComp<0> c0(&counter0);
+	DestructorTestComp<1> c1(&counter1);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>>(c0);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.addComponent<DestructorTestComp<1>>(entity, c1);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.removeComponent<DestructorTestComp<0>>(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 0);
+	ecs.removeComponent<DestructorTestComp<1>>(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 1);
+}
+
+TEST(ECSTestSuite, DestructorCallMultipleComponentsMigrateAddRemove)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+	ecs.registerComponent<DestructorTestComp<1>>();
+
+	int counter0 = 0;
+	int counter1 = 0;
+	DestructorTestComp<0> c0(&counter0);
+	DestructorTestComp<1> c1(&counter1);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>>(c0);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.addRemoveComponent<DestructorTestComp<1>, DestructorTestComp<0>>(entity, c1);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 0);
+	ecs.removeComponent<DestructorTestComp<1>>(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 1);
 }

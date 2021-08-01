@@ -5,18 +5,10 @@
 #include <EASTL/hash_map.h>
 #include <assert.h>
 #include "utility/ErasedType.h"
+#include "ECSCommon.h"
+#include "Archetype.h"
 
-struct Archetype;
-
-constexpr size_t k_ecsMaxComponentTypes = 64;
-constexpr size_t k_ecsComponentsPerMemoryChunk = 1024;
-
-using IDType = uint64_t;
-using EntityID = IDType;
-using ComponentID = IDType;
-using ComponentMask = eastl::bitset<k_ecsMaxComponentTypes>;
-
-constexpr EntityID k_nullEntity = 0;
+class Archetype;
 
 class ComponentIDGenerator
 {
@@ -31,43 +23,6 @@ public:
 
 private:
 	static ComponentID m_idCount;
-};
-
-
-struct ArchetypeSlot
-{
-	uint32_t m_chunkIdx = 0;
-	uint32_t m_chunkSlotIdx = 0;
-};
-
-struct EntityRecord
-{
-	Archetype *m_archetype = nullptr;
-	ArchetypeSlot m_slot = {};
-};
-
-struct ArchetypeMemoryChunk
-{
-	uint8_t *m_memory = nullptr;
-	size_t m_size = 0;
-};
-
-void forEachComponentType(const ComponentMask &mask, const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept;
-
-struct Archetype
-{
-	ComponentMask m_componentMask = {};
-	const ErasedType *m_componentInfo = nullptr;
-	size_t m_memoryChunkSize = 0;
-	eastl::vector<ArchetypeMemoryChunk> m_memoryChunks;
-	eastl::vector<size_t> m_componentArrayOffsets;
-
-	explicit Archetype(const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept;
-	size_t getComponentArrayOffset(ComponentID componentID) noexcept;
-	ArchetypeSlot allocateDataSlot() noexcept;
-	void freeDataSlot(const ArchetypeSlot &slot) noexcept;
-	EntityRecord migrate(EntityID entity, const EntityRecord &oldRecord, bool skipConstructorOfMissingComponents = false) noexcept;
-	uint8_t *getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) noexcept;
 };
 
 class ECS
@@ -86,6 +41,12 @@ public:
 	template<typename T>
 	inline void registerComponent() noexcept;
 
+	/// <summary>
+	/// Registers a singleton component. This call allocates the component and copy-constructs it with the given argument.
+	/// After this call, it can be accessed with getSingletonComponent().
+	/// </summary>
+	/// <typeparam name="T">The type of the singleton component to register.</typeparam>
+	/// <param name="component">An instance of the singleton component to copy-construct the ECS internal instance.</param>
 	template<typename T>
 	inline void registerSingletonComponent(const T &component) noexcept;
 
@@ -295,7 +256,16 @@ public:
 	/// <returns>A mask of all components attached to this entity.</returns>
 	ComponentMask getComponentMask(EntityID entity) noexcept;
 
+	/// <summary>
+	/// Gets the mask of all registered components. This does not include singleton components. See getRegisteredComponentMaskWithSingletons().
+	/// </summary>
+	/// <returns>The mask of registered components.</returns>
 	ComponentMask getRegisteredComponentMask() noexcept;
+
+	/// <summary>
+	/// Gets a mask of all registered components including singleton components.
+	/// </summary>
+	/// <returns>The mask of registered components including singleton components.</returns>
 	ComponentMask getRegisteredComponentMaskWithSingletons() noexcept;
 
 	/// <summary>
@@ -306,6 +276,11 @@ public:
 	template<typename ...T>
 	inline void iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func);
 
+	/// <summary>
+	/// Gets a singleton component.
+	/// </summary>
+	/// <typeparam name="T">The type of the singleton component to get.</typeparam>
+	/// <returns>The requested singleton component.</returns>
 	template<typename T>
 	inline T *getSingletonComponent() noexcept;
 
