@@ -31,6 +31,7 @@ void ECS::destroyEntity(EntityID entity) noexcept
 	if (it != m_entityRecords.end() && it->second.m_archetype)
 	{
 		// delete components
+		it->second.m_archetype->callDestructors(it->second.m_slot);
 		it->second.m_archetype->freeDataSlot(it->second.m_slot);
 
 		// delete entity

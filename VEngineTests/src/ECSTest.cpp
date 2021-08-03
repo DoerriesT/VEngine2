@@ -674,3 +674,36 @@ TEST(ECSTestSuite, DestructorCallMultipleComponentsMigrateAddRemove)
 	EXPECT_EQ(counter0, 1);
 	EXPECT_EQ(counter1, 1);
 }
+
+TEST(ECSTestSuite, DestructorCallDestroyEntitySingleComponent)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+
+	int counter = 0;
+	DestructorTestComp<0> c(&counter);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>>(c);
+	EXPECT_EQ(counter, 0);
+	ecs.destroyEntity(entity);
+	EXPECT_EQ(counter, 1);
+}
+
+TEST(ECSTestSuite, DestructorCallDestroyEntityMultipleComponents)
+{
+	ECS ecs;
+	ecs.registerComponent<DestructorTestComp<0>>();
+	ecs.registerComponent<DestructorTestComp<1>>();
+
+	int counter0 = 0;
+	int counter1 = 0;
+	DestructorTestComp<0> c0(&counter0);
+	DestructorTestComp<1> c1(&counter1);
+
+	auto entity = ecs.createEntity<DestructorTestComp<0>, DestructorTestComp<1>>(c0, c1);
+	EXPECT_EQ(counter0, 0);
+	EXPECT_EQ(counter1, 0);
+	ecs.destroyEntity(entity);
+	EXPECT_EQ(counter0, 1);
+	EXPECT_EQ(counter1, 1);
+}
