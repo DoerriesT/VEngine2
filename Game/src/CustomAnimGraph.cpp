@@ -2,6 +2,12 @@
 #include <animation/AnimationClip.h>
 #include <graphics/imgui/imgui.h>
 
+CustomAnimGraph::CustomAnimGraph(const Asset<AnimationClipAssetData> &clip0, const Asset<AnimationClipAssetData> &clip1)
+	:m_clip0(clip0),
+	m_clip1(clip1)
+{
+}
+
 void CustomAnimGraph::preExecute(const AnimationGraphContext *context, float deltaTime) noexcept
 {
 }

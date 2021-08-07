@@ -124,11 +124,7 @@ public:
 			m_animationClip0 = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk.anim"));
 			m_animationClip1 = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/naruto.anim"));
 		
-			m_customAnimGraph.m_clip0 = m_animationClip0;
-			m_customAnimGraph.m_clip1 = m_animationClip1;
-			m_customAnimGraph.m_duration = 1.0f;
-			m_customAnimGraph.m_loop = true;
-			m_customAnimGraph.m_active = true;
+			m_customAnimGraph = new CustomAnimGraph(m_animationClip0, m_animationClip1);
 
 			TransformComponent transC{};
 			transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
@@ -137,7 +133,7 @@ public:
 			SkinnedMeshComponent meshC{};
 			meshC.m_mesh = m_cesiumManAsset;
 			meshC.m_skeleton = m_skeleton;
-			meshC.m_animationGraph = &m_customAnimGraph;
+			meshC.m_animationGraph = m_customAnimGraph;
 		
 			PhysicsComponent physicsC{};
 			physicsC.m_mobility = PhysicsMobility::DYNAMIC;
@@ -205,12 +201,12 @@ public:
 
 		ImGui::Begin("Custom Animation Graph Controls");
 
-		ImGui::SliderFloat("Duration", &m_customAnimGraph.m_duration, 0.1f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::SliderFloat("Time", &m_customAnimGraph.m_time, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::SliderFloat("Blend", &m_customAnimGraph.m_blend, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::Checkbox("Active", &m_customAnimGraph.m_active);
-		ImGui::Checkbox("Paused", &m_customAnimGraph.m_paused);
-		ImGui::Checkbox("Looping", &m_customAnimGraph.m_loop);
+		ImGui::SliderFloat("Duration", &m_customAnimGraph->m_duration, 0.1f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SliderFloat("Time", &m_customAnimGraph->m_time, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SliderFloat("Blend", &m_customAnimGraph->m_blend, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::Checkbox("Active", &m_customAnimGraph->m_active);
+		ImGui::Checkbox("Paused", &m_customAnimGraph->m_paused);
+		ImGui::Checkbox("Looping", &m_customAnimGraph->m_loop);
 
 		ImGui::End();
 	}
@@ -221,6 +217,9 @@ public:
 		{
 			m_engine->getECS()->destroyEntity(n->m_entity);
 		}
+
+		delete m_customAnimGraph;
+		m_customAnimGraph = nullptr;
 
 		m_meshAsset.release();
 		m_sponzaAsset.release();
@@ -242,7 +241,7 @@ private:
 	EntityID m_cameraEntity;
 	EntityID m_activeCamera;
 	PhysicsMaterialHandle m_physicsMaterial = {};
-	CustomAnimGraph m_customAnimGraph = {};
+	CustomAnimGraph *m_customAnimGraph = {};
 
 	void createPhysicsObject(const glm::vec3 &pos, const glm::vec3 &vel, PhysicsMobility mobility)
 	{
