@@ -117,7 +117,10 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 
 void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
-	Log::info("Unloading asset \"%s\".", assetID.m_string);
+	// assetID is owned by the asset and when the asset gets deleted, so does the assetID,
+	// which is why using the original assetID string is a bad idea.
+	auto assetIDCopy = assetID;
+	Log::info("Unloading asset \"%s\".", assetIDCopy.m_string);
 
 	AssetHandler *handler = nullptr;
 
@@ -130,7 +133,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 		// failed to find handler
 		if (handlerIt == m_assetHandlerMap.end())
 		{
-			Log::warn("Could not find asset handler for asset \"%s\"!", assetID.m_string);
+			Log::warn("Could not find asset handler for asset \"%s\"!", assetIDCopy.m_string);
 			return;
 		}
 
@@ -150,7 +153,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 		handler->destroyAsset(assetID, assetType, assetData);
 	}
 
-	Log::info("Successfully unloaded asset \"%s\".", assetID.m_string);
+	Log::info("Successfully unloaded asset \"%s\".", assetIDCopy.m_string);
 }
 
 void AssetManager::registerAssetHandler(const AssetType &assetType, AssetHandler *handler) noexcept

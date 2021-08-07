@@ -8,16 +8,14 @@
 #include "graphics/imgui/imgui.h"
 #include "input/ImGuiInputAdapter.h"
 #include "asset/AssetManager.h"
-#include "asset/TextureAssetHandler.h"
-#include "asset/TextureAsset.h"
-#include "asset/MeshAssetHandler.h"
-#include "asset/MeshAsset.h"
 #include "utility/Utility.h"
 #include "IGameLogic.h"
 #include "ecs/ECS.h"
 #include "component/ComponentRegistration.h"
 #include "physics/Physics.h"
+#include "animation/AnimationSystem.h"
 #include "Level.h"
+#include "asset/AssetHandlerRegistration.h"
 #include "file/FileDialog.h"
 
 // these are needed for EASTL
@@ -67,11 +65,11 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_physics = new Physics(m_ecs);
+	m_animationSystem = new AnimationSystem(m_ecs);
 	m_userInput = new UserInput(*m_window, m_ecs);
 	AssetManager::init();
 
-	TextureAssetHandler::init(AssetManager::get(), m_renderer);
-	MeshAssetHandler::init(AssetManager::get(), m_renderer, m_physics);
+	AssetHandlerRegistration::registerHandlers(m_renderer, m_physics, m_animationSystem);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
@@ -108,20 +106,26 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 		m_gameLogic->update(timeDelta);
 
+		m_animationSystem->update(timeDelta);
+
 		ImGui::Render();
 
 		m_renderer->render();
 	}
 
 	m_gameLogic->shutdown();
-	TextureAssetHandler::shutdown();
-	MeshAssetHandler::shutdown();
+
+	delete m_level;
+
+	AssetHandlerRegistration::unregisterHandlers();
 	AssetManager::shutdown();
+	
 	delete m_userInput;
+	delete m_animationSystem;
+	delete m_physics;
 	delete m_renderer;
 	delete m_ecs;
 	delete m_window;
-	delete m_level;
 
 	return 0;
 }

@@ -24,6 +24,9 @@ struct RenderViewResources
 	gal::ResourceState m_depthBufferImageResourceState = gal::ResourceState::UNDEFINED;
 	gal::PipelineStageFlags m_depthBufferImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
 
+	gal::Buffer *m_skinningMatricesBuffers[2] = {};
+	StructuredBufferViewHandle m_skinningMatricesBufferViewHandles[2] = {};
+
 	explicit RenderViewResources(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, uint32_t width, uint32_t height) noexcept;
 	~RenderViewResources();
 	void resize(uint32_t width, uint32_t height) noexcept;

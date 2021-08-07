@@ -36,6 +36,7 @@ private:
 	MeshManager *m_meshManager = nullptr;
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
+	uint32_t m_frame = 0;
 	RenderViewResources *m_renderViewResources = nullptr;
 
 	MeshPass *m_meshPass = nullptr;

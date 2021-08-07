@@ -189,4 +189,7 @@ RendererResources::~RendererResources()
 
 	m_device->destroyDescriptorSetPool(m_offsetBufferDescriptorSetPool);
 	m_device->destroyDescriptorSetLayout(m_offsetBufferDescriptorSetLayout);
+
+	m_commandListPool->free(1, &m_commandList);
+	m_device->destroyCommandListPool(m_commandListPool);
 }

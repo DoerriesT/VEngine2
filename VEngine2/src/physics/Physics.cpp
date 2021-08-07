@@ -121,7 +121,10 @@ Physics::Physics(ECS *ecs) noexcept
 
 Physics::~Physics() noexcept
 {
+	PX_RELEASE(m_controllerManager);
+	PX_RELEASE(m_pxCooking);
 	PX_RELEASE(m_pxPhysics);
+	PX_RELEASE(m_pxPvd);
 	PX_RELEASE(m_pxFoundation);
 }
 

@@ -226,6 +226,135 @@ static IndexedMesh<T> generateOptimizedMesh(size_t faceCount, const glm::vec3 *p
 	return { indices, positionsIndexed, normalsIndexed, tangentsIndexed, texCoordsIndexed, weightsIndexed, jointsIndexed };
 }
 
+void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &baseDstPath)
+{
+	// store skeletons
+	for (size_t i = 0; i < model.m_skeletons.size(); ++i)
+	{
+		std::string dstPath = baseDstPath + "_skeleton" + std::to_string(i) + ".skel";
+		std::ofstream dstFile(dstPath, std::ios::out | std::ios::binary | std::ios::trunc);
+
+		const auto &skele = model.m_skeletons[i];
+
+		// write joint count
+		const uint32_t jointCount = static_cast<uint32_t>(skele.m_joints.size());
+		dstFile.write((const char *)&jointCount, 4);
+
+		// write joints
+		for (size_t j = 0; j < jointCount; ++j)
+		{
+			dstFile.write((const char *)&skele.m_joints[j].m_invBindPose[0][0], sizeof(float) * 16);
+		}
+
+		// write parent indices
+		for (size_t j = 0; j < jointCount; ++j)
+		{
+			dstFile.write((const char *)&skele.m_joints[j].m_parentIdx, sizeof(ImportedJoint::m_parentIdx));
+		}
+
+		// write joint names
+		for (size_t j = 0; j < jointCount; ++j)
+		{
+			const char *str = skele.m_joints[j].m_name.c_str();
+			dstFile.write(str, strlen(str) + 1);
+		}
+	}
+
+	// store animations
+	for (size_t i = 0; i < model.m_animationClips.size(); ++i)
+	{
+		const auto &animClip = model.m_animationClips[i];
+
+		std::string dstPath = baseDstPath + animClip.m_name + ".anim";
+		std::ofstream dstFile(dstPath, std::ios::out | std::ios::binary | std::ios::trunc);
+
+		// write joint count
+		const uint32_t jointCount = (uint32_t)animClip.m_jointAnimations.size();
+		dstFile.write((const char *)&jointCount, 4);
+
+		// write duration
+		dstFile.write((const char *)&animClip.m_duration, 4);
+
+		uint32_t curTranslationArrayOffset = 0;
+		uint32_t curRotationArrayOffset = 0;
+		uint32_t curScaleArrayOffset = 0;
+
+		// write joint clip info
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			
+			uint32_t translationCount = (uint32_t)jointClip.m_translationChannel.m_timeKeys.size();
+			uint32_t rotationCount = (uint32_t)jointClip.m_rotationChannel.m_timeKeys.size();
+			uint32_t scaleCount = (uint32_t)jointClip.m_scaleChannel.m_timeKeys.size();
+
+			dstFile.write((const char *)&translationCount, 4);
+			dstFile.write((const char *)&rotationCount, 4);
+			dstFile.write((const char *)&scaleCount, 4);
+			dstFile.write((const char *)&curTranslationArrayOffset, 4);
+			dstFile.write((const char *)&curRotationArrayOffset, 4);
+			dstFile.write((const char *)&curScaleArrayOffset, 4);
+
+			curTranslationArrayOffset += (uint32_t)jointClip.m_translationChannel.m_timeKeys.size();
+			curRotationArrayOffset += (uint32_t)jointClip.m_rotationChannel.m_timeKeys.size();
+			curScaleArrayOffset += (uint32_t)jointClip.m_scaleChannel.m_timeKeys.size();
+		}
+
+		// write translation timekeys
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			for (auto t : jointClip.m_translationChannel.m_timeKeys)
+			{
+				dstFile.write((const char *)&t, 4);
+			}
+		}
+
+		// write rotation timekeys
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			for (auto t : jointClip.m_rotationChannel.m_timeKeys)
+			{
+				dstFile.write((const char *)&t, 4);
+			}
+		}
+
+		// write scale timekeys
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			for (auto t : jointClip.m_scaleChannel.m_timeKeys)
+			{
+				dstFile.write((const char *)&t, 4);
+			}
+		}
+
+		// write translations
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			for (const auto &t : jointClip.m_translationChannel.m_translations)
+			{
+				dstFile.write((const char *)&t.x, sizeof(float) * 3);
+			}
+		}
+
+		// write rotations
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			for (const auto &r : jointClip.m_rotationChannel.m_rotations)
+			{
+				dstFile.write((const char *)&r.x, sizeof(float) * 4);
+			}
+		}
+
+		// write scales
+		for (const auto &jointClip : animClip.m_jointAnimations)
+		{
+			for (const auto &s : jointClip.m_scaleChannel.m_scales)
+			{
+				dstFile.write((const char *)&s, sizeof(float));
+			}
+		}
+	}
+}
+
 bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *physics, const char *srcPath, const char *dstPath)
 {
 	SMikkTSpaceInterface mikkTSpaceInterface = {};
@@ -261,6 +390,10 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 	}
 
 	std::string dstFileName = dstPath;
+	
+	// write skeleton and animations
+	storeSkeletonsAndAnimations(model, dstFileName);
+	
 	nlohmann::json j;
 
 	// create material library
@@ -348,6 +481,7 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 	}
 
 	uint64_t actualFaceCount = 0;
+	uint32_t matrixPaletteSize = 0;
 
 	for (auto &mesh : model.m_meshes)
 	{
@@ -364,6 +498,18 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 		// generate optimized 32bit indexed mesh
 		auto indexedMesh32 = generateOptimizedMesh<uint32_t>(mesh.m_positions.size() / 3, mesh.m_positions.data(), mesh.m_normals.data(), mesh.m_tangents.data(), mesh.m_texCoords.data(), 
 			mesh.m_weights.data(), mesh.m_joints.data(), false);
+
+		// find size of matrix palette by looking for largest joint index and adding 1
+		if (!mesh.m_joints.empty())
+		{
+			for (const auto &wi : indexedMesh32.joints)
+			{
+				matrixPaletteSize = std::max(matrixPaletteSize, wi[0] + 1);
+				matrixPaletteSize = std::max(matrixPaletteSize, wi[1] + 1);
+				matrixPaletteSize = std::max(matrixPaletteSize, wi[2] + 1);
+				matrixPaletteSize = std::max(matrixPaletteSize, wi[3] + 1);
+			}
+		}
 
 		// generate smaller 64k meshes
 		{
@@ -524,11 +670,11 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 
 
 					// write to file
+					dstFile.write((const char *)indexedMesh16.indices.data(), indexedMesh16.indices.size() * sizeof(uint16_t));
 					dstFile.write((const char *)indexedMesh16.positions.data(), indexedMesh16.positions.size() * sizeof(glm::vec3));
 					dstFile.write((const char *)indexedMesh16.normals.data(), indexedMesh16.normals.size() * sizeof(glm::vec3));
 					dstFile.write((const char *)indexedMesh16.tangents.data(), indexedMesh16.tangents.size() * sizeof(glm::vec4));
 					dstFile.write((const char *)indexedMesh16.texCoords.data(), indexedMesh16.texCoords.size() * sizeof(glm::vec2));
-					dstFile.write((const char *)indexedMesh16.indices.data(), indexedMesh16.indices.size() * sizeof(uint16_t));
 					if (!weights.empty())
 					{
 						dstFile.write((const char *)quantizedJoints.data(), quantizedJoints.size() * sizeof(uint32_t));
@@ -586,6 +732,7 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 
 	j["minCorner"] = { model.m_aabbMin.x, model.m_aabbMin.y, model.m_aabbMin.z };
 	j["maxCorner"] = { model.m_aabbMax.x, model.m_aabbMax.y, model.m_aabbMax.z };
+	j["matrixPaletteSize"] = matrixPaletteSize;
 
 	dstFile.close();
 

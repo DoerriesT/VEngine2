@@ -59,6 +59,7 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 		subMeshDrawInfo.m_firstIndex = 0;
 		subMeshDrawInfo.m_vertexOffset = 0;
 		subMeshDrawInfo.m_vertexCount = subMesh.m_vertexCount;
+		subMeshDrawInfo.m_skinned = subMesh.m_jointIndices && subMesh.m_jointWeights;
 
 		SubMeshBufferHandles subMeshBufferHandles{};
 
@@ -67,13 +68,17 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 		const size_t normalsBufferSize = subMesh.m_vertexCount * sizeof(subMesh.m_normals[0]) * 3;
 		const size_t tangentsBufferSize = subMesh.m_vertexCount * sizeof(subMesh.m_tangents[0]) * 4;
 		const size_t texCoordsBufferSize = subMesh.m_vertexCount * sizeof(subMesh.m_texCoords[0]) * 2;
+		const size_t jointIndicesBufferSize = subMesh.m_vertexCount * sizeof(subMesh.m_jointIndices[0]) * 2 * (size_t)subMeshDrawInfo.m_skinned;
+		const size_t jointWeightsBufferSize = subMesh.m_vertexCount * sizeof(subMesh.m_jointWeights[0]) * (size_t)subMeshDrawInfo.m_skinned;
 
 		const size_t alignedIndexBufferSize = util::alignUp<size_t>(indexBufferSize, sizeof(float) * 4);
 		const size_t alignedPositionsBufferSize = util::alignUp<size_t>(positionsBufferSize, sizeof(float) * 4);
 		const size_t alignedNormalsBufferSize = util::alignUp<size_t>(normalsBufferSize, sizeof(float) * 4);
 		const size_t alignedTangentsBufferSize = util::alignUp<size_t>(tangentsBufferSize, sizeof(float) * 4);
 		const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(texCoordsBufferSize, sizeof(float) * 4);
-		const size_t alignedVertexBufferSize = alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize;
+		const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(jointIndicesBufferSize, sizeof(float) * 4);
+		const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(jointWeightsBufferSize, sizeof(float) * 4);
+		const size_t alignedVertexBufferSize = alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize + alignedJointWeightsBufferSize;
 
 		// create index buffer
 		{
@@ -145,6 +150,17 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 				// tex coords
 				memcpy(data + currentOffset, subMesh.m_texCoords, texCoordsBufferSize);
 				currentOffset += alignedTexCoordsBufferSize;
+
+				if (subMeshDrawInfo.m_skinned)
+				{
+					// joint indices
+					memcpy(data + currentOffset, subMesh.m_jointIndices, jointIndicesBufferSize);
+					currentOffset += alignedJointIndicesBufferSize;
+
+					// joint weights
+					memcpy(data + currentOffset, subMesh.m_jointWeights, jointWeightsBufferSize);
+					currentOffset += alignedJointWeightsBufferSize;
+				}
 
 			}
 			stagingBuffer->unmap();

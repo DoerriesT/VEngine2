@@ -4,6 +4,7 @@
 class Window;
 class Renderer;
 class Physics;
+class AnimationSystem;
 class UserInput;
 class IGameLogic;
 class ECS;
@@ -29,6 +30,7 @@ private:
 	ECS *m_ecs = nullptr;
 	Renderer *m_renderer = nullptr;
 	Physics *m_physics = nullptr;
+	AnimationSystem *m_animationSystem = nullptr;
 	UserInput *m_userInput = nullptr;
 	Level *m_level = nullptr;
 	bool m_editorMode = false;

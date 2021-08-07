@@ -13,6 +13,7 @@
 #include <component/CameraComponent.h>
 #include <component/LightComponent.h>
 #include <component/MeshComponent.h>
+#include <component/SkinnedMeshComponent.h>
 #include <component/PhysicsComponent.h>
 #include <component/CharacterControllerComponent.h>
 #include <component/PlayerMovementComponent.h>
@@ -93,24 +94,47 @@ public:
 			physicsC.m_physicsShapeType = PhysicsShapeType::PLANE;
 			physicsC.m_materialHandle = m_physicsMaterial;
 		
-			m_engine->getECS()->createEntity<TransformComponent, PhysicsComponent>(transC, physicsC);
+			auto entity = m_engine->getECS()->createEntity<TransformComponent, PhysicsComponent>(transC, physicsC);
+			m_engine->getLevel()->addEntity(entity, "Ground Plane");
 		}
 		
-		// sponza
+		//// sponza
+		//{
+		//	m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza"));
+		//
+		//	TransformComponent transC{};
+		//
+		//	MeshComponent meshC{ m_sponzaAsset };
+		//
+		//	PhysicsComponent physicsC{};
+		//	physicsC.m_mobility = PhysicsMobility::STATIC;
+		//	physicsC.m_physicsShapeType = PhysicsShapeType::TRIANGLE_MESH;
+		//	physicsC.m_triangleMeshHandle = m_sponzaAsset->getPhysicsTriangleMeshhandle();
+		//	physicsC.m_materialHandle = m_physicsMaterial;
+		//
+		//	auto entity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
+		//	m_engine->getLevel()->addEntity(entity, "Sponza");
+		//}
+
+		// cesium man
 		{
-			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza"));
+			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/CesiumMan"));
+			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/CesiumMan_skeleton0.skel"));
+			m_animationClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/CesiumMananimation_clip0.anim"));
 		
 			TransformComponent transC{};
+			transC.m_rotation = glm::quat(glm::vec3(-glm::half_pi<float>(), 0.0f, 0.0f));
 		
-			MeshComponent meshC{ m_sponzaAsset };
-		
+			SkinnedMeshComponent meshC{ m_cesiumManAsset, m_skeleton, m_animationClip, 0.0f, true, true };
+
 			PhysicsComponent physicsC{};
-			physicsC.m_mobility = PhysicsMobility::STATIC;
-			physicsC.m_physicsShapeType = PhysicsShapeType::TRIANGLE_MESH;
-			physicsC.m_triangleMeshHandle = m_sponzaAsset->getPhysicsTriangleMeshhandle();
+			physicsC.m_mobility = PhysicsMobility::DYNAMIC;
+			physicsC.m_physicsShapeType = PhysicsShapeType::CONVEX_MESH;
+			physicsC.m_convexMeshHandle = m_cesiumManAsset->getPhysicsConvexMeshhandle();
 			physicsC.m_materialHandle = m_physicsMaterial;
 		
-			m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
+			auto entity = m_engine->getECS()->createEntity<TransformComponent, SkinnedMeshComponent, PhysicsComponent>(transC, meshC, physicsC);
+			m_engine->getLevel()->addEntity(entity, "Cesium Man");
 		}
 
 		// mesh
@@ -160,7 +184,7 @@ public:
 				Camera cam(*tc, *cc);
 
 				auto d = cam.getForwardDirection();
-				velocity = d * 50.0f;
+				velocity = d * 20.0f;
 				pos = tc->m_translation + d;
 			}
 
@@ -170,7 +194,16 @@ public:
 
 	void shutdown() noexcept override
 	{
+		for (auto n : m_engine->getLevel()->getSceneGraphNodes())
+		{
+			m_engine->getECS()->destroyEntity(n->m_entity);
+		}
 
+		m_meshAsset.release();
+		m_sponzaAsset.release();
+		m_cesiumManAsset.release();
+		m_skeleton.release();
+		m_animationClip.release();
 	}
 
 private:
@@ -178,6 +211,9 @@ private:
 	FPSCameraController *m_fpsCameraController = nullptr;
 	Asset<MeshAssetData> m_meshAsset;
 	Asset<MeshAssetData> m_sponzaAsset;
+	Asset<MeshAssetData> m_cesiumManAsset;
+	Asset<SkeletonAssetData> m_skeleton;
+	Asset<AnimationClipAssetData> m_animationClip;
 	EntityID m_cameraEntity;
 	EntityID m_activeCamera;
 	PhysicsMaterialHandle m_physicsMaterial = {};
@@ -188,13 +224,14 @@ private:
 		transC.m_translation.x = pos.x;
 		transC.m_translation.y = pos.y;
 		transC.m_translation.z = pos.z;
+		transC.m_scale = glm::vec3(0.25f);
 
 		MeshComponent meshC{ m_meshAsset };
 
 		PhysicsComponent physicsC{};
 		physicsC.m_mobility = mobility;
 		physicsC.m_physicsShapeType = PhysicsShapeType::SPHERE;
-		physicsC.m_sphereRadius = 1.0f;
+		physicsC.m_sphereRadius = 0.25f;
 		physicsC.m_linearDamping = 0.0f;
 		physicsC.m_angularDamping = 0.5f;
 		physicsC.m_initialVelocityX = vel.x;
@@ -202,7 +239,8 @@ private:
 		physicsC.m_initialVelocityZ = vel.z;
 		physicsC.m_materialHandle = m_physicsMaterial;
 
-		m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
+		auto entity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
+		m_engine->getLevel()->addEntity(entity, "Physics Sphere");
 	}
 };
 

@@ -60,21 +60,21 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 	std::filesystem::path baseDir(filepath);
 	baseDir.remove_filename();
 
-	bool ret = tinyobj::LoadObj(&objAttrib, &objShapes, &objMaterials, &warn, &err, filepath, baseDir.string().c_str(), true);
+	bool ret = tinyobj::LoadObj(&objAttrib, &objShapes, &objMaterials, &warn, &err, filepath, baseDir.u8string().c_str(), true);
 
 	if (!warn.empty())
 	{
-		Log::warn(warn.c_str());
+		Log::warn("WavefrontOBJLoader: Warning while loading file \"%s\": %s", filepath, warn.c_str());
 	}
 
 	if (!err.empty())
 	{
-		Log::err(err.c_str());
+		Log::err("WavefrontOBJLoader: Error while loading file \"%s\": %s", filepath, err.c_str());
 	}
 
 	if (!ret)
 	{
-		Log::err("Failed to load file!");
+		Log::err("WavefrontOBJLoader: Failed to load file \"%s\"!", filepath);
 		return false;
 	}
 
@@ -164,17 +164,17 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 
 			if (vertexIndex.vertex_index == -1)
 			{
-				Log::err("Vertices are missing positions!");
+				Log::err("WavefrontOBJLoader: Vertices of file \"%s\" are missing positions!", filepath);
 				return false;
 			}
 			if (vertexIndex.normal_index == -1)
 			{
-				Log::err("Vertices are missing normals!");
+				Log::err("WavefrontOBJLoader: Vertices of file \"%s\" are missing normals!", filepath);
 				return false;
 			}
 			if (vertexIndex.texcoord_index == -1)
 			{
-				Log::err("Vertices are missing UVs!");
+				Log::err("WavefrontOBJLoader: Vertices of file \"%s\" are missing UVs!", filepath);
 				return false;
 			}
 

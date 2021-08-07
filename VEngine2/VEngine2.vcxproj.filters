@@ -52,6 +52,9 @@
     <Filter Include="src\physics">
       <UniqueIdentifier>{6e4a1610-557b-4bf6-a8f3-d6a945b5b72e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\animation">
+      <UniqueIdentifier>{bc2213b5-8540-4c1e-ab4b-37d7c59a3b19}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -372,6 +375,33 @@
     <ClInclude Include="src\utility\DeletedCopyMove.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\SkeletonAsset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\Skeleton.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\AnimationClip.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\AnimationSystem.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\component\SkinnedMeshComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\SkeletonAssetHandler.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\AnimationClipAsset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\AnimationClipAssetHandler.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\AssetHandlerRegistration.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -634,6 +664,33 @@
     </ClCompile>
     <ClCompile Include="src\ecs\Archetype.cpp">
       <Filter>src\ecs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\SkeletonAsset.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\AnimationClip.cpp">
+      <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\AnimationSystem.cpp">
+      <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\SkinnedMeshComponent.cpp">
+      <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\SkeletonAssetHandler.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AnimationClipAsset.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AnimationClipAssetHandler.cpp">
+      <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\Skeleton.cpp">
+      <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AssetHandlerRegistration.cpp">
+      <Filter>src\asset</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

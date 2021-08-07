@@ -149,11 +149,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\animation\AnimationClip.h" />
+    <ClInclude Include="src\animation\AnimationSystem.h" />
+    <ClInclude Include="src\animation\Skeleton.h" />
+    <ClInclude Include="src\asset\AnimationClipAsset.h" />
+    <ClInclude Include="src\asset\AnimationClipAssetHandler.h" />
     <ClInclude Include="src\asset\Asset.h" />
     <ClInclude Include="src\asset\AssetHandler.h" />
+    <ClInclude Include="src\asset\AssetHandlerRegistration.h" />
     <ClInclude Include="src\asset\AssetManager.h" />
     <ClInclude Include="src\asset\MeshAsset.h" />
     <ClInclude Include="src\asset\MeshAssetHandler.h" />
+    <ClInclude Include="src\asset\SkeletonAsset.h" />
+    <ClInclude Include="src\asset\SkeletonAssetHandler.h" />
     <ClInclude Include="src\asset\TextureAsset.h" />
     <ClInclude Include="src\asset\TextureAssetHandler.h" />
     <ClInclude Include="src\component\CameraComponent.h" />
@@ -164,6 +172,7 @@
     <ClInclude Include="src\component\MeshComponent.h" />
     <ClInclude Include="src\component\PhysicsComponent.h" />
     <ClInclude Include="src\component\PlayerMovementComponent.h" />
+    <ClInclude Include="src\component\SkinnedMeshComponent.h" />
     <ClInclude Include="src\component\TransformComponent.h" />
     <ClInclude Include="src\ecs\Archetype.h" />
     <ClInclude Include="src\ecs\ECS.h" />
@@ -257,11 +266,19 @@
     <ClInclude Include="src\window\Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\animation\AnimationClip.cpp" />
+    <ClCompile Include="src\animation\AnimationSystem.cpp" />
+    <ClCompile Include="src\animation\Skeleton.cpp" />
+    <ClCompile Include="src\asset\AnimationClipAsset.cpp" />
+    <ClCompile Include="src\asset\AnimationClipAssetHandler.cpp" />
     <ClCompile Include="src\asset\Asset.cpp" />
     <ClCompile Include="src\asset\AssetHandler.cpp" />
+    <ClCompile Include="src\asset\AssetHandlerRegistration.cpp" />
     <ClCompile Include="src\asset\AssetManager.cpp" />
     <ClCompile Include="src\asset\MeshAsset.cpp" />
     <ClCompile Include="src\asset\MeshAssetHandler.cpp" />
+    <ClCompile Include="src\asset\SkeletonAsset.cpp" />
+    <ClCompile Include="src\asset\SkeletonAssetHandler.cpp" />
     <ClCompile Include="src\asset\TextureAsset.cpp" />
     <ClCompile Include="src\asset\TextureAssetHandler.cpp" />
     <ClCompile Include="src\component\CameraComponent.cpp" />
@@ -272,6 +289,7 @@
     <ClCompile Include="src\component\MeshComponent.cpp" />
     <ClCompile Include="src\component\PhysicsComponent.cpp" />
     <ClCompile Include="src\component\PlayerMovementComponent.cpp" />
+    <ClCompile Include="src\component\SkinnedMeshComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
     <ClCompile Include="src\ecs\Archetype.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />

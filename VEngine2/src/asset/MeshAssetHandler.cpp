@@ -115,6 +115,8 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 			subMeshes.reserve(subMeshCount);
 			subMeshHandles.resize(subMeshCount);
 
+			bool anySkinned = false;
+
 			for (const auto &subMeshInfo : info["subMeshes"])
 			{
 				size_t dataOffset = subMeshInfo["dataOffset"].get<size_t>();
@@ -133,6 +135,9 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 				subMesh.m_vertexCount = subMeshInfo["vertexCount"].get<uint32_t>();
 				subMesh.m_indexCount = subMeshInfo["indexCount"].get<uint32_t>();
 
+				subMesh.m_indices = (uint16_t *)(meshData + dataOffset);
+				dataOffset += subMesh.m_indexCount * sizeof(uint16_t);
+
 				subMesh.m_positions = (float *)(meshData + dataOffset);
 				dataOffset += subMesh.m_vertexCount * sizeof(float) * 3;
 
@@ -145,10 +150,27 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 				subMesh.m_texCoords = (float *)(meshData + dataOffset);
 				dataOffset += subMesh.m_vertexCount * sizeof(float) * 2;
 
-				subMesh.m_indices = (uint16_t *)(meshData + dataOffset);
-				dataOffset += subMesh.m_indexCount * sizeof(uint16_t);
+				
+				if (subMeshInfo.find("skinned") != subMeshInfo.end() && subMeshInfo["skinned"].get<bool>())
+				{
+					anySkinned = true;
+
+					subMesh.m_jointIndices = (uint32_t *)(meshData + dataOffset);
+					dataOffset += subMesh.m_vertexCount * sizeof(uint32_t) * 2;
+
+					subMesh.m_jointWeights = (uint32_t *)(meshData + dataOffset);
+					dataOffset += subMesh.m_vertexCount * sizeof(uint32_t);
+
+					meshAssetData->m_isSkinned = true;
+				}
 
 				subMeshes.push_back(subMesh);
+			}
+
+			if (anySkinned)
+			{
+				assert(info.find("matrixPaletteSize") != info.end());
+				meshAssetData->m_matrixPaletteSize = info["matrixPaletteSize"].get<uint32_t>();
 			}
 
 			m_renderer->createSubMeshes(subMeshCount, subMeshes.data(), subMeshHandles.data());

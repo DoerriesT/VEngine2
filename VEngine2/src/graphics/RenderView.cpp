@@ -8,6 +8,7 @@
 #include "ecs/ECS.h"
 #include "component/TransformComponent.h"
 #include "component/MeshComponent.h"
+#include "component/SkinnedMeshComponent.h"
 #include <glm/gtx/transform.hpp>
 #include "MeshManager.h"
 
@@ -66,6 +67,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	eastl::vector<glm::mat4> modelMatrices;
 	eastl::vector<SubMeshDrawInfo> meshDrawInfo;
 	eastl::vector<SubMeshBufferHandles> meshBufferHandles;
+	eastl::vector<uint32_t> skinningMatrixOffsets;
 
 
 	m_ecs->iterate<TransformComponent, MeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC)
@@ -86,19 +88,62 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 			}
 		});
 
+	uint32_t meshCount = static_cast<uint32_t>(modelMatrices.size());
+
+	uint32_t curSkinningMatrixOffset = 0;
+
+	glm::mat4 *skinningMatricesBufferPtr = nullptr;
+	m_renderViewResources->m_skinningMatricesBuffers[m_frame & 1]->map((void **)&skinningMatricesBufferPtr);
+
+	m_ecs->iterate<TransformComponent, SkinnedMeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, SkinnedMeshComponent *sMeshC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				auto &smc = sMeshC[i];
+
+				if (!smc.m_mesh->isSkinned())
+				{
+					continue;
+				}
+
+				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
+				const auto &submeshhandles = smc.m_mesh->getSubMeshhandles();
+				for (auto h : submeshhandles)
+				{
+					modelMatrices.push_back(modelMatrix);
+					meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
+					meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
+					skinningMatrixOffsets.push_back(curSkinningMatrixOffset);
+				}
+
+				assert(curSkinningMatrixOffset + smc.m_matrixPalette.size() <= 1024);
+
+				memcpy(skinningMatricesBufferPtr + curSkinningMatrixOffset, smc.m_matrixPalette.data(), smc.m_matrixPalette.size() * sizeof(glm::mat4));
+				curSkinningMatrixOffset += curSkinningMatrixOffset;
+			}
+		});
+
+	m_renderViewResources->m_skinningMatricesBuffers[m_frame & 1]->unmap();
+
+	uint32_t skinnedMeshCount = static_cast<uint32_t>(modelMatrices.size()) - meshCount;
+
 	MeshPass::Data meshPassData{};
 	meshPassData.m_bufferAllocator = bufferAllocator;
 	meshPassData.m_offsetBufferSet = offsetBufferSet;
 	meshPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	meshPassData.m_width = m_width;
 	meshPassData.m_height = m_height;
-	meshPassData.m_meshCount = static_cast<uint32_t>(modelMatrices.size());
+	meshPassData.m_meshCount = meshCount;
+	meshPassData.m_skinnedMeshCount = skinnedMeshCount;
 	meshPassData.m_colorAttachment = m_renderViewResources->m_resultImageView;
 	meshPassData.m_depthBufferAttachment = m_renderViewResources->m_depthBufferImageView;
+	meshPassData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
 	meshPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	meshPassData.m_modelMatrices = modelMatrices.data();
 	meshPassData.m_meshDrawInfo = meshDrawInfo.data();
 	meshPassData.m_meshBufferHandles = meshBufferHandles.data();
+	meshPassData.m_skinningMatrixOffsets = skinningMatrixOffsets.data();
 
 	m_meshPass->record(cmdList, meshPassData);
 	
@@ -133,6 +178,8 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 		m_renderViewResources->m_resultImagePipelineStages = transitionResultToTexture ? gal::PipelineStageFlags::PIXEL_SHADER_BIT : gal::PipelineStageFlags::TRANSFER_BIT;
 		m_renderViewResources->m_resultImageResourceState = transitionResultToTexture ? gal::ResourceState::READ_RESOURCE : gal::ResourceState::READ_TRANSFER;
 	}
+
+	++m_frame;
 }
 
 void RenderView::resize(uint32_t width, uint32_t height) noexcept
