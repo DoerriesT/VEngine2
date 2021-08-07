@@ -148,3 +148,75 @@ float util::halton(size_t index, size_t base)
 
 	return r;
 }
+
+void util::findPieceWiseLinearCurveIndicesAndAlpha(size_t count, const float *keys, float lookupKey, bool wrap, size_t *index0, size_t *index1, float *alpha) noexcept
+{
+	// simple case with a single sample
+	if (count == 1)
+	{
+		*index0 = 0;
+		*index1 = 0;
+		*alpha = 0.0f;
+		return;
+	}
+	// lookupKey is less than first key
+	else if (lookupKey < keys[0])
+	{
+		if (wrap)
+		{
+			*index0 = count - 1;
+			*index1 = 0;
+			*alpha = lookupKey / keys[0];
+		}
+		else
+		{
+			*index0 = 0;
+			*index1 = 0;
+			*alpha = 0.0f;
+		}
+		return;
+	}
+	// lookupKey is greater than last key
+	else if (lookupKey >= keys[count - 1])
+	{
+		if (wrap)
+		{
+			float wrappedKey = lookupKey - keys[count - 1];
+			*index0 = count - 1;
+			*index1 = 0;
+			*alpha = keys[0] > 1e-5f ? wrappedKey / keys[0] : 0.0f;
+		}
+		else
+		{
+			*index0 = count - 1;
+			*index1 = count - 1;
+			*alpha = 0.0f;
+		}
+		return;
+	}
+	// lookupKey is somewhere between first and last sample
+	else
+	{
+		// search 
+		size_t keyIdx0 = 0;
+		for (size_t i = 0; i < count; ++i)
+		{
+			if ((i + 1) == count || lookupKey < keys[i + 1])
+			{
+				keyIdx0 = i;
+				break;
+			}
+		}
+
+		assert(count > 1);
+		assert((keyIdx0 + 1) < count);
+		size_t keyIdx1 = keyIdx0 + 1;
+
+		const float key0 = keys[keyIdx0];
+		const float key1 = keys[keyIdx1];
+		const float diff = key1 - key0;
+		*alpha = diff > 1e-5f ? (lookupKey - key0) / diff : 0.0f;
+		*index0 = keyIdx0;
+		*index1 = keyIdx1;
+	}
+}

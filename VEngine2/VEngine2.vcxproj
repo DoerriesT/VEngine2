@@ -151,6 +151,8 @@
   <ItemGroup>
     <ClInclude Include="src\animation\AnimationClip.h" />
     <ClInclude Include="src\animation\AnimationSystem.h" />
+    <ClInclude Include="src\animation\AnimationGraph.h" />
+    <ClInclude Include="src\animation\JointPose.h" />
     <ClInclude Include="src\animation\Skeleton.h" />
     <ClInclude Include="src\asset\AnimationClipAsset.h" />
     <ClInclude Include="src\asset\AnimationClipAssetHandler.h" />
@@ -267,7 +269,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\animation\AnimationClip.cpp" />
+    <ClCompile Include="src\animation\AnimationGraph.cpp" />
     <ClCompile Include="src\animation\AnimationSystem.cpp" />
+    <ClCompile Include="src\animation\JointPose.cpp" />
     <ClCompile Include="src\animation\Skeleton.cpp" />
     <ClCompile Include="src\asset\AnimationClipAsset.cpp" />
     <ClCompile Include="src\asset\AnimationClipAssetHandler.cpp" />

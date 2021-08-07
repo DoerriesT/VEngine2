@@ -402,6 +402,12 @@
     <ClInclude Include="src\asset\AssetHandlerRegistration.h">
       <Filter>src\asset</Filter>
     </ClInclude>
+    <ClInclude Include="src\animation\AnimationGraph.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\JointPose.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -691,6 +697,12 @@
     </ClCompile>
     <ClCompile Include="src\asset\AssetHandlerRegistration.cpp">
       <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\AnimationGraph.cpp">
+      <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\JointPose.cpp">
+      <Filter>src\animation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

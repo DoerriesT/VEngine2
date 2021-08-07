@@ -17,7 +17,7 @@
 
 namespace
 {
-	typedef bool (*LoaderFuncPtr)(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, ImportedModel &model);
+	typedef bool (*LoaderFuncPtr)(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, ImportedModel &model);
 
 	template<typename T>
 	struct IndexedMesh
@@ -231,7 +231,7 @@ void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &
 	// store skeletons
 	for (size_t i = 0; i < model.m_skeletons.size(); ++i)
 	{
-		std::string dstPath = baseDstPath + "_skeleton" + std::to_string(i) + ".skel";
+		std::string dstPath = model.m_skeletons.size() > 1 ? (baseDstPath + "_skeleton" + std::to_string(i) + ".skel") : (baseDstPath + ".skel");
 		std::ofstream dstFile(dstPath, std::ios::out | std::ios::binary | std::ios::trunc);
 
 		const auto &skele = model.m_skeletons[i];
@@ -265,7 +265,27 @@ void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &
 	{
 		const auto &animClip = model.m_animationClips[i];
 
-		std::string dstPath = baseDstPath + animClip.m_name + ".anim";
+		std::string cleanedName = animClip.m_name;
+		cleanedName.erase(std::remove_if(cleanedName.begin(), cleanedName.end(), [](auto c)
+			{
+				switch (c)
+				{
+				case '\\':
+				case '/':
+				case ':':
+				case '*':
+				case '?':
+				case '"':
+				case '<':
+				case '>':
+				case '|':
+					return true;
+				default:
+					return false;
+				}
+			}), cleanedName.end());
+
+		std::string dstPath = model.m_animationClips.size() > 1 ? (baseDstPath + "_" + cleanedName + ".anim") : baseDstPath + ".anim";
 		std::ofstream dstFile(dstPath, std::ios::out | std::ios::binary | std::ios::trunc);
 
 		// write joint count
@@ -383,7 +403,7 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 
 	// load model
 	ImportedModel model;
-	if (!loader(srcPath, importOptions.m_mergeByMaterial, importOptions.m_invertTexCoordY, model))
+	if (!loader(srcPath, importOptions.m_mergeByMaterial, importOptions.m_invertTexCoordY, importOptions.m_importMeshes, importOptions.m_importSkeletons, importOptions.m_importAnimations, model))
 	{
 		Log::err("Import failed!");
 		return false;
@@ -394,353 +414,356 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 	// write skeleton and animations
 	storeSkeletonsAndAnimations(model, dstFileName);
 	
-	nlohmann::json j;
-
-	// create material library
-	createMaterialLibrary(model.m_materials, dstFileName + ".matlib");
-
-	j["meshFile"] = dstFileName + ".mesh";
-	j["materialLibraryFile"] = dstFileName + ".matlib";
-	j["subMeshes"] = nlohmann::json::array();
-	j["subMeshInstances"] = nlohmann::json::array();
-
-	std::ofstream dstFile(dstFileName + ".mesh", std::ios::out | std::ios::binary | std::ios::trunc);
-
-	size_t fileOffset = 0;
-	size_t subMeshIndex = 0;
-
-	// cook physics meshes
+	if (!model.m_meshes.empty())
 	{
-		// generate indexed physics mesh
-		eastl::vector<float> indexedPositions;
-		eastl::vector<uint32_t> indices;
-		uint32_t vertexCount = 0;
-		uint32_t indexCount = 0;
+		nlohmann::json j;
+
+		// create material library
+		createMaterialLibrary(model.m_materials, dstFileName + ".matlib");
+
+		j["meshFile"] = dstFileName + ".mesh";
+		j["materialLibraryFile"] = dstFileName + ".matlib";
+		j["subMeshes"] = nlohmann::json::array();
+		j["subMeshInstances"] = nlohmann::json::array();
+
+		std::ofstream dstFile(dstFileName + ".mesh", std::ios::out | std::ios::binary | std::ios::trunc);
+
+		size_t fileOffset = 0;
+		size_t subMeshIndex = 0;
+
+		// cook physics meshes
 		{
-			eastl::vector<float> positions;
-			for (auto &mesh : model.m_meshes)
+			// generate indexed physics mesh
+			eastl::vector<float> indexedPositions;
+			eastl::vector<uint32_t> indices;
+			uint32_t vertexCount = 0;
+			uint32_t indexCount = 0;
 			{
-				for (auto &p : mesh.m_positions)
+				eastl::vector<float> positions;
+				for (auto &mesh : model.m_meshes)
 				{
-					positions.push_back(p.x);
-					positions.push_back(p.y);
-					positions.push_back(p.z);
+					for (auto &p : mesh.m_positions)
+					{
+						positions.push_back(p.x);
+						positions.push_back(p.y);
+						positions.push_back(p.z);
+					}
+				}
+
+				meshopt_Stream streams[] =
+				{
+					{positions.data(), sizeof(glm::vec3), sizeof(glm::vec3)},
+				};
+
+				indexCount = (uint32_t)positions.size() / 3;
+
+				// generate indices
+				eastl::vector<unsigned int> remap(indexCount);
+				vertexCount = (uint32_t)meshopt_generateVertexRemapMulti(remap.data(), nullptr, indexCount, indexCount, streams, 1);
+
+				// fill new index and vertex buffers
+				indices.resize(indexCount);
+				indexedPositions.resize(vertexCount * 3);
+
+				meshopt_remapIndexBuffer(indices.data(), (uint32_t *)nullptr, indices.size(), remap.data());
+				meshopt_remapVertexBuffer(indexedPositions.data(), positions.data(), indexCount, sizeof(glm::vec3), remap.data());
+			}
+
+			// cook
+			char *physicsConvexMeshData = nullptr;
+			uint32_t physicsConvexMeshSize = 0;
+			char *physicsTriangleMeshData = nullptr;
+			uint32_t physicsTriangleMeshSize = 0;
+
+			bool res = physics->cookConvexMesh(vertexCount, indexedPositions.data(), &physicsConvexMeshSize, &physicsConvexMeshData);
+			assert(res);
+			res = physics->cookTriangleMesh(indexCount, indices.data(), vertexCount, indexedPositions.data(), &physicsTriangleMeshSize, &physicsTriangleMeshData);
+			assert(res);
+
+			// write to file
+			j["physicsConvexMeshDataOffset"] = fileOffset;
+			j["physicsConvexMeshDataSize"] = physicsConvexMeshSize;
+			dstFile.write(physicsConvexMeshData, physicsConvexMeshSize);
+			fileOffset += physicsConvexMeshSize;
+
+			j["physicsTriangleMeshDataOffset"] = fileOffset;
+			j["physicsTriangleMeshDataSize"] = physicsTriangleMeshSize;
+			dstFile.write(physicsTriangleMeshData, physicsTriangleMeshSize);
+			fileOffset += physicsTriangleMeshSize;
+
+			// free memory
+			delete[] physicsConvexMeshData;
+			delete[] physicsTriangleMeshData;
+		}
+
+		uint64_t totalFaceCount = 0;
+		for (auto &mesh : model.m_meshes)
+		{
+			totalFaceCount += mesh.m_positions.size() / 3;
+		}
+
+		uint64_t actualFaceCount = 0;
+		uint32_t matrixPaletteSize = 0;
+
+		for (auto &mesh : model.m_meshes)
+		{
+			// generate tangents
+			{
+				SMikkTSpaceContext mikkTSpaceContext = {};
+				mikkTSpaceContext.m_pInterface = &mikkTSpaceInterface;
+				mikkTSpaceContext.m_pUserData = &mesh;
+
+				auto result = genTangSpaceDefault(&mikkTSpaceContext);
+				assert(result != 0);
+			}
+
+			// generate optimized 32bit indexed mesh
+			auto indexedMesh32 = generateOptimizedMesh<uint32_t>(mesh.m_positions.size() / 3, mesh.m_positions.data(), mesh.m_normals.data(), mesh.m_tangents.data(), mesh.m_texCoords.data(),
+				mesh.m_weights.data(), mesh.m_joints.data(), false);
+
+			// find size of matrix palette by looking for largest joint index and adding 1
+			if (!mesh.m_joints.empty())
+			{
+				for (const auto &wi : indexedMesh32.joints)
+				{
+					matrixPaletteSize = std::max(matrixPaletteSize, wi[0] + 1);
+					matrixPaletteSize = std::max(matrixPaletteSize, wi[1] + 1);
+					matrixPaletteSize = std::max(matrixPaletteSize, wi[2] + 1);
+					matrixPaletteSize = std::max(matrixPaletteSize, wi[3] + 1);
 				}
 			}
 
-			meshopt_Stream streams[] =
+			// generate smaller 64k meshes
 			{
-				{positions.data(), sizeof(glm::vec3), sizeof(glm::vec3)},
-			};
+				glm::vec3 aabbMin = glm::vec3(std::numeric_limits<float>::max());
+				glm::vec3 aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
+				glm::vec2 uvAabbMin = glm::vec2(std::numeric_limits<float>::max());
+				glm::vec2 uvAabbMax = glm::vec2(std::numeric_limits<float>::lowest());
 
-			indexCount = (uint32_t)positions.size() / 3;
+				std::vector<glm::vec3> positions;
+				std::vector<glm::vec3> normals;
+				std::vector<glm::vec4> tangents;
+				std::vector<glm::vec2> texCoords;
+				std::vector<glm::vec4> weights;
+				std::vector<glm::uvec4> joints;
 
-			// generate indices
-			eastl::vector<unsigned int> remap(indexCount);
-			vertexCount = (uint32_t)meshopt_generateVertexRemapMulti(remap.data(), nullptr, indexCount, indexCount, streams, 1);
+				// keep track of the number of unique vertices -> we are targeting 16bit indices, so we need to stay below 2^16 - 1 vertices
+				std::unordered_set<Vertex, VertexHash> vertexSet;
 
-			// fill new index and vertex buffers
-			indices.resize(indexCount);
-			indexedPositions.resize(vertexCount * 3);
-
-			meshopt_remapIndexBuffer(indices.data(), (uint32_t *)nullptr, indices.size(), remap.data());
-			meshopt_remapVertexBuffer(indexedPositions.data(), positions.data(), indexCount, sizeof(glm::vec3), remap.data());
-		}
-		
-		// cook
-		char *physicsConvexMeshData = nullptr;
-		uint32_t physicsConvexMeshSize = 0;
-		char *physicsTriangleMeshData = nullptr;
-		uint32_t physicsTriangleMeshSize = 0;
-
-		bool res = physics->cookConvexMesh(vertexCount, indexedPositions.data(), &physicsConvexMeshSize, &physicsConvexMeshData);
-		assert(res);
-		res = physics->cookTriangleMesh(indexCount, indices.data(), vertexCount, indexedPositions.data(), &physicsTriangleMeshSize, &physicsTriangleMeshData);
-		assert(res);
-
-		// write to file
-		j["physicsConvexMeshDataOffset"] = fileOffset;
-		j["physicsConvexMeshDataSize"] = physicsConvexMeshSize;
-		dstFile.write(physicsConvexMeshData, physicsConvexMeshSize);
-		fileOffset += physicsConvexMeshSize;
-
-		j["physicsTriangleMeshDataOffset"] = fileOffset;
-		j["physicsTriangleMeshDataSize"] = physicsTriangleMeshSize;
-		dstFile.write(physicsTriangleMeshData, physicsTriangleMeshSize);
-		fileOffset += physicsTriangleMeshSize;
-
-		// free memory
-		delete[] physicsConvexMeshData;
-		delete[] physicsTriangleMeshData;
-	}
-
-	uint64_t totalFaceCount = 0;
-	for (auto &mesh : model.m_meshes)
-	{
-		totalFaceCount += mesh.m_positions.size() / 3;
-	}
-
-	uint64_t actualFaceCount = 0;
-	uint32_t matrixPaletteSize = 0;
-
-	for (auto &mesh : model.m_meshes)
-	{
-		// generate tangents
-		{
-			SMikkTSpaceContext mikkTSpaceContext = {};
-			mikkTSpaceContext.m_pInterface = &mikkTSpaceInterface;
-			mikkTSpaceContext.m_pUserData = &mesh;
-
-			auto result = genTangSpaceDefault(&mikkTSpaceContext);
-			assert(result != 0);
-		}
-
-		// generate optimized 32bit indexed mesh
-		auto indexedMesh32 = generateOptimizedMesh<uint32_t>(mesh.m_positions.size() / 3, mesh.m_positions.data(), mesh.m_normals.data(), mesh.m_tangents.data(), mesh.m_texCoords.data(), 
-			mesh.m_weights.data(), mesh.m_joints.data(), false);
-
-		// find size of matrix palette by looking for largest joint index and adding 1
-		if (!mesh.m_joints.empty())
-		{
-			for (const auto &wi : indexedMesh32.joints)
-			{
-				matrixPaletteSize = std::max(matrixPaletteSize, wi[0] + 1);
-				matrixPaletteSize = std::max(matrixPaletteSize, wi[1] + 1);
-				matrixPaletteSize = std::max(matrixPaletteSize, wi[2] + 1);
-				matrixPaletteSize = std::max(matrixPaletteSize, wi[3] + 1);
-			}
-		}
-
-		// generate smaller 64k meshes
-		{
-			glm::vec3 aabbMin = glm::vec3(std::numeric_limits<float>::max());
-			glm::vec3 aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
-			glm::vec2 uvAabbMin = glm::vec2(std::numeric_limits<float>::max());
-			glm::vec2 uvAabbMax = glm::vec2(std::numeric_limits<float>::lowest());
-
-			std::vector<glm::vec3> positions;
-			std::vector<glm::vec3> normals;
-			std::vector<glm::vec4> tangents;
-			std::vector<glm::vec2> texCoords;
-			std::vector<glm::vec4> weights;
-			std::vector<glm::uvec4> joints;
-
-			// keep track of the number of unique vertices -> we are targeting 16bit indices, so we need to stay below 2^16 - 1 vertices
-			std::unordered_set<Vertex, VertexHash> vertexSet;
-
-			size_t processedIndexCount = 0;
-			for (size_t i = 0; i < indexedMesh32.indices.size(); i += 3)
-			{
-				// process face
-				for (size_t j = 0; j < 3; ++j)
+				size_t processedIndexCount = 0;
+				for (size_t i = 0; i < indexedMesh32.indices.size(); i += 3)
 				{
-					uint32_t index = indexedMesh32.indices[i + j];
-
-					Vertex v;
-					v.position = indexedMesh32.positions[index];
-					v.normal = indexedMesh32.normals[index];
-					v.tangent = indexedMesh32.tangents[index];
-					v.texCoord = indexedMesh32.texCoords[index];
-					v.weights = indexedMesh32.weights.empty() ? glm::vec4() : indexedMesh32.weights[index];
-					v.joints = indexedMesh32.joints.empty() ? glm::uvec4() : indexedMesh32.joints[index];
-
-					vertexSet.insert(v);
-
-					positions.push_back(v.position);
-					normals.push_back(v.normal);
-					tangents.push_back(v.tangent);
-					texCoords.push_back(v.texCoord);
-					if (!indexedMesh32.weights.empty())
+					// process face
+					for (size_t j = 0; j < 3; ++j)
 					{
-						weights.push_back(v.weights);
-						joints.push_back(v.joints);
+						uint32_t index = indexedMesh32.indices[i + j];
+
+						Vertex v;
+						v.position = indexedMesh32.positions[index];
+						v.normal = indexedMesh32.normals[index];
+						v.tangent = indexedMesh32.tangents[index];
+						v.texCoord = indexedMesh32.texCoords[index];
+						v.weights = indexedMesh32.weights.empty() ? glm::vec4() : indexedMesh32.weights[index];
+						v.joints = indexedMesh32.joints.empty() ? glm::uvec4() : indexedMesh32.joints[index];
+
+						vertexSet.insert(v);
+
+						positions.push_back(v.position);
+						normals.push_back(v.normal);
+						tangents.push_back(v.tangent);
+						texCoords.push_back(v.texCoord);
+						if (!indexedMesh32.weights.empty())
+						{
+							weights.push_back(v.weights);
+							joints.push_back(v.joints);
+						}
+
+						aabbMin = glm::min(aabbMin, v.position);
+						aabbMax = glm::max(aabbMax, v.position);
+
+						uvAabbMin = glm::min(uvAabbMin, v.texCoord);
+						uvAabbMax = glm::max(uvAabbMax, v.texCoord);
 					}
 
-					aabbMin = glm::min(aabbMin, v.position);
-					aabbMax = glm::max(aabbMax, v.position);
+					const size_t localIndexOffset = i - processedIndexCount;
 
-					uvAabbMin = glm::min(uvAabbMin, v.texCoord);
-					uvAabbMax = glm::max(uvAabbMax, v.texCoord);
-				}
-
-				const size_t localIndexOffset = i - processedIndexCount;
-
-				// we reached 64k faces or 64k unique vertices or we processed the whole mesh
-				if ((localIndexOffset / 3 + 1) > UINT16_MAX || (vertexSet.size() + 3) > UINT16_MAX || (i + 3) == indexedMesh32.indices.size())
-				{
-					auto indexedMesh16 = generateOptimizedMesh<uint16_t>(positions.size() / 3, positions.data(), normals.data(), tangents.data(), texCoords.data(), weights.data(), joints.data(), true);
-
-					// quantize data
-					std::vector<uint16_t> quantizedPositions;
-					std::vector<uint16_t> quantizedQTangents;
-					std::vector<uint16_t> quantizedTexCoords;
-					std::vector<uint32_t> quantizedWeights;
-					std::vector<uint32_t> quantizedJoints;
-					quantizedPositions.reserve(3 * indexedMesh16.positions.size());
-					quantizedQTangents.reserve(4 * indexedMesh16.positions.size());
-					quantizedTexCoords.reserve(2 * indexedMesh16.positions.size());
-					if (!weights.empty())
+					// we reached 64k faces or 64k unique vertices or we processed the whole mesh
+					if ((localIndexOffset / 3 + 1) > UINT16_MAX || (vertexSet.size() + 3) > UINT16_MAX || (i + 3) == indexedMesh32.indices.size())
 					{
-						quantizedWeights.reserve(1 * indexedMesh16.positions.size());
-						quantizedJoints.reserve(2 * indexedMesh16.positions.size());
-					}
+						auto indexedMesh16 = generateOptimizedMesh<uint16_t>(positions.size() / 3, positions.data(), normals.data(), tangents.data(), texCoords.data(), weights.data(), joints.data(), true);
 
-					glm::vec3 scale = 1.0f / (aabbMax - aabbMin);
-					glm::vec3 bias = -aabbMin * scale;
-
-					glm::vec2 texCoordScale = 1.0f / (uvAabbMax - uvAabbMin);
-					glm::vec2 texCoordBias = -uvAabbMin * texCoordScale;
-
-					for (size_t j = 0; j < indexedMesh16.positions.size(); ++j)
-					{
-						// position
-						{
-							glm::vec3 normalizedPosition = indexedMesh16.positions[j] * scale + bias;
-							quantizedPositions.push_back(meshopt_quantizeUnorm(normalizedPosition.x, 16));
-							quantizedPositions.push_back(meshopt_quantizeUnorm(normalizedPosition.y, 16));
-							quantizedPositions.push_back(meshopt_quantizeUnorm(normalizedPosition.z, 16));
-						}
-
-						// texcoord
-						{
-							glm::vec2 normalizedTexCoord = indexedMesh16.texCoords[j] * texCoordScale + texCoordBias;
-							quantizedTexCoords.push_back(meshopt_quantizeUnorm(normalizedTexCoord.x, 16));
-							quantizedTexCoords.push_back(meshopt_quantizeUnorm(normalizedTexCoord.y, 16));
-						}
-
-						// qtangent
-						{
-							glm::vec4 tangent = indexedMesh16.tangents[j];
-							glm::vec3 normal = indexedMesh16.normals[j];
-							glm::vec3 bitangent = glm::cross(normal, glm::vec3(tangent));
-
-							glm::mat3 tbn = glm::mat3(glm::normalize(glm::vec3(tangent)),
-								glm::normalize(bitangent),
-								glm::normalize(normal));
-							glm::quat q = glm::quat_cast(tbn);
-
-							// ensure q.w is always positive
-							if (q.w < 0.0f)
-							{
-								q = -q;
-							}
-
-							// make sure q.w never becomes 0.0
-							constexpr float bias = 1.0f / INT16_MAX;
-							if (q.w < bias)
-							{
-								float normFactor = sqrtf(1.0f - bias * bias);
-								q.x *= normFactor;
-								q.y *= normFactor;
-								q.z *= normFactor;
-								q.w = bias;
-							}
-
-							// encode sign of bitangent in quaternion (q == -q)
-							if (tangent.w < 0.0f)
-							{
-								q = -q;
-							}
-
-							quantizedQTangents.push_back(meshopt_quantizeUnorm(q.x * 0.5f + 0.5f, 16));
-							quantizedQTangents.push_back(meshopt_quantizeUnorm(q.y * 0.5f + 0.5f, 16));
-							quantizedQTangents.push_back(meshopt_quantizeUnorm(q.z * 0.5f + 0.5f, 16));
-							quantizedQTangents.push_back(meshopt_quantizeUnorm(q.w * 0.5f + 0.5f, 16));
-						}
-
+						// quantize data
+						std::vector<uint16_t> quantizedPositions;
+						std::vector<uint16_t> quantizedQTangents;
+						std::vector<uint16_t> quantizedTexCoords;
+						std::vector<uint32_t> quantizedWeights;
+						std::vector<uint32_t> quantizedJoints;
+						quantizedPositions.reserve(3 * indexedMesh16.positions.size());
+						quantizedQTangents.reserve(4 * indexedMesh16.positions.size());
+						quantizedTexCoords.reserve(2 * indexedMesh16.positions.size());
 						if (!weights.empty())
 						{
-							auto packUnorm4x8 = [](const glm::vec4 &v)
-							{
-								uint32_t result = 0;
-								result |= ((uint32_t)glm::round(glm::clamp(v.x, 0.0f, 1.0f) * 255.0f)) << 0;
-								result |= ((uint32_t)glm::round(glm::clamp(v.y, 0.0f, 1.0f) * 255.0f)) << 8;
-								result |= ((uint32_t)glm::round(glm::clamp(v.z, 0.0f, 1.0f) * 255.0f)) << 16;
-								result |= ((uint32_t)glm::round(glm::clamp(v.w, 0.0f, 1.0f) * 255.0f)) << 24;
-
-								return result;
-							};
-
-							quantizedWeights.push_back(packUnorm4x8(indexedMesh16.weights[j]));
-							
-							quantizedJoints.push_back((indexedMesh16.joints[j].x & 0xFFFF) | ((indexedMesh16.joints[j].y & 0xFFFF) << 16));
-							quantizedJoints.push_back((indexedMesh16.joints[j].z & 0xFFFF) | ((indexedMesh16.joints[j].w & 0xFFFF) << 16));
+							quantizedWeights.reserve(1 * indexedMesh16.positions.size());
+							quantizedJoints.reserve(2 * indexedMesh16.positions.size());
 						}
-					}
 
+						glm::vec3 scale = 1.0f / (aabbMax - aabbMin);
+						glm::vec3 bias = -aabbMin * scale;
 
-					// write to file
-					dstFile.write((const char *)indexedMesh16.indices.data(), indexedMesh16.indices.size() * sizeof(uint16_t));
-					dstFile.write((const char *)indexedMesh16.positions.data(), indexedMesh16.positions.size() * sizeof(glm::vec3));
-					dstFile.write((const char *)indexedMesh16.normals.data(), indexedMesh16.normals.size() * sizeof(glm::vec3));
-					dstFile.write((const char *)indexedMesh16.tangents.data(), indexedMesh16.tangents.size() * sizeof(glm::vec4));
-					dstFile.write((const char *)indexedMesh16.texCoords.data(), indexedMesh16.texCoords.size() * sizeof(glm::vec2));
-					if (!weights.empty())
-					{
-						dstFile.write((const char *)quantizedJoints.data(), quantizedJoints.size() * sizeof(uint32_t));
-						dstFile.write((const char *)quantizedWeights.data(), quantizedWeights.size() * sizeof(uint32_t));
-					}
+						glm::vec2 texCoordScale = 1.0f / (uvAabbMax - uvAabbMin);
+						glm::vec2 texCoordBias = -uvAabbMin * texCoordScale;
 
-					j["subMeshes"].push_back(
+						for (size_t j = 0; j < indexedMesh16.positions.size(); ++j)
 						{
-							{ "name", mesh.m_name },
-							{ "dataOffset", fileOffset },
-							{ "vertexCount", indexedMesh16.positions.size() },
-							{ "indexCount", indexedMesh16.indices.size() },
-							{ "minCorner", { aabbMin.x,  aabbMin.y,  aabbMin.z } },
-							{ "maxCorner", { aabbMax.x,  aabbMax.y,  aabbMax.z } },
-							{ "texCoordMin", { uvAabbMin.x,  uvAabbMin.y } },
-							{ "texCoordMax", { uvAabbMax.x,  uvAabbMax.y } },
-							{ "skinned", !weights.empty() }
-						});
+							// position
+							{
+								glm::vec3 normalizedPosition = indexedMesh16.positions[j] * scale + bias;
+								quantizedPositions.push_back(meshopt_quantizeUnorm(normalizedPosition.x, 16));
+								quantizedPositions.push_back(meshopt_quantizeUnorm(normalizedPosition.y, 16));
+								quantizedPositions.push_back(meshopt_quantizeUnorm(normalizedPosition.z, 16));
+							}
 
-					j["subMeshInstances"].push_back(
+							// texcoord
+							{
+								glm::vec2 normalizedTexCoord = indexedMesh16.texCoords[j] * texCoordScale + texCoordBias;
+								quantizedTexCoords.push_back(meshopt_quantizeUnorm(normalizedTexCoord.x, 16));
+								quantizedTexCoords.push_back(meshopt_quantizeUnorm(normalizedTexCoord.y, 16));
+							}
+
+							// qtangent
+							{
+								glm::vec4 tangent = indexedMesh16.tangents[j];
+								glm::vec3 normal = indexedMesh16.normals[j];
+								glm::vec3 bitangent = glm::cross(normal, glm::vec3(tangent));
+
+								glm::mat3 tbn = glm::mat3(glm::normalize(glm::vec3(tangent)),
+									glm::normalize(bitangent),
+									glm::normalize(normal));
+								glm::quat q = glm::quat_cast(tbn);
+
+								// ensure q.w is always positive
+								if (q.w < 0.0f)
+								{
+									q = -q;
+								}
+
+								// make sure q.w never becomes 0.0
+								constexpr float bias = 1.0f / INT16_MAX;
+								if (q.w < bias)
+								{
+									float normFactor = sqrtf(1.0f - bias * bias);
+									q.x *= normFactor;
+									q.y *= normFactor;
+									q.z *= normFactor;
+									q.w = bias;
+								}
+
+								// encode sign of bitangent in quaternion (q == -q)
+								if (tangent.w < 0.0f)
+								{
+									q = -q;
+								}
+
+								quantizedQTangents.push_back(meshopt_quantizeUnorm(q.x * 0.5f + 0.5f, 16));
+								quantizedQTangents.push_back(meshopt_quantizeUnorm(q.y * 0.5f + 0.5f, 16));
+								quantizedQTangents.push_back(meshopt_quantizeUnorm(q.z * 0.5f + 0.5f, 16));
+								quantizedQTangents.push_back(meshopt_quantizeUnorm(q.w * 0.5f + 0.5f, 16));
+							}
+
+							if (!weights.empty())
+							{
+								auto packUnorm4x8 = [](const glm::vec4 &v)
+								{
+									uint32_t result = 0;
+									result |= ((uint32_t)glm::round(glm::clamp(v.x, 0.0f, 1.0f) * 255.0f)) << 0;
+									result |= ((uint32_t)glm::round(glm::clamp(v.y, 0.0f, 1.0f) * 255.0f)) << 8;
+									result |= ((uint32_t)glm::round(glm::clamp(v.z, 0.0f, 1.0f) * 255.0f)) << 16;
+									result |= ((uint32_t)glm::round(glm::clamp(v.w, 0.0f, 1.0f) * 255.0f)) << 24;
+
+									return result;
+								};
+
+								quantizedWeights.push_back(packUnorm4x8(indexedMesh16.weights[j]));
+
+								quantizedJoints.push_back((indexedMesh16.joints[j].x & 0xFFFF) | ((indexedMesh16.joints[j].y & 0xFFFF) << 16));
+								quantizedJoints.push_back((indexedMesh16.joints[j].z & 0xFFFF) | ((indexedMesh16.joints[j].w & 0xFFFF) << 16));
+							}
+						}
+
+
+						// write to file
+						dstFile.write((const char *)indexedMesh16.indices.data(), indexedMesh16.indices.size() * sizeof(uint16_t));
+						dstFile.write((const char *)indexedMesh16.positions.data(), indexedMesh16.positions.size() * sizeof(glm::vec3));
+						dstFile.write((const char *)indexedMesh16.normals.data(), indexedMesh16.normals.size() * sizeof(glm::vec3));
+						dstFile.write((const char *)indexedMesh16.tangents.data(), indexedMesh16.tangents.size() * sizeof(glm::vec4));
+						dstFile.write((const char *)indexedMesh16.texCoords.data(), indexedMesh16.texCoords.size() * sizeof(glm::vec2));
+						if (!weights.empty())
 						{
-							{ "name", mesh.m_name },
-							{ "subMesh", j["subMeshes"].size() - 1 },
-							{ "material", mesh.m_materialIndex }
-						});
+							dstFile.write((const char *)quantizedJoints.data(), quantizedJoints.size() * sizeof(uint32_t));
+							dstFile.write((const char *)quantizedWeights.data(), quantizedWeights.size() * sizeof(uint32_t));
+						}
 
-					fileOffset += indexedMesh16.positions.size() * sizeof(glm::vec3);
-					fileOffset += indexedMesh16.normals.size() * sizeof(glm::vec3);
-					fileOffset += indexedMesh16.tangents.size() * sizeof(glm::vec4);
-					fileOffset += indexedMesh16.texCoords.size() * sizeof(glm::vec2);
-					fileOffset += indexedMesh16.indices.size() * sizeof(uint16_t);
-					fileOffset += quantizedJoints.size() * sizeof(uint32_t);
-					fileOffset += quantizedWeights.size() * sizeof(uint32_t);
+						j["subMeshes"].push_back(
+							{
+								{ "name", mesh.m_name },
+								{ "dataOffset", fileOffset },
+								{ "vertexCount", indexedMesh16.positions.size() },
+								{ "indexCount", indexedMesh16.indices.size() },
+								{ "minCorner", { aabbMin.x,  aabbMin.y,  aabbMin.z } },
+								{ "maxCorner", { aabbMax.x,  aabbMax.y,  aabbMax.z } },
+								{ "texCoordMin", { uvAabbMin.x,  uvAabbMin.y } },
+								{ "texCoordMax", { uvAabbMax.x,  uvAabbMax.y } },
+								{ "skinned", !weights.empty() }
+							});
 
-					assert(indexedMesh16.indices.size() % 3 == 0);
-					actualFaceCount += indexedMesh16.indices.size() / 3;
+						j["subMeshInstances"].push_back(
+							{
+								{ "name", mesh.m_name },
+								{ "subMesh", j["subMeshes"].size() - 1 },
+								{ "material", mesh.m_materialIndex }
+							});
 
-					aabbMin = glm::vec3(std::numeric_limits<float>::max());
-					aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
-					uvAabbMin = glm::vec2(std::numeric_limits<float>::max());
-					uvAabbMax = glm::vec2(std::numeric_limits<float>::lowest());
-					positions.clear();
-					normals.clear();
-					tangents.clear();
-					texCoords.clear();
-					vertexSet.clear();
+						fileOffset += indexedMesh16.positions.size() * sizeof(glm::vec3);
+						fileOffset += indexedMesh16.normals.size() * sizeof(glm::vec3);
+						fileOffset += indexedMesh16.tangents.size() * sizeof(glm::vec4);
+						fileOffset += indexedMesh16.texCoords.size() * sizeof(glm::vec2);
+						fileOffset += indexedMesh16.indices.size() * sizeof(uint16_t);
+						fileOffset += quantizedJoints.size() * sizeof(uint32_t);
+						fileOffset += quantizedWeights.size() * sizeof(uint32_t);
 
-					processedIndexCount = i;
+						assert(indexedMesh16.indices.size() % 3 == 0);
+						actualFaceCount += indexedMesh16.indices.size() / 3;
 
-					Log::info(("Processed SubMesh # " + std::to_string(subMeshIndex++)).c_str());
+						aabbMin = glm::vec3(std::numeric_limits<float>::max());
+						aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
+						uvAabbMin = glm::vec2(std::numeric_limits<float>::max());
+						uvAabbMax = glm::vec2(std::numeric_limits<float>::lowest());
+						positions.clear();
+						normals.clear();
+						tangents.clear();
+						texCoords.clear();
+						vertexSet.clear();
+
+						processedIndexCount = i;
+
+						Log::info(("Processed SubMesh # " + std::to_string(subMeshIndex++)).c_str());
+					}
 				}
 			}
 		}
+
+		j["minCorner"] = { model.m_aabbMin.x, model.m_aabbMin.y, model.m_aabbMin.z };
+		j["maxCorner"] = { model.m_aabbMax.x, model.m_aabbMax.y, model.m_aabbMax.z };
+		j["matrixPaletteSize"] = matrixPaletteSize;
+
+		dstFile.close();
+
+		std::ofstream infoFile(dstFileName + ".info", std::ios::out | std::ios::trunc);
+		infoFile << std::setw(4) << j << std::endl;
+		infoFile.close();
+
+		assert(totalFaceCount == actualFaceCount);
 	}
-
-	j["minCorner"] = { model.m_aabbMin.x, model.m_aabbMin.y, model.m_aabbMin.z };
-	j["maxCorner"] = { model.m_aabbMax.x, model.m_aabbMax.y, model.m_aabbMax.z };
-	j["matrixPaletteSize"] = matrixPaletteSize;
-
-	dstFile.close();
-
-	std::ofstream infoFile(dstFileName + ".info", std::ios::out | std::ios::trunc);
-	infoFile << std::setw(4) << j << std::endl;
-	infoFile.close();
-
-	assert(totalFaceCount == actualFaceCount);
 
 	Log::info("Import succeeded!");
 	return true;

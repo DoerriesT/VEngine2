@@ -641,6 +641,9 @@ void AssetBrowserWindow::importButton() noexcept
 	{
 		ImGui::Checkbox("Merge by Material", &m_importAssetTask.m_importOptions.m_mergeByMaterial);
 		ImGui::Checkbox("Invert UV Y-Component", &m_importAssetTask.m_importOptions.m_invertTexCoordY);
+		ImGui::Checkbox("Import Meshes", &m_importAssetTask.m_importOptions.m_importMeshes);
+		ImGui::Checkbox("Import Skeletons", &m_importAssetTask.m_importOptions.m_importSkeletons);
+		ImGui::Checkbox("Import Animations", &m_importAssetTask.m_importOptions.m_importAnimations);
 
 		if (ImGui::Button("OK", ImVec2(120, 0)))
 		{

@@ -25,6 +25,7 @@
 #include <graphics/Camera.h>
 #include <Level.h>
 #include <physics/Physics.h>
+#include "CustomAnimGraph.h"
 
 void visitType(const Reflection &r, const TypeID &typeID, const char *fieldName = nullptr, unsigned int indent = 0)
 {
@@ -118,15 +119,26 @@ public:
 
 		// cesium man
 		{
-			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/CesiumMan"));
-			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/CesiumMan_skeleton0.skel"));
-			m_animationClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/CesiumMananimation_clip0.anim"));
+			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character"));
+			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
+			m_animationClip0 = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk.anim"));
+			m_animationClip1 = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/naruto.anim"));
 		
-			TransformComponent transC{};
-			transC.m_rotation = glm::quat(glm::vec3(-glm::half_pi<float>(), 0.0f, 0.0f));
-		
-			SkinnedMeshComponent meshC{ m_cesiumManAsset, m_skeleton, m_animationClip, 0.0f, true, true };
+			m_customAnimGraph.m_clip0 = m_animationClip0;
+			m_customAnimGraph.m_clip1 = m_animationClip1;
+			m_customAnimGraph.m_duration = 1.0f;
+			m_customAnimGraph.m_loop = true;
+			m_customAnimGraph.m_active = true;
 
+			TransformComponent transC{};
+			transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
+			transC.m_scale = glm::vec3(0.01f);
+		
+			SkinnedMeshComponent meshC{};
+			meshC.m_mesh = m_cesiumManAsset;
+			meshC.m_skeleton = m_skeleton;
+			meshC.m_animationGraph = &m_customAnimGraph;
+		
 			PhysicsComponent physicsC{};
 			physicsC.m_mobility = PhysicsMobility::DYNAMIC;
 			physicsC.m_physicsShapeType = PhysicsShapeType::CONVEX_MESH;
@@ -190,6 +202,17 @@ public:
 
 			createPhysicsObject(pos, velocity, PhysicsMobility::DYNAMIC);
 		}
+
+		ImGui::Begin("Custom Animation Graph Controls");
+
+		ImGui::SliderFloat("Duration", &m_customAnimGraph.m_duration, 0.1f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SliderFloat("Time", &m_customAnimGraph.m_time, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SliderFloat("Blend", &m_customAnimGraph.m_blend, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::Checkbox("Active", &m_customAnimGraph.m_active);
+		ImGui::Checkbox("Paused", &m_customAnimGraph.m_paused);
+		ImGui::Checkbox("Looping", &m_customAnimGraph.m_loop);
+
+		ImGui::End();
 	}
 
 	void shutdown() noexcept override
@@ -203,7 +226,8 @@ public:
 		m_sponzaAsset.release();
 		m_cesiumManAsset.release();
 		m_skeleton.release();
-		m_animationClip.release();
+		m_animationClip0.release();
+		m_animationClip1.release();
 	}
 
 private:
@@ -213,10 +237,12 @@ private:
 	Asset<MeshAssetData> m_sponzaAsset;
 	Asset<MeshAssetData> m_cesiumManAsset;
 	Asset<SkeletonAssetData> m_skeleton;
-	Asset<AnimationClipAssetData> m_animationClip;
+	Asset<AnimationClipAssetData> m_animationClip0;
+	Asset<AnimationClipAssetData> m_animationClip1;
 	EntityID m_cameraEntity;
 	EntityID m_activeCamera;
 	PhysicsMaterialHandle m_physicsMaterial = {};
+	CustomAnimGraph m_customAnimGraph = {};
 
 	void createPhysicsObject(const glm::vec3 &pos, const glm::vec3 &vel, PhysicsMobility mobility)
 	{

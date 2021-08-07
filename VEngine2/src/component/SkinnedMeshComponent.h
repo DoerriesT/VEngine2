@@ -8,15 +8,13 @@
 #include <glm/mat4x4.hpp>
 
 class Reflection;
+class AnimationGraph;
 
 struct SkinnedMeshComponent
 {
 	Asset<MeshAssetData> m_mesh;
 	Asset<SkeletonAssetData> m_skeleton;
-	Asset<AnimationClipAssetData> m_animationClip;
-	float m_time;
-	bool m_playing;
-	bool m_loop;
+	AnimationGraph *m_animationGraph;
 	eastl::vector<glm::mat4> m_matrixPalette;
 
 	static void reflect(Reflection &refl) noexcept;

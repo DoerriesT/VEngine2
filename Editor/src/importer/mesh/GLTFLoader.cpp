@@ -290,199 +290,206 @@ static glm::mat4 getLocalNodeTransform(const tinygltf::Model &gltfModel, int nod
 	return localTransform;
 }
 
-static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const std::vector<std::vector<int>> &jointMaps, bool invertTexcoordY, ImportedModel &resultModel)
+static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const std::vector<std::vector<int>> &jointMaps, std::vector<bool> &visitedNodes, bool invertTexcoordY, ImportedModel &resultModel)
 {
 	const auto &node = gltfModel.nodes[nodeIdx];
 
 	glm::mat4 localTransform = getLocalNodeTransform(gltfModel, (int)nodeIdx);
 	glm::mat4 globalTransform = localTransform * parentTransform;
-	glm::mat4 normalTransform = glm::transpose(glm::inverse(globalTransform));
 
-	bool skipMesh = false;
-
-	if (node.mesh != -1 && node.skin > 0)
+	if (!visitedNodes[nodeIdx])
 	{
-		Log::warn("GLTFLoader: File has more than one skin. Skipping mesh \"%s\" with skin index %i!", gltfModel.meshes[node.mesh].name.c_str(), node.skin);
-		skipMesh = true;
-	}
+		visitedNodes[nodeIdx] = true;
 
-	if (node.mesh != -1 && !skipMesh)
-	{
-		const auto &gltfMesh = gltfModel.meshes[node.mesh];
-		Log::info("GLTFLoader: Importing Mesh \"%s\".", gltfMesh.name.c_str());
 
-		for (size_t i = 0; i < gltfMesh.primitives.size(); ++i)
+		glm::mat4 normalTransform = glm::transpose(glm::inverse(globalTransform));
+
+		bool skipMesh = false;
+
+		if (node.mesh != -1 && node.skin > 0)
 		{
-			const auto &primitive = gltfMesh.primitives[i];
-			Log::info("GLTFLoader: Importing Primitive #%i", (int)i);
+			Log::warn("GLTFLoader: File has more than one skin. Skipping mesh \"%s\" with skin index %i!", gltfModel.meshes[node.mesh].name.c_str(), node.skin);
+			skipMesh = true;
+		}
 
-			if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
+		if (node.mesh != -1 && !skipMesh)
+		{
+			const auto &gltfMesh = gltfModel.meshes[node.mesh];
+			Log::info("GLTFLoader: Importing Mesh \"%s\".", gltfMesh.name.c_str());
+
+			for (size_t i = 0; i < gltfMesh.primitives.size(); ++i)
 			{
-				Log::warn("GLTFLoader: glTF primitive has unsupported primitive mode (%i)! Skipping.", primitive.mode);
-				continue;
-			}
+				const auto &primitive = gltfMesh.primitives[i];
+				Log::info("GLTFLoader: Importing Primitive #%i", (int)i);
 
-			const bool indexed = primitive.indices != -1;
-			const size_t vertexCount = indexed ? gltfModel.accessors[primitive.indices].count : gltfModel.accessors[primitive.attributes.at("POSITION")].count;
-
-			if (vertexCount % 3 != 0)
-			{
-				Log::warn("GLTFLoader: glTF primitive has a vertex count that is not divisible by 3 (%i)! Skipping.", vertexCount);
-				continue;
-			}
-
-			const size_t triangleCount = vertexCount / 3;
-
-			int positionsAccessor = -1;
-			int normalsAccessor = -1;
-			int texCoordsAccessor = -1;
-			int weightsAccessor = -1;
-			int jointsAccessor = -1;
-
-			// positions accessor
-			auto attributeIt = primitive.attributes.find("POSITION");
-			if (attributeIt == primitive.attributes.end())
-			{
-				Log::warn("GLTFLoader: glTF primitive does not have position attribute! Skipping.");
-				continue;
-			}
-
-			positionsAccessor = attributeIt->second;
-
-
-			// normals accessor
-			attributeIt = primitive.attributes.find("NORMAL");
-			if (attributeIt == primitive.attributes.end())
-			{
-				Log::warn("GLTFLoader: glTF primitive does not have normal attribute! Skipping.");
-				continue;
-			}
-
-			normalsAccessor = attributeIt->second;
-
-
-			// texcoords accessor
-			attributeIt = primitive.attributes.find("TEXCOORD_0");
-			if (attributeIt != primitive.attributes.end())
-			{
-				texCoordsAccessor = attributeIt->second;
-			}
-
-			// weights accessor
-			attributeIt = primitive.attributes.find("WEIGHTS_0");
-			if (attributeIt != primitive.attributes.end())
-			{
-				weightsAccessor = attributeIt->second;
-			}
-
-			// joints accessor
-			attributeIt = primitive.attributes.find("JOINTS_0");
-			if (attributeIt != primitive.attributes.end())
-			{
-				jointsAccessor = attributeIt->second;
-			}
-
-			ImportedMesh rawMesh{};
-			rawMesh.m_name = gltfMesh.name + std::to_string(i);
-			rawMesh.m_materialIndex = primitive.material == -1 ? 0 : primitive.material;
-
-			for (size_t j = 0; j < triangleCount; ++j)
-			{
-				for (size_t k = 0; k < 3; ++k)
+				if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
 				{
-					bool res = true;
-					size_t index = j * 3 + k;
-					if (indexed)
+					Log::warn("GLTFLoader: glTF primitive has unsupported primitive mode (%i)! Skipping.", primitive.mode);
+					continue;
+				}
+
+				const bool indexed = primitive.indices != -1;
+				const size_t vertexCount = indexed ? gltfModel.accessors[primitive.indices].count : gltfModel.accessors[primitive.attributes.at("POSITION")].count;
+
+				if (vertexCount % 3 != 0)
+				{
+					Log::warn("GLTFLoader: glTF primitive has a vertex count that is not divisible by 3 (%i)! Skipping.", vertexCount);
+					continue;
+				}
+
+				const size_t triangleCount = vertexCount / 3;
+
+				int positionsAccessor = -1;
+				int normalsAccessor = -1;
+				int texCoordsAccessor = -1;
+				int weightsAccessor = -1;
+				int jointsAccessor = -1;
+
+				// positions accessor
+				auto attributeIt = primitive.attributes.find("POSITION");
+				if (attributeIt == primitive.attributes.end())
+				{
+					Log::warn("GLTFLoader: glTF primitive does not have position attribute! Skipping.");
+					continue;
+				}
+
+				positionsAccessor = attributeIt->second;
+
+
+				// normals accessor
+				attributeIt = primitive.attributes.find("NORMAL");
+				if (attributeIt == primitive.attributes.end())
+				{
+					Log::warn("GLTFLoader: glTF primitive does not have normal attribute! Skipping.");
+					continue;
+				}
+
+				normalsAccessor = attributeIt->second;
+
+
+				// texcoords accessor
+				attributeIt = primitive.attributes.find("TEXCOORD_0");
+				if (attributeIt != primitive.attributes.end())
+				{
+					texCoordsAccessor = attributeIt->second;
+				}
+
+				// weights accessor
+				attributeIt = primitive.attributes.find("WEIGHTS_0");
+				if (attributeIt != primitive.attributes.end())
+				{
+					weightsAccessor = attributeIt->second;
+				}
+
+				// joints accessor
+				attributeIt = primitive.attributes.find("JOINTS_0");
+				if (attributeIt != primitive.attributes.end())
+				{
+					jointsAccessor = attributeIt->second;
+				}
+
+				ImportedMesh rawMesh{};
+				rawMesh.m_name = gltfMesh.name + std::to_string(i);
+				rawMesh.m_materialIndex = primitive.material == -1 ? 0 : primitive.material;
+
+				for (size_t j = 0; j < triangleCount; ++j)
+				{
+					for (size_t k = 0; k < 3; ++k)
 					{
-						int64_t idx = 0;
-						res = getIntBufferData(gltfModel, primitive.indices, j * 3 + k, 1, &idx);
-						assert(res);
-						index = (size_t)idx;
-					}
-
-					// position
-					glm::vec3 position = glm::vec3();
-					res = getFloatBufferData(gltfModel, positionsAccessor, index, 3, &position[0]);
-					assert(res);
-					//position = globalTransform * glm::vec4(position, 1.0f);
-
-					// normal
-					glm::vec3 normal = glm::vec3(0.0f, 1.0f, 0.0f);
-					if (normalsAccessor != -1)
-					{
-						res = getFloatBufferData(gltfModel, normalsAccessor, index, 3, &normal[0]);
-						assert(res);
-						normal = glm::normalize(normal);// normalTransform *glm::vec4(glm::normalize(normal), 0.0f);
-					}
-
-
-					// texcoord
-					glm::vec2 uv = glm::vec2();
-					if (texCoordsAccessor != -1)
-					{
-						res = getFloatBufferData(gltfModel, texCoordsAccessor, index, 2, &uv[0]);
-						assert(res);
-
-						if (invertTexcoordY)
+						bool res = true;
+						size_t index = j * 3 + k;
+						if (indexed)
 						{
-							uv.y = 1.0f - uv.y;
+							int64_t idx = 0;
+							res = getIntBufferData(gltfModel, primitive.indices, j * 3 + k, 1, &idx);
+							assert(res);
+							index = (size_t)idx;
+						}
+
+						// position
+						glm::vec3 position = glm::vec3();
+						res = getFloatBufferData(gltfModel, positionsAccessor, index, 3, &position[0]);
+						assert(res);
+						//position = globalTransform * glm::vec4(position, 1.0f);
+
+						// normal
+						glm::vec3 normal = glm::vec3(0.0f, 1.0f, 0.0f);
+						if (normalsAccessor != -1)
+						{
+							res = getFloatBufferData(gltfModel, normalsAccessor, index, 3, &normal[0]);
+							assert(res);
+							normal = glm::normalize(normal);// normalTransform *glm::vec4(glm::normalize(normal), 0.0f);
+						}
+
+
+						// texcoord
+						glm::vec2 uv = glm::vec2();
+						if (texCoordsAccessor != -1)
+						{
+							res = getFloatBufferData(gltfModel, texCoordsAccessor, index, 2, &uv[0]);
+							assert(res);
+
+							if (invertTexcoordY)
+							{
+								uv.y = 1.0f - uv.y;
+							}
+						}
+
+						// weights
+						glm::vec4 weights = glm::vec4();
+						if (weightsAccessor)
+						{
+							res = getFloatBufferData(gltfModel, weightsAccessor, index, 4, &weights[0]);
+							assert(res);
+							weights /= weights.x + weights.y + weights.z + weights.w;
+						}
+
+						// joints
+						glm::uvec4 joints = glm::uvec4();
+						if (jointsAccessor)
+						{
+							int64_t w[4];
+							res = getIntBufferData(gltfModel, jointsAccessor, index, 4, w);
+							assert(res);
+							assert(joints.x < jointMaps[node.skin].size());
+							assert(joints.y < jointMaps[node.skin].size());
+							assert(joints.z < jointMaps[node.skin].size());
+							assert(joints.w < jointMaps[node.skin].size());
+							joints = glm::make_vec4(w);
+							joints.x = jointMaps[node.skin][joints.x];
+							joints.y = jointMaps[node.skin][joints.y];
+							joints.z = jointMaps[node.skin][joints.z];
+							joints.w = jointMaps[node.skin][joints.w];
+						}
+
+						rawMesh.m_aabbMin = glm::min(rawMesh.m_aabbMin, position);
+						rawMesh.m_aabbMax = glm::max(rawMesh.m_aabbMax, position);
+
+						rawMesh.m_positions.push_back(position);
+						rawMesh.m_normals.push_back(normal);
+						rawMesh.m_texCoords.push_back(uv);
+
+						if (jointsAccessor && weightsAccessor)
+						{
+							rawMesh.m_weights.push_back(weights);
+							rawMesh.m_joints.push_back(joints);
 						}
 					}
-
-					// weights
-					glm::vec4 weights = glm::vec4();
-					if (weightsAccessor)
-					{
-						res = getFloatBufferData(gltfModel, weightsAccessor, index, 4, &weights[0]);
-						assert(res);
-						weights /= weights.x + weights.y + weights.z + weights.w;
-					}
-
-					// joints
-					glm::uvec4 joints = glm::uvec4();
-					if (jointsAccessor)
-					{
-						int64_t w[4];
-						res = getIntBufferData(gltfModel, jointsAccessor, index, 4, w);
-						assert(res);
-						assert(joints.x < jointMaps[node.skin].size());
-						assert(joints.y < jointMaps[node.skin].size());
-						assert(joints.z < jointMaps[node.skin].size());
-						assert(joints.w < jointMaps[node.skin].size());
-						joints = glm::make_vec4(w);
-						joints.x = jointMaps[node.skin][joints.x];
-						joints.y = jointMaps[node.skin][joints.y];
-						joints.z = jointMaps[node.skin][joints.z];
-						joints.w = jointMaps[node.skin][joints.w];
-					}
-
-					rawMesh.m_aabbMin = glm::min(rawMesh.m_aabbMin, position);
-					rawMesh.m_aabbMax = glm::max(rawMesh.m_aabbMax, position);
-
-					rawMesh.m_positions.push_back(position);
-					rawMesh.m_normals.push_back(normal);
-					rawMesh.m_texCoords.push_back(uv);
-
-					if (jointsAccessor && weightsAccessor)
-					{
-						rawMesh.m_weights.push_back(weights);
-						rawMesh.m_joints.push_back(joints);
-					}
 				}
+
+				// allocate space for tangents
+				rawMesh.m_tangents.resize(rawMesh.m_normals.size());
+
+				resultModel.m_aabbMin = glm::min(rawMesh.m_aabbMin, rawMesh.m_aabbMin);
+				resultModel.m_aabbMax = glm::max(rawMesh.m_aabbMax, rawMesh.m_aabbMax);
+				resultModel.m_meshes.push_back(rawMesh);
 			}
-
-			// allocate space for tangents
-			rawMesh.m_tangents.resize(rawMesh.m_normals.size());
-
-			resultModel.m_aabbMin = glm::min(rawMesh.m_aabbMin, rawMesh.m_aabbMin);
-			resultModel.m_aabbMax = glm::max(rawMesh.m_aabbMax, rawMesh.m_aabbMax);
-			resultModel.m_meshes.push_back(rawMesh);
 		}
 	}
 
 	for (auto childNodeIdx : node.children)
 	{
-		loadNodes(childNodeIdx, globalTransform, gltfModel, jointMaps, invertTexcoordY, resultModel);
+		loadNodes(childNodeIdx, globalTransform, gltfModel, jointMaps, visitedNodes, invertTexcoordY, resultModel);
 	}
 }
 
@@ -614,7 +621,7 @@ static void loadSkeletonNodesRecursive(
 	}
 }
 
-static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel, const std::vector<PerNodeData> &perNodeData, std::vector<std::vector<int>> &jointMaps, ImportedModel &resultModel)
+static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel, const std::vector<PerNodeData> &perNodeData, bool importSkeletons, bool importAnimations, std::vector<std::vector<int>> &jointMaps, ImportedModel &resultModel)
 {
 	jointMaps = {};
 	jointMaps.resize(gltfModel.skins.size());
@@ -638,65 +645,54 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 
 		loadSkeletonNodesRecursive(gltfModel, i, skeletonRoot, rootTransform, -1, perNodeData, jointMaps[i], animClips, resultModel);
 
-		// remove animation clips that dont affect this skeleton
-		animClips.erase(std::remove_if(animClips.begin(), animClips.end(), [&](const auto &elem)
-			{
-				// iterate over all joints and check if they have any anim data
-				for (auto &jointClip : elem.m_jointAnimations)
+		if (importAnimations)
+		{
+			// remove animation clips that dont affect this skeleton
+			animClips.erase(std::remove_if(animClips.begin(), animClips.end(), [&](const auto &elem)
 				{
-					if (!jointClip.m_translationChannel.m_timeKeys.empty()
-						|| !jointClip.m_rotationChannel.m_timeKeys.empty()
-						|| !jointClip.m_scaleChannel.m_timeKeys.empty())
+					// iterate over all joints and check if they have any anim data
+					for (auto &jointClip : elem.m_jointAnimations)
 					{
-						return false;
+						if (!jointClip.m_translationChannel.m_timeKeys.empty()
+							|| !jointClip.m_rotationChannel.m_timeKeys.empty()
+							|| !jointClip.m_scaleChannel.m_timeKeys.empty())
+						{
+							return false;
+						}
+					}
+
+					return true;
+
+				}), animClips.end());
+
+			// compute durations and add to result model anim clips
+			for (auto &clip : animClips)
+			{
+				for (auto &jointClip : clip.m_jointAnimations)
+				{
+					for (auto t : jointClip.m_translationChannel.m_timeKeys)
+					{
+						clip.m_duration = std::max(clip.m_duration, t);
+					}
+
+					for (auto t : jointClip.m_rotationChannel.m_timeKeys)
+					{
+						clip.m_duration = std::max(clip.m_duration, t);
+					}
+
+					for (auto t : jointClip.m_scaleChannel.m_timeKeys)
+					{
+						clip.m_duration = std::max(clip.m_duration, t);
 					}
 				}
 
-				return true;
-
-			}), animClips.end());
-
-		// compute durations, apply transform and add to result model anim clips
-		for (auto &clip : animClips)
-		{
-			for (auto &jointClip : clip.m_jointAnimations)
-			{
-				for (auto t : jointClip.m_translationChannel.m_timeKeys)
-				{
-					clip.m_duration = std::max(clip.m_duration, t);
-				}
-
-				for (auto t : jointClip.m_rotationChannel.m_timeKeys)
-				{
-					clip.m_duration = std::max(clip.m_duration, t);
-				}
-
-				for (auto t : jointClip.m_scaleChannel.m_timeKeys)
-				{
-					clip.m_duration = std::max(clip.m_duration, t);
-				}
-
-
-				//// apply transform to translations
-				//for (auto &t : jointClip.m_translationChannel.m_translations)
-				//{
-				//	t = glm::mat3(rootTransform) * t;
-				//}
-				//
-				//// apply transform to rotations
-				//for (auto &r : jointClip.m_rotationChannel.m_rotations)
-				//{
-				//	glm::vec3 scale;
-				//	glm::vec3 trans;
-				//	glm::quat rot;
-				//	glm::vec3 skew;
-				//	glm::vec4 persp;
-				//	glm::decompose(rootTransform, scale, rot, trans, skew, persp);
-				//	r = rot * r;
-				//}
+				resultModel.m_animationClips.push_back(std::move(clip));
 			}
+		}
 
-			resultModel.m_animationClips.push_back(std::move(clip));
+		if (!importSkeletons)
+		{
+			resultModel.m_skeletons.clear();
 		}
 	}
 }
@@ -839,7 +835,7 @@ static std::vector<PerNodeData> generatePerNodeData(const tinygltf::Model &gltfM
 	return perNodeData;
 }
 
-bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, ImportedModel &model)
+bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, ImportedModel &model)
 {
 	tinygltf::Model gltfModel;
 	tinygltf::TinyGLTF loader;
@@ -865,7 +861,8 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 		return false;
 	}
 
-	// import materials
+	// import materials (but only if there are meshes in this file)
+	if (importMeshes && !gltfModel.meshes.empty())
 	{
 		auto getTexturePath = [](const tinygltf::Model &model, int textureIndex) -> std::string
 		{
@@ -929,8 +926,20 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 
 	auto perNodeData = generatePerNodeData(gltfModel);
 	std::vector<std::vector<int>> jointMaps;
-	loadSkeletonNodesAndAnimationClips(gltfModel, perNodeData, jointMaps, model);
-	loadNodes(0, glm::identity<glm::mat4>(), gltfModel, jointMaps, invertTexcoordY, model);
+	loadSkeletonNodesAndAnimationClips(gltfModel, perNodeData, importSkeletons, importAnimations, jointMaps, model);
 
+	if (importMeshes)
+	{
+		std::vector<bool> visitedNodes(gltfModel.nodes.size());
+
+		for (size_t i = 0; i < visitedNodes.size(); ++i)
+		{
+			if (!visitedNodes[i])
+			{
+				loadNodes(i, glm::identity<glm::mat4>(), gltfModel, jointMaps, visitedNodes, invertTexcoordY, model);
+			}
+		}
+	}
+	
 	return true;
 }

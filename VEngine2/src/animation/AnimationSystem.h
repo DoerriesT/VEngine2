@@ -10,6 +10,7 @@ class AnimationClip;
 
 class AnimationSystem
 {
+	friend class AnimationGraphContext;
 public:
 	explicit AnimationSystem(ECS *ecs) noexcept;
 	~AnimationSystem() noexcept;

@@ -3,5 +3,5 @@
 
 	namespace WavefrontOBJLoader
 	{
-		bool loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, ImportedModel &model);
+		bool loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, ImportedModel &model);
 	};

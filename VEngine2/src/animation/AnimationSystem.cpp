@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <EASTL/fixed_vector.h>
 #include "Log.h"
+#include "AnimationGraph.h"
 
 AnimationSystem::AnimationSystem(ECS *ecs) noexcept
 	:m_ecs(ecs),
@@ -38,27 +39,11 @@ void AnimationSystem::update(float deltaTime) noexcept
 			for (size_t i = 0; i < count; ++i)
 			{
 				auto &smc = skinnedMeshC[i];
-				
-				Skeleton *skel = m_skeletons[smc.m_skeleton->getSkeletonHandle() - 1];
-				AnimationClip *clip = m_animationClips[smc.m_animationClip->getAnimationClipHandle() - 1];
-
-				// handle time and looping
-				if (smc.m_playing && smc.m_time >= clip->getDuration())
-				{
-					if (smc.m_loop)
-					{
-						smc.m_time = fmodf(smc.m_time, clip->getDuration());
-					}
-					else
-					{
-						smc.m_playing = false;
-						smc.m_time = 0.0f;
-					}
-				}
 
 				// compute matrix palette for this frame
-				if (smc.m_playing)
+				if (smc.m_animationGraph->isActive())
 				{
+					Skeleton *skel = m_skeletons[smc.m_skeleton->getSkeletonHandle() - 1];
 					size_t jointCount = skel->getJointCount();
 					const uint32_t *parentIndices = skel->getParentIndices();
 					const glm::mat4 *invBindMatrices = skel->getInvBindPoseMatrices();
@@ -69,32 +54,44 @@ void AnimationSystem::update(float deltaTime) noexcept
 						smc.m_matrixPalette.resize(jointCount);
 					}
 
-					eastl::vector<glm::mat4> globalPoses(jointCount);
+					AnimationGraphContext ctx(this);
 
-					// compute the matrix palette
+					smc.m_animationGraph->preExecute(&ctx, deltaTime);
+
+					// compute local poses (can be done in parallel)
+					eastl::vector<glm::mat4> localPoses(jointCount);
 					for (size_t i = 0; i < jointCount; ++i)
 					{
-						JointPose pose = clip->getJointPose(i, smc.m_time);
+						JointPose pose;
+						smc.m_animationGraph->execute(&ctx, i, deltaTime, &pose);
 
 						glm::mat4 localPose =
 							glm::translate(glm::make_vec3(pose.m_trans))
 							* glm::mat4_cast(glm::make_quat(pose.m_rot))
 							* glm::scale(glm::vec3(pose.m_scale));
 
+						localPoses[i] = localPose;
+					}
+
+					smc.m_animationGraph->postExecute(&ctx, deltaTime);
+
+					// compute global poses and matrix palette (cant be done in parallel)
+					eastl::vector<glm::mat4> globalPoses(jointCount);
+					for (size_t i = 0; i < jointCount; ++i)
+					{
 						const uint32_t parentIdx = parentIndices[i];
 						if (parentIdx != -1)
 						{
 							assert(parentIdx < i);
-							localPose = globalPoses[parentIdx] * localPose;
+							globalPoses[i] = globalPoses[parentIdx] * localPoses[i];
 						}
-
-						globalPoses[i] = localPose;
+						else
+						{
+							globalPoses[i] = localPoses[i];
+						}
 
 						smc.m_matrixPalette[i] = globalPoses[i] * invBindMatrices[i];
 					}
-
-					// add delta time to our animation time
-					smc.m_time += deltaTime;
 				}
 			}
 		});

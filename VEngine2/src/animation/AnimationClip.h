@@ -1,13 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "utility/DeletedCopyMove.h"
-
-struct JointPose
-{
-	float m_rot[4];
-	float m_trans[3];
-	float m_scale;
-};
+#include "JointPose.h"
 
 class AnimationClip
 {
@@ -17,7 +11,7 @@ public:
 	~AnimationClip();
 	float getDuration() const noexcept;
 	uint32_t getJointCount() const noexcept;
-	JointPose getJointPose(size_t jointIdx, float time) const noexcept;
+	JointPose getJointPose(size_t jointIdx, float time, bool loop) const noexcept;
 
 private:
 	uint32_t m_jointCount = 0;
@@ -31,7 +25,7 @@ private:
 	// 3: translation array offset
 	// 4: rotation array offset
 	// 5: scale array offset
-	const uint32_t *m_perJointInfo = nullptr; 
+	const uint32_t *m_perJointInfo = nullptr;
 	const float *m_translationTimeKeys = nullptr;
 	const float *m_rotationTimeKeys = nullptr;
 	const float *m_scaleTimeKeys = nullptr;

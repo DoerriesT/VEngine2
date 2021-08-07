@@ -46,9 +46,14 @@
 //	};
 //}
 
-bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, ImportedModel &model)
+bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, ImportedModel &model)
 {
 	model = {};
+
+	if (!importMeshes)
+	{
+		return true;
+	}
 
 	// load scene
 	tinyobj::attrib_t objAttrib;

@@ -1,67 +1,39 @@
 #include "AnimationClip.h"
 #include <assert.h>
 #include <string.h>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include "utility/Utility.h"
 
-static size_t findTimeKeyIndex(size_t count, const float *timeKeys, float time, float &alpha) noexcept
-{
-	alpha = 0.0f;
-	size_t timeKeyIdx0 = 0;
 
-	for (size_t i = 0; i < count; ++i)
-	{
-		if ((i + 1) == count || time < timeKeys[i + 1])
-		{
-			timeKeyIdx0 = i;
-			break;
-		}
-	}
-
-	if ((timeKeyIdx0 + 1) < count && count > 1)
-	{
-		const size_t timeKeyIdx1 = timeKeyIdx0 + 1;
-		const float key0 = timeKeys[timeKeyIdx0];
-		const float key1 = timeKeys[timeKeyIdx1];
-		const float diff = key1 - key0;
-		alpha = diff > 1e-5f ? (time - key0) / diff : 0.0f;
-	}
-
-	return timeKeyIdx0;
-}
-
-static void sampleData(uint32_t componentCount, float time, uint32_t frameCount, const float *timeKeys, const float *data, float *result) noexcept
+static void sampleData(uint32_t componentCount, float time, uint32_t frameCount, bool loop, const float *timeKeys, const float *data, float *result) noexcept
 {
 	float alpha = 0.0f;
-	const size_t timeKeyIdx0 = findTimeKeyIndex(frameCount, timeKeys, time, alpha);
+	size_t index0 = 0;
+	size_t index1 = 0;
+	util::findPieceWiseLinearCurveIndicesAndAlpha(frameCount, timeKeys, time, loop, &index0, &index1, &alpha);
 
-	// time is smaller than first sample time key: clamp to first sample
-	if (timeKeyIdx0 == 0 && timeKeys[0] >= time || frameCount == 1)
+	auto lerp = [](auto x, auto y, auto alpha)
+	{
+		return x * (1.0f - alpha) + y * alpha;
+	};
+
+	if (index0 == index1)
 	{
 		for (size_t i = 0; i < componentCount; ++i)
 		{
-			result[i] = data[i];
+			result[i] = data[index0 * componentCount + i];
 		}
 	}
-	// time is greater than last sample time key: clamp to last sample
-	else if (timeKeyIdx0 == (frameCount - 1))
-	{
-		for (size_t i = 0; i < componentCount; ++i)
-		{
-			result[i] = data[(frameCount - 1) * componentCount + i];
-		}
-	}
-	// lerp between adjacent samples
 	else
 	{
-		auto lerp = [](auto x, auto y, auto alpha)
-		{
-			return x * (1.0f - alpha) + y * alpha;
-		};
-
 		for (size_t i = 0; i < componentCount; ++i)
 		{
-			result[i] = lerp(data[timeKeyIdx0 * componentCount + i], data[(timeKeyIdx0 + 1) * componentCount + i], alpha);
+			result[i] = lerp(data[index0 * componentCount + i], data[index1 * componentCount + i], alpha);
 		}
 	}
+
+	
 }
 
 AnimationClip::AnimationClip(size_t fileSize, const char *fileData) noexcept
@@ -83,7 +55,7 @@ AnimationClip::AnimationClip(size_t fileSize, const char *fileData) noexcept
 
 
 	assert((curFileOffset + m_jointCount * 6 * sizeof(uint32_t)) < fileSize);
-	
+
 	const uint32_t lastEntryTranslationFrameCount = jointInfo[lastEntryIdx * 6 + 0];
 	const uint32_t lastEntryRotationFrameCount = jointInfo[lastEntryIdx * 6 + 1];
 	const uint32_t lastEntryScaleFrameCount = jointInfo[lastEntryIdx * 6 + 2];
@@ -152,12 +124,14 @@ uint32_t AnimationClip::getJointCount() const noexcept
 	return m_jointCount;
 }
 
-JointPose AnimationClip::getJointPose(size_t jointIdx, float time) const noexcept
+JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop) const noexcept
 {
 	assert(jointIdx < m_jointCount);
 
 	JointPose jointPose{};
-	
+	jointPose.m_rot[3] = 1.0f;
+	jointPose.m_scale = 1.0f;
+
 	// translation
 	{
 		uint32_t frameCount = m_perJointInfo[jointIdx * 6 + 0];
@@ -168,7 +142,7 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time) const noexcep
 			const float *timeKeys = m_translationTimeKeys + arrayOffset;
 			const float *data = m_translationData + (arrayOffset * 3);
 
-			sampleData(3, time, frameCount, timeKeys, data, jointPose.m_trans);
+			sampleData(3, time, frameCount, loop, timeKeys, data, jointPose.m_trans);
 		}
 	}
 
@@ -182,7 +156,29 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time) const noexcep
 			const float *timeKeys = m_rotationTimeKeys + arrayOffset;
 			const float *data = m_rotationData + (arrayOffset * 4);
 
+#if 0
 			sampleData(4, time, frameCount, timeKeys, data, jointPose.m_rot);
+#else
+			float alpha = 0.0f;
+			size_t index0 = 0;
+			size_t index1 = 0;
+			util::findPieceWiseLinearCurveIndicesAndAlpha(frameCount, timeKeys, time, loop, &index0, &index1, &alpha);
+
+			glm::quat resultQ = glm::identity<glm::quat>();
+
+			if (index0 == index1)
+			{
+				resultQ = glm::make_quat(&data[index0 * 4]);
+			}
+			else
+			{
+				glm::quat q0 = glm::make_quat(&data[index0 * 4]);
+				glm::quat q1 = glm::make_quat(&data[index1 * 4]);
+				resultQ = glm::normalize(glm::slerp(q0, q1, alpha));
+			}
+
+			memcpy(jointPose.m_rot, &resultQ[0], sizeof(jointPose.m_rot));
+#endif
 		}
 	}
 
@@ -196,7 +192,7 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time) const noexcep
 			const float *timeKeys = m_scaleTimeKeys + arrayOffset;
 			const float *data = m_scaleData + arrayOffset;
 
-			sampleData(1, time, frameCount, timeKeys, data, &jointPose.m_scale);
+			sampleData(1, time, frameCount, loop, timeKeys, data, &jointPose.m_scale);
 		}
 	}
 
