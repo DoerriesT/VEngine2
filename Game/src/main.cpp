@@ -121,10 +121,11 @@ public:
 		{
 			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character"));
 			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
-			m_animationClip0 = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk.anim"));
-			m_animationClip1 = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/naruto.anim"));
+			m_idleClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/idle.anim"));
+			m_walkClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk0.anim"));
+			m_runClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/run.anim"));
 		
-			m_customAnimGraph = new CustomAnimGraph(m_animationClip0, m_animationClip1);
+			m_customAnimGraph = new CustomAnimGraph(m_idleClip, m_walkClip, m_runClip);
 
 			TransformComponent transC{};
 			transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
@@ -201,9 +202,8 @@ public:
 
 		ImGui::Begin("Custom Animation Graph Controls");
 
-		ImGui::SliderFloat("Duration", &m_customAnimGraph->m_duration, 0.1f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::SliderFloat("Time", &m_customAnimGraph->m_time, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::SliderFloat("Blend", &m_customAnimGraph->m_blend, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SliderFloat("Phase", &m_customAnimGraph->m_phase, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SliderFloat("Speed", &m_customAnimGraph->m_speed, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 		ImGui::Checkbox("Active", &m_customAnimGraph->m_active);
 		ImGui::Checkbox("Paused", &m_customAnimGraph->m_paused);
 		ImGui::Checkbox("Looping", &m_customAnimGraph->m_loop);
@@ -225,8 +225,9 @@ public:
 		m_sponzaAsset.release();
 		m_cesiumManAsset.release();
 		m_skeleton.release();
-		m_animationClip0.release();
-		m_animationClip1.release();
+		m_idleClip.release();
+		m_walkClip.release();
+		m_runClip.release();
 	}
 
 private:
@@ -236,8 +237,9 @@ private:
 	Asset<MeshAssetData> m_sponzaAsset;
 	Asset<MeshAssetData> m_cesiumManAsset;
 	Asset<SkeletonAssetData> m_skeleton;
-	Asset<AnimationClipAssetData> m_animationClip0;
-	Asset<AnimationClipAssetData> m_animationClip1;
+	Asset<AnimationClipAssetData> m_idleClip;
+	Asset<AnimationClipAssetData> m_walkClip;
+	Asset<AnimationClipAssetData> m_runClip;
 	EntityID m_cameraEntity;
 	EntityID m_activeCamera;
 	PhysicsMaterialHandle m_physicsMaterial = {};

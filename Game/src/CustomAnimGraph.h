@@ -7,7 +7,11 @@ class CustomAnimGraph : public AnimationGraph
 {
 	friend class DummyGameLogic;
 public:
-	explicit CustomAnimGraph(const Asset<AnimationClipAssetData> &clip0, const Asset<AnimationClipAssetData> &clip1);
+	explicit CustomAnimGraph(
+		const Asset<AnimationClipAssetData> &idle, 
+		const Asset<AnimationClipAssetData> &walk,
+		const Asset<AnimationClipAssetData> &run
+	) noexcept;
 
 	// AnimationGraph interface
 
@@ -17,11 +21,11 @@ public:
 	bool isActive() const noexcept override;
 
 private:
-	Asset<AnimationClipAssetData> m_clip0;
-	Asset<AnimationClipAssetData> m_clip1;
-	float m_duration = 1.0f;
-	float m_time = 0.0f;
-	float m_blend = 0.0f;
+	Asset<AnimationClipAssetData> m_idleClip;
+	Asset<AnimationClipAssetData> m_walkClip;
+	Asset<AnimationClipAssetData> m_runClip;
+	float m_phase = 0.0f;
+	float m_speed = 0.0f;
 	bool m_active = true;
 	bool m_paused = false;
 	bool m_loop = true;;

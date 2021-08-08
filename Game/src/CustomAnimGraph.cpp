@@ -1,10 +1,15 @@
 #include "CustomAnimGraph.h"
 #include <animation/AnimationClip.h>
-#include <graphics/imgui/imgui.h>
+#include <utility/Utility.h>
 
-CustomAnimGraph::CustomAnimGraph(const Asset<AnimationClipAssetData> &clip0, const Asset<AnimationClipAssetData> &clip1)
-	:m_clip0(clip0),
-	m_clip1(clip1)
+CustomAnimGraph::CustomAnimGraph(
+	const Asset<AnimationClipAssetData> &idle,
+	const Asset<AnimationClipAssetData> &walk,
+	const Asset<AnimationClipAssetData> &run
+) noexcept
+	:m_idleClip(idle),
+	m_walkClip(walk),
+	m_runClip(run)
 {
 }
 
@@ -14,33 +19,54 @@ void CustomAnimGraph::preExecute(const AnimationGraphContext *context, float del
 
 void CustomAnimGraph::execute(const AnimationGraphContext *context, size_t jointIndex, float deltaTime, JointPose *resultJointPose) const noexcept
 {
-	const auto *clip0 = context->getAnimationClip(m_clip0->getAnimationClipHandle());
-	const auto *clip1 = context->getAnimationClip(m_clip1->getAnimationClipHandle());
+	const auto *idleClip = context->getAnimationClip(m_idleClip->getAnimationClipHandle());
+	const auto *walkClip = context->getAnimationClip(m_walkClip->getAnimationClipHandle());
+	const auto *runClip = context->getAnimationClip(m_runClip->getAnimationClipHandle());
 
-	JointPose pose0 = clip0->getJointPose(jointIndex, m_time * clip0->getDuration(), m_loop);
-	JointPose pose1 = clip1->getJointPose(jointIndex, m_time * clip1->getDuration(), m_loop);
+	JointPose inputPoses[3];
+	inputPoses[0] = idleClip->getJointPose(jointIndex, m_phase * idleClip->getDuration(), m_loop);
+	inputPoses[1] = walkClip->getJointPose(jointIndex, m_phase * walkClip->getDuration(), m_loop);
+	inputPoses[2] = runClip->getJointPose(jointIndex, m_phase * runClip->getDuration(), m_loop);
 
-	*resultJointPose = JointPose::lerp(pose0, pose1, m_blend);
+	float speedKeys[] = { 0.0f, 0.3f, 1.0f };
+
+	*resultJointPose = JointPose::lerp1DArray(3, inputPoses, speedKeys, m_speed);
 }
 
 void CustomAnimGraph::postExecute(const AnimationGraphContext *context, float deltaTime) noexcept
 {
 	if (!m_paused)
 	{
-		m_time += deltaTime / m_duration;
+		const AnimationClip *clips[]
+		{
+			context->getAnimationClip(m_idleClip->getAnimationClipHandle()),
+			context->getAnimationClip(m_walkClip->getAnimationClipHandle()),
+			context->getAnimationClip(m_runClip->getAnimationClipHandle())
+		};
+
+		float speedKeys[] = { 0.0f, 0.3f, 1.0f };
+
+		size_t index0;
+		size_t index1;
+		float alpha;
+		util::findPieceWiseLinearCurveIndicesAndAlpha(3, speedKeys, m_speed, false, &index0, &index1, &alpha);
+
+		float duration = clips[index0]->getDuration() * (1.0f - alpha) + clips[index1]->getDuration() * alpha;
+
+		m_phase += deltaTime / duration;
 	}
 
 	// handle time and looping
-	if (m_time > 1.0f)
+	if (m_phase > 1.0f)
 	{
 		if (m_loop)
 		{
-			m_time = fmodf(m_time, 1.0f);
+			m_phase = fmodf(m_phase, 1.0f);
 		}
 		else
 		{
 			m_active = false;
-			m_time = 0.0f;
+			m_phase = 0.0f;
 		}
 	}
 }
