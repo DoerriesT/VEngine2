@@ -223,7 +223,7 @@ public:
 			Camera camera(*tc, *cc);
 
 			auto *playerMovementComponent = m_engine->getECS()->getComponent<CharacterMovementComponent>(m_playerEntity);
-			m_thirdPersonCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<TransformComponent>(m_playerEntity), playerMovementComponent);
+			m_thirdPersonCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<TransformComponent>(m_playerEntity), playerMovementComponent, m_engine->getPhysics());
 
 			glm::vec2 playerMovementDir = glm::vec2(playerMovementComponent->m_movementRightInputAxis, playerMovementComponent->m_movementForwardInputAxis);
 			float playerMovementSpeed = glm::length(playerMovementDir) / deltaTime / 6.0f;

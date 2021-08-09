@@ -6,13 +6,14 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "graphics/Camera.h"
 #include "Log.h"
+#include "physics/Physics.h"
 
 ThirdPersonCameraController::ThirdPersonCameraController(ECS *ecs) noexcept
 	:m_ecs(ecs)
 {
 }
 
-void ThirdPersonCameraController::update(float timeDelta, Camera &camera, TransformComponent *characterTc, CharacterMovementComponent *movc)
+void ThirdPersonCameraController::update(float timeDelta, Camera &camera, TransformComponent *characterTc, CharacterMovementComponent *movc, Physics *physics)
 {
 	const auto *inputState = m_ecs->getSingletonComponent<InputStateComponent>();
 
@@ -46,7 +47,7 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 			m_cameraPitch += m_rotateHistory[1];
 			m_cameraYaw += m_rotateHistory[0];
 
-			m_cameraPitch = glm::clamp(m_cameraPitch, glm::pi<float>() * 0.1f, glm::pi<float>() * 0.5f);
+			m_cameraPitch = glm::clamp(m_cameraPitch, glm::pi<float>() * 0.1f, glm::pi<float>() * 0.7f);
 		}
 	}
 
@@ -81,7 +82,34 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 		movc->m_enterCrouchInputAction = inputState->m_crouchAction.m_pressed;
 	}
 
+	toCamera = sphericalToCartesian(m_cameraPitch, m_cameraYaw, 1.0f);
+	float actualDistance = m_cameraDistance;
+
+	const float rayCastOffset = 0.31f;
+	glm::vec3 rayCastOrigin = center + toCamera * rayCastOffset;
+
+	RayCastResult result;
+	if (physics->raycast(&rayCastOrigin.x, &toCamera.x, m_cameraDistance - rayCastOffset, &result))
+	{
+		actualDistance = fmaxf(result.m_rayT + rayCastOffset - 1.0f, rayCastOffset);
+
+		if (!m_constrainedInPrevFrame)
+		{
+			m_constrainedCameraDistance = actualDistance;
+		}
+
+		m_constrainedCameraDistance = glm::mix(m_constrainedCameraDistance, actualDistance, timeDelta / (timeDelta + 0.05f));
+
+		actualDistance = m_constrainedCameraDistance;
+
+		m_constrainedInPrevFrame = true;
+	}
+	else
+	{
+		m_constrainedInPrevFrame = false;
+	}
+
 	// recompute camera position
-	camera.setPosition(center + sphericalToCartesian(m_cameraPitch, m_cameraYaw, m_cameraDistance));
+	camera.setPosition(center + toCamera * actualDistance);
 	camera.lookAt(center);
 }

@@ -88,7 +88,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		OPTICK_FRAME("MainThread");
 
 		timer.update();
-		float timeDelta = static_cast<float>(timer.getTimeDelta());
+		float timeDelta = fminf(0.5f, static_cast<float>(timer.getTimeDelta()));
 
 
 		constexpr float k_stepSize = 1.0f / 60.0f;

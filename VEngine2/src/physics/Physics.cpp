@@ -216,6 +216,8 @@ void Physics::update(float deltaTime) noexcept
 						actor = dynamic;
 					}
 
+					actor->userData = (void *)entities[i];
+
 					m_pxScene->addActor(*actor);
 
 					pc.m_internalPhysicsActorHandle = actor;
@@ -263,7 +265,9 @@ void Physics::update(float deltaTime) noexcept
 					controllerDesc.density = cc.m_density;
 					controllerDesc.material = m_pxPhysics->createMaterial(0.5f, 0.5f, 0.5f);
 
-					cc.m_internalControllerHandle = m_controllerManager->createController(controllerDesc);
+					PxController *controller = m_controllerManager->createController(controllerDesc);
+					controller->getActor()->userData = (void *)entities[i];
+					cc.m_internalControllerHandle = controller;
 				}
 
 				PxController *controller = (PxController *)cc.m_internalControllerHandle;
@@ -324,6 +328,30 @@ void Physics::update(float deltaTime) noexcept
 				}
 			}
 		});
+}
+
+bool Physics::raycast(const float *origin, const float *dir, float maxT, RayCastResult *result) const noexcept
+{
+	*result = {};
+
+	PxRaycastBuffer hit;
+	if (m_pxScene->raycast(
+		PxVec3(origin[0], origin[1], origin[2]),
+		PxVec3(dir[0], dir[1], dir[2]),
+		maxT,
+		hit))
+	{
+		
+		result->m_hit = true;
+		result->m_rayT = hit.block.distance;
+		memcpy(result->m_hitNormal, &hit.block.normal.x, sizeof(float) * 3);
+		result->m_hitEntity = (EntityID)(hit.block.actor->userData);
+
+		return true;
+	}
+
+	
+	return false;
 }
 
 void Physics::createMaterials(uint32_t count, const PhysicsMaterialCreateInfo *materials, PhysicsMaterialHandle *handles) noexcept

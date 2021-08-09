@@ -1,6 +1,7 @@
 #pragma once
 #include "Handles.h"
 #include "utility/HandleManager.h"
+#include "ecs/ECSCommon.h"
 
 class ECS;
 
@@ -26,12 +27,21 @@ struct PhysicsMaterialCreateInfo
 	float m_restitutionCoeff = 0.6f;
 };
 
+struct RayCastResult
+{
+	float m_hitNormal[3];
+	float m_rayT;
+	EntityID m_hitEntity;
+	bool m_hit;
+};
+
 class Physics
 {
 public:
 	explicit Physics(ECS *ecs) noexcept;
 	~Physics() noexcept;
 	void update(float deltaTime) noexcept;
+	bool raycast(const float *origin, const float *dir, float maxT, RayCastResult *result) const noexcept;
 	void createMaterials(uint32_t count, const PhysicsMaterialCreateInfo *materials, PhysicsMaterialHandle *handles) noexcept;
 	void updateMaterials(uint32_t count, const PhysicsMaterialCreateInfo *materials, PhysicsMaterialHandle *handles) noexcept;
 	void destroyMaterials(uint32_t count, PhysicsMaterialHandle *handles) noexcept;
