@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "input/IInputListener.h"
+#include "input/GamepadState.h"
 #include <string>
 
 struct GLFWwindow;
@@ -79,6 +80,7 @@ private:
 	unsigned int m_windowedHeight;
 	std::string m_title;
 	std::vector<IInputListener *> m_inputListeners;
+	std::vector<GamepadState> m_gamepads;
 	bool m_configurationChanged;
 	MouseCursorMode m_mouseCursorMode = MouseCursorMode::NORMAL;
 };

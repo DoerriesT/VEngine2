@@ -1,19 +1,16 @@
 #pragma once
-#include "ecs/ECS.h"
 
 class ECS;
 class Camera;
-struct CharacterControllerComponent;
+struct CharacterMovementComponent;
 
 class FPSCameraController
 {
 public:
-	explicit FPSCameraController(ECS *ecs);
-	void update(float timeDelta, Camera &camera, CharacterControllerComponent *ccc = nullptr);
+	explicit FPSCameraController(ECS *ecs) noexcept;
+	void update(float timeDelta, Camera &camera, CharacterMovementComponent *movc) noexcept;
 
 private:
 	ECS *m_ecs = nullptr;
-	float m_mouseHistory[2] = {};
-	bool m_grabbedMouse = false;
-	
+	float m_rotateHistory[2] = {};
 };

@@ -46,10 +46,11 @@ void Camera::rotate(const glm::vec3 &pitchYawRollOffset) noexcept
 
 void Camera::translate(const glm::vec3 &translationOffset) noexcept
 {
-	glm::vec3 forward(m_cameraComponent.m_viewMatrix[0][2], m_cameraComponent.m_viewMatrix[1][2], m_cameraComponent.m_viewMatrix[2][2]);
 	glm::vec3 strafe(m_cameraComponent.m_viewMatrix[0][0], m_cameraComponent.m_viewMatrix[1][0], m_cameraComponent.m_viewMatrix[2][0]);
+	glm::vec3 up(m_cameraComponent.m_viewMatrix[0][1], m_cameraComponent.m_viewMatrix[1][1], m_cameraComponent.m_viewMatrix[2][1]);
+	glm::vec3 forward(m_cameraComponent.m_viewMatrix[0][2], m_cameraComponent.m_viewMatrix[1][2], m_cameraComponent.m_viewMatrix[2][2]);
 
-	m_transformComponent.m_translation += translationOffset.z * forward + translationOffset.x * strafe;
+	m_transformComponent.m_translation += translationOffset.z * forward + translationOffset.x * strafe + translationOffset.y * up;
 	updateViewMatrix();
 }
 
@@ -58,7 +59,7 @@ void Camera::lookAt(const glm::vec3 &targetPosition)
 	constexpr glm::vec3 up(0.0f, 1.0f, 0.0f);
 
 	m_cameraComponent.m_viewMatrix = glm::lookAt(m_transformComponent.m_translation, targetPosition, up);
-	m_transformComponent.m_rotation = glm::quat_cast(m_cameraComponent.m_viewMatrix);
+	m_transformComponent.m_rotation = glm::inverse(glm::quat_cast(m_cameraComponent.m_viewMatrix));
 }
 
 glm::mat4 Camera::getViewMatrix() const noexcept

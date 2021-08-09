@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "utility/DeletedCopyMove.h"
 #include "JointPose.h"
+#include <EASTL/vector.h>
 
 class AnimationClip
 {
@@ -11,7 +12,8 @@ public:
 	~AnimationClip();
 	float getDuration() const noexcept;
 	uint32_t getJointCount() const noexcept;
-	JointPose getJointPose(size_t jointIdx, float time, bool loop) const noexcept;
+	JointPose getJointPose(size_t jointIdx, float time, bool loop, bool extractRootMotion) const noexcept;
+	void getRootVelocity(float time, bool loop, float *result) const noexcept;
 
 private:
 	uint32_t m_jointCount = 0;
@@ -32,4 +34,5 @@ private:
 	const float *m_translationData = nullptr; // 3 floats per entry
 	const float *m_rotationData = nullptr; // 4 floats (quaternion xyzw) per entry
 	const float *m_scaleData = nullptr; // 1 float per entry (uniform scale)
+	eastl::vector<float> m_rootVelocityData;
 };

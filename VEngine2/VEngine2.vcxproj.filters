@@ -354,7 +354,7 @@
     <ClInclude Include="src\component\CharacterControllerComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
-    <ClInclude Include="src\component\InputStateComponent.h">
+    <ClInclude Include="src\component\RawInputStateComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
     <ClInclude Include="src\utility\ErasedType.h">
@@ -363,7 +363,7 @@
     <ClInclude Include="src\component\ComponentRegistration.h">
       <Filter>src\component</Filter>
     </ClInclude>
-    <ClInclude Include="src\component\PlayerMovementComponent.h">
+    <ClInclude Include="src\component\CharacterMovementComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
     <ClInclude Include="src\ecs\Archetype.h">
@@ -407,6 +407,21 @@
     </ClInclude>
     <ClInclude Include="src\animation\JointPose.h">
       <Filter>src\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\input\FlyCameraController.h">
+      <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\component\InputStateComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CharacterMovementSystem.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\input\ThirdPersonCameraController.h">
+      <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\input\GamepadState.h">
+      <Filter>src\input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -665,7 +680,7 @@
     <ClCompile Include="src\component\ComponentRegistration.cpp">
       <Filter>src\component</Filter>
     </ClCompile>
-    <ClCompile Include="src\component\PlayerMovementComponent.cpp">
+    <ClCompile Include="src\component\CharacterMovementComponent.cpp">
       <Filter>src\component</Filter>
     </ClCompile>
     <ClCompile Include="src\ecs\Archetype.cpp">
@@ -703,6 +718,15 @@
     </ClCompile>
     <ClCompile Include="src\animation\JointPose.cpp">
       <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\input\FlyCameraController.cpp">
+      <Filter>src\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\CharacterMovementSystem.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\input\ThirdPersonCameraController.cpp">
+      <Filter>src\input</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

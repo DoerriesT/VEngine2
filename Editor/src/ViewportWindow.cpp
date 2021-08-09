@@ -6,22 +6,22 @@
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
 #include <component/CharacterControllerComponent.h>
-#include <input/FPSCameraController.h>
+#include <input/FlyCameraController.h>
 #include <graphics/Camera.h>
 
 ViewportWindow::ViewportWindow(Engine *engine, const EntityID *editorCameraEntity) noexcept
 	:m_engine(engine),
 	m_editorCameraEntityPtr(editorCameraEntity),
-	m_fpsCameraController(new FPSCameraController(engine->getECS()))
+	m_flyCameraController(new FlyCameraController(engine->getECS()))
 {
 }
 
 ViewportWindow::~ViewportWindow() noexcept
 {
-	delete m_fpsCameraController;
+	delete m_flyCameraController;
 }
 
-void ViewportWindow::draw(float deltaTime) noexcept
+void ViewportWindow::draw(float deltaTime, bool gameIsPlaying) noexcept
 {
 	if (!m_visible)
 	{
@@ -46,16 +46,19 @@ void ViewportWindow::draw(float deltaTime) noexcept
 
 	m_engine->setEditorViewport((int32_t)viewportOffset.x, (int32_t)viewportOffset.y, (uint32_t)fmaxf(viewportSize.x, 0.0f), (uint32_t)fmaxf(viewportSize.y, 0.0f));
 
-	TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(*m_editorCameraEntityPtr);
-	CameraComponent *cc = m_engine->getECS()->getComponent<CameraComponent>(*m_editorCameraEntityPtr);
-	assert(tc && cc);
+	if (!gameIsPlaying)
+	{
+		TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(*m_editorCameraEntityPtr);
+		CameraComponent *cc = m_engine->getECS()->getComponent<CameraComponent>(*m_editorCameraEntityPtr);
+		assert(tc && cc);
 
-	// make sure aspect ratio of editor camera is correct
-	cc->m_aspectRatio = (viewportSize.x > 0 && viewportSize.y > 0) ? viewportSize.x / (float)viewportSize.y : 1.0f;
+		// make sure aspect ratio of editor camera is correct
+		cc->m_aspectRatio = (viewportSize.x > 0 && viewportSize.y > 0) ? viewportSize.x / (float)viewportSize.y : 1.0f;
 
-	Camera camera(*tc, *cc);
+		Camera camera(*tc, *cc);
 
-	m_fpsCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<CharacterControllerComponent>(*m_editorCameraEntityPtr));
+		m_flyCameraController->update(deltaTime, camera);
+	}
 }
 
 void ViewportWindow::setVisible(bool visible) noexcept

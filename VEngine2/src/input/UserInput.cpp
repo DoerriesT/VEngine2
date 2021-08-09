@@ -2,6 +2,7 @@
 #include "Utility/ContainerUtility.h"
 #include "Window/Window.h"
 #include "ecs/ECS.h"
+#include "component/RawInputStateComponent.h"
 #include "component/InputStateComponent.h"
 
 UserInput::UserInput(Window &window, ECS *ecs)
@@ -21,13 +22,21 @@ void UserInput::resize(int32_t offsetX, int32_t offsetY, uint32_t width, uint32_
 
 void UserInput::input()
 {
-	// update input state component
+	// update raw input state component
 	{
 		auto *state = m_ecs->getSingletonComponent<RawInputStateComponent>();
 
 		// update indices
 		state->m_prevIndex = state->m_curIndex;
 		state->m_curIndex = (state->m_curIndex + 1) % 2;
+
+		// update gamepads
+		state->m_gamepadCount = 0;
+		if (m_gamepads)
+		{
+			memcpy(state->m_gamepadStates[state->m_curIndex], m_gamepads, sizeof(m_gamepads[0]) * m_gamepadCount);
+			state->m_gamepadCount = m_gamepadCount;
+		}
 
 		// update mouse and delta
 		state->m_mousePosX[state->m_curIndex] = m_mousePos.x;
@@ -45,8 +54,47 @@ void UserInput::input()
 		state->m_clipboardString = m_window.getClipboardText();
 	}
 
+	// update input state component
+	{
+		auto *rawState = m_ecs->getSingletonComponent<RawInputStateComponent>();
+		auto *state = m_ecs->getSingletonComponent<InputStateComponent>();
+
+		*state = {};
+
+		// mouse + keyboard
+		state->m_moveForwardAxis += rawState->isKeyDown(InputKey::W) ? 1.0f : 0.0f;
+		state->m_moveForwardAxis += rawState->isKeyDown(InputKey::S) ? -1.0f : 0.0f;
+		state->m_moveRightAxis += rawState->isKeyDown(InputKey::D) ? 1.0f : 0.0f;
+		state->m_moveRightAxis += rawState->isKeyDown(InputKey::A) ? -1.0f : 0.0f;
+		state->m_turnRightAxis += rawState->isMouseButtonDown(InputMouse::BUTTON_RIGHT) ? rawState->m_mousePosDeltaX * 0.005f : 0.0f;
+		state->m_lookUpAxis += rawState->isMouseButtonDown(InputMouse::BUTTON_RIGHT) ? -rawState->m_mousePosDeltaY * 0.005f : 0.0f;
+		state->m_zoomAxis += -rawState->m_scrollDeltaY;
+		state->m_jumpAction = { rawState->isKeyPressed(InputKey::SPACE), rawState->isKeyDown(InputKey::SPACE), rawState->isKeyReleased(InputKey::SPACE) };
+		state->m_crouchAction = { rawState->isKeyPressed(InputKey::LEFT_CONTROL), rawState->isKeyDown(InputKey::LEFT_CONTROL), rawState->isKeyReleased(InputKey::LEFT_CONTROL) };
+		state->m_sprintAction = { rawState->isKeyPressed(InputKey::LEFT_SHIFT), rawState->isKeyDown(InputKey::LEFT_SHIFT), rawState->isKeyReleased(InputKey::LEFT_SHIFT) };
+		state->m_shootAction = { rawState->isKeyPressed(InputKey::F), rawState->isKeyDown(InputKey::F), rawState->isKeyReleased(InputKey::F) };
+
+
+		// gamepad
+		if (rawState->m_gamepadCount > 0 && rawState->m_gamepadStates[rawState->m_curIndex][0].m_id != -1)
+		{
+			const auto &gp = rawState->m_gamepadStates[rawState->m_curIndex][0];
+			const auto &gpPrev = rawState->m_gamepadStates[rawState->m_prevIndex][0];
+			state->m_moveForwardAxis += gp.m_leftStickY * (float)(!gp.m_rightStick);
+			state->m_moveRightAxis += gp.m_leftStickX * (float)(!gp.m_rightStick);
+			state->m_turnRightAxis += gp.m_rightStickX * 0.005f * (float)(!gp.m_rightStick);
+			state->m_lookUpAxis += gp.m_rightStickY * 0.005f * (float)(!gp.m_rightStick);
+			state->m_zoomAxis += -gp.m_leftStickY * 0.2f * (float)(gp.m_rightStick);
+			state->m_jumpAction = { gp.m_buttonA && !gpPrev.m_buttonA, gp.m_buttonA, !gp.m_buttonA && gpPrev.m_buttonA };
+			//state->m_crouchAction = { rawState->isKeyPressed(InputKey::LEFT_CONTROL), rawState->isKeyDown(InputKey::LEFT_CONTROL), rawState->isKeyReleased(InputKey::LEFT_CONTROL) };
+			state->m_sprintAction = { gp.m_buttonB && !gpPrev.m_buttonB, gp.m_buttonB, !gp.m_buttonB && gpPrev.m_buttonB };
+			state->m_shootAction = { gp.m_buttonX && !gpPrev.m_buttonX, gp.m_buttonX, !gp.m_buttonX && gpPrev.m_buttonX };
+		}
+	}
+
 	m_mousePosDelta = (m_mousePos - m_previousMousePos);
 	m_previousMousePos = m_mousePos;
+	m_scrollOffset = {};
 }
 
 glm::vec2 UserInput::getPreviousMousePos() const
@@ -222,4 +270,10 @@ void UserInput::onMouseScroll(double xOffset, double yOffset)
 
 	m_scrollOffset.x = static_cast<float>(xOffset);
 	m_scrollOffset.y = static_cast<float>(yOffset);
+}
+
+void UserInput::onGamepadStateUpdate(size_t count, const GamepadState *gamepads)
+{
+	m_gamepadCount = count;
+	m_gamepads = gamepads;
 }

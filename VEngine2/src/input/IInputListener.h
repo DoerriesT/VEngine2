@@ -1,6 +1,8 @@
 #pragma once
 #include "InputTokens.h"
 
+struct GamepadState;
+
 class ICharListener
 {
 public:
@@ -32,12 +34,20 @@ public:
 	virtual void onMouseScroll(double xOffset, double yOffset) = 0;
 };
 
+class IGamePadListener
+{
+public:
+	virtual void onGamepadStateUpdate(size_t count, const GamepadState *gamepads) = 0;
+};
+
+
 class IInputListener
 	: public ICharListener,
 	public IKeyListener,
 	public IMouseButtonListener,
 	public IMouseMoveListener,
-	public IScrollListener
+	public IScrollListener,
+	public IGamePadListener
 {
 
 };

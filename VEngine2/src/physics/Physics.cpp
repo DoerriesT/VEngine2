@@ -211,7 +211,7 @@ void Physics::update(float deltaTime) noexcept
 							dynamic->setLinearDamping(pc.m_linearDamping);
 							dynamic->setAngularDamping(pc.m_angularDamping);
 							dynamic->setLinearVelocity(PxVec3(pc.m_initialVelocityX, pc.m_initialVelocityY, pc.m_initialVelocityZ));
-						}				
+						}
 
 						actor = dynamic;
 					}
@@ -239,39 +239,6 @@ void Physics::update(float deltaTime) noexcept
 			}
 		});
 
-	// step the simulation
-	constexpr float k_stepSize = 1.0f / 60.0f;
-	m_timeAccumulator += deltaTime;
-	while (m_timeAccumulator >= k_stepSize)
-	{
-		m_timeAccumulator -= k_stepSize;
-		m_pxScene->simulate(k_stepSize);
-		m_pxScene->fetchResults(true);
-	}
-	
-
-	// sync entities with physics state
-	m_ecs->iterate<TransformComponent, PhysicsComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, PhysicsComponent *physicsC)
-		{
-			for (size_t i = 0; i < count; ++i)
-			{
-				auto &tc = transC[i];
-				auto &pc = physicsC[i];
-				
-				if (pc.m_mobility == PhysicsMobility::DYNAMIC)
-				{
-					auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
-					tc.m_translation.x = pxTc.p.x;
-					tc.m_translation.y = pxTc.p.y;
-					tc.m_translation.z = pxTc.p.z;
-					tc.m_rotation.x = pxTc.q.x;
-					tc.m_rotation.y = pxTc.q.y;
-					tc.m_rotation.z = pxTc.q.z;
-					tc.m_rotation.w = pxTc.q.w;
-				}
-			}
-		});
-
 	// character controller
 	m_ecs->iterate<TransformComponent, CharacterControllerComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, CharacterControllerComponent *ccC)
 		{
@@ -280,7 +247,7 @@ void Physics::update(float deltaTime) noexcept
 				auto &cc = ccC[i];
 				auto &tc = transC[i];
 
-				const float centerToCameraHeight = cc.m_cameraHeight - cc.m_capsuleHeight * 0.5f;
+				const float centerToTranslationCompHeight = cc.m_translationHeightOffset - cc.m_capsuleHeight * 0.5f;
 				const float adjustedHeight = cc.m_capsuleHeight - 2.0f * cc.m_contactOffset;
 				const float adjustedRadius = cc.m_capsuleRadius - cc.m_contactOffset;
 
@@ -289,7 +256,7 @@ void Physics::update(float deltaTime) noexcept
 					PxCapsuleControllerDesc  controllerDesc{};
 					controllerDesc.radius = adjustedRadius;
 					controllerDesc.height = adjustedHeight - 2.0f * adjustedRadius;
-					controllerDesc.position.set(tc.m_translation.x, tc.m_translation.y - centerToCameraHeight, tc.m_translation.z);
+					controllerDesc.position.set(tc.m_translation.x, tc.m_translation.y - centerToTranslationCompHeight, tc.m_translation.z);
 					controllerDesc.slopeLimit = cc.m_slopeLimit;
 					controllerDesc.contactOffset = cc.m_contactOffset;
 					controllerDesc.stepOffset = cc.m_stepOffset;
@@ -304,7 +271,7 @@ void Physics::update(float deltaTime) noexcept
 				controller->resize(adjustedHeight - 2.0f * adjustedRadius);
 
 				auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.01f, deltaTime, PxControllerFilters());
-				
+
 				cc.m_collisionFlags = CharacterControllerCollisionFlags::NONE;
 				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_SIDES) ? CharacterControllerCollisionFlags::SIDES : CharacterControllerCollisionFlags::NONE;
 				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_UP) ? CharacterControllerCollisionFlags::UP : CharacterControllerCollisionFlags::NONE;
@@ -318,8 +285,41 @@ void Physics::update(float deltaTime) noexcept
 				auto centerPos = controller->getPosition();
 
 				tc.m_translation.x = (float)centerPos.x;
-				tc.m_translation.y = (float)centerPos.y + centerToCameraHeight;
+				tc.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
 				tc.m_translation.z = (float)centerPos.z;
+			}
+		});
+
+	// step the simulation
+	constexpr float k_stepSize = 1.0f / 60.0f;
+	m_timeAccumulator += deltaTime;
+	while (m_timeAccumulator >= k_stepSize)
+	{
+		m_timeAccumulator -= k_stepSize;
+		m_pxScene->simulate(k_stepSize);
+		m_pxScene->fetchResults(true);
+	}
+
+
+	// sync entities with physics state
+	m_ecs->iterate<TransformComponent, PhysicsComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, PhysicsComponent *physicsC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				auto &pc = physicsC[i];
+
+				if (pc.m_mobility == PhysicsMobility::DYNAMIC)
+				{
+					auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
+					tc.m_translation.x = pxTc.p.x;
+					tc.m_translation.y = pxTc.p.y;
+					tc.m_translation.z = pxTc.p.z;
+					tc.m_rotation.x = pxTc.q.x;
+					tc.m_rotation.y = pxTc.q.y;
+					tc.m_rotation.z = pxTc.q.z;
+					tc.m_rotation.w = pxTc.q.w;
+				}
 			}
 		});
 }
@@ -400,7 +400,7 @@ PhysicsConvexMeshHandle Physics::createConvexMesh(uint32_t size, const char *dat
 	PhysicsConvexMeshHandle handle{};
 
 	// LOCK_HOLDER(m_materialsMutex);
-	
+
 	// allocate handle
 	{
 		// LOCK_HOLDER(m_handleManagerMutex);
@@ -423,7 +423,7 @@ PhysicsConvexMeshHandle Physics::createConvexMesh(uint32_t size, const char *dat
 
 		// unfortunately we need to cast the constness away, but it should still be ok because the PxDefaultMemoryInputData
 		// constructor directly assigns it to a const member.
-		PxDefaultMemoryInputData input(const_cast<PxU8 *>(reinterpret_cast<const PxU8*>(data)), size);
+		PxDefaultMemoryInputData input(const_cast<PxU8 *>(reinterpret_cast<const PxU8 *>(data)), size);
 		auto *mesh = m_pxPhysics->createConvexMesh(input);
 		m_convexMeshes[handle - 1] = mesh;
 	}

@@ -17,6 +17,7 @@
 #include "Level.h"
 #include "asset/AssetHandlerRegistration.h"
 #include "file/FileDialog.h"
+#include "CharacterMovementSystem.h"
 
 // these are needed for EASTL
 
@@ -74,6 +75,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
 
+	CharacterMovementSystem characterMovementSystem(m_ecs);
+
 	m_gameLogic->init(this);
 
 	Timer timer;
@@ -105,6 +108,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		m_physics->update(timeDelta);
 
 		m_gameLogic->update(timeDelta);
+
+		characterMovementSystem.update(timeDelta);
 
 		m_animationSystem->update(timeDelta);
 

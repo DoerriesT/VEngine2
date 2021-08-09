@@ -310,3 +310,7 @@ void ImGuiInputAdapter::onMouseScroll(double xOffset, double yOffset) noexcept
 	// restore context
 	ImGui::SetCurrentContext(prevImGuiContext);
 }
+
+void ImGuiInputAdapter::onGamepadStateUpdate(size_t count, const GamepadState *gamepads) noexcept
+{
+}

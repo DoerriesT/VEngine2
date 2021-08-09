@@ -23,7 +23,7 @@ struct CharacterControllerComponent
 	float m_density = 10.0f;
 	float m_capsuleRadius = 0.2f;
 	float m_capsuleHeight = 1.8f;
-	float m_cameraHeight = 1.7f;
+	float m_translationHeightOffset = 1.7f; // offset to apply to the y-component of the resulting "feet" position of the capsule when setting the translation
 
 	// per frame input
 	float m_movementDeltaX = 0.0f;

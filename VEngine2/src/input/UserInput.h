@@ -39,6 +39,7 @@ public:
 	void onMouseButton(InputMouse mouseButton, InputAction action) override;
 	void onMouseMove(double x, double y) override;
 	void onMouseScroll(double xOffset, double yOffset) override;
+	void onGamepadStateUpdate(size_t count, const GamepadState *gamepads);
 
 private:
 	Window &m_window;
@@ -58,4 +59,6 @@ private:
 	eastl::bitset<350> m_pressedKeys;
 	eastl::bitset<350> m_repeatedKeys;
 	eastl::bitset<8> m_pressedMouseButtons;
+	size_t m_gamepadCount = 0;
+	const GamepadState *m_gamepads = nullptr;
 };

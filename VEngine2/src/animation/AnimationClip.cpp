@@ -106,6 +106,38 @@ AnimationClip::AnimationClip(size_t fileSize, const char *fileData) noexcept
 
 	m_scaleData = reinterpret_cast<const float *>(m_memory + curMemOffset);
 	curMemOffset += scaleCount * sizeof(float) * 1;
+
+	// compute root motion
+	{
+		const uint32_t rootTranslationFrameCount = jointInfo[0 * 6 + 0];
+
+		float prevTrans[3];
+		prevTrans[0] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 0];
+		prevTrans[1] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 1];
+		prevTrans[2] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 2];
+		float prevTimeKey = m_translationTimeKeys[rootTranslationFrameCount - 1];
+
+		for (size_t i = 0; i < rootTranslationFrameCount; ++i)
+		{
+			float curTrans[3];
+			// add final frame translation to handle wrap around more easily
+			curTrans[0] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 0] + m_translationData[i * 3 + 0];
+			curTrans[1] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 1] + m_translationData[i * 3 + 1];
+			curTrans[2] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 2] + m_translationData[i * 3 + 2];
+
+			float curTimeKey = m_translationTimeKeys[rootTranslationFrameCount - 1] + m_translationTimeKeys[i];
+
+			float timeDiff = curTimeKey - prevTimeKey;
+			float velocity[3];
+			velocity[0] = (curTrans[0] - prevTrans[0]) / timeDiff;
+			velocity[1] = (curTrans[1] - prevTrans[1]) / timeDiff;
+			velocity[2] = (curTrans[2] - prevTrans[2]) / timeDiff;
+
+			m_rootVelocityData.push_back(velocity[0]);
+			m_rootVelocityData.push_back(velocity[1]);
+			m_rootVelocityData.push_back(velocity[2]);
+		}
+	}
 }
 
 AnimationClip::~AnimationClip()
@@ -124,7 +156,7 @@ uint32_t AnimationClip::getJointCount() const noexcept
 	return m_jointCount;
 }
 
-JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop) const noexcept
+JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop, bool extractRootMotion) const noexcept
 {
 	assert(jointIdx < m_jointCount);
 
@@ -142,7 +174,16 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop) co
 			const float *timeKeys = m_translationTimeKeys + arrayOffset;
 			const float *data = m_translationData + (arrayOffset * 3);
 
-			sampleData(3, time, frameCount, loop, timeKeys, data, jointPose.m_trans);
+			float adjustedTime = time;
+			bool adjustedLoop = loop;
+
+			if (jointIdx == 0 && extractRootMotion)
+			{
+				adjustedTime = 0.0f;
+				adjustedLoop = false;
+			}
+			sampleData(3, adjustedTime, frameCount, adjustedLoop, timeKeys, data, jointPose.m_trans);
+
 		}
 	}
 
@@ -197,4 +238,18 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop) co
 	}
 
 	return jointPose;
+}
+
+void AnimationClip::getRootVelocity(float time, bool loop, float *result) const noexcept
+{
+	result[0] = 0.0f;
+	result[1] = 0.0f;
+	result[2] = 0.0f;
+
+	uint32_t frameCount = m_perJointInfo[0 * 6 + 0];
+
+	if (frameCount)
+	{
+		sampleData(3, time, frameCount, loop, m_translationTimeKeys, m_rootVelocityData.data(), result);
+	}
 }

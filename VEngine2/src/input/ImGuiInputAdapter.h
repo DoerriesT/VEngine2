@@ -19,6 +19,7 @@ public:
 	void onMouseButton(InputMouse mouseButton, InputAction action) noexcept override;
 	void onMouseMove(double x, double y) noexcept override;
 	void onMouseScroll(double xOffset, double yOffset) noexcept override;
+	void onGamepadStateUpdate(size_t count, const GamepadState *gamepads) noexcept override;
 
 private:
 	ImGuiContext *m_context = nullptr;

@@ -29,7 +29,8 @@ Window::Window(unsigned int width, unsigned int height, WindowMode windowMode, c
 	m_windowedWidth(width),
 	m_windowedHeight(height),
 	m_title(title),
-	m_configurationChanged()
+	m_configurationChanged(),
+	m_gamepads(16)
 {
 	glfwInit();
 
@@ -149,6 +150,77 @@ void Window::pollEvents()
 		m_configurationChanged = true;
 		m_windowMode = m_newWindowMode;
 	}
+
+	// gamepads
+	{
+		const float *axisValues;
+		const unsigned char *buttonValues;
+		int axisCount;
+		int buttonCount;
+
+		for (int i = 0; i < m_gamepads.size(); ++i)
+		{
+			bool connected = glfwJoystickPresent(i);
+
+			axisValues = glfwGetJoystickAxes(i, &axisCount);
+			buttonValues = glfwGetJoystickButtons(i, &buttonCount);
+
+			if (connected && axisCount == 6 && buttonCount == 14)
+			{
+				/*
+				buttons:
+				0 = A
+				1 = B
+				2 = X
+				3 = Y
+				4 = LB
+				5 = RB
+				6 = back
+				7 = start
+				8 = left stick
+				9 = right stick
+				10 = up
+				11 = right
+				12 = down
+				13 = left
+
+				axes:
+				0 = left x
+				1 = left y
+				2 = right x
+				3 = right y
+				4 = LT
+				5 = RT
+				*/
+
+				m_gamepads[i].m_id = i;
+				m_gamepads[i].m_buttonA = buttonValues[0];
+				m_gamepads[i].m_buttonB = buttonValues[1];
+				m_gamepads[i].m_buttonX = buttonValues[2];
+				m_gamepads[i].m_buttonY = buttonValues[3];
+				m_gamepads[i].m_leftButton = buttonValues[4];
+				m_gamepads[i].m_rightButton = buttonValues[5];
+				m_gamepads[i].m_backButton = buttonValues[6];
+				m_gamepads[i].m_startButton = buttonValues[7];
+				m_gamepads[i].m_leftStick = buttonValues[8];
+				m_gamepads[i].m_rightStick = buttonValues[9];
+				m_gamepads[i].m_dPadUp = buttonValues[10];
+				m_gamepads[i].m_dPadRight = buttonValues[11];
+				m_gamepads[i].m_dPadDown = buttonValues[12];
+				m_gamepads[i].m_dPadLeft = buttonValues[13];
+				m_gamepads[i].m_leftStickX = axisValues[0];
+				m_gamepads[i].m_leftStickY = axisValues[1];
+				m_gamepads[i].m_rightStickX = axisValues[2];
+				m_gamepads[i].m_rightStickY = axisValues[3];
+				m_gamepads[i].m_leftTrigger = axisValues[4];
+				m_gamepads[i].m_rightTrigger = axisValues[5];
+			}
+			else
+			{
+				m_gamepads[i].m_id = -1;
+			}
+		}
+	}
 }
 
 void *Window::getWindowHandle() const
@@ -240,6 +312,7 @@ void Window::setTitle(const std::string &title)
 void Window::addInputListener(IInputListener *listener)
 {
 	m_inputListeners.push_back(listener);
+	listener->onGamepadStateUpdate(m_gamepads.size(), m_gamepads.data());
 }
 
 void Window::removeInputListener(IInputListener *listener)

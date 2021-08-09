@@ -8,8 +8,6 @@
 #include "SceneGraphWindow.h"
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
-#include <component/CharacterControllerComponent.h>
-#include <component/PlayerMovementComponent.h>
 
 Editor::Editor(IGameLogic *gameLogic) noexcept
 	:m_gameLogic(gameLogic)
@@ -24,11 +22,8 @@ void Editor::init(Engine *engine) noexcept
 	transC.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
 	CameraComponent cameraC{};
 	cameraC.m_fovy = glm::radians(60.0f);
-	CharacterControllerComponent ccC{};
-	PlayerMovementComponent pmC{};
-	pmC.m_active = true;
 
-	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent, CharacterControllerComponent, PlayerMovementComponent>(transC, cameraC, ccC, pmC);
+	m_editorCameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>(transC, cameraC);
 
 	m_engine->setEditorMode(true);
 	m_viewportWindow = new ViewportWindow(engine, &m_editorCameraEntity);
@@ -37,6 +32,13 @@ void Editor::init(Engine *engine) noexcept
 	m_sceneGraphWindow = new SceneGraphWindow(engine);
 
 	m_gameLogic->init(engine);
+	m_gameIsPlaying = false;
+	m_gameLogic->setPlaying(m_gameIsPlaying);
+}
+
+void Editor::setPlaying(bool playing) noexcept
+{
+
 }
 
 void Editor::update(float deltaTime) noexcept
@@ -103,15 +105,31 @@ void Editor::update(float deltaTime) noexcept
 
 	ImGui::End();
 
+	// quick menu
+	{
+		ImGui::Begin("Quick Menu", nullptr, ImGuiWindowFlags_NoDecoration);
+
+		if (ImGui::Button(m_gameIsPlaying ? "Stop" : "Start"))
+		{
+			m_gameIsPlaying = !m_gameIsPlaying;
+			m_gameLogic->setPlaying(m_gameIsPlaying);
+		}
+
+		ImGui::End();
+	}
+
 	m_sceneGraphWindow->draw();
 	m_inspectorWindow->draw(m_sceneGraphWindow->getSelectedEntity());
-	m_viewportWindow->draw(deltaTime);
+	m_viewportWindow->draw(deltaTime, m_gameIsPlaying);
 	m_assetBrowserWindow->draw();
 	
 
 	m_gameLogic->update(deltaTime);
 
-	m_engine->getRenderer()->setCameraEntity(m_editorCameraEntity);
+	if (!m_gameIsPlaying)
+	{
+		m_engine->getRenderer()->setCameraEntity(m_editorCameraEntity);
+	}
 }
 
 void Editor::shutdown() noexcept
