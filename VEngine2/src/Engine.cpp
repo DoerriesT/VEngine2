@@ -81,6 +81,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	Timer timer;
 
+	float accumulator = 0.0f;
+
 	while (!m_window->shouldClose())
 	{
 		OPTICK_FRAME("MainThread");
@@ -88,32 +90,41 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		timer.update();
 		float timeDelta = static_cast<float>(timer.getTimeDelta());
 
-		m_window->pollEvents();
 
-		if (m_window->configurationChanged() || m_viewportParamsDirty)
+		constexpr float k_stepSize = 1.0f / 60.0f;
+		accumulator += timeDelta;
+		while (accumulator >= k_stepSize)
 		{
-			m_viewportParamsDirty = false;
+			accumulator -= k_stepSize;
+			
 
-			imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
-			m_renderer->resize(m_window->getWidth(), m_window->getHeight(), m_editorMode ? m_editorViewportWidth : m_window->getWidth(), m_editorMode ? m_editorViewportHeight : m_window->getHeight());
+			m_window->pollEvents();
+
+			if (m_window->configurationChanged() || m_viewportParamsDirty)
+			{
+				m_viewportParamsDirty = false;
+
+				imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
+				m_renderer->resize(m_window->getWidth(), m_window->getHeight(), m_editorMode ? m_editorViewportWidth : m_window->getWidth(), m_editorMode ? m_editorViewportHeight : m_window->getHeight());
+			}
+
+			m_userInput->input();
+			imguiInputAdapter.update();
+			ImGui::NewFrame();
+
+
+			ImGui::ShowDemoWindow();
+
+			m_physics->update(k_stepSize);
+
+			m_gameLogic->update(k_stepSize);
+
+			characterMovementSystem.update(k_stepSize);
+
+			m_animationSystem->update(k_stepSize);
+
+			ImGui::Render();
 		}
-
-		m_userInput->input();
-		imguiInputAdapter.update();
-		ImGui::NewFrame();
-
-
-		ImGui::ShowDemoWindow();
-
-		m_physics->update(timeDelta);
-
-		m_gameLogic->update(timeDelta);
-
-		characterMovementSystem.update(timeDelta);
-
-		m_animationSystem->update(timeDelta);
-
-		ImGui::Render();
 
 		m_renderer->render();
 	}

@@ -47,6 +47,14 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 				const bool touchesGround = (cc.m_collisionFlags & CharacterControllerCollisionFlags::DOWN) != 0;
 				const bool touchesCeiling = (cc.m_collisionFlags & CharacterControllerCollisionFlags::UP) != 0;
 
+				float oldVelocityY = mc.m_velocityY;
+				const float gravity = -9.81f;
+
+				// apply gravity
+				{
+					mc.m_velocityY += gravity * timeDelta;
+				}
+
 				// any downwards velocity is cancelled by touching the ground
 				if (touchesGround)
 				{
@@ -69,9 +77,12 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 							mc.m_jumping = false;
 						}
 					}
-					if (mc.m_jumpInputAction)
+					/*else*/ if (/*!mc.m_jumping &&*/ mc.m_jumpInputAction)
 					{
-						mc.m_velocityY += 4.0f;
+						const float jumpHeight = 2.0f;
+						const float jumpVelocity0 = sqrtf(2.0f * fabsf(gravity) * jumpHeight);
+
+						mc.m_velocityY = jumpVelocity0;
 						mc.m_jumping = true;
 					}
 				}
@@ -125,13 +136,7 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 					//cc.m_translationHeightOffset = glm::mix(cameraHeight, crouchedCameraHeight, mc.m_crouchPercentage);
 				}
 
-				// apply vertical velocity
-				{
-					// gravity alway applies to our velocity
-					mc.m_velocityY += -9.81f * timeDelta;
-
-					movementDelta.y += mc.m_velocityY * timeDelta;
-				}
+				movementDelta.y += (oldVelocityY + mc.m_velocityY) * 0.5f * timeDelta;
 
 				cc.m_movementDeltaX = movementDelta.x;
 				cc.m_movementDeltaY = movementDelta.y;

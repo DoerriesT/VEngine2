@@ -291,14 +291,16 @@ void Physics::update(float deltaTime) noexcept
 		});
 
 	// step the simulation
-	constexpr float k_stepSize = 1.0f / 60.0f;
-	m_timeAccumulator += deltaTime;
-	while (m_timeAccumulator >= k_stepSize)
-	{
-		m_timeAccumulator -= k_stepSize;
-		m_pxScene->simulate(k_stepSize);
-		m_pxScene->fetchResults(true);
-	}
+	m_pxScene->simulate(deltaTime);
+	m_pxScene->fetchResults(true);
+	//constexpr float k_stepSize = 1.0f / 60.0f;
+	//m_timeAccumulator += deltaTime;
+	//while (m_timeAccumulator >= k_stepSize)
+	//{
+	//	m_timeAccumulator -= k_stepSize;
+	//	m_pxScene->simulate(k_stepSize);
+	//	m_pxScene->fetchResults(true);
+	//}
 
 
 	// sync entities with physics state

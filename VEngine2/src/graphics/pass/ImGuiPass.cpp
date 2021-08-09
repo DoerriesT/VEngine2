@@ -62,6 +62,10 @@ ImGuiPass::~ImGuiPass()
 
 void ImGuiPass::record(gal::CommandList *cmdList, const Data &data)
 {
+	if (!data.m_imGuiDrawData)
+	{
+		return;
+	}
 	// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
 	int fb_width = (int)(data.m_imGuiDrawData->DisplaySize.x * data.m_imGuiDrawData->FramebufferScale.x);
 	int fb_height = (int)(data.m_imGuiDrawData->DisplaySize.y * data.m_imGuiDrawData->FramebufferScale.y);
