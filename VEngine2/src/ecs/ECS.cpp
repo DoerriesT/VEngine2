@@ -76,7 +76,23 @@ void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) noexce
 	return nullptr;
 }
 
-bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
+const void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) const noexcept
+{
+	assert(isRegisteredComponent(1, &componentID));
+	assert(isNotSingletonComponent(1, &componentID));
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	const auto record = m_entityRecords.find(entity)->second;
+
+	if (record.m_archetype)
+	{
+		return record.m_archetype->getComponentMemory(record.m_slot, componentID);
+	}
+
+	return nullptr;
+}
+
+bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) const noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
 	assert(isNotSingletonComponent(componentCount, componentIDs));
@@ -88,7 +104,7 @@ bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const Co
 		return true;
 	}
 
-	auto record = m_entityRecords[entity];
+	auto record = m_entityRecords.find(entity)->second;
 
 	// entity has no components at all
 	if (componentCount > 0 && !record.m_archetype)
@@ -109,15 +125,15 @@ bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const Co
 	return true;
 }
 
-ComponentMask ECS::getComponentMask(EntityID entity) noexcept
+ComponentMask ECS::getComponentMask(EntityID entity) const noexcept
 {
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-	auto record = m_entityRecords[entity];
+	auto record = m_entityRecords.find(entity)->second;
 
 	return record.m_archetype ? record.m_archetype->getComponentMask() : 0;
 }
 
-ComponentMask ECS::getRegisteredComponentMask() noexcept
+ComponentMask ECS::getRegisteredComponentMask() const noexcept
 {
 	ComponentMask mask = 0;
 
@@ -129,7 +145,7 @@ ComponentMask ECS::getRegisteredComponentMask() noexcept
 	return mask;
 }
 
-ComponentMask ECS::getRegisteredComponentMaskWithSingletons() noexcept
+ComponentMask ECS::getRegisteredComponentMaskWithSingletons() const noexcept
 {
 	ComponentMask mask = 0;
 
@@ -141,7 +157,7 @@ ComponentMask ECS::getRegisteredComponentMaskWithSingletons() noexcept
 	return mask;
 }
 
-bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept
+bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) const noexcept
 {
 	for (size_t i = 0; i < count; ++i)
 	{
@@ -153,7 +169,7 @@ bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) n
 	return true;
 }
 
-bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept
+bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs) const noexcept
 {
 	for (size_t i = 0; i < count; ++i)
 	{

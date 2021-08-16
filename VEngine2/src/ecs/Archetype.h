@@ -69,7 +69,7 @@ public:
 	/// Gets the ComponentMask defining this Archetype.
 	/// </summary>
 	/// <returns>This Archetypes ComponentMask.</returns>
-	const ComponentMask &getComponentMask() noexcept;
+	const ComponentMask &getComponentMask() const noexcept;
 
 	/// <summary>
 	/// Gets the vector of ArchetypeMemoryChunks. 
@@ -82,7 +82,7 @@ public:
 	/// </summary>
 	/// <param name="componentID">The component type to get the offset for.</param>
 	/// <returns>The byte offset into memory chunks where the array of components of the given type starts.</returns>
-	size_t getComponentArrayOffset(ComponentID componentID) noexcept;
+	size_t getComponentArrayOffset(ComponentID componentID) const noexcept;
 
 	/// <summary>
 	/// Allocates a slot for storing an entity and its components. Does not call constructors.
@@ -127,6 +127,14 @@ public:
 	/// <param name="componentID">The type of the component.</param>
 	/// <returns>A pointer to the memory of the component of the given entity.</returns>
 	uint8_t *getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) noexcept;
+
+	/// <summary>
+	/// Gets a pointer to the memory of a component of a given entity.
+	/// </summary>
+	/// <param name="slot">The slot of the entity.</param>
+	/// <param name="componentID">The type of the component.</param>
+	/// <returns>A pointer to the memory of the component of the given entity.</returns>
+	const uint8_t *getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) const noexcept;
 
 private:
 	ComponentMask m_componentMask = {};

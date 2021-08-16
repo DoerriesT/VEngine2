@@ -217,7 +217,7 @@ inline T *ECS::getComponent(EntityID entity) noexcept
 }
 
 template<typename T>
-inline bool ECS::hasComponent(EntityID entity) noexcept
+inline const T *ECS::getComponent(EntityID entity) const noexcept
 {
 	const ComponentID componentID = ComponentIDGenerator::getID<T>();
 
@@ -225,12 +225,31 @@ inline bool ECS::hasComponent(EntityID entity) noexcept
 	assert(isNotSingletonComponent<T>());
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	auto record = m_entityRecords[entity];
+	const auto record = m_entityRecords.find(entity)->second;
+
+	if (record.m_archetype)
+	{
+		return (const T *)record.m_archetype->getComponentMemory(record.m_slot, componentID);
+	}
+
+	return nullptr;
+}
+
+template<typename T>
+inline bool ECS::hasComponent(EntityID entity) const noexcept
+{
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+
+	assert(isRegisteredComponent<T>());
+	assert(isNotSingletonComponent<T>());
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	const auto record = m_entityRecords.find(entity)->second;
 	return record.m_archetype && record.m_archetype->getComponentMask()[componentID];
 }
 
 template<typename ...T>
-inline bool ECS::hasComponents(EntityID entity) noexcept
+inline bool ECS::hasComponents(EntityID entity) const noexcept
 {
 	assert(isRegisteredComponent<T...>());
 	assert(isNotSingletonComponent<T...>());
@@ -241,7 +260,7 @@ inline bool ECS::hasComponents(EntityID entity) noexcept
 		return true;
 	}
 
-	auto record = m_entityRecords[entity];
+	const auto record = m_entityRecords.find(entity)->second;
 	return record.m_archetype && (... && (record.m_archetype->getComponentMask()[ComponentIDGenerator::getID<T>()]));
 }
 
@@ -291,14 +310,25 @@ inline T *ECS::getSingletonComponent() noexcept
 	return reinterpret_cast<T *>(m_singletonComponents[componentID]);
 }
 
+template<typename T>
+inline const T *ECS::getSingletonComponent() const noexcept
+{
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+
+	assert(isRegisteredComponent<T>());
+	assert(!isNotSingletonComponent<T>());
+
+	return reinterpret_cast<const T *>(m_singletonComponents[componentID]);
+}
+
 template<typename ...T>
-inline bool ECS::isRegisteredComponent() noexcept
+inline bool ECS::isRegisteredComponent() const noexcept
 {
 	return (... && (m_componentInfo[ComponentIDGenerator::getID<T>()].m_defaultConstructor != nullptr));
 }
 
 template<typename ...T>
-inline bool ECS::isNotSingletonComponent() noexcept
+inline bool ECS::isNotSingletonComponent() const noexcept
 {
 	return (... && (!m_singletonComponentsBitset[ComponentIDGenerator::getID<T>()]));
 }

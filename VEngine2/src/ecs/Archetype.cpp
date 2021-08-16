@@ -62,7 +62,7 @@ Archetype::~Archetype() noexcept
 	m_memoryChunks.clear();
 }
 
-const ComponentMask &Archetype::getComponentMask() noexcept
+const ComponentMask &Archetype::getComponentMask() const noexcept
 {
 	return m_componentMask;
 }
@@ -72,7 +72,7 @@ const eastl::vector<ArchetypeMemoryChunk> &Archetype::getMemoryChunks() noexcept
 	return m_memoryChunks;
 }
 
-size_t Archetype::getComponentArrayOffset(ComponentID componentID) noexcept
+size_t Archetype::getComponentArrayOffset(ComponentID componentID) const noexcept
 {
 	assert(m_componentMask[componentID]);
 
@@ -227,6 +227,16 @@ void Archetype::callDestructors(const ArchetypeSlot &slot) noexcept
 }
 
 uint8_t *Archetype::getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) noexcept
+{
+	if (!m_componentMask[componentID] || slot.m_chunkIdx >= m_memoryChunks.size() || slot.m_chunkSlotIdx >= m_memoryChunks[slot.m_chunkIdx].m_size)
+	{
+		return nullptr;
+	}
+
+	return m_memoryChunks[slot.m_chunkIdx].m_memory + getComponentArrayOffset(componentID) + m_componentInfo[componentID].m_size * slot.m_chunkSlotIdx;
+}
+
+const uint8_t *Archetype::getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) const noexcept
 {
 	if (!m_componentMask[componentID] || slot.m_chunkIdx >= m_memoryChunks.size() || slot.m_chunkSlotIdx >= m_memoryChunks[slot.m_chunkIdx].m_size)
 	{

@@ -215,6 +215,15 @@ public:
 	inline T *getComponent(EntityID entity) noexcept;
 
 	/// <summary>
+	/// Gets a component from an entity.
+	/// </summary>
+	/// <typeparam name="T">The type of the component to get.</typeparam>
+	/// <param name="entity">The entity from which to get the component.</param>
+	/// <returns>A pointer to the requested component or nullptr if no such component is attached to the entity.</returns>
+	template<typename T>
+	inline const T *getComponent(EntityID entity) const noexcept;
+
+	/// <summary>
 	/// Gets a void * to a component of an entity.
 	/// </summary>
 	/// <param name="entity">The entity from which to get the component.</param>
@@ -223,13 +232,21 @@ public:
 	void *getComponentTypeless(EntityID entity, ComponentID componentID) noexcept;
 
 	/// <summary>
+	/// Gets a void * to a component of an entity.
+	/// </summary>
+	/// <param name="entity">The entity from which to get the component.</param>
+	/// <param name="componentID">The ComponentID of the component to get.</param>
+	/// <returns>A pointer to the requested component or nullptr if no such component is attached to the entity.</returns>
+	const void *getComponentTypeless(EntityID entity, ComponentID componentID) const noexcept;
+
+	/// <summary>
 	/// Tests if a given entity has a certain component.
 	/// </summary>
 	/// <typeparam name="T">The type of the component to check for.</typeparam>
 	/// <param name="entity">The entity to test for the component.</param>
 	/// <returns>True if the entity has the component.</returns>
 	template<typename T>
-	inline bool hasComponent(EntityID entity) noexcept;
+	inline bool hasComponent(EntityID entity) const noexcept;
 
 	/// <summary>
 	/// Tests if a given entity has a certain set of components.
@@ -238,7 +255,7 @@ public:
 	/// <param name="entity">The entity to test for the components.</param>
 	/// <returns>True if the entity has all the given components.</returns>
 	template<typename ...T>
-	inline bool hasComponents(EntityID entity) noexcept;
+	inline bool hasComponents(EntityID entity) const noexcept;
 
 	/// <summary>
 	/// Tests if a given entity has a certain set of components.
@@ -247,26 +264,26 @@ public:
 	/// <param name="componentCount">The number of component types to check for.</param>
 	/// <param name="componentIDs">A pointer to an array of ComponentIDs to check for.</param>
 	/// <returns>True if all components are present.</returns>
-	bool hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
+	bool hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) const noexcept;
 
 	/// <summary>
 	/// Gets a mask of all components attached to this entity.
 	/// </summary>
 	/// <param name="entity">The entity to get the component mask for.</param>
 	/// <returns>A mask of all components attached to this entity.</returns>
-	ComponentMask getComponentMask(EntityID entity) noexcept;
+	ComponentMask getComponentMask(EntityID entity) const noexcept;
 
 	/// <summary>
 	/// Gets the mask of all registered components. This does not include singleton components. See getRegisteredComponentMaskWithSingletons().
 	/// </summary>
 	/// <returns>The mask of registered components.</returns>
-	ComponentMask getRegisteredComponentMask() noexcept;
+	ComponentMask getRegisteredComponentMask() const noexcept;
 
 	/// <summary>
 	/// Gets a mask of all registered components including singleton components.
 	/// </summary>
 	/// <returns>The mask of registered components including singleton components.</returns>
-	ComponentMask getRegisteredComponentMaskWithSingletons() noexcept;
+	ComponentMask getRegisteredComponentMaskWithSingletons() const noexcept;
 
 	/// <summary>
 	/// Invokes the given function on all entity/component arrays that contain the requested components.
@@ -284,6 +301,14 @@ public:
 	template<typename T>
 	inline T *getSingletonComponent() noexcept;
 
+	/// <summary>
+	/// Gets a singleton component.
+	/// </summary>
+	/// <typeparam name="T">The type of the singleton component to get.</typeparam>
+	/// <returns>The requested singleton component.</returns>
+	template<typename T>
+	inline const T *getSingletonComponent() const noexcept;
+
 private:
 	enum class ComponentConstructorType
 	{
@@ -298,11 +323,11 @@ private:
 	void *m_singletonComponents[k_ecsMaxComponentTypes] = {};
 
 	template<typename ...T>
-	inline bool isRegisteredComponent() noexcept;
+	inline bool isRegisteredComponent() const noexcept;
 	template<typename ...T>
-	inline bool isNotSingletonComponent() noexcept;
-	bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept;
-	bool isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept;
+	inline bool isNotSingletonComponent() const noexcept;
+	bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) const noexcept;
+	bool isNotSingletonComponent(size_t count, const ComponentID *componentIDs) const noexcept;
 
 	EntityID createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	void addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
