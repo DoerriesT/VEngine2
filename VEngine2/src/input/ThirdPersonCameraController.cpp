@@ -7,6 +7,7 @@
 #include "graphics/Camera.h"
 #include "Log.h"
 #include "physics/Physics.h"
+#include <glm/gtx/transform.hpp>
 
 ThirdPersonCameraController::ThirdPersonCameraController(ECS *ecs) noexcept
 	:m_ecs(ecs)
@@ -53,22 +54,46 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 
 	// rotation of character
 	{
-		glm::vec3 characterForward3D = glm::mat3_cast(characterTc->m_rotation) * glm::vec3(0.0f, 1.0f, 0.0f);
-		float characterYaw = atan2f(characterForward3D.z, characterForward3D.x);
-		glm::vec2 toCenter = glm::normalize(glm::vec2(-toCamera.x, -toCamera.z));
-		float cameraDirYaw = m_cameraYaw + glm::pi<float>();//  atan2f(toCenter.y, toCenter.x);
+		auto wrapAngle = [](float x)
+		{
+			float normed = x * glm::one_over_two_pi<float>();
+			return glm::fract(normed) * glm::two_pi<float>();
+		};
 
-		movc->m_turnRightInputAxis = (inputState->m_moveForwardAxis != 0.0f || inputState->m_moveRightAxis != 0.0f) ? (cameraDirYaw - characterYaw) : 0.0f;// *timeDelta;
+		glm::vec3 characterForward3D = glm::mat3_cast(characterTc->m_rotation) * glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::vec3 targetDir = glm::normalize(glm::vec3(movc->m_velocityX, 0.0f, movc->m_velocityZ));
+		targetDir = glm::any(glm::isnan(targetDir)) ? characterForward3D : targetDir;
+		float characterYaw = atan2f(characterForward3D.z, characterForward3D.x);
+		characterYaw = wrapAngle(characterYaw);
+		float targetYaw = atan2f(targetDir.z, targetDir.x);
+		targetYaw = wrapAngle(targetYaw);
+
+		float angle = wrapAngle(targetYaw - characterYaw);
+
+		// pick shortest rotation
+		angle = angle >= glm::pi<float>() ? angle - glm::two_pi<float>() : angle;
+
+		const float rotationsPerSecond = 8.0f;
+		float angleStep = angle * rotationsPerSecond * timeDelta;
+
+		movc->m_turnRightInputAxis = (inputState->m_moveForwardAxis != 0.0f || inputState->m_moveRightAxis != 0.0f) ? angleStep : 0.0f;
+		assert(!glm::isnan(movc->m_turnRightInputAxis));
 	}
 
 	// XZ movement of character
 	{
 		const float walkSpeed = 2.0f;
 		const float sprintSpeed = 6.0f;
-		const float movementSpeed = timeDelta * (inputState->m_sprintAction.m_down ? sprintSpeed : walkSpeed);
+		const float movementSpeed = (inputState->m_sprintAction.m_down ? sprintSpeed : walkSpeed);
 
-		movc->m_movementForwardInputAxis = inputState->m_moveForwardAxis * movementSpeed;
-		movc->m_movementRightInputAxis = inputState->m_moveRightAxis * movementSpeed;
+		glm::vec3 characterMovementDir = camera.getRightDirection() * inputState->m_moveRightAxis + camera.getForwardDirection() * inputState->m_moveForwardAxis;
+		characterMovementDir.y = 0.0f;
+		characterMovementDir = glm::normalize(characterMovementDir);
+		characterMovementDir = glm::any(glm::isnan(characterMovementDir)) ? glm::vec3(0.0f) : characterMovementDir;
+		characterMovementDir *= movementSpeed * glm::length(glm::vec2(inputState->m_moveRightAxis, inputState->m_moveForwardAxis));
+
+		movc->m_movementXInputAxis = characterMovementDir.x;
+		movc->m_movementZInputAxis = characterMovementDir.z;
 	}
 
 	// jumping

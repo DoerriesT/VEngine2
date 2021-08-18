@@ -54,7 +54,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 						smc.m_matrixPalette.resize(jointCount);
 					}
 
-					AnimationGraphContext ctx(this);
+					AnimationGraphContext ctx(this, m_ecs, entities[i]);
 
 					smc.m_animationGraph->preExecute(&ctx, deltaTime);
 

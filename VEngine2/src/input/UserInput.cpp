@@ -82,8 +82,8 @@ void UserInput::input()
 			const auto &gpPrev = rawState->m_gamepadStates[rawState->m_prevIndex][0];
 			state->m_moveForwardAxis += gp.m_leftStickY * (float)(!gp.m_rightStick);
 			state->m_moveRightAxis += gp.m_leftStickX * (float)(!gp.m_rightStick);
-			state->m_turnRightAxis += gp.m_rightStickX * 0.005f * (float)(!gp.m_rightStick);
-			state->m_lookUpAxis += gp.m_rightStickY * 0.005f * (float)(!gp.m_rightStick);
+			state->m_turnRightAxis += gp.m_rightStickX * 0.05f * (float)(!gp.m_rightStick);
+			state->m_lookUpAxis += gp.m_rightStickY * 0.05f * (float)(!gp.m_rightStick);
 			state->m_zoomAxis += -gp.m_leftStickY * 0.2f * (float)(gp.m_rightStick);
 			state->m_jumpAction = { gp.m_buttonA && !gpPrev.m_buttonA, gp.m_buttonA, !gp.m_buttonA && gpPrev.m_buttonA };
 			//state->m_crouchAction = { rawState->isKeyPressed(InputKey::LEFT_CONTROL), rawState->isKeyDown(InputKey::LEFT_CONTROL), rawState->isKeyReleased(InputKey::LEFT_CONTROL) };

@@ -23,6 +23,7 @@ public:
 	glm::quat getRotation() const noexcept;
 	glm::vec3 getForwardDirection() const noexcept;
 	glm::vec3 getUpDirection() const noexcept;
+	glm::vec3 getRightDirection() const noexcept;
 	float getAspectRatio() const noexcept;
 	float getFovy() const noexcept;
 

@@ -84,23 +84,8 @@ public:
 		{
 			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character"));
 			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
-			m_idleClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/idle.anim"));
-			m_walkClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk0.anim"));
-			m_runClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/run.anim"));
-			m_strafeLeftWalkClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/strafe_left_walk.anim"));
-			m_strafeRightWalkClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/strafe_right_walk.anim"));
-			m_strafeLeftRunClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/strafe_left_run.anim"));
-			m_strafeRightRunClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/strafe_right_run.anim"));
 
-			m_customAnimGraph = new CustomAnimGraph(
-				m_idleClip,
-				m_walkClip,
-				m_runClip,
-				m_strafeLeftWalkClip,
-				m_strafeRightWalkClip,
-				m_strafeLeftRunClip,
-				m_strafeRightRunClip
-			);
+			m_customAnimGraph = new CustomAnimGraph();
 
 			TransformComponent transC{};
 			transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
@@ -225,13 +210,6 @@ public:
 			auto *playerMovementComponent = m_engine->getECS()->getComponent<CharacterMovementComponent>(m_playerEntity);
 			m_thirdPersonCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<TransformComponent>(m_playerEntity), playerMovementComponent, m_engine->getPhysics());
 
-			glm::vec2 playerMovementDir = glm::vec2(playerMovementComponent->m_movementRightInputAxis, playerMovementComponent->m_movementForwardInputAxis);
-			float playerMovementSpeed = glm::length(playerMovementDir) / deltaTime / 6.0f;
-			playerMovementSpeed = playerMovementComponent->m_movementForwardInputAxis < 0.0f ? -playerMovementSpeed : playerMovementSpeed;
-			m_customAnimGraph->m_speed = glm::isnan(playerMovementSpeed) ? 0.0f : playerMovementSpeed;
-			glm::vec2 direction = glm::normalize(playerMovementDir);
-			m_customAnimGraph->m_strafe = glm::isnan(direction.x) ? 0.0f : direction.x;
-
 			const auto *inputState = m_engine->getECS()->getSingletonComponent<InputStateComponent>();
 
 			if (inputState->m_shootAction.m_pressed)
@@ -259,7 +237,6 @@ public:
 		ImGui::SliderFloat("Speed", &m_customAnimGraph->m_speed, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 		ImGui::Checkbox("Active", &m_customAnimGraph->m_active);
 		ImGui::Checkbox("Paused", &m_customAnimGraph->m_paused);
-		ImGui::Checkbox("Looping", &m_customAnimGraph->m_loop);
 
 		ImGui::End();
 	}
@@ -283,13 +260,6 @@ public:
 		m_sponzaAsset.release();
 		m_cesiumManAsset.release();
 		m_skeleton.release();
-		m_idleClip.release();
-		m_walkClip.release();
-		m_runClip.release();
-		m_strafeLeftWalkClip.release();
-		m_strafeRightWalkClip.release();
-		m_strafeLeftRunClip.release();
-		m_strafeRightRunClip.release();
 	}
 
 private:
@@ -300,13 +270,6 @@ private:
 	Asset<MeshAssetData> m_sponzaAsset;
 	Asset<MeshAssetData> m_cesiumManAsset;
 	Asset<SkeletonAssetData> m_skeleton;
-	Asset<AnimationClipAssetData> m_idleClip;
-	Asset<AnimationClipAssetData> m_walkClip;
-	Asset<AnimationClipAssetData> m_runClip;
-	Asset<AnimationClipAssetData> m_strafeLeftWalkClip;
-	Asset<AnimationClipAssetData> m_strafeRightWalkClip;
-	Asset<AnimationClipAssetData> m_strafeLeftRunClip;
-	Asset<AnimationClipAssetData> m_strafeRightRunClip;
 	EntityID m_cameraEntity;
 	EntityID m_manEntity;
 	EntityID m_playerEntity;

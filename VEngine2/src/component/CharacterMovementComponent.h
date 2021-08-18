@@ -16,13 +16,15 @@ struct CharacterMovementComponent
 	// internal
 	CrouchState m_crouchState;
 	float m_crouchPercentage;
+	float m_velocityX;
 	float m_velocityY;
+	float m_velocityZ;
 	bool m_active;
 	bool m_jumping;
 
 	// input
-	float m_movementForwardInputAxis;
-	float m_movementRightInputAxis;
+	float m_movementXInputAxis;
+	float m_movementZInputAxis;
 	float m_turnRightInputAxis;
 	bool m_jumpInputAction;
 	bool m_enterCrouchInputAction;

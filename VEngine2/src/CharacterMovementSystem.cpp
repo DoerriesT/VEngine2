@@ -28,19 +28,14 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 					tc.m_rotation = glm::normalize(turnQuat * tc.m_rotation);
 				}
 
-				glm::vec3 movementDelta = glm::vec3(0.0f);
+				mc.m_velocityX = 0.0f;
+				mc.m_velocityZ = 0.0f;
 
 				// XZ movement
 				{
-					glm::vec3 forwardDir = glm::mat3_cast(tc.m_rotation) * glm::vec3(0.0f, 1.0f, 0.0f);
-					forwardDir.y = 0.0f;
-					forwardDir = glm::normalize(forwardDir);
-					forwardDir = glm::any(glm::isnan(forwardDir)) ? glm::vec3(0.0f) : forwardDir;
-
-					glm::vec3 rightStrafeDir = glm::cross(forwardDir, glm::vec3(0.0f, 1.0f, 0.0f));
-
 					// preliminary movement delta
-					movementDelta = forwardDir * mc.m_movementForwardInputAxis + rightStrafeDir * mc.m_movementRightInputAxis;
+					mc.m_velocityX = mc.m_movementXInputAxis;
+					mc.m_velocityZ = mc.m_movementZInputAxis;
 				}
 
 
@@ -136,11 +131,9 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 					//cc.m_translationHeightOffset = glm::mix(cameraHeight, crouchedCameraHeight, mc.m_crouchPercentage);
 				}
 
-				movementDelta.y += (oldVelocityY + mc.m_velocityY) * 0.5f * timeDelta;
-
-				cc.m_movementDeltaX = movementDelta.x;
-				cc.m_movementDeltaY = movementDelta.y;
-				cc.m_movementDeltaZ = movementDelta.z;
+				cc.m_movementDeltaX = mc.m_velocityX * timeDelta;
+				cc.m_movementDeltaY = (oldVelocityY + mc.m_velocityY) * 0.5f * timeDelta;
+				cc.m_movementDeltaZ = mc.m_velocityZ * timeDelta;
 			}
 		});
 }

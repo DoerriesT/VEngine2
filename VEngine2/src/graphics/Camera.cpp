@@ -92,6 +92,11 @@ glm::vec3 Camera::getUpDirection() const noexcept
 	return glm::vec3(m_cameraComponent.m_viewMatrix[0][1], m_cameraComponent.m_viewMatrix[1][1], m_cameraComponent.m_viewMatrix[2][1]);
 }
 
+glm::vec3 Camera::getRightDirection() const noexcept
+{
+	return glm::vec3(m_cameraComponent.m_viewMatrix[0][0], m_cameraComponent.m_viewMatrix[1][0], m_cameraComponent.m_viewMatrix[2][0]);
+}
+
 float Camera::getAspectRatio() const noexcept
 {
 	return m_cameraComponent.m_aspectRatio;

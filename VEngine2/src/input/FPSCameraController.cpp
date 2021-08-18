@@ -33,10 +33,16 @@ void FPSCameraController::update(float timeDelta, Camera &camera, CharacterMovem
 	{
 		const float walkSpeed = 2.0f;
 		const float sprintSpeed = 6.0f;
-		const float movementSpeed = timeDelta * (inputState->m_sprintAction.m_down ? sprintSpeed : walkSpeed);
+		const float movementSpeed = (inputState->m_sprintAction.m_down ? sprintSpeed : walkSpeed);
 
-		movc->m_movementForwardInputAxis = -inputState->m_moveForwardAxis * movementSpeed;
-		movc->m_movementRightInputAxis = inputState->m_moveRightAxis * movementSpeed;
+		glm::vec3 characterMovementDir = camera.getRightDirection() * inputState->m_moveRightAxis + camera.getForwardDirection() * inputState->m_moveForwardAxis;
+		characterMovementDir.y = 0.0f;
+		characterMovementDir = glm::normalize(characterMovementDir);
+		characterMovementDir = glm::any(glm::isnan(characterMovementDir)) ? glm::vec3(0.0f) : characterMovementDir;
+		characterMovementDir *= movementSpeed;
+
+		movc->m_movementXInputAxis = characterMovementDir.x;
+		movc->m_movementZInputAxis = characterMovementDir.z;
 	}
 
 	// jumping
