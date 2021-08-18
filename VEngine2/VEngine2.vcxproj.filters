@@ -55,6 +55,9 @@
     <Filter Include="src\animation">
       <UniqueIdentifier>{bc2213b5-8540-4c1e-ab4b-37d7c59a3b19}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\asset\handler">
+      <UniqueIdentifier>{3ad4a448-5103-4506-aac6-ddb9e0665631}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -225,9 +228,6 @@
     <ClInclude Include="src\UUID.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\asset\AssetHandler.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
     <ClInclude Include="src\graphics\ResourceViewRegistry.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
@@ -279,9 +279,6 @@
     <ClInclude Include="src\asset\TextureAsset.h">
       <Filter>src\asset</Filter>
     </ClInclude>
-    <ClInclude Include="src\asset\TextureAssetHandler.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
     <ClInclude Include="src\utility\StringID.h">
       <Filter>src\utility</Filter>
     </ClInclude>
@@ -316,9 +313,6 @@
       <Filter>src\input</Filter>
     </ClInclude>
     <ClInclude Include="src\asset\MeshAsset.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
-    <ClInclude Include="src\asset\MeshAssetHandler.h">
       <Filter>src\asset</Filter>
     </ClInclude>
     <ClInclude Include="src\Level.h">
@@ -390,16 +384,7 @@
     <ClInclude Include="src\component\SkinnedMeshComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
-    <ClInclude Include="src\asset\SkeletonAssetHandler.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
     <ClInclude Include="src\asset\AnimationClipAsset.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
-    <ClInclude Include="src\asset\AnimationClipAssetHandler.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
-    <ClInclude Include="src\asset\AssetHandlerRegistration.h">
       <Filter>src\asset</Filter>
     </ClInclude>
     <ClInclude Include="src\animation\AnimationGraph.h">
@@ -422,6 +407,24 @@
     </ClInclude>
     <ClInclude Include="src\input\GamepadState.h">
       <Filter>src\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\AnimationClipAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\AssetHandler.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\AssetHandlerRegistration.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\MeshAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\SkeletonAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\TextureAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -569,9 +572,6 @@
     <ClCompile Include="src\UUID.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\asset\AssetHandler.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
     <ClCompile Include="src\graphics\ResourceViewRegistry.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
@@ -611,12 +611,6 @@
     <ClCompile Include="src\graphics\TextureManager.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
-    <ClCompile Include="src\asset\TextureAsset.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\TextureAssetHandler.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
     <ClCompile Include="src\utility\StringID.cpp">
       <Filter>src\utility</Filter>
     </ClCompile>
@@ -643,12 +637,6 @@
     </ClCompile>
     <ClCompile Include="src\input\FPSCameraController.cpp">
       <Filter>src\input</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\MeshAsset.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\MeshAssetHandler.cpp">
-      <Filter>src\asset</Filter>
     </ClCompile>
     <ClCompile Include="src\component\Level.cpp">
       <Filter>src</Filter>
@@ -686,9 +674,6 @@
     <ClCompile Include="src\ecs\Archetype.cpp">
       <Filter>src\ecs</Filter>
     </ClCompile>
-    <ClCompile Include="src\asset\SkeletonAsset.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
     <ClCompile Include="src\animation\AnimationClip.cpp">
       <Filter>src\animation</Filter>
     </ClCompile>
@@ -698,20 +683,8 @@
     <ClCompile Include="src\component\SkinnedMeshComponent.cpp">
       <Filter>src\component</Filter>
     </ClCompile>
-    <ClCompile Include="src\asset\SkeletonAssetHandler.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\AnimationClipAsset.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\AnimationClipAssetHandler.cpp">
-      <Filter>src\asset</Filter>
-    </ClCompile>
     <ClCompile Include="src\animation\Skeleton.cpp">
       <Filter>src\animation</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\AssetHandlerRegistration.cpp">
-      <Filter>src\asset</Filter>
     </ClCompile>
     <ClCompile Include="src\animation\AnimationGraph.cpp">
       <Filter>src\animation</Filter>
@@ -727,6 +700,24 @@
     </ClCompile>
     <ClCompile Include="src\input\ThirdPersonCameraController.cpp">
       <Filter>src\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\AnimationClipAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\AssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\AssetHandlerRegistration.cpp">
+      <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\MeshAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\SkeletonAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\TextureAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

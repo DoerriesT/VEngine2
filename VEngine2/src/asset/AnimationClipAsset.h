@@ -11,8 +11,8 @@ class AnimationClipAssetData : public AssetData
 public:
 	static constexpr AssetType k_assetType = "7DFD6BE8-A4EF-4BDE-AAB1-2354612ED211"_uuid;
 
-	explicit AnimationClipAssetData(const AssetID &assetID) noexcept;
-	inline AnimationClipHandle getAnimationClipHandle() const noexcept { return m_animationClipHandle; }
+	explicit AnimationClipAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
+	AnimationClipHandle getAnimationClipHandle() const noexcept { return m_animationClipHandle; }
 
 private:
 	AnimationClipHandle m_animationClipHandle = {};

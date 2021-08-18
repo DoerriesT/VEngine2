@@ -3,8 +3,8 @@
 #include "Log.h"
 #include "utility/Utility.h"
 #include "animation/AnimationSystem.h"
-#include "AnimationClipAsset.h"
-#include "AssetManager.h"
+#include "asset/AnimationClipAsset.h"
+#include "asset/AssetManager.h"
 #include <fstream>
 
 static AssetManager *s_assetManager = nullptr;

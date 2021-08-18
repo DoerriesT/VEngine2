@@ -11,8 +11,8 @@ class SkeletonAssetData : public AssetData
 public:
 	static constexpr AssetType k_assetType = "193A6B40-A4BC-45DA-9BDE-40573D7FE63E"_uuid;
 
-	explicit SkeletonAssetData(const AssetID &assetID) noexcept;
-	inline AnimationSkeletonHandle getSkeletonHandle() const noexcept { return m_skeletonHandle; }
+	explicit SkeletonAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
+	AnimationSkeletonHandle getSkeletonHandle() const noexcept { return m_skeletonHandle; }
 
 private:
 	AnimationSkeletonHandle m_skeletonHandle = {};

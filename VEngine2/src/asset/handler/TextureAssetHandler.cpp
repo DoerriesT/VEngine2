@@ -3,8 +3,8 @@
 #include "Log.h"
 #include "utility/Utility.h"
 #include "graphics/Renderer.h"
-#include "TextureAsset.h"
-#include "AssetManager.h"
+#include "asset/TextureAsset.h"
+#include "asset/AssetManager.h"
 
 static AssetManager *s_assetManager = nullptr;
 static TextureAssetHandler s_textureAssetHandler;

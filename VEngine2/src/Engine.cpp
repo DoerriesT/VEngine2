@@ -15,7 +15,7 @@
 #include "physics/Physics.h"
 #include "animation/AnimationSystem.h"
 #include "Level.h"
-#include "asset/AssetHandlerRegistration.h"
+#include "asset/handler/AssetHandlerRegistration.h"
 #include "file/FileDialog.h"
 #include "CharacterMovementSystem.h"
 

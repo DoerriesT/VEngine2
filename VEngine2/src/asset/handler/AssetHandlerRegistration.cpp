@@ -3,7 +3,7 @@
 #include "MeshAssetHandler.h"
 #include "SkeletonAssetHandler.h"
 #include "TextureAssetHandler.h"
-#include "AssetManager.h"
+#include "asset/AssetManager.h"
 
 void AssetHandlerRegistration::registerHandlers(Renderer *renderer, Physics *physics, AnimationSystem *animation) noexcept
 {

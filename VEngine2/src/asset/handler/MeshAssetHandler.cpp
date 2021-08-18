@@ -4,8 +4,8 @@
 #include "utility/Utility.h"
 #include "graphics/Renderer.h"
 #include "physics/Physics.h"
-#include "MeshAsset.h"
-#include "AssetManager.h"
+#include "asset/MeshAsset.h"
+#include "asset/AssetManager.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 
