@@ -196,6 +196,7 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 			}
 		});
 
+	// copy entity
 	reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx] = entity;
 
 	// call destructors and free slot in old archetype

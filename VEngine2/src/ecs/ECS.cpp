@@ -237,6 +237,8 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 		break;
 	}
 
+	// store entity
+	reinterpret_cast<EntityID *>(archetype->getMemoryChunks()[slot.m_chunkIdx].m_memory)[slot.m_chunkSlotIdx] = entityID;
 
 	EntityRecord record{};
 	record.m_archetype = archetype;
