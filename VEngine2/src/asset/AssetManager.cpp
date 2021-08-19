@@ -10,6 +10,7 @@ bool AssetManager::init()
 {
 	assert(!s_instance);
 	s_instance = new AssetManager();
+	s_instance->m_assetDatabase.loadFromFile("assetDB.json");
 	return true;
 }
 
@@ -42,6 +43,8 @@ void AssetManager::shutdown()
 		AssetHandler *handler = handlerIt->second;
 		handler->destroyAsset(assetID, assetType, assetData);
 	}
+
+	s_instance->m_assetDatabase.saveToFile("assetDB.json");
 
 	delete s_instance;
 	s_instance;
@@ -99,7 +102,15 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 			return nullptr;
 		}
 
-		if (!handler->loadAssetData(assetData, (std::string("assets/") + assetID.m_string).c_str()))
+		const auto *assetDBEntry = m_assetDatabase.getEntry(assetID);
+
+		if (!assetDBEntry)
+		{
+			Log::warn("AssetDatabase does not contain asset \"%s\"!", assetID.m_string);
+			return nullptr;
+		}
+
+		if (!handler->loadAssetData(assetData, assetDBEntry->m_path.u8string().c_str()))
 		{
 			handler->destroyAsset(assetID, assetType, assetData);
 			Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
@@ -166,4 +177,14 @@ void AssetManager::unregisterAssetHandler(const AssetType &assetType)
 {
 	LOCK_HOLDER(m_assetHandlerMutex);
 	m_assetHandlerMap.erase(assetType);
+}
+
+AssetDatabase *AssetManager::getAssetDatabase() noexcept
+{
+	return &m_assetDatabase;
+}
+
+const AssetDatabase *AssetManager::getAssetDatabase() const noexcept
+{
+	return &m_assetDatabase;
 }

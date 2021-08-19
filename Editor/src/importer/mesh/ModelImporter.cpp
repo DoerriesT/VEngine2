@@ -14,6 +14,18 @@
 #include <glm/vec2.hpp>
 #include <Log.h>
 #include <physics/Physics.h>
+#include <asset/AssetManager.h>
+#include <asset/SkeletonAsset.h>
+#include <asset/AnimationClipAsset.h>
+#include <asset/MeshAsset.h>
+
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 namespace
 {
@@ -226,8 +238,10 @@ static IndexedMesh<T> generateOptimizedMesh(size_t faceCount, const glm::vec3 *p
 	return { indices, positionsIndexed, normalsIndexed, tangentsIndexed, texCoordsIndexed, weightsIndexed, jointsIndexed };
 }
 
-void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &baseDstPath)
+void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &baseDstPath, const char *srcPath)
 {
+	auto *assetDB = AssetManager::get()->getAssetDatabase();
+
 	// store skeletons
 	for (size_t i = 0; i < model.m_skeletons.size(); ++i)
 	{
@@ -258,6 +272,15 @@ void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &
 			const char *str = skele.m_joints[j].m_name.c_str();
 			dstFile.write(str, strlen(str) + 1);
 		}
+
+		AssetDatabaseEntry dbEntry;
+		dbEntry.m_assetID = AssetID(dstPath.substr(7).c_str());
+		dbEntry.m_assetType = SkeletonAssetData::k_assetType;
+		dbEntry.m_path = dstPath;
+		dbEntry.m_sourcePath = srcPath;
+		dbEntry.m_importOptions = {};
+
+		assetDB->createEntry(dbEntry);
 	}
 
 	// store animations
@@ -372,6 +395,15 @@ void storeSkeletonsAndAnimations(const ImportedModel &model, const std::string &
 				dstFile.write((const char *)&s, sizeof(float));
 			}
 		}
+
+		AssetDatabaseEntry dbEntry;
+		dbEntry.m_assetID = AssetID(dstPath.substr(7).c_str());
+		dbEntry.m_assetType = AnimationClipAssetData::k_assetType;
+		dbEntry.m_path = dstPath;
+		dbEntry.m_sourcePath = srcPath;
+		dbEntry.m_importOptions = {};
+
+		assetDB->createEntry(dbEntry);
 	}
 }
 
@@ -412,7 +444,7 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 	std::string dstFileName = dstPath;
 	
 	// write skeleton and animations
-	storeSkeletonsAndAnimations(model, dstFileName);
+	storeSkeletonsAndAnimations(model, dstFileName, srcPath);
 	
 	if (!model.m_meshes.empty())
 	{
@@ -763,6 +795,16 @@ bool ModelImporter::importModel(const ImportOptions &importOptions, Physics *phy
 		infoFile.close();
 
 		assert(totalFaceCount == actualFaceCount);
+
+		AssetDatabaseEntry dbEntry;
+		dbEntry.m_assetID = AssetID((dstFileName.substr(7)).c_str());
+		dbEntry.m_assetType = MeshAssetData::k_assetType;
+		dbEntry.m_path = dstPath;
+		dbEntry.m_sourcePath = srcPath;
+		dbEntry.m_importOptions.m_meshOptions.m_mergeByMaterial = importOptions.m_mergeByMaterial;
+		dbEntry.m_importOptions.m_meshOptions.m_invertTexCoordY = importOptions.m_invertTexCoordY;
+
+		AssetManager::get()->getAssetDatabase()->createEntry(dbEntry);
 	}
 
 	Log::info("Import succeeded!");

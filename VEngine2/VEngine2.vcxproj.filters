@@ -420,6 +420,9 @@
     <ClInclude Include="src\graphics\imgui\gui_helpers.h">
       <Filter>src\graphics\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\AssetDatabase.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -712,6 +715,9 @@
     </ClCompile>
     <ClCompile Include="src\graphics\imgui\gui_helpers.cpp">
       <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AssetDatabase.cpp">
+      <Filter>src\asset</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
