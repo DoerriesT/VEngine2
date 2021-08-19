@@ -40,5 +40,9 @@ struct PhysicsComponent
 	void *m_internalPhysicsActorHandle = nullptr;
 
 	static void reflect(Reflection &refl) noexcept;
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "PhysicsComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Physics Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(PhysicsComponent, "2FB76C6A-AB10-4BFA-AD3A-B134D0860F39")

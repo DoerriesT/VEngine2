@@ -1,5 +1,7 @@
 #include "LightComponent.h"
 #include "reflection/Reflection.h"
+#include "graphics/imgui/imgui.h"
+#include "graphics/imgui/gui_helpers.h"
 
 void LightComponent::reflect(Reflection &refl) noexcept
 {
@@ -8,6 +10,32 @@ void LightComponent::reflect(Reflection &refl) noexcept
 		.addField("m_luminousPower", &LightComponent::m_luminousPower, "Intensity", "Intensity in lumens.")
 		.addField("m_outerAngle", &LightComponent::m_outerAngle, "Outer Angle", "Outer angle of the spot light.")
 		.addField("m_innerAngle", &LightComponent::m_innerAngle, "Inner Radius", "Inner angle of the spot light.")
-		.addField("m_shadows", &LightComponent::m_shadows, "Shadows", "Enables shadow casting for this light.")
-		.addField("m_volumetricShadows", &LightComponent::m_volumetricShadows, "Volumetric Radius", "Enables volumetric shadow casting for this light.");
+		.addField("m_shadows", &LightComponent::m_shadows, "Shadows", "Enables shadow casting for this light.");
+}
+
+void LightComponent::onGUI(void *instance) noexcept
+{
+	LightComponent &c = *reinterpret_cast<LightComponent *>(instance);
+
+	ImGuiHelpers::ColorEdit3("Color", &c.m_color);
+	ImGuiHelpers::Tooltip("The sRGB color of the light source.");
+
+	ImGui::DragFloat("Intensity", &c.m_luminousPower, 1.0f, 0.0f, FLT_MAX);
+	ImGuiHelpers::Tooltip("Intensity as luminous power (in lumens).");
+
+	ImGui::DragFloat("Radius", &c.m_radius, 1.0f, 0.01f, FLT_MAX);
+	ImGuiHelpers::Tooltip("The radius of the sphere of influence of the light source.");
+
+	float outerAngleDegrees = glm::degrees(c.m_outerAngle);
+	ImGui::DragFloat("Outer Spot Angle", &outerAngleDegrees, 1.0f, 1.0f, 179.0f);
+	c.m_outerAngle = glm::radians(outerAngleDegrees);
+	ImGuiHelpers::Tooltip("The outer angle of the spot light cone.");
+
+	float innerAngleDegrees = glm::degrees(c.m_innerAngle);
+	ImGui::DragFloat("Inner Spot Angle", &innerAngleDegrees, 1.0f, 1.0f, outerAngleDegrees);
+	c.m_innerAngle = glm::radians(innerAngleDegrees);
+	ImGuiHelpers::Tooltip("The inner angle of the spot light cone.");
+
+	ImGui::Checkbox("Casts Shadows", &c.m_shadows);
+	ImGuiHelpers::Tooltip("Enables shadows for this light source.");
 }

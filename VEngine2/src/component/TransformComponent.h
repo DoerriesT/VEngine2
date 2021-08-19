@@ -20,5 +20,9 @@ struct TransformComponent
 	glm::mat4 m_previousTransformation;
 
 	static void reflect(Reflection &refl) noexcept;
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "TransformComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Transform Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(TransformComponent, "ABA16580-3F7A-404A-BE66-77353FD6E550")

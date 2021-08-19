@@ -11,8 +11,11 @@ struct LightComponent
 	float m_outerAngle = 0.785f;
 	float m_innerAngle = 0.26f;
 	bool m_shadows = false;
-	bool m_volumetricShadows = false; // requires m_shadows to be true
 
 	static void reflect(Reflection &refl) noexcept;
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "LightComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Light Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(LightComponent, "04955E50-AFC4-4595-A1A2-4E4A2B16797E")

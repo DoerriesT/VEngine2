@@ -5,10 +5,10 @@ class Reflection;
 
 enum class CrouchState : uint32_t
 {
-	STANDING,
-	ENTERING_CROUCH,
-	CROUCHING,
-	EXITING_CROUCH
+	STANDING = 0,
+	ENTERING_CROUCH = 1,
+	CROUCHING = 2,
+	EXITING_CROUCH = 3
 };
 
 struct CharacterMovementComponent
@@ -31,5 +31,9 @@ struct CharacterMovementComponent
 	bool m_exitCrouchInputAction;
 
 	static void reflect(Reflection &refl) noexcept;
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "CharacterMovementComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Character Movement Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(CharacterMovementComponent, "EDFA641B-06BD-4D34-A15B-B749DE8668D5")

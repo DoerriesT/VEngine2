@@ -17,7 +17,7 @@ DEF_ENUM_FLAG_OPERATORS(CharacterControllerCollisionFlags);
 struct CharacterControllerComponent
 {
 	// creation parameters
-	float m_slopeLimit = 0.707f; // as cos(slope)
+	float m_slopeLimit = 0.785398f; // 45 degrees in radians
 	float m_contactOffset = 0.1f;
 	float m_stepOffset = 0.5f;
 	float m_density = 10.0f;
@@ -37,5 +37,10 @@ struct CharacterControllerComponent
 	void *m_internalControllerHandle = nullptr;
 
 	static void reflect(Reflection &refl) noexcept;
+
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "CharacterControllerComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Character Controller Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(CharacterControllerComponent, "3905864D-D838-418A-BC65-BFDD8FCE37CB")

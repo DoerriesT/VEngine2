@@ -218,6 +218,7 @@
     <ClInclude Include="src\graphics\gal\vulkan\SwapChainVk.h" />
     <ClInclude Include="src\graphics\gal\vulkan\UtilityVk.h" />
     <ClInclude Include="src\graphics\gal\vulkan\volk.h" />
+    <ClInclude Include="src\graphics\imgui\gui_helpers.h" />
     <ClInclude Include="src\graphics\imgui\imconfig.h" />
     <ClInclude Include="src\graphics\imgui\imgui.h" />
     <ClInclude Include="src\graphics\imgui\imgui_internal.h" />
@@ -333,6 +334,7 @@
     <ClCompile Include="src\graphics\gal\vulkan\SwapChainVk.cpp" />
     <ClCompile Include="src\graphics\gal\vulkan\UtilityVk.cpp" />
     <ClCompile Include="src\graphics\gal\vulkan\volk.c" />
+    <ClCompile Include="src\graphics\imgui\gui_helpers.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_demo.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_draw.cpp" />

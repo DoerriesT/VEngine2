@@ -18,5 +18,9 @@ struct SkinnedMeshComponent
 	eastl::vector<glm::mat4> m_matrixPalette;
 
 	static void reflect(Reflection &refl) noexcept;
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "SkinnedMeshComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Skinned Mesh Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(SkinnedMeshComponent, "B1321A20-9DC6-40DE-9CC4-C4460BF0230D")

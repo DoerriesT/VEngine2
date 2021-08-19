@@ -426,6 +426,9 @@
     <ClInclude Include="src\asset\handler\TextureAssetHandler.h">
       <Filter>src\asset\handler</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\imgui\gui_helpers.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -718,6 +721,9 @@
     </ClCompile>
     <ClCompile Include="src\asset\handler\TextureAssetHandler.cpp">
       <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\gui_helpers.cpp">
+      <Filter>src\graphics\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -259,7 +259,7 @@ void Physics::update(float deltaTime) noexcept
 					controllerDesc.radius = adjustedRadius;
 					controllerDesc.height = adjustedHeight - 2.0f * adjustedRadius;
 					controllerDesc.position.set(tc.m_translation.x, tc.m_translation.y - centerToTranslationCompHeight, tc.m_translation.z);
-					controllerDesc.slopeLimit = cc.m_slopeLimit;
+					controllerDesc.slopeLimit = cosf(cc.m_slopeLimit);
 					controllerDesc.contactOffset = cc.m_contactOffset;
 					controllerDesc.stepOffset = cc.m_stepOffset;
 					controllerDesc.density = cc.m_density;

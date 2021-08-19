@@ -14,5 +14,10 @@ struct CameraComponent
 	glm::mat4 m_projectionMatrix;
 
 	static void reflect(Reflection &refl) noexcept;
+
+	static void onGUI(void *instance) noexcept;
+	static const char *getComponentName() noexcept { return "CameraComponent"; }
+	static const char *getComponentDisplayName() noexcept { return "Camera Component"; }
+	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
 DEFINE_TYPE_INFO(CameraComponent, "2F315E1B-3277-4A40-8BBC-A5BEEB290A7B")
