@@ -1,12 +1,7 @@
 #include "CharacterControllerComponent.h"
-#include "reflection/Reflection.h"
+#include <glm/trigonometric.hpp>
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
-
-void CharacterControllerComponent::reflect(Reflection &refl) noexcept
-{
-	refl.addClass<CharacterControllerComponent>("Character Controller Component");
-}
 
 void CharacterControllerComponent::onGUI(void *instance) noexcept
 {

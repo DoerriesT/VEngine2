@@ -1,8 +1,5 @@
 #pragma once
-#include "reflection/TypeInfo.h"
 #include "utility/Enum.h"
-
-class Reflection;
 
 enum class CharacterControllerCollisionFlags
 {
@@ -36,11 +33,8 @@ struct CharacterControllerComponent
 	// internal
 	void *m_internalControllerHandle = nullptr;
 
-	static void reflect(Reflection &refl) noexcept;
-
 	static void onGUI(void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "CharacterControllerComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Character Controller Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
-DEFINE_TYPE_INFO(CharacterControllerComponent, "3905864D-D838-418A-BC65-BFDD8FCE37CB")

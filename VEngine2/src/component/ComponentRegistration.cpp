@@ -10,15 +10,13 @@
 #include "RawInputStateComponent.h"
 #include "InputStateComponent.h"
 #include "ecs/ECS.h"
-#include "ecs/ECSTypeIDTranslator.h"
-#include "reflection/Reflection.h"
+#include "ecs/ECSComponentInfoTable.h"
 
 template<typename T>
 static void registerComponent(ECS *ecs)
 {
-	T::reflect(g_Reflection);
 	ecs->registerComponent<T>();
-	ECSTypeIDTranslator::registerType<T>();
+	ECSComponentInfoTable::registerType<T>();
 }
 
 void ComponentRegistration::registerAllComponents(ECS *ecs) noexcept

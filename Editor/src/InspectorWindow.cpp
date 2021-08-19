@@ -3,7 +3,7 @@
 #include <graphics/imgui/gui_helpers.h>
 #include <Engine.h>
 #include <Level.h>
-#include <ecs/ECSTypeIDTranslator.h>
+#include <ecs/ECSComponentInfoTable.h>
 
 InspectorWindow::InspectorWindow(Engine *engine) noexcept
 	:m_engine(engine)
@@ -74,7 +74,7 @@ void InspectorWindow::draw(EntityID entity) noexcept
 						return;
 					}
 
-					if (ImGui::Selectable(ECSTypeIDTranslator::getBasicComponentReflectionData(componentID).m_displayName))
+					if (ImGui::Selectable(ECSComponentInfoTable::getComponentInfo(componentID).m_displayName))
 					{
 						ecs.addComponentsTypeless(entity, 1, &componentID);
 					}
@@ -89,14 +89,14 @@ void InspectorWindow::draw(EntityID entity) noexcept
 		forEachComponentType(compMask,
 			[&](size_t, ComponentID componentID)
 			{
-				const auto &basicCompInfo = ECSTypeIDTranslator::getBasicComponentReflectionData(componentID);
+				const auto &compInfo = ECSComponentInfoTable::getComponentInfo(componentID);
 
 				void *component = ecs.getComponentTypeless(entity, componentID);
 
 				bool open = true;
-				ImGui::PushID((const void *)basicCompInfo.m_name);
-				bool displayComponent = ImGui::CollapsingHeader(basicCompInfo.m_displayName, &open, ImGuiTreeNodeFlags_DefaultOpen);
-				ImGuiHelpers::Tooltip(basicCompInfo.m_tooltip);
+				ImGui::PushID((const void *)compInfo.m_name);
+				bool displayComponent = ImGui::CollapsingHeader(compInfo.m_displayName, &open, ImGuiTreeNodeFlags_DefaultOpen);
+				ImGuiHelpers::Tooltip(compInfo.m_tooltip);
 
 				if (!open)
 				{
@@ -105,7 +105,7 @@ void InspectorWindow::draw(EntityID entity) noexcept
 
 				if (ImGui::BeginPopupModal("Delete Component?", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 				{
-					ImGui::Text("Delete %s Component.\n", basicCompInfo.m_displayName);
+					ImGui::Text("Delete %s Component.\n", compInfo.m_displayName);
 					ImGui::Separator();
 
 					if (ImGui::Button("OK", ImVec2(120, 0)))
@@ -126,7 +126,7 @@ void InspectorWindow::draw(EntityID entity) noexcept
 
 				if (displayComponent)
 				{
-					basicCompInfo.m_onGUI(component);
+					compInfo.m_onGUI(component);
 				}
 
 			});

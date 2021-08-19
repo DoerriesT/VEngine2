@@ -3,8 +3,6 @@
 #include <task/Task.h>
 #include <stdio.h>
 #include <ecs/ECS.h>
-#include <ecs/ECSTypeIDTranslator.h>
-#include <reflection/Reflection.h>
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include <IGameLogic.h>
@@ -27,30 +25,6 @@
 #include <Level.h>
 #include <physics/Physics.h>
 #include "CustomAnimGraph.h"
-
-void visitType(const Reflection &r, const TypeID &typeID, const char *fieldName = nullptr, unsigned int indent = 0)
-{
-	for (size_t i = 0; i < indent; ++i)
-	{
-		printf(" ");
-	}
-
-	auto type = r.getType(typeID);
-	printf("%s %s\n", type->m_name, fieldName ? fieldName : "");
-
-	if (type->m_typeCategory == TYPE_CATEGORY_POINTER || type->m_typeCategory == TYPE_CATEGORY_ARRAY)
-	{
-		visitType(r, type->m_pointedToTypeID, nullptr, indent + 4);
-	}
-	else
-	{
-		for (auto f : type->m_fields)
-		{
-			visitType(r, f.m_typeID, f.m_name, indent + 4);
-		}
-	}
-
-}
 
 class DummyGameLogic : public IGameLogic
 {

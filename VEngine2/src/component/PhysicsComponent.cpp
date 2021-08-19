@@ -1,12 +1,8 @@
 #include "PhysicsComponent.h"
-#include "reflection/Reflection.h"
+#include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
-
-void PhysicsComponent::reflect(Reflection &refl) noexcept
-{
-	refl.addClass<PhysicsComponent>("Physics Component");
-}
 
 void PhysicsComponent::onGUI(void *instance) noexcept
 {

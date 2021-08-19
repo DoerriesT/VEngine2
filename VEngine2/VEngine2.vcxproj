@@ -181,7 +181,7 @@
     <ClInclude Include="src\ecs\Archetype.h" />
     <ClInclude Include="src\ecs\ECS.h" />
     <ClInclude Include="src\ecs\ECSCommon.h" />
-    <ClInclude Include="src\ecs\ECSTypeIDTranslator.h" />
+    <ClInclude Include="src\ecs\ECSComponentInfoTable.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\file\FileDialog.h" />
     <ClInclude Include="src\graphics\BufferStackAllocator.h" />
@@ -253,8 +253,6 @@
     <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\physics\Physics.h" />
-    <ClInclude Include="src\reflection\Reflection.h" />
-    <ClInclude Include="src\reflection\TypeInfo.h" />
     <ClInclude Include="src\task\Fiber.h" />
     <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\ContainerUtility.h" />
@@ -300,7 +298,7 @@
     <ClCompile Include="src\component\TransformComponent.cpp" />
     <ClCompile Include="src\ecs\Archetype.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
-    <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp" />
+    <ClCompile Include="src\ecs\ECSComponentInfoTable.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\file\FileDialog.cpp" />
     <ClCompile Include="src\graphics\BufferStackAllocator.cpp" />
@@ -359,7 +357,6 @@
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\physics\Physics.cpp" />
-    <ClCompile Include="src\reflection\Reflection.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\HandleManager.cpp" />
@@ -378,7 +375,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\ecs\ECS.inl" />
-    <None Include="src\reflection\Reflection.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

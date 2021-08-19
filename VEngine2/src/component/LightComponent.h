@@ -1,7 +1,5 @@
 #pragma once
-#include "reflection/TypeInfo.h"
-
-class Reflection;
+#include <stdint.h>
 
 struct LightComponent
 {
@@ -12,10 +10,8 @@ struct LightComponent
 	float m_innerAngle = 0.26f;
 	bool m_shadows = false;
 
-	static void reflect(Reflection &refl) noexcept;
 	static void onGUI(void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "LightComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Light Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }
 };
-DEFINE_TYPE_INFO(LightComponent, "04955E50-AFC4-4595-A1A2-4E4A2B16797E")

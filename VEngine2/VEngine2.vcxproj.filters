@@ -40,9 +40,6 @@
     <Filter Include="src\ecs">
       <UniqueIdentifier>{12545f50-0b48-47a8-9b9d-34b1304acbe5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\reflection">
-      <UniqueIdentifier>{1f0d0d0d-9364-4098-aa6d-6593b69d20ef}</UniqueIdentifier>
-    </Filter>
     <Filter Include="src\component">
       <UniqueIdentifier>{50398f6e-60a1-4109-a02a-c47d324d96ff}</UniqueIdentifier>
     </Filter>
@@ -285,13 +282,7 @@
     <ClInclude Include="src\ecs\ECS.h">
       <Filter>src\ecs</Filter>
     </ClInclude>
-    <ClInclude Include="src\reflection\Reflection.h">
-      <Filter>src\reflection</Filter>
-    </ClInclude>
-    <ClInclude Include="src\reflection\TypeInfo.h">
-      <Filter>src\reflection</Filter>
-    </ClInclude>
-    <ClInclude Include="src\ecs\ECSTypeIDTranslator.h">
+    <ClInclude Include="src\ecs\ECSComponentInfoTable.h">
       <Filter>src\ecs</Filter>
     </ClInclude>
     <ClInclude Include="src\IGameLogic.h">
@@ -620,7 +611,7 @@
     <ClCompile Include="src\ecs\ECS.cpp">
       <Filter>src\ecs</Filter>
     </ClCompile>
-    <ClCompile Include="src\ecs\ECSTypeIDTranslator.cpp">
+    <ClCompile Include="src\ecs\ECSComponentInfoTable.cpp">
       <Filter>src\ecs</Filter>
     </ClCompile>
     <ClCompile Include="src\component\TransformComponent.cpp">
@@ -631,9 +622,6 @@
     </ClCompile>
     <ClCompile Include="src\component\LightComponent.cpp">
       <Filter>src\component</Filter>
-    </ClCompile>
-    <ClCompile Include="src\reflection\Reflection.cpp">
-      <Filter>src\reflection</Filter>
     </ClCompile>
     <ClCompile Include="src\graphics\Camera.cpp">
       <Filter>src\graphics</Filter>
@@ -730,9 +718,6 @@
     <Natvis Include="..\libs\EASTL.natvis" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\reflection\Reflection.inl">
-      <Filter>src\reflection</Filter>
-    </None>
     <None Include="src\ecs\ECS.inl">
       <Filter>src\ecs</Filter>
     </None>
