@@ -31,24 +31,31 @@ struct StringIDHash
 	}
 };
 
+constexpr uint64_t k_fnvPrime = 1099511628211;
+constexpr uint64_t k_fnvOffsetBasis = 14695981039346656037;
+
 inline uint64_t stringHashFNV1a(const char *str) noexcept
 {
-	constexpr uint64_t fnvPrime = 1099511628211;
-	constexpr uint64_t fnvOffsetBasis = 14695981039346656037;
-
-	uint64_t hash = fnvOffsetBasis;
+	uint64_t hash = k_fnvOffsetBasis;
 	while (*str)
 	{
-		hash = (hash ^ *str) * fnvPrime;
+		hash = (hash ^ *str) * k_fnvPrime;
 		++str;
+	}
+	return hash;
+}
+
+constexpr uint64_t stringHashFNV1aRecursive(const char *str, size_t length, uint64_t hash) noexcept
+{
+	if (*str)
+	{
+		hash = (hash ^ *str) * k_fnvPrime;
+		return stringHashFNV1aRecursive(str + 1, length - 1, hash);
 	}
 	return hash;
 }
 
 constexpr uint64_t operator""_hash(const char *str, size_t length) noexcept
 {
-	constexpr uint64_t fnvPrime = 1099511628211;
-	constexpr uint64_t fnvOffsetBasis = 14695981039346656037;
-	uint64_t hash = length == 1 ? fnvOffsetBasis : operator""_hash(str + 1, length - 1);
-	return (hash ^ str[0]) * fnvPrime;
+	return stringHashFNV1aRecursive(str, length, k_fnvOffsetBasis);
 }
