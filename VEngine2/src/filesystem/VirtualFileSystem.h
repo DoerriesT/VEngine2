@@ -17,6 +17,9 @@ public:
 	bool exists(const char *path) const noexcept override;
 	bool isDirectory(const char *path) const noexcept override;
 	bool isFile(const char *path) const noexcept override;
+	bool createDirectoryHierarchy(const char *path) const noexcept override;
+	bool rename(const char *path, const char *newName) const noexcept override;
+	bool remove(const char *path) const noexcept override;
 
 	FileHandle open(const char *filePath, FileMode mode, bool binary) noexcept override;
 	uint64_t size(FileHandle fileHandle) const noexcept override;
@@ -28,9 +31,8 @@ public:
 	bool readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept override;
 	bool writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept override;
 
-	virtual FileFindHandle findFirst(const char *dirPath, char *resultPath) noexcept override;
-	virtual FileFindHandle findNext(FileFindHandle findHandle, char *resultPath) noexcept override;
-	bool findIsDirectory(FileFindHandle findHandle) const noexcept override;
+	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept override;
+	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept override;
 	void findClose(FileFindHandle findHandle) noexcept override;
 
 private:

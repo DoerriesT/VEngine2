@@ -161,6 +161,27 @@ bool VirtualFileSystem::isFile(const char *path) const noexcept
 	return RawFileSystem::get().isFile(resolvedPath);
 }
 
+bool VirtualFileSystem::createDirectoryHierarchy(const char *path) const noexcept
+{
+	char resolvedPath[k_maxPathLength] = {};
+	resolve(path, resolvedPath);
+	return RawFileSystem::get().createDirectoryHierarchy(resolvedPath);
+}
+
+bool VirtualFileSystem::rename(const char *path, const char *newName) const noexcept
+{
+	char resolvedPath[k_maxPathLength] = {};
+	resolve(path, resolvedPath);
+	return RawFileSystem::get().rename(resolvedPath, newName);
+}
+
+bool VirtualFileSystem::remove(const char *path) const noexcept
+{
+	char resolvedPath[k_maxPathLength] = {};
+	resolve(path, resolvedPath);
+	return RawFileSystem::get().remove(resolvedPath);
+}
+
 FileHandle VirtualFileSystem::open(const char *filePath, FileMode mode, bool binary) noexcept
 {
 	char resolvedPath[k_maxPathLength] = {};
@@ -209,32 +230,35 @@ bool VirtualFileSystem::writeFile(const char *filePath, size_t bufferSize, const
 	return RawFileSystem::get().writeFile(resolvedPath, bufferSize, buffer);
 }
 
-FileFindHandle VirtualFileSystem::findFirst(const char *dirPath, char *resultPath) noexcept
+FileFindHandle VirtualFileSystem::findFirst(const char *dirPath, FileFindData *result) noexcept
 {
 	char resolvedPath[k_maxPathLength] = {};
 	resolve(dirPath, resolvedPath);
 
-	char resolvedResultPath[k_maxPathLength] = {};
-	auto handle = RawFileSystem::get().findFirst(resolvedPath, resolvedResultPath);
+	FileFindData tmpFindData{};
+	auto handle = RawFileSystem::get().findFirst(resolvedPath, &tmpFindData);
 	
-	unresolve(resolvedResultPath, resultPath);
+	*result = {};
+
+	unresolve(tmpFindData.m_path, result->m_path);
+	result->m_isDirectory = tmpFindData.m_isDirectory;
+	result->m_isFile = tmpFindData.m_isFile;
 
 	return handle;
 }
 
-FileFindHandle VirtualFileSystem::findNext(FileFindHandle findHandle, char *resultPath) noexcept
+bool VirtualFileSystem::findNext(FileFindHandle findHandle, FileFindData *result) noexcept
 {
-	char resolvedResultPath[k_maxPathLength] = {};
-	auto handle = RawFileSystem::get().findNext(findHandle, resolvedResultPath);
+	FileFindData tmpFindData{};
+	bool res = RawFileSystem::get().findNext(findHandle, &tmpFindData);
 	
-	unresolve(resolvedResultPath, resultPath);
+	*result = {};
 
-	return handle;
-}
+	unresolve(tmpFindData.m_path, result->m_path);
+	result->m_isDirectory = tmpFindData.m_isDirectory;
+	result->m_isFile = tmpFindData.m_isFile;
 
-bool VirtualFileSystem::findIsDirectory(FileFindHandle findHandle) const noexcept
-{
-	return RawFileSystem::get().findIsDirectory(findHandle);
+	return res;
 }
 
 void VirtualFileSystem::findClose(FileFindHandle findHandle) noexcept

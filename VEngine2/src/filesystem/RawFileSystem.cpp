@@ -1,5 +1,30 @@
 #include "RawFileSystem.h"
 #include "Log.h"
+#include "utility/WideNarrowStringConversion.h"
+#include <filesystem>
+#include <assert.h>
+
+#ifdef WIN32
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+
+static void getDirectoryFileFlags(DWORD flags, bool *isDir, bool *isFile)
+{
+	*isDir = false;
+	*isFile = false;
+
+	if (flags & FILE_ATTRIBUTE_HIDDEN)
+	{
+		return;
+	}
+	*isDir = flags & FILE_ATTRIBUTE_DIRECTORY;
+	*isFile = flags & FILE_ATTRIBUTE_ARCHIVE;
+}
+
+#endif // WIN32
 
 RawFileSystem &RawFileSystem::get() noexcept
 {
@@ -9,23 +34,62 @@ RawFileSystem &RawFileSystem::get() noexcept
 
 void RawFileSystem::getCurrentPath(char *path) const noexcept
 {
-	auto str = std::filesystem::current_path().generic_u8string();
-	memcpy(path, str.c_str(), str.length() + 1);
+	std::error_code ec;
+	auto str = std::filesystem::current_path(ec).generic_u8string();
+	if (!std::system_category().default_error_condition(ec.value()))
+	{
+		memcpy(path, str.c_str(), str.length() + 1);
+	}
+	else
+	{
+		path[0] = '\0';
+	}
 }
 
 bool RawFileSystem::exists(const char *path) const noexcept
 {
-	return std::filesystem::exists(path);
+	std::error_code ec;
+	bool val = std::filesystem::exists(path, ec);
+	return val && !std::system_category().default_error_condition(ec.value());
 }
 
 bool RawFileSystem::isDirectory(const char *path) const noexcept
 {
-	return std::filesystem::is_directory(path);
+	std::error_code ec;
+	bool val = std::filesystem::is_directory(path, ec);
+	return val && !std::system_category().default_error_condition(ec.value());
 }
 
 bool RawFileSystem::isFile(const char *path) const noexcept
 {
-	return std::filesystem::is_regular_file(path);
+	std::error_code ec;
+	bool val = std::filesystem::is_regular_file(path, ec);
+	return val && !std::system_category().default_error_condition(ec.value());
+}
+
+bool RawFileSystem::createDirectoryHierarchy(const char *path) const noexcept
+{
+	std::error_code ec;
+	std::filesystem::create_directories(path, ec);
+	return !std::system_category().default_error_condition(ec.value());
+}
+
+bool RawFileSystem::rename(const char *path, const char *newName) const noexcept
+{
+	std::filesystem::path newPath = path;
+	newPath = newPath.parent_path();
+	newPath /= newName;
+
+	std::error_code ec;
+	std::filesystem::rename(path, newPath, ec);
+	return !std::system_category().default_error_condition(ec.value());
+}
+
+bool RawFileSystem::remove(const char *path) const noexcept
+{
+	std::error_code ec;
+	std::filesystem::remove(path, ec);
+	return !std::system_category().default_error_condition(ec.value());
 }
 
 FileHandle RawFileSystem::open(const char *filePath, FileMode mode, bool binary) noexcept
@@ -143,7 +207,7 @@ uint64_t RawFileSystem::read(FileHandle fileHandle, size_t bufferSize, void *buf
 
 	LOCK_HOLDER(m_openFilesSpinLock);
 
-	FILE *file = m_openFiles[fileHandle - 1].m_file;
+	FILE *file = (FILE *)m_openFiles[fileHandle - 1].m_file;
 
 	if (file)
 	{
@@ -162,7 +226,7 @@ uint64_t RawFileSystem::write(FileHandle fileHandle, size_t bufferSize, const vo
 
 	LOCK_HOLDER(m_openFilesSpinLock);
 
-	FILE *file = m_openFiles[fileHandle - 1].m_file;
+	FILE *file = (FILE *)m_openFiles[fileHandle - 1].m_file;
 
 	if (file)
 	{
@@ -181,7 +245,7 @@ void RawFileSystem::close(FileHandle fileHandle) noexcept
 
 	LOCK_HOLDER(m_openFilesSpinLock);
 
-	FILE *file = m_openFiles[fileHandle - 1].m_file;
+	FILE *file = (FILE *)m_openFiles[fileHandle - 1].m_file;
 
 	if (file)
 	{
@@ -217,107 +281,159 @@ bool RawFileSystem::writeFile(const char *filePath, size_t bufferSize, const voi
 	return false;
 }
 
-FileFindHandle RawFileSystem::findFirst(const char *dirPath, char *resultPath) noexcept
+FileFindHandle RawFileSystem::findFirst(const char *dirPath, FileFindData *result) noexcept
 {
-	const size_t pathStrLen = strlen(dirPath);
-	if ((pathStrLen + 1) > k_maxPathLength)
+#ifdef WIN32
+
+	*result = {};
+
+	// prepare input in utf8 form
+	std::string utf8input;
 	{
-		resultPath[0] = '\0';
+		size_t curOffset = 0;
+		while (dirPath[curOffset])
+		{
+			if (dirPath[curOffset] == '/')
+			{
+				utf8input.push_back('\\');
+			}
+			else
+			{
+				utf8input.push_back(dirPath[curOffset]);
+			}
+			++curOffset;
+		}
+
+		utf8input.append("\\*");
+	}
+
+	WIN32_FIND_DATAW  win32FindData{};
+	HANDLE win32Handle = FindFirstFileW(widen(utf8input.c_str()).c_str(), &win32FindData);
+
+	if (win32Handle == INVALID_HANDLE_VALUE)
+	{
 		return NULL_FILE_FIND_HANDLE;
 	}
 
-	auto it = advanceDirIterator({}, dirPath);
-
-	// invalid iterator or no entries found
-	if (it == std::filesystem::directory_iterator())
+	// skip . and .. entries
+	bool res = true;
+	do
 	{
-		resultPath[0] = '\0';
-		return NULL_FILE_FIND_HANDLE;
-	}
+		const bool isDir = win32FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+		const bool isDot = wcscmp(win32FindData.cFileName, L".") == 0;
+		const bool isDotDot = wcscmp(win32FindData.cFileName, L"..") == 0;
 
-	FileFindHandle resultHandle = {};
-	{
-		LOCK_HOLDER(m_fileFindsSpinLock);
-		resultHandle = (FileFindHandle)m_fileFindHandleManager.allocate();
-
-		if (!resultHandle)
+		if (!(isDir && (isDot || isDotDot)))
 		{
-			resultPath[0] = '\0';
-			return NULL_FILE_FIND_HANDLE;
+			break;
+		}
+	} while (res = FindNextFileW(win32Handle, &win32FindData));
+
+
+	// if the directory is empty, we might have skipped through everything already, so check that we are still good
+	if (res)
+	{
+		FileFind ff{};
+
+		// allocate our handle
+		FileFindHandle resultHandle = {};
+		{
+			LOCK_HOLDER(m_fileFindsSpinLock);
+			resultHandle = (FileFindHandle)m_fileFindHandleManager.allocate();
+
+			if (!resultHandle)
+			{
+				FindClose(win32Handle);
+				return NULL_FILE_FIND_HANDLE;
+			}
+
+			size_t dirPathLen = strlen(dirPath);
+			memcpy(ff.m_searchPath, dirPath, dirPathLen + 1 /*null terminator*/);
+			ff.m_searchPath[dirPathLen] = '/';
+			ff.m_searchPath[dirPathLen + 1] = '\0';
+			ff.m_handle = win32Handle;
+
+			const size_t idx = (size_t)resultHandle - 1;
+
+			if (m_fileFinds.size() <= idx)
+			{
+				size_t newSize = idx;
+				newSize += eastl::max<size_t>(1, newSize / 2);
+				newSize = eastl::max<size_t>(16, newSize);
+				m_fileFinds.resize(newSize);
+			}
+
+			m_fileFinds[idx] = ff;
 		}
 
-		FileFind fileFind{};
-		fileFind.m_iterator = it;
-
-		const size_t idx = (size_t)resultHandle - 1;
-
-		if (m_fileFinds.size() <= idx)
-		{
-			size_t newSize = idx;
-			newSize += eastl::max<size_t>(1, newSize / 2);
-			newSize = eastl::max<size_t>(16, newSize);
-			m_fileFinds.resize(newSize);
-		}
-
-		m_fileFinds[idx] = fileFind;
-
-		auto u8str = it->path().generic_u8string();
-		strcpy_s(resultPath, u8str.length() + 1, u8str.c_str());
+		auto foundPath = narrow(win32FindData.cFileName);
+		strcpy_s(result->m_path, ff.m_searchPath);
+		strcat_s(result->m_path, foundPath.c_str());
+		getDirectoryFileFlags(win32FindData.dwFileAttributes, &result->m_isDirectory, &result->m_isFile);
 
 		return resultHandle;
 	}
-}
-
-FileFindHandle RawFileSystem::findNext(FileFindHandle findHandle, char *resultPath) noexcept
-{
-	if (!findHandle)
+	else
 	{
-		resultPath[0] = '\0';
+		FindClose(win32Handle);
 		return NULL_FILE_FIND_HANDLE;
 	}
 
-	std::filesystem::directory_iterator it;
+#else // WIN32
+	static_assert(false);
+#endif
+}
 
+bool RawFileSystem::findNext(FileFindHandle findHandle, FileFindData *result) noexcept
+{
+	if (!findHandle)
+	{
+		return false;
+	}
+
+	FileFind ff{};
 	{
 		LOCK_HOLDER(m_fileFindsSpinLock);
 
-		it = m_fileFinds[findHandle - 1].m_iterator;
+		ff = m_fileFinds[findHandle - 1];
+	}
 
-		// iterator was already invalid
-		if (it == std::filesystem::directory_iterator())
+#ifdef WIN32
+
+	HANDLE win32Handle = ff.m_handle;
+	assert(win32Handle != INVALID_HANDLE_VALUE);
+
+	WIN32_FIND_DATAW  win32FindData{};
+	bool res = FindNextFileW(win32Handle, &win32FindData);
+
+	// skip . and .. entries
+	do
+	{
+		const bool isDir = win32FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+		const bool isDot = wcscmp(win32FindData.cFileName, L".") == 0;
+		const bool isDotDot = wcscmp(win32FindData.cFileName, L"..") == 0;
+
+		if (!(isDir && (isDot || isDotDot)))
 		{
-			resultPath[0] = '\0';
-			return findHandle;
+			break;
 		}
+	} while (res = FindNextFileW(win32Handle, &win32FindData));
 
-		it = advanceDirIterator(it, nullptr);
-		m_fileFinds[findHandle - 1].m_iterator = it;
-	}
-
-	// we either hit an error or reached the end. either way, we can no longer use this iterator
-	if (it == std::filesystem::directory_iterator())
+	if (res)
 	{
-		resultPath[0] = '\0';
-	}
-	else
-	{
-		auto u8str = it->path().generic_u8string();
-		strcpy_s(resultPath, u8str.length() + 1, u8str.c_str());
-	}
+		*result = {};
 
-	return findHandle;
-}
-
-bool RawFileSystem::findIsDirectory(FileFindHandle findHandle) const noexcept
-{
-	if (!findHandle)
-	{
-		return NULL_FILE_FIND_HANDLE;
+		auto foundPath = narrow(win32FindData.cFileName);
+		strcpy_s(result->m_path, ff.m_searchPath);
+		strcat_s(result->m_path, foundPath.c_str());
+		getDirectoryFileFlags(win32FindData.dwFileAttributes, &result->m_isDirectory, &result->m_isFile);
 	}
 
-	LOCK_HOLDER(m_fileFindsSpinLock);
-	auto it = m_fileFinds[findHandle - 1].m_iterator;
-	return it != std::filesystem::directory_iterator() && it->is_directory();
+	return res;
+
+#else // WIN32
+	static_assert(false);
+#endif
 }
 
 void RawFileSystem::findClose(FileFindHandle findHandle) noexcept
@@ -329,54 +445,14 @@ void RawFileSystem::findClose(FileFindHandle findHandle) noexcept
 
 	LOCK_HOLDER(m_fileFindsSpinLock);
 
-	m_fileFinds[findHandle - 1].m_iterator = {};
-	m_fileFindHandleManager.free((uint32_t)findHandle);
-}
+#ifdef WIN32
 
-std::filesystem::directory_iterator RawFileSystem::advanceDirIterator(std::filesystem::directory_iterator it, const char *initialPath) noexcept
-{
-	bool invalidIt = it == std::filesystem::directory_iterator();
+	FindClose(m_fileFinds[findHandle - 1].m_handle);
+	m_fileFinds[findHandle - 1].m_searchPath[0] = '\0';
+	m_fileFinds[findHandle - 1].m_handle = INVALID_HANDLE_VALUE;
+	m_fileFindHandleManager.free(findHandle);
 
-	// input iterator is invalid but we have a path to initialize it with
-	if (invalidIt && initialPath)
-	{
-		try
-		{
-			it = std::filesystem::directory_iterator(initialPath);
-		}
-		catch (std::filesystem::filesystem_error e)
-		{
-			return std::filesystem::directory_iterator();
-		}
-
-		// we couldnt fix the iterator :(
-		if (it == std::filesystem::directory_iterator())
-		{
-			return std::filesystem::directory_iterator();
-		}
-		// we managed to create a valid iterator and the path length is also good!
-		else if ((it->path().generic_u8string().length() + 1) <= k_maxPathLength)
-		{
-			return it;
-		}
-	}
-	else if (invalidIt)
-	{
-		return std::filesystem::directory_iterator();
-	}
-
-	// increment and then skip past all entries with too long paths
-	do
-	{
-		try
-		{
-			++it;
-		}
-		catch (...)
-		{
-			return std::filesystem::directory_iterator();
-		}
-	} while (it != std::filesystem::directory_iterator() && (it->path().generic_u8string().length() + 1) > k_maxPathLength);
-
-	return it;
+#else // WIN32
+	static_assert(false);
+#endif
 }

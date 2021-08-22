@@ -1,6 +1,5 @@
 #pragma once
 #include <EASTL/vector.h>
-#include <filesystem>
 #include "IFileSystem.h"
 #include "utility/HandleManager.h"
 #include "utility/SpinLock.h"
@@ -15,6 +14,9 @@ public:
 	bool exists(const char *path) const noexcept override;
 	bool isDirectory(const char *path) const noexcept override;
 	bool isFile(const char *path) const noexcept override;
+	bool createDirectoryHierarchy(const char *path) const noexcept override;
+	bool rename(const char *path, const char *newName) const noexcept override;
+	bool remove(const char *path) const noexcept override;
 
 	FileHandle open(const char *filePath, FileMode mode, bool binary) noexcept override;
 	uint64_t size(FileHandle fileHandle) const noexcept override;
@@ -26,21 +28,21 @@ public:
 	bool readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept override;
 	bool writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept override;
 
-	virtual FileFindHandle findFirst(const char *dirPath, char *resultPath) noexcept override;
-	virtual FileFindHandle findNext(FileFindHandle findHandle, char *resultPath) noexcept override;
-	bool findIsDirectory(FileFindHandle findHandle) const noexcept override;
+	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept override;
+	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept override;
 	void findClose(FileFindHandle findHandle) noexcept override;
 
 private:
 	struct OpenFile
 	{
 		char m_path[k_maxPathLength];
-		FILE *m_file;
+		void *m_file;
 	};
 
 	struct FileFind
 	{
-		std::filesystem::directory_iterator m_iterator;
+		char m_searchPath[k_maxPathLength];
+		void *m_handle;
 	};
 
 	eastl::vector<OpenFile> m_openFiles;
@@ -51,5 +53,4 @@ private:
 	mutable SpinLock m_fileFindsSpinLock;
 
 	explicit RawFileSystem() noexcept = default;
-	std::filesystem::directory_iterator advanceDirIterator(std::filesystem::directory_iterator it, const char *initialPath) noexcept;
 };

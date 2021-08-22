@@ -346,19 +346,15 @@ void AssetBrowserWindow::draw() noexcept
 
 				bool hasSubDirs = false;
 
-				char tmp[IFileSystem::k_maxPathLength];
-				auto findHandle = vfs.findFirst(p.c_str(), tmp);
-
-				while (tmp[0])
-				{
-					if (vfs.findIsDirectory(findHandle))
+				vfs.iterate(p.c_str(), [&](const FileFindData &ffd)
 					{
-						hasSubDirs = true;
-						break;
-					}
-					findHandle = vfs.findNext(findHandle, tmp);
-				}
-				vfs.findClose(findHandle);
+						if (ffd.m_isDirectory)
+						{
+							hasSubDirs = true;
+							return false;
+						}
+						return true;
+					});
 
 				if (hasSubDirs)
 				{
@@ -381,20 +377,17 @@ void AssetBrowserWindow::draw() noexcept
 
 			if (ImGui::BeginPopup("jump_to_sub_dir_popup"))
 			{
-				char tmp[IFileSystem::k_maxPathLength];
-				auto findHandle = vfs.findFirst(m_subDirPopupPath.c_str(), tmp);
-				while (tmp[0])
-				{
-					if (vfs.findIsDirectory(findHandle))
+				vfs.iterate(m_subDirPopupPath.c_str(), [&](const FileFindData &ffd)
 					{
-						if (ImGui::Selectable(tmp))
+						if (ffd.m_isDirectory)
 						{
-							newPath = tmp;
+							if (ImGui::Selectable(ffd.m_path))
+							{
+								newPath = ffd.m_path;
+							}
 						}
-					}
-					findHandle = vfs.findNext(findHandle, tmp);
-				}
-				vfs.findClose(findHandle);
+						return true;
+					});
 
 				ImGui::EndPopup();
 			}
@@ -441,80 +434,76 @@ void AssetBrowserWindow::draw() noexcept
 
 					ImGui::Separator();
 					ImGui::NewLine();
-					
+
 					std::string_view searchTextView = std::string_view(m_searchTextLower);
-					
+
 					float itemSize = 128.0f;
 					auto contentRegionAvail = ImGui::GetContentRegionAvail();
 					int columns = (int)(contentRegionAvail.x / 128.0f);
 					columns = columns < 1 ? 1 : columns;
 					ImGui::Columns(columns, nullptr, false);
-					
+
 					for (int isFileOnlyRun = 0; isFileOnlyRun < 2; ++isFileOnlyRun)
 					{
-						char tmp[IFileSystem::k_maxPathLength];
-						auto findHandle = vfs.findFirst(m_currentPath.c_str(), tmp);
-
-						while (tmp[0])
-						{
-							if (isFileOnlyRun == 0 && !vfs.isDirectory(tmp))
+						vfs.iterate(m_currentPath.c_str(), [&](const FileFindData &ffd)
 							{
-								findHandle = vfs.findNext(findHandle, tmp);
-								continue;
-							}
-							if (isFileOnlyRun == 1 && !vfs.isFile(tmp))
-							{
-								findHandle = vfs.findNext(findHandle, tmp);
-								continue;
-							}
-
-							std::string displayName = Path::getFileName(tmp);
-							std::string displayNameLower = displayName;
-							std::transform(displayNameLower.begin(), displayNameLower.end(), displayNameLower.begin(), [](unsigned char c) { return std::tolower(c); });
-
-							if (!searchTextView.empty() && displayNameLower.find(searchTextView) == std::string::npos)
-							{
-								findHandle = vfs.findNext(findHandle, tmp);
-								continue;
-							}
-
-							ImGui::PushID(displayName.c_str());
-
-							ImGui::BeginGroup();
-							{
-								char resolvedPath[IFileSystem::k_maxPathLength];
-								vfs.resolve(tmp, resolvedPath);
-								auto thumb = getThumbNail(resolvedPath, m_engine);
-								if (!thumb)
+								if (isFileOnlyRun == 0 && !ffd.m_isDirectory)
 								{
-									ImGui::Button("???", ImVec2(itemSize - 20.0f, itemSize - 16));
+									return true;
 								}
-								else
+								if (isFileOnlyRun == 1 && !ffd.m_isFile)
 								{
-									ImGui::Image(m_engine->getRenderer()->getImGuiTextureID(thumb), ImVec2(itemSize - 20.0f, itemSize - 16));
+									return true;
 								}
 
-								ImGui::TextWrapped(displayName.c_str());
-							}
-							ImGui::EndGroup();
-							if (ImGui::IsItemHovered())
-							{
-								ImGui::SetTooltip(displayName.c_str());
-							}
-							if (ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-							{
-								if (vfs.isDirectory(tmp))
+								std::string displayName = Path::getFileName(ffd.m_path);
+								std::string displayNameLower = displayName;
+								std::transform(displayNameLower.begin(), displayNameLower.end(), displayNameLower.begin(), [](unsigned char c) { return std::tolower(c); });
+
+								if (!searchTextView.empty() && displayNameLower.find(searchTextView) == std::string::npos)
 								{
-									newPath = tmp;
+									return true;
 								}
-							}
 
-							ImGui::PopID();
-							ImGui::NextColumn();
+								ImGui::PushID(displayName.c_str());
 
-							findHandle = vfs.findNext(findHandle, tmp);
-						}
-						vfs.findClose(findHandle);
+								ImGui::BeginGroup();
+								{
+									char resolvedPath[IFileSystem::k_maxPathLength];
+									vfs.resolve(ffd.m_path, resolvedPath);
+									auto thumb = getThumbNail(resolvedPath, m_engine);
+									if (!thumb)
+									{
+										ImGui::Button("???", ImVec2(itemSize - 20.0f, itemSize - 16));
+									}
+									else
+									{
+										ImGui::Image(m_engine->getRenderer()->getImGuiTextureID(thumb), ImVec2(itemSize - 20.0f, itemSize - 16));
+									}
+
+									ImGui::TextWrapped(displayName.c_str());
+								}
+								ImGui::EndGroup();
+								if (ImGui::IsItemHovered())
+								{
+									ImGui::SetTooltip(displayName.c_str());
+								}
+								if (ImGui::IsItemClicked())
+								{
+									if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+									{
+										if (ffd.m_isDirectory)
+										{
+											newPath = ffd.m_path;
+										}
+									}
+								}
+
+								ImGui::PopID();
+								ImGui::NextColumn();
+
+								return true;
+							});
 					}
 				}
 				ImGui::EndChild();
@@ -532,7 +521,7 @@ void AssetBrowserWindow::draw() noexcept
 				{
 					m_history.resize(m_historyPointer + 1);
 				}
-		
+
 				m_history.push_back(newPath);
 				++m_historyPointer;
 			}
@@ -590,17 +579,14 @@ void AssetBrowserWindow::renderTreeNode(const std::string &path, std::string *ne
 
 	if (nodeOpen)
 	{
-		char entry[IFileSystem::k_maxPathLength];
-		auto findHandle = vfs.findFirst(path.c_str(), entry);
-		while (entry[0])
-		{
-			if (vfs.findIsDirectory(findHandle))
+		vfs.iterate(path.c_str(), [&](const FileFindData &ffd)
 			{
-				renderTreeNode(entry, newPath);
-			}
-			findHandle = vfs.findNext(findHandle, entry);
-		}
-		vfs.findClose(findHandle);
+				if (ffd.m_isDirectory)
+				{
+					renderTreeNode(ffd.m_path, newPath);
+				}
+				return true;
+			});
 
 		ImGui::TreePop();
 	}

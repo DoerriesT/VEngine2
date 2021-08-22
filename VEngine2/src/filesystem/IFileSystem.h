@@ -4,6 +4,8 @@
 enum FileHandle : size_t { NULL_FILE_HANDLE };
 enum FileFindHandle : size_t { NULL_FILE_FIND_HANDLE };
 
+struct FileFindData;
+
 enum class FileMode
 {
 	/// <summary>
@@ -48,6 +50,13 @@ enum class FileMode
 	APPEND_OR_CREATE_READ_WRITE
 };
 
+struct FileFindData
+{
+	char m_path[260];
+	bool m_isFile;
+	bool m_isDirectory;
+};
+
 class IFileSystem
 {
 public:
@@ -56,6 +65,10 @@ public:
 	virtual bool exists(const char *path) const noexcept = 0;
 	virtual bool isDirectory(const char *path) const noexcept = 0;
 	virtual bool isFile(const char *path) const noexcept = 0;
+	virtual bool createDirectoryHierarchy(const char *path) const noexcept = 0;
+	virtual bool rename(const char *path, const char *newName) const noexcept = 0;
+	virtual bool remove(const char *path) const noexcept = 0;
+
 
 	virtual FileHandle open(const char *filePath, FileMode mode, bool binary) noexcept = 0;
 	virtual uint64_t size(FileHandle fileHandle) const noexcept = 0;
@@ -67,8 +80,23 @@ public:
 	virtual bool readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept = 0;
 	virtual bool writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept = 0;
 
-	virtual FileFindHandle findFirst(const char *dirPath, char *resultPath) noexcept = 0;
-	virtual FileFindHandle findNext(FileFindHandle findHandle, char *resultPath) noexcept = 0;
-	virtual bool findIsDirectory(FileFindHandle findHandle) const noexcept = 0;
+	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept = 0;
+	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept = 0;
 	virtual void findClose(FileFindHandle findHandle) noexcept = 0;
+
+	template<typename T>
+	void iterate(const char *dirPath, T &&func) noexcept
+	{
+		FileFindData ffd;
+		auto h = findFirst(dirPath, &ffd);
+		if (h)
+		{
+			bool cont = false;
+			do
+			{
+				cont = func(ffd);
+			} while (cont && findNext(h, &ffd));
+			findClose(h);
+		}
+	}
 };
