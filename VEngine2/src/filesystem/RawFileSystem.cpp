@@ -7,6 +7,12 @@ RawFileSystem &RawFileSystem::get() noexcept
 	return rfs;
 }
 
+void RawFileSystem::getCurrentPath(char *path) const noexcept
+{
+	auto str = std::filesystem::current_path().generic_u8string();
+	memcpy(path, str.c_str(), str.length() + 1);
+}
+
 bool RawFileSystem::exists(const char *path) const noexcept
 {
 	return std::filesystem::exists(path);

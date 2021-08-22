@@ -1,7 +1,7 @@
 #pragma once
-#include <filesystem>
 #include <EASTL/vector.h>
 #include <EASTL/atomic.h>
+#include <string>
 #include "importer/mesh/ModelImporter.h"
 
 class Engine;
@@ -24,18 +24,18 @@ private:
 	};
 
 	Engine *m_engine = nullptr;
-	std::filesystem::path m_currentPath = std::filesystem::current_path();
-	std::filesystem::path m_subDirPopupPath;
+	std::string m_currentPath = "/assets";
+	std::string m_subDirPopupPath;
 	char m_searchText[256] = {};
 	char m_searchTextLower[256] = {};
-	eastl::vector<std::filesystem::path> m_currentPathSegments;
-	eastl::vector<std::filesystem::path> m_history;
+	eastl::vector<std::string> m_currentPathSegments;
+	eastl::vector<std::string> m_history;
 	int m_historyPointer = 0;
 	bool m_visible = true;
 	ImportAssetTask m_importAssetTask;
 	eastl::atomic_flag m_currentlyImporting = false;
 
 	void updatePathSegments() noexcept;
-	void renderTreeNode(const std::filesystem::path &path, std::filesystem::path *newPath) noexcept;
+	void renderTreeNode(const std::string &path, std::string *newPath) noexcept;
 	void importButton() noexcept;
 };

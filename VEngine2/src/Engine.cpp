@@ -18,6 +18,8 @@
 #include "asset/handler/AssetHandlerRegistration.h"
 #include "file/FileDialog.h"
 #include "CharacterMovementSystem.h"
+#include "filesystem/RawFileSystem.h"
+#include "filesystem/VirtualFileSystem.h"
 
 // these are needed for EASTL
 
@@ -34,6 +36,14 @@ void *__cdecl operator new[](size_t size, size_t alignment, size_t alignmentOffs
 int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 {
 	FileDialog::initializeCOM();
+
+	// set VFS mount points
+	{
+		char currentPath[IFileSystem::k_maxPathLength] = {};
+		RawFileSystem::get().getCurrentPath(currentPath);
+		VirtualFileSystem::get().mount((std::string(currentPath) + "/assets").c_str(), "assets");
+	}
+	
 
 	m_gameLogic = gameLogic;
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");

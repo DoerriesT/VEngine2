@@ -23,6 +23,23 @@ const char *Path::getExtension(const char *path) noexcept
 	return lastPointPosition != -1 ? (path + lastPointPosition + 1) : nullptr;
 }
 
+const char *Path::getFileName(const char *path, char separator) noexcept
+{
+	size_t start = 0;
+	size_t curOffset = 0;
+
+	while (path[curOffset])
+	{
+		if (path[curOffset] == separator)
+		{
+			start = curOffset;
+		}
+		++curOffset;
+	}
+
+	return path + start + 1;
+}
+
 size_t Path::getSegmentCount(const char *path, char separator) noexcept
 {
 	size_t count = 0;

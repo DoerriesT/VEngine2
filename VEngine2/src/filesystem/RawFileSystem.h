@@ -10,6 +10,8 @@ class RawFileSystem : public IFileSystem
 public:
 	static RawFileSystem &get() noexcept;
 
+	void getCurrentPath(char *path) const noexcept;
+
 	bool exists(const char *path) const noexcept override;
 	bool isDirectory(const char *path) const noexcept override;
 	bool isFile(const char *path) const noexcept override;

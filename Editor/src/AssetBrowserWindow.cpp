@@ -1,7 +1,6 @@
 #include "AssetBrowserWindow.h"
 #include <graphics/imgui/imgui.h>
 #include <graphics/imgui/imgui_internal.h>
-#include <filesystem>
 #include <ShObjIdl_core.h>
 #include <windows.h>
 #include <thumbcache.h>
@@ -13,16 +12,16 @@
 #include <file/FileDialog.h>
 #include <Log.h>
 #include <future>
+#include <filesystem/Path.h>
+#include <filesystem/VirtualFileSystem.h>
 
 static std::future<void> s_future;
 
-static TextureHandle getThumbNail(const std::filesystem::path &path, Engine *engine)
+static TextureHandle getThumbNail(const std::string &path, Engine *engine)
 {
 	static std::unordered_map<std::string, TextureHandle> iconMap;
 
-	std::string pathU8 = path.u8string();
-
-	auto it = iconMap.find(pathU8);
+	auto it = iconMap.find(path);
 	if (it != iconMap.end())
 	{
 		return it->second;
@@ -177,7 +176,20 @@ static TextureHandle getThumbNail(const std::filesystem::path &path, Engine *eng
 
 	// create IShellItemImageFactory  from path
 	IShellItemImageFactory *imageFactory = nullptr;
-	auto hr = SHCreateItemFromParsingName(path.native().c_str(), nullptr, __uuidof(IShellItemImageFactory), (void **)&imageFactory);
+	std::wstring newStr;
+	for (auto c : path)
+	{
+		if (c == '/')
+		{
+			newStr.push_back('\\');
+		}
+		else
+		{
+			newStr.push_back(c);
+		}
+	}
+
+	auto hr = SHCreateItemFromParsingName(newStr.c_str(), nullptr, __uuidof(IShellItemImageFactory), (void **)&imageFactory);
 
 	if (SUCCEEDED(hr))
 	{
@@ -215,14 +227,14 @@ static TextureHandle getThumbNail(const std::filesystem::path &path, Engine *eng
 				auto hashIt = hasedIconMap.find(hash);
 				if (hashIt != hasedIconMap.end())
 				{
-					iconMap[pathU8] = hashIt->second;
+					iconMap[path] = hashIt->second;
 					resultTex = hashIt->second;
 				}
 				else
 				{
 					// create texture and store in maps
-					auto textureHandle = engine->getRenderer()->loadRawRGBA8(byteSize, (char *)data, pathU8.c_str(), ds.dsBm.bmWidth, ds.dsBm.bmHeight);
-					iconMap[pathU8] = textureHandle;
+					auto textureHandle = engine->getRenderer()->loadRawRGBA8(byteSize, (char *)data, path.c_str(), ds.dsBm.bmWidth, ds.dsBm.bmHeight);
+					iconMap[path] = textureHandle;
 					hasedIconMap[hash] = textureHandle;
 
 					resultTex = textureHandle;
@@ -256,6 +268,8 @@ void AssetBrowserWindow::draw() noexcept
 	{
 		return;
 	}
+
+	auto &vfs = VirtualFileSystem::get();
 
 	ImGui::Begin("Asset Browser");
 	{
@@ -323,7 +337,7 @@ void AssetBrowserWindow::draw() noexcept
 			for (const auto &p : m_currentPathSegments)
 			{
 				ImGui::PushID(&p);
-				if (ImGui::Button(p.filename().u8string().c_str()))
+				if (ImGui::Button(Path::getFileName(p.c_str())))
 				{
 					newPath = p;
 				}
@@ -332,14 +346,19 @@ void AssetBrowserWindow::draw() noexcept
 
 				bool hasSubDirs = false;
 
-				for (auto entry : std::filesystem::directory_iterator(p))
+				char tmp[IFileSystem::k_maxPathLength];
+				auto findHandle = vfs.findFirst(p.c_str(), tmp);
+
+				while (tmp[0])
 				{
-					if (entry.is_directory())
+					if (vfs.findIsDirectory(findHandle))
 					{
 						hasSubDirs = true;
 						break;
 					}
+					findHandle = vfs.findNext(findHandle, tmp);
 				}
+				vfs.findClose(findHandle);
 
 				if (hasSubDirs)
 				{
@@ -362,16 +381,20 @@ void AssetBrowserWindow::draw() noexcept
 
 			if (ImGui::BeginPopup("jump_to_sub_dir_popup"))
 			{
-				for (auto entry : std::filesystem::directory_iterator(m_subDirPopupPath))
+				char tmp[IFileSystem::k_maxPathLength];
+				auto findHandle = vfs.findFirst(m_subDirPopupPath.c_str(), tmp);
+				while (tmp[0])
 				{
-					if (entry.is_directory())
+					if (vfs.findIsDirectory(findHandle))
 					{
-						if (ImGui::Selectable(entry.path().filename().u8string().c_str()))
+						if (ImGui::Selectable(tmp))
 						{
-							newPath = entry.path();
+							newPath = tmp;
 						}
 					}
+					findHandle = vfs.findNext(findHandle, tmp);
 				}
+				vfs.findClose(findHandle);
 
 				ImGui::EndPopup();
 			}
@@ -429,23 +452,29 @@ void AssetBrowserWindow::draw() noexcept
 					
 					for (int isFileOnlyRun = 0; isFileOnlyRun < 2; ++isFileOnlyRun)
 					{
-						for (auto entry : std::filesystem::directory_iterator(m_currentPath))
+						char tmp[IFileSystem::k_maxPathLength];
+						auto findHandle = vfs.findFirst(m_currentPath.c_str(), tmp);
+
+						while (tmp[0])
 						{
-							if (isFileOnlyRun == 0 && !entry.is_directory())
+							if (isFileOnlyRun == 0 && !vfs.isDirectory(tmp))
 							{
+								findHandle = vfs.findNext(findHandle, tmp);
 								continue;
 							}
-							if (isFileOnlyRun == 1 && !entry.is_regular_file())
+							if (isFileOnlyRun == 1 && !vfs.isFile(tmp))
 							{
+								findHandle = vfs.findNext(findHandle, tmp);
 								continue;
 							}
 
-							std::string displayName = entry.path().filename().u8string();
+							std::string displayName = Path::getFileName(tmp);
 							std::string displayNameLower = displayName;
 							std::transform(displayNameLower.begin(), displayNameLower.end(), displayNameLower.begin(), [](unsigned char c) { return std::tolower(c); });
 
 							if (!searchTextView.empty() && displayNameLower.find(searchTextView) == std::string::npos)
 							{
+								findHandle = vfs.findNext(findHandle, tmp);
 								continue;
 							}
 
@@ -453,7 +482,9 @@ void AssetBrowserWindow::draw() noexcept
 
 							ImGui::BeginGroup();
 							{
-								auto thumb = getThumbNail(entry.path(), m_engine);
+								char resolvedPath[IFileSystem::k_maxPathLength];
+								vfs.resolve(tmp, resolvedPath);
+								auto thumb = getThumbNail(resolvedPath, m_engine);
 								if (!thumb)
 								{
 									ImGui::Button("???", ImVec2(itemSize - 20.0f, itemSize - 16));
@@ -472,15 +503,18 @@ void AssetBrowserWindow::draw() noexcept
 							}
 							if (ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 							{
-								if (entry.is_directory())
+								if (vfs.isDirectory(tmp))
 								{
-									newPath = entry.path();
+									newPath = tmp;
 								}
 							}
 
 							ImGui::PopID();
 							ImGui::NextColumn();
+
+							findHandle = vfs.findNext(findHandle, tmp);
 						}
+						vfs.findClose(findHandle);
 					}
 				}
 				ImGui::EndChild();
@@ -523,51 +557,32 @@ bool AssetBrowserWindow::isVisible() const noexcept
 void AssetBrowserWindow::updatePathSegments() noexcept
 {
 	m_currentPathSegments.clear();
-	size_t pathSegmentCount = 0;
-	auto curPath = m_currentPath;
+	const size_t pathSegmentCount = Path::getSegmentCount(m_currentPath.c_str());
+	m_currentPathSegments.reserve(pathSegmentCount);
 
-	// compute number of segments
-	do
+	for (size_t i = 0; i < pathSegmentCount; ++i)
 	{
-		++pathSegmentCount;
-		if (curPath.parent_path() == curPath)
-		{
-			break;
-		}
-		curPath = curPath.parent_path();
-	} while (curPath.has_parent_path());
-
-	m_currentPathSegments.resize(pathSegmentCount);
-
-	curPath = m_currentPath;
-
-	// write in reverse bottom-up order (so its top-down)
-	do
-	{
-		--pathSegmentCount;
-		m_currentPathSegments[pathSegmentCount] = curPath;
-		if (curPath.parent_path() == curPath)
-		{
-			break;
-		}
-		curPath = curPath.parent_path();
-	} while (curPath.has_parent_path());
+		size_t offset = Path::getFirstNSegments(m_currentPath.c_str(), i + 1);
+		m_currentPathSegments.push_back(m_currentPath.substr(0, offset));
+	}
 }
 
-void AssetBrowserWindow::renderTreeNode(const std::filesystem::path &path, std::filesystem::path *newPath) noexcept
+void AssetBrowserWindow::renderTreeNode(const std::string &path, std::string *newPath) noexcept
 {
-	if (!std::filesystem::is_directory(path))
+	auto &vfs = VirtualFileSystem::get();
+
+	if (!vfs.isDirectory(path.c_str()))
 	{
 		return;
 	}
 
 	bool isSelected = m_currentPath == path;
-	bool isParentOfCurrentPath = m_currentPath.u8string().find(path.u8string()) != std::string::npos; // TODO: bad hack, find something better
+	bool isParentOfCurrentPath = m_currentPath.find(path) != std::string::npos; // TODO: bad hack, find something better
 	ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_NoAutoOpenOnLog;
 	treeNodeFlags |= isSelected ? ImGuiTreeNodeFlags_Selected : 0;
 	treeNodeFlags |= isParentOfCurrentPath ? ImGuiTreeNodeFlags_DefaultOpen : 0;
 
-	bool nodeOpen = ImGui::TreeNodeEx(path.filename().u8string().c_str(), treeNodeFlags);
+	bool nodeOpen = ImGui::TreeNodeEx(Path::getFileName(path.c_str()), treeNodeFlags);
 	if (ImGui::IsItemClicked())
 	{
 		*newPath = path;
@@ -575,20 +590,18 @@ void AssetBrowserWindow::renderTreeNode(const std::filesystem::path &path, std::
 
 	if (nodeOpen)
 	{
-		try
+		char entry[IFileSystem::k_maxPathLength];
+		auto findHandle = vfs.findFirst(path.c_str(), entry);
+		while (entry[0])
 		{
-			for (auto entry : std::filesystem::directory_iterator(path))
+			if (vfs.findIsDirectory(findHandle))
 			{
-				if (entry.is_directory())
-				{
-					renderTreeNode(entry.path(), newPath);
-				}
+				renderTreeNode(entry, newPath);
 			}
+			findHandle = vfs.findNext(findHandle, entry);
 		}
-		catch (...)
-		{
+		vfs.findClose(findHandle);
 
-		}
 		ImGui::TreePop();
 	}
 }
