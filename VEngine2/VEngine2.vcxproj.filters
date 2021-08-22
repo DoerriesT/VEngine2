@@ -441,6 +441,9 @@
     <ClInclude Include="src\utility\WideNarrowStringConversion.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imgui_file_browser.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -748,6 +751,9 @@
     </ClCompile>
     <ClCompile Include="src\utility\WideNarrowStringConversion.cpp">
       <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imgui_file_browser.cpp">
+      <Filter>src\graphics\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
