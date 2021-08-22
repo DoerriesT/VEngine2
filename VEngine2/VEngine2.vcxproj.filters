@@ -55,6 +55,9 @@
     <Filter Include="src\asset\handler">
       <UniqueIdentifier>{3ad4a448-5103-4506-aac6-ddb9e0665631}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\filesystem">
+      <UniqueIdentifier>{cf4784a3-c294-43f0-bb23-ed0142127ac3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -423,6 +426,18 @@
     <ClInclude Include="src\asset\AssetDatabase.h">
       <Filter>src\asset</Filter>
     </ClInclude>
+    <ClInclude Include="src\filesystem\IFileSystem.h">
+      <Filter>src\filesystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\filesystem\RawFileSystem.h">
+      <Filter>src\filesystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\filesystem\VirtualFileSystem.h">
+      <Filter>src\filesystem</Filter>
+    </ClInclude>
+    <ClInclude Include="src\filesystem\Path.h">
+      <Filter>src\filesystem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -718,6 +733,15 @@
     </ClCompile>
     <ClCompile Include="src\asset\AssetDatabase.cpp">
       <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\filesystem\RawFileSystem.cpp">
+      <Filter>src\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="src\filesystem\VirtualFileSystem.cpp">
+      <Filter>src\filesystem</Filter>
+    </ClCompile>
+    <ClCompile Include="src\filesystem\Path.cpp">
+      <Filter>src\filesystem</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

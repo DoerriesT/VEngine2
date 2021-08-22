@@ -184,6 +184,10 @@
     <ClInclude Include="src\ecs\ECSCommon.h" />
     <ClInclude Include="src\ecs\ECSComponentInfoTable.h" />
     <ClInclude Include="src\Engine.h" />
+    <ClInclude Include="src\filesystem\IFileSystem.h" />
+    <ClInclude Include="src\filesystem\Path.h" />
+    <ClInclude Include="src\filesystem\RawFileSystem.h" />
+    <ClInclude Include="src\filesystem\VirtualFileSystem.h" />
     <ClInclude Include="src\file\FileDialog.h" />
     <ClInclude Include="src\graphics\BufferStackAllocator.h" />
     <ClInclude Include="src\graphics\Camera.h" />
@@ -302,6 +306,9 @@
     <ClCompile Include="src\ecs\ECS.cpp" />
     <ClCompile Include="src\ecs\ECSComponentInfoTable.cpp" />
     <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\filesystem\Path.cpp" />
+    <ClCompile Include="src\filesystem\RawFileSystem.cpp" />
+    <ClCompile Include="src\filesystem\VirtualFileSystem.cpp" />
     <ClCompile Include="src\file\FileDialog.cpp" />
     <ClCompile Include="src\graphics\BufferStackAllocator.cpp" />
     <ClCompile Include="src\graphics\Camera.cpp" />
