@@ -18,7 +18,6 @@ private:
 	float m_zoomHistory = 0.0f;
 	float m_cameraPitch = 0.5f;
 	float m_cameraYaw = 0.0f;
-	float m_cameraDistance = 10.0f;
-	float m_constrainedCameraDistance = 10.0f;
-	bool m_constrainedInPrevFrame = false;
+	float m_cameraTargetDistance = 10.0f;
+	float m_prevCameraDistance = 10.0f;
 };

@@ -28,12 +28,12 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 	};
 
 	glm::vec3 center = characterTc->m_translation + glm::vec3(0.0f, 2.0f, 0.0f);
-	glm::vec3 cameraPos = sphericalToCartesian(m_cameraPitch, m_cameraYaw, m_cameraDistance);
+	glm::vec3 cameraPos = sphericalToCartesian(m_cameraPitch, m_cameraYaw, m_prevCameraDistance);
 	glm::vec3 toCamera = glm::normalize(cameraPos - center);
 
 	m_zoomHistory = glm::mix(m_zoomHistory, inputState->m_zoomAxis, timeDelta / (timeDelta + 0.05f));
-	m_cameraDistance += m_zoomHistory;
-	m_cameraDistance = glm::clamp(m_cameraDistance, 1.0f, 20.0f);
+	m_cameraTargetDistance += m_zoomHistory;
+	m_cameraTargetDistance = glm::clamp(m_cameraTargetDistance, 1.0f, 20.0f);
 
 	// rotation of camera
 	{
@@ -108,31 +108,22 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 	}
 
 	toCamera = sphericalToCartesian(m_cameraPitch, m_cameraYaw, 1.0f);
-	float actualDistance = m_cameraDistance;
 
 	const float rayCastOffset = 0.31f;
 	glm::vec3 rayCastOrigin = center + toCamera * rayCastOffset;
+	float constrainedDistance = FLT_MAX;
 
+	// trace a ray to see how far the camera can go away
 	RayCastResult result;
-	if (physics->raycast(&rayCastOrigin.x, &toCamera.x, m_cameraDistance - rayCastOffset, &result))
+	if (physics->raycast(&rayCastOrigin.x, &toCamera.x, m_cameraTargetDistance - rayCastOffset, &result))
 	{
-		actualDistance = fmaxf(result.m_rayT + rayCastOffset - 1.0f, rayCastOffset);
-
-		if (!m_constrainedInPrevFrame)
-		{
-			m_constrainedCameraDistance = actualDistance;
-		}
-
-		m_constrainedCameraDistance = glm::mix(m_constrainedCameraDistance, actualDistance, timeDelta / (timeDelta + 0.05f));
-
-		actualDistance = m_constrainedCameraDistance;
-
-		m_constrainedInPrevFrame = true;
+		constrainedDistance = fmaxf(result.m_rayT + rayCastOffset - 1.0f, rayCastOffset);
 	}
-	else
-	{
-		m_constrainedInPrevFrame = false;
-	}
+
+
+	float actualDistance = fminf(constrainedDistance, m_cameraTargetDistance);
+	actualDistance = glm::mix(fminf(constrainedDistance, m_prevCameraDistance), actualDistance, timeDelta / (timeDelta + 0.05f));
+	m_prevCameraDistance = actualDistance;
 
 	// recompute camera position
 	camera.setPosition(center + toCamera * actualDistance);

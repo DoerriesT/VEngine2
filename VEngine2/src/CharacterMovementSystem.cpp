@@ -45,27 +45,27 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 				float oldVelocityY = mc.m_velocityY;
 				const float gravity = -9.81f;
 
-				// apply gravity
-				{
-					mc.m_velocityY += gravity * timeDelta;
-				}
-
 				// any downwards velocity is cancelled by touching the ground
 				if (touchesGround)
 				{
 					mc.m_velocityY = std::max(mc.m_velocityY, 0.0f);
+				}
+				
+				// any upwards velocity is cancelled by hitting our head
+				if (touchesCeiling)
+				{
+					mc.m_velocityY = std::min(mc.m_velocityY, 0.0f);
+				}
+
+				// apply gravity
+				{
+					mc.m_velocityY += gravity * timeDelta;
 				}
 
 				// jumping
 				{
 					if (mc.m_jumping)
 					{
-						// we just hit our head
-						if (mc.m_jumping && touchesCeiling)
-						{
-							mc.m_velocityY = std::min(mc.m_velocityY, 0.0f);
-						}
-
 						// our jump is over
 						if (mc.m_jumping && touchesGround)
 						{

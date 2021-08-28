@@ -274,7 +274,7 @@ void Physics::update(float deltaTime) noexcept
 
 				controller->resize(adjustedHeight - 2.0f * adjustedRadius);
 
-				auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.01f, deltaTime, PxControllerFilters());
+				auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.00001f, deltaTime, PxControllerFilters());
 
 				cc.m_collisionFlags = CharacterControllerCollisionFlags::NONE;
 				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_SIDES) ? CharacterControllerCollisionFlags::SIDES : CharacterControllerCollisionFlags::NONE;
