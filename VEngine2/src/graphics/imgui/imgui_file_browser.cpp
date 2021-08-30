@@ -4,10 +4,11 @@
 #include "filesystem/Path.h"
 #include <cctype>
 
-ImGuiFileBrowser::ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ImGuiFileBrowserThumbnailCallback thumbnailCallback, void *thumbnailCallbackUserData) noexcept
+ImGuiFileBrowser::ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ThumbnailCallback thumbnailCallback, FileFilterCallback filterCallback, void *callbackUserData) noexcept
 	:m_fs(fs),
 	m_thumbnailCallback(thumbnailCallback),
-	m_thumbnailCallbackUserData(thumbnailCallbackUserData),
+	m_fileFilterCallback(filterCallback),
+	m_callbackUserData(callbackUserData),
 	m_currentPath(currentPath)
 {
 	updatePathSegments();
@@ -227,6 +228,10 @@ void ImGuiFileBrowser::drawMainArea(eastl::string *newPath) noexcept
 							{
 								return true;
 							}
+							if (ffd.m_isFile && m_fileFilterCallback && !m_fileFilterCallback(ffd.m_path, m_callbackUserData))
+							{
+								return true;
+							}
 
 							eastl::string displayName = Path::getFileName(ffd.m_path);
 							eastl::string displayNameLower = displayName;
@@ -244,7 +249,7 @@ void ImGuiFileBrowser::drawMainArea(eastl::string *newPath) noexcept
 								ImTextureID thumbnail = 0;
 								if (m_thumbnailCallback)
 								{
-									thumbnail = m_thumbnailCallback(ffd.m_path, m_thumbnailCallbackUserData);
+									thumbnail = m_thumbnailCallback(ffd.m_path, m_callbackUserData);
 								}
 
 								if (thumbnail)

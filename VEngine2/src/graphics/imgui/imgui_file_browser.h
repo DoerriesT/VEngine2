@@ -5,19 +5,21 @@
 
 class IFileSystem;
 
-using ImGuiFileBrowserThumbnailCallback = void *(*)(const char *path, void *userData);
-
 class ImGuiFileBrowser
 {
 public:
-	explicit ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ImGuiFileBrowserThumbnailCallback thumbnailCallback, void *thumbnailCallbackUserData) noexcept;
+	using ThumbnailCallback = void *(*)(const char *path, void *userData);
+	using FileFilterCallback = bool (*)(const char *path, void *userData);
+
+	explicit ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ThumbnailCallback thumbnailCallback, FileFilterCallback filterCallback, void *callbackUserData) noexcept;
 	void draw() noexcept;
 	eastl::string getCurrentPath() const noexcept;
 
 private:
 	IFileSystem *m_fs;
-	ImGuiFileBrowserThumbnailCallback m_thumbnailCallback;
-	void *m_thumbnailCallbackUserData;
+	ThumbnailCallback m_thumbnailCallback;
+	FileFilterCallback m_fileFilterCallback;
+	void *m_callbackUserData;
 	eastl::string m_currentPath;
 	eastl::string m_subDirPopupPath;
 	eastl::vector<eastl::string> m_currentPathSegments;

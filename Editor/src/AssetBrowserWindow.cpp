@@ -128,9 +128,14 @@ static void *thumbnailCallback(const char *path, void *userData)
 #endif
 }
 
+static bool fileFilterCallback(const char *path, void *userData)
+{
+	return VirtualFileSystem::get().exists((eastl::string(path) + ".meta").c_str());
+}
+
 AssetBrowserWindow::AssetBrowserWindow(Engine *engine) noexcept
 	:m_engine(engine),
-	m_fileBrowser(&VirtualFileSystem::get(), "/assets", thumbnailCallback, engine)
+	m_fileBrowser(&VirtualFileSystem::get(), "/assets", thumbnailCallback, fileFilterCallback, engine)
 {
 }
 
