@@ -5,6 +5,7 @@
 #include "graphics/Renderer.h"
 #include "asset/TextureAsset.h"
 #include "asset/AssetManager.h"
+#include "filesystem/VirtualFileSystem.h"
 
 static AssetManager *s_assetManager = nullptr;
 static TextureAssetHandler s_textureAssetHandler;
@@ -52,21 +53,26 @@ bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) 
 	assetData->setAssetStatus(AssetStatus::LOADING);
 
 	// load file
-	size_t fileSize = 0;
-	char *fileData = util::readBinaryFile(path, &fileSize);
-
-	TextureHandle textureHandle = m_renderer->loadTexture(fileSize, fileData, path);
-
-	delete[] fileData;
-
-	if (!textureHandle)
 	{
-		Log::warn("TextureAssetHandler: Failed to load texture asset!");
-		assetData->setAssetStatus(AssetStatus::ERROR);
-		return false;
-	}
+		auto fileSize = VirtualFileSystem::get().size(path);
+		eastl::vector<char> fileData(fileSize);
 
-	static_cast<TextureAssetData *>(assetData)->m_textureHandle = textureHandle;
+		bool success = false;
+
+		if (VirtualFileSystem::get().readFile(path, fileSize, fileData.data(), true))
+		{
+			auto handle = m_renderer->loadTexture(fileSize, fileData.data(), path);
+			static_cast<TextureAssetData *>(assetData)->m_textureHandle = handle;
+			success = handle != 0;
+		}
+
+		if (!success)
+		{
+			Log::warn("TextureAssetHandler: Failed to load texture asset!");
+			assetData->setAssetStatus(AssetStatus::ERROR);
+			return false;
+		}
+	}
 
 	assetData->setAssetStatus(AssetStatus::READY);
 

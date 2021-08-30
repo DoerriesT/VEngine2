@@ -28,8 +28,8 @@ public:
 	uint64_t write(FileHandle fileHandle, size_t bufferSize, const void *buffer) const noexcept override;
 	void close(FileHandle fileHandle) noexcept override;
 
-	bool readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept override;
-	bool writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept override;
+	bool readFile(const char *filePath, size_t bufferSize, void *buffer, bool binary) noexcept override;
+	bool writeFile(const char *filePath, size_t bufferSize, const void *buffer, bool binary) noexcept override;
 
 	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept override;
 	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept override;

@@ -257,9 +257,9 @@ void RawFileSystem::close(FileHandle fileHandle) noexcept
 	}
 }
 
-bool RawFileSystem::readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept
+bool RawFileSystem::readFile(const char *filePath, size_t bufferSize, void *buffer, bool binary) noexcept
 {
-	auto fh = open(filePath, FileMode::READ, true);
+	auto fh = open(filePath, FileMode::READ, binary);
 	if (fh)
 	{
 		uint64_t readCount = read(fh, bufferSize, buffer);
@@ -269,9 +269,9 @@ bool RawFileSystem::readFile(const char *filePath, size_t bufferSize, void *buff
 	return false;
 }
 
-bool RawFileSystem::writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept
+bool RawFileSystem::writeFile(const char *filePath, size_t bufferSize, const void *buffer, bool binary) noexcept
 {
-	auto fh = open(filePath, FileMode::WRITE, true);
+	auto fh = open(filePath, FileMode::WRITE, binary);
 	if (fh)
 	{
 		uint64_t writeCount = write(fh, bufferSize, buffer);

@@ -12,6 +12,7 @@ class ImGuiFileBrowser
 public:
 	explicit ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ImGuiFileBrowserThumbnailCallback thumbnailCallback, void *thumbnailCallbackUserData) noexcept;
 	void draw() noexcept;
+	eastl::string getCurrentPath() const noexcept;
 
 private:
 	IFileSystem *m_fs;

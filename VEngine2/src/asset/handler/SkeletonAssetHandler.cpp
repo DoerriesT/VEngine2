@@ -5,7 +5,7 @@
 #include "animation/AnimationSystem.h"
 #include "asset/SkeletonAsset.h"
 #include "asset/AssetManager.h"
-#include <fstream>
+#include "filesystem/VirtualFileSystem.h"
 
 static AssetManager *s_assetManager = nullptr;
 static SkeletonAssetHandler s_skeletonAssetHandler;
@@ -54,22 +54,24 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 
 	// load asset
 	{
-		// load file
-		size_t fileSize = 0;
-		char *fileData = util::readBinaryFile(path, &fileSize);
+		auto fileSize = VirtualFileSystem::get().size(path);
+		eastl::vector<char> fileData(fileSize);
 
-		AnimationSkeletonHandle skeletonHandle = m_animationSystem->createSkeleton(fileSize, fileData);
+		bool success = false;
 
-		delete[] fileData;
-
-		if (!skeletonHandle)
+		if (VirtualFileSystem::get().readFile(path, fileSize, fileData.data(), true))
+		{
+			auto handle = m_animationSystem->createSkeleton(fileSize, fileData.data());
+			static_cast<SkeletonAssetData *>(assetData)->m_skeletonHandle = handle;
+			success = handle != 0;
+		}
+		
+		if (!success)
 		{
 			Log::warn("SkeletonAssetHandler: Failed to load skeleton asset!");
 			assetData->setAssetStatus(AssetStatus::ERROR);
 			return false;
 		}
-
-		static_cast<SkeletonAssetData *>(assetData)->m_skeletonHandle = skeletonHandle;
 	}
 
 	assetData->setAssetStatus(AssetStatus::READY);

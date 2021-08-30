@@ -1,4 +1,5 @@
 #include "Path.h"
+#include <string.h>
 
 bool Path::hasValidForm(const char *path) noexcept
 {
@@ -38,6 +39,23 @@ const char *Path::getFileName(const char *path, char separator) noexcept
 	}
 
 	return path + start + 1;
+}
+
+size_t Path::getParentPath(const char *path, char separator) noexcept
+{
+	size_t parentPathEnd = 0;
+	size_t curOffset = 0;
+
+	while (path[curOffset])
+	{
+		if (path[curOffset] == separator)
+		{
+			parentPathEnd = curOffset;
+		}
+		++curOffset;
+	}
+
+	return parentPathEnd;
 }
 
 size_t Path::getSegmentCount(const char *path, char separator) noexcept

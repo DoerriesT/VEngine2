@@ -1,8 +1,8 @@
 #pragma once
 #include <EASTL/vector.h>
 #include <EASTL/atomic.h>
-#include <string>
-#include "importer/mesh/ModelImporter.h"
+#include <EASTL/string.h>
+#include "importer/AssetImporter.h"
 #include <graphics/imgui/imgui_file_browser.h>
 
 class Engine;
@@ -18,9 +18,9 @@ public:
 private:
 	struct ImportAssetTask
 	{
-		ModelImporter::ImportOptions m_importOptions = {};
-		std::string m_srcPath;
-		std::string m_dstPath;
+		AssetImporter::ImportOptions m_importOptions = {};
+		eastl::string m_srcPath;
+		eastl::string m_dstPath;
 		bool m_done = false;
 	};
 

@@ -5,7 +5,7 @@
 #include "animation/AnimationSystem.h"
 #include "asset/AnimationClipAsset.h"
 #include "asset/AssetManager.h"
-#include <fstream>
+#include "filesystem/VirtualFileSystem.h"
 
 static AssetManager *s_assetManager = nullptr;
 static AnimationClipAssetHandler s_animationClipAssetHandler;
@@ -54,22 +54,24 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 
 	// load asset
 	{
-		// load file
-		size_t fileSize = 0;
-		char *fileData = util::readBinaryFile(path, &fileSize);
+		auto fileSize = VirtualFileSystem::get().size(path);
+		eastl::vector<char> fileData(fileSize);
 
-		AnimationClipHandle animClipHandle = m_animationSystem->createAnimationClip(fileSize, fileData);
+		bool success = false;
 
-		delete[] fileData;
-
-		if (!animClipHandle)
+		if (VirtualFileSystem::get().readFile(path, fileSize, fileData.data(), true))
+		{
+			auto handle = m_animationSystem->createAnimationClip(fileSize, fileData.data());
+			static_cast<AnimationClipAssetData *>(assetData)->m_animationClipHandle = handle;
+			success = handle != 0;
+		}
+		
+		if (!success)
 		{
 			Log::warn("AnimationClipAssetHandler: Failed to load animation clip asset!");
 			assetData->setAssetStatus(AssetStatus::ERROR);
 			return false;
 		}
-
-		static_cast<AnimationClipAssetData *>(assetData)->m_animationClipHandle = animClipHandle;
 	}
 
 	assetData->setAssetStatus(AssetStatus::READY);

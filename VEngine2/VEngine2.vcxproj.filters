@@ -423,9 +423,6 @@
     <ClInclude Include="src\graphics\imgui\gui_helpers.h">
       <Filter>src\graphics\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="src\asset\AssetDatabase.h">
-      <Filter>src\asset</Filter>
-    </ClInclude>
     <ClInclude Include="src\filesystem\IFileSystem.h">
       <Filter>src\filesystem</Filter>
     </ClInclude>
@@ -736,9 +733,6 @@
     </ClCompile>
     <ClCompile Include="src\graphics\imgui\gui_helpers.cpp">
       <Filter>src\graphics\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="src\asset\AssetDatabase.cpp">
-      <Filter>src\asset</Filter>
     </ClCompile>
     <ClCompile Include="src\filesystem\RawFileSystem.cpp">
       <Filter>src\filesystem</Filter>

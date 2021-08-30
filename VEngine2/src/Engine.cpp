@@ -33,6 +33,17 @@ void *__cdecl operator new[](size_t size, size_t alignment, size_t alignmentOffs
 	return new uint8_t[size];
 }
 
+namespace EA
+{
+	namespace StdC
+	{
+		int __cdecl Vsnprintf(char *__restrict buffer, size_t bufsz, char const *__restrict format, va_list args)
+		{
+			return _vsnprintf_s(buffer, bufsz, bufsz, format, args);
+		}
+	}
+}
+
 int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 {
 	FileDialog::initializeCOM();

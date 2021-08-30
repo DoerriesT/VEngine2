@@ -216,18 +216,18 @@ void VirtualFileSystem::close(FileHandle fileHandle) noexcept
 	RawFileSystem::get().close(fileHandle);
 }
 
-bool VirtualFileSystem::readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept
+bool VirtualFileSystem::readFile(const char *filePath, size_t bufferSize, void *buffer, bool binary) noexcept
 {
 	char resolvedPath[k_maxPathLength] = {};
 	resolve(filePath, resolvedPath);
-	return RawFileSystem::get().readFile(resolvedPath, bufferSize, buffer);
+	return RawFileSystem::get().readFile(resolvedPath, bufferSize, buffer, binary);
 }
 
-bool VirtualFileSystem::writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept
+bool VirtualFileSystem::writeFile(const char *filePath, size_t bufferSize, const void *buffer, bool binary) noexcept
 {
 	char resolvedPath[k_maxPathLength] = {};
 	resolve(filePath, resolvedPath);
-	return RawFileSystem::get().writeFile(resolvedPath, bufferSize, buffer);
+	return RawFileSystem::get().writeFile(resolvedPath, bufferSize, buffer, binary);
 }
 
 FileFindHandle VirtualFileSystem::findFirst(const char *dirPath, FileFindData *result) noexcept

@@ -2,7 +2,10 @@
 #include "handler/AssetHandler.h"
 #include "Log.h"
 #include "UUID.h"
+#include <sstream>
 #include <string>
+#include "filesystem/VirtualFileSystem.h"
+#include "filesystem/Path.h"
 
 AssetManager *AssetManager::s_instance = nullptr;
 
@@ -10,7 +13,6 @@ bool AssetManager::init()
 {
 	assert(!s_instance);
 	s_instance = new AssetManager();
-	s_instance->m_assetDatabase.loadFromFile("assetDB.json");
 	return true;
 }
 
@@ -44,15 +46,41 @@ void AssetManager::shutdown()
 		handler->destroyAsset(assetID, assetType, assetData);
 	}
 
-	s_instance->m_assetDatabase.saveToFile("assetDB.json");
-
 	delete s_instance;
-	s_instance;
+	s_instance = nullptr;
 }
 
 AssetManager *AssetManager::get()
 {
 	return s_instance;
+}
+
+AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, const char *sourcePath) noexcept
+{
+	eastl::string_view sv(path);
+	assert(sv.starts_with("/assets/"));
+
+	constexpr size_t assetsDirPathOffset = 8; // length of "/assets/" string without null terminator
+
+	// create AssetID
+	AssetID resultAssetID = AssetID(path + assetsDirPathOffset);
+
+	// create directory hierarchy
+	size_t parentPathOffset = Path::getParentPath(path);
+	char parentPath[IFileSystem::k_maxPathLength];
+	memcpy(parentPath, path, parentPathOffset);
+	parentPath[parentPathOffset] = '\0';
+	VirtualFileSystem::get().createDirectoryHierarchy(parentPath);
+
+	// create meta file
+	std::stringstream metaFileData;
+	metaFileData << resultAssetID.m_string << '\n';
+	metaFileData << sourcePath << '\n';
+	std::string str = metaFileData.str();
+
+	VirtualFileSystem::get().writeFile((path + std::string(".meta")).c_str(), str.length(), str.data(), true);
+
+	return resultAssetID;
 }
 
 AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
@@ -102,15 +130,7 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 			return nullptr;
 		}
 
-		const auto *assetDBEntry = m_assetDatabase.getEntry(assetID);
-
-		if (!assetDBEntry)
-		{
-			Log::warn("AssetDatabase does not contain asset \"%s\"!", assetID.m_string);
-			return nullptr;
-		}
-
-		if (!handler->loadAssetData(assetData, assetDBEntry->m_path.u8string().c_str()))
+		if (!handler->loadAssetData(assetData, (eastl::string("/assets/") + assetID.m_string).c_str()))
 		{
 			handler->destroyAsset(assetID, assetType, assetData);
 			Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
@@ -177,14 +197,4 @@ void AssetManager::unregisterAssetHandler(const AssetType &assetType)
 {
 	LOCK_HOLDER(m_assetHandlerMutex);
 	m_assetHandlerMap.erase(assetType);
-}
-
-AssetDatabase *AssetManager::getAssetDatabase() noexcept
-{
-	return &m_assetDatabase;
-}
-
-const AssetDatabase *AssetManager::getAssetDatabase() const noexcept
-{
-	return &m_assetDatabase;
 }

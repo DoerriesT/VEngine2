@@ -2,13 +2,14 @@
 
 class Physics;
 
-namespace ModelImporter
+namespace AssetImporter
 {
 	enum class FileType
 	{
 		WAVEFRONT_OBJ,
 		GLTF,
 	};
+
 	struct ImportOptions
 	{
 		FileType m_fileType;
@@ -18,5 +19,6 @@ namespace ModelImporter
 		bool m_importSkeletons;
 		bool m_importAnimations;
 	};
-	bool importModel(const ImportOptions &importOptions, Physics *physics, const char *srcPath, const char *dstPath);
+
+	bool importAsset(const ImportOptions &importOptions, Physics *physics, const char *nativeSrcPath, const char *dstPath) noexcept;
 }

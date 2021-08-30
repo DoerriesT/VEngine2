@@ -60,7 +60,7 @@ public:
 
 		// player character
 		{
-			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character"));
+			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character.mesh"));
 			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
 
 			m_customAnimGraph = new CustomAnimGraph();
@@ -100,7 +100,7 @@ public:
 
 		// sponza
 		{
-			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza"));
+			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza.mesh"));
 
 			TransformComponent transC{};
 			transC.m_translation.z = -30.0f;
@@ -148,7 +148,7 @@ public:
 
 		// mesh
 		{
-			m_meshAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/uvsphere"));
+			m_meshAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/uvsphere.mesh"));
 
 			//for (int i = 0; i < 10; ++i)
 			//{

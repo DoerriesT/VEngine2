@@ -77,8 +77,8 @@ public:
 	virtual uint64_t write(FileHandle fileHandle, size_t bufferSize, const void *buffer) const noexcept = 0;
 	virtual void close(FileHandle fileHandle) noexcept = 0;
 
-	virtual bool readFile(const char *filePath, size_t bufferSize, void *buffer) noexcept = 0;
-	virtual bool writeFile(const char *filePath, size_t bufferSize, const void *buffer) noexcept = 0;
+	virtual bool readFile(const char *filePath, size_t bufferSize, void *buffer, bool binary) noexcept = 0;
+	virtual bool writeFile(const char *filePath, size_t bufferSize, const void *buffer, bool binary) noexcept = 0;
 
 	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept = 0;
 	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept = 0;

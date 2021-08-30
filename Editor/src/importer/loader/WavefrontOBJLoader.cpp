@@ -46,7 +46,7 @@
 //	};
 //}
 
-bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, ImportedModel &model)
+bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, LoadedModel &model)
 {
 	model = {};
 
@@ -87,21 +87,21 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 	{
 		for (const auto &objMaterial : objMaterials)
 		{
-			ImportedMaterial mat{};
-			mat.m_name = objMaterial.name;
-			mat.m_alpha = ImportedMaterial::Alpha::OPAQUE;
+			LoadedMaterial mat{};
+			mat.m_name = objMaterial.name.c_str();
+			mat.m_alpha = LoadedMaterial::Alpha::OPAQUE;
 			mat.m_albedoFactor = { objMaterial.diffuse[0], objMaterial.diffuse[1], objMaterial.diffuse[2] };
 			mat.m_metalnessFactor = objMaterial.metallic;
 			mat.m_roughnessFactor = objMaterial.roughness;
 			mat.m_emissiveFactor = { objMaterial.emission[0], objMaterial.emission[1], objMaterial.emission[2] };
 			mat.m_opacity = 1.0f;
-			mat.m_albedoTexture = objMaterial.diffuse_texname;
-			mat.m_normalTexture = objMaterial.normal_texname.empty() ? objMaterial.bump_texname : objMaterial.normal_texname;
-			mat.m_metalnessTexture = objMaterial.metallic_texname;
-			mat.m_roughnessTexture = objMaterial.roughness_texname;
+			mat.m_albedoTexture = objMaterial.diffuse_texname.c_str();
+			mat.m_normalTexture = objMaterial.normal_texname.empty() ? objMaterial.bump_texname.c_str() : objMaterial.normal_texname.c_str();
+			mat.m_metalnessTexture = objMaterial.metallic_texname.c_str();
+			mat.m_roughnessTexture = objMaterial.roughness_texname.c_str();
 			mat.m_occlusionTexture = "";
-			mat.m_emissiveTexture = objMaterial.emissive_texname;
-			mat.m_displacementTexture = objMaterial.displacement_texname;
+			mat.m_emissiveTexture = objMaterial.emissive_texname.c_str();
+			mat.m_displacementTexture = objMaterial.displacement_texname.c_str();
 
 			model.m_materials.push_back(mat);
 		}
@@ -152,7 +152,7 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 
 	std::set<uint32_t> shapeIndices;
 
-	ImportedMesh mesh = {};
+	LoadedModel::Mesh mesh = {};
 
 	// loop over all primitives and create individual meshes
 	for (size_t i = 0; i < unifiedIndices.size(); ++i)
@@ -227,7 +227,7 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 				{
 					mesh.m_name += "_";
 				}
-				mesh.m_name += objShapes[shapeIndex].name;
+				mesh.m_name += objShapes[shapeIndex].name.c_str();
 			}
 
 			mesh.m_materialIndex = unifiedIdx.m_materialIndex;

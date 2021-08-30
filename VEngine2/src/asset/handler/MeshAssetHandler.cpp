@@ -6,8 +6,7 @@
 #include "physics/Physics.h"
 #include "asset/MeshAsset.h"
 #include "asset/AssetManager.h"
-#include <nlohmann/json.hpp>
-#include <fstream>
+#include "filesystem/VirtualFileSystem.h"
 
 static AssetManager *s_assetManager = nullptr;
 static MeshAssetHandler s_meshAssetHandler;
@@ -59,123 +58,102 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 	{
 		auto *meshAssetData = static_cast<MeshAssetData *>(assetData);
 
-		nlohmann::json info;
-		{
-			std::ifstream file(std::string(path) + ".info");
-			file >> info;
-		}
-
 		// load mesh
 		{
-			size_t fileSize = 0;
-			char *meshData = util::readBinaryFile(info["meshFile"].get<std::string>().c_str(), &fileSize);
+			auto fileSize = VirtualFileSystem::get().size(path);
+			eastl::vector<char> fileData(fileSize);
 
-			// physics meshes
+			if (VirtualFileSystem::get().readFile(path, fileSize, fileData.data(), true))
 			{
-				// convex mesh
-				uint32_t convexMeshSize = 0;
-				uint32_t convexMeshOffset = 0;
-				if (info.contains("physicsConvexMeshDataSize"))
+				const char *data = fileData.data();
+				MeshAssetData::FileHeader header = *reinterpret_cast<const MeshAssetData::FileHeader *>(data);
+				const char *dataSegment = fileData.data() + header.m_dataSegmentStart;
+
+				meshAssetData->m_matrixPaletteSize = header.m_matrixPaletteSize;
+
+				data += sizeof(header);
+
+				// physics meshes
 				{
-					convexMeshSize = info["physicsConvexMeshDataSize"].get<uint32_t>();
-				}
-				if (info.contains("physicsConvexMeshDataOffset"))
-				{
-					convexMeshOffset = info["physicsConvexMeshDataOffset"].get<uint32_t>();
+					if (header.m_physicsConvexMeshDataSize > 0)
+					{
+						meshAssetData->m_physicsConvexMeshHandle = m_physics->createConvexMesh(header.m_physicsConvexMeshDataSize, dataSegment + header.m_physicsConvexMeshDataOffset);
+					}
+
+					if (header.m_physicsTriangleMeshDataSize > 0)
+					{
+						meshAssetData->m_physicsTriangleMeshHandle = m_physics->createTriangleMesh(header.m_physicsTriangleMeshDataSize, dataSegment + header.m_physicsTriangleMeshDataOffset);
+					}
 				}
 
-				if (convexMeshSize > 0)
+				// graphics submeshes
 				{
-					meshAssetData->m_physicsConvexMeshHandle = m_physics->createConvexMesh(convexMeshSize, meshData + convexMeshOffset);
-				}
+					eastl::vector<SubMeshCreateInfo> subMeshes;
+					subMeshes.reserve(header.m_subMeshCount);
+					meshAssetData->m_subMeshHandles.resize(header.m_subMeshCount);
+
+					for (size_t i = 0; i < header.m_subMeshCount; ++i)
+					{
+						const auto &subMeshHeader = *reinterpret_cast<const MeshAssetData::FileSubMeshHeader *>(data);
+						data += sizeof(subMeshHeader);
+
+						SubMeshCreateInfo subMesh{};
+						subMesh.m_minCorner[0] = subMeshHeader.m_aabbMinX;
+						subMesh.m_minCorner[1] = subMeshHeader.m_aabbMinY;
+						subMesh.m_minCorner[2] = subMeshHeader.m_aabbMinZ;
+						subMesh.m_maxCorner[0] = subMeshHeader.m_aabbMaxX;
+						subMesh.m_maxCorner[1] = subMeshHeader.m_aabbMaxY;
+						subMesh.m_maxCorner[2] = subMeshHeader.m_aabbMaxZ;
+						subMesh.m_minTexCoord[0] = subMeshHeader.m_uvMinX;
+						subMesh.m_minTexCoord[1] = subMeshHeader.m_uvMinY;
+						subMesh.m_maxTexCoord[0] = subMeshHeader.m_uvMaxX;
+						subMesh.m_maxTexCoord[1] = subMeshHeader.m_uvMaxY;
+						subMesh.m_vertexCount = subMeshHeader.m_vertexCount;
+						subMesh.m_indexCount = subMeshHeader.m_indexCount;
+
+						const char *subMeshData = dataSegment + subMeshHeader.m_dataOffset;
+
+						size_t curOffset = 0;
+
+						subMesh.m_indices = (uint16_t *)(subMeshData + curOffset);
+						curOffset += subMesh.m_indexCount * sizeof(uint16_t);
+
+						subMesh.m_positions = (float *)(subMeshData + curOffset);
+						curOffset += subMesh.m_vertexCount * sizeof(float) * 3;
+
+						subMesh.m_normals = (float *)(subMeshData + curOffset);
+						curOffset += subMesh.m_vertexCount * sizeof(float) * 3;
+
+						subMesh.m_tangents = (float *)(subMeshData + curOffset);
+						curOffset += subMesh.m_vertexCount * sizeof(float) * 4;
+
+						subMesh.m_texCoords = (float *)(subMeshData + curOffset);
+						curOffset += subMesh.m_vertexCount * sizeof(float) * 2;
 
 
-				// triangle mesh
-				uint32_t triangleMeshSize = 0;
-				uint32_t triangleMeshOffset = 0;
-				if (info.contains("physicsTriangleMeshDataSize"))
-				{
-					triangleMeshSize = info["physicsTriangleMeshDataSize"].get<uint32_t>();
-				}
-				if (info.contains("physicsTriangleMeshDataOffset"))
-				{
-					triangleMeshOffset = info["physicsTriangleMeshDataOffset"].get<uint32_t>();
-				}
+						if (subMeshHeader.m_flags & 1) // skinned
+						{
+							subMesh.m_jointIndices = (uint32_t *)(subMeshData + curOffset);
+							curOffset += subMesh.m_vertexCount * sizeof(uint32_t) * 2;
 
-				if (triangleMeshOffset > 0)
-				{
-					meshAssetData->m_physicsTriangleMeshHandle = m_physics->createTriangleMesh(triangleMeshSize, meshData + triangleMeshOffset);
+							subMesh.m_jointWeights = (uint32_t *)(subMeshData + curOffset);
+							curOffset += subMesh.m_vertexCount * sizeof(uint32_t);
+
+							meshAssetData->m_isSkinned = true;
+						}
+
+						subMeshes.push_back(subMesh);
+					}
+
+					m_renderer->createSubMeshes(static_cast<uint32_t>(subMeshes.size()), subMeshes.data(), meshAssetData->m_subMeshHandles.data());
 				}
 			}
-
-			const uint32_t subMeshCount = static_cast<uint32_t>(info["subMeshes"].size());
-			std::vector<SubMeshCreateInfo> subMeshes;
-			auto &subMeshHandles = meshAssetData->m_subMeshHandles;
-
-			subMeshes.reserve(subMeshCount);
-			subMeshHandles.resize(subMeshCount);
-
-			bool anySkinned = false;
-
-			for (const auto &subMeshInfo : info["subMeshes"])
+			else
 			{
-				size_t dataOffset = subMeshInfo["dataOffset"].get<size_t>();
-
-				SubMeshCreateInfo subMesh{};
-				subMesh.m_minCorner[0] = subMeshInfo["minCorner"][0].get<float>();
-				subMesh.m_minCorner[1] = subMeshInfo["minCorner"][1].get<float>();
-				subMesh.m_minCorner[2] = subMeshInfo["minCorner"][2].get<float>();
-				subMesh.m_maxCorner[0] = subMeshInfo["maxCorner"][0].get<float>();
-				subMesh.m_maxCorner[1] = subMeshInfo["maxCorner"][1].get<float>();
-				subMesh.m_maxCorner[2] = subMeshInfo["maxCorner"][2].get<float>();
-				subMesh.m_minTexCoord[0] = subMeshInfo["texCoordMin"][0].get<float>();
-				subMesh.m_minTexCoord[1] = subMeshInfo["texCoordMin"][1].get<float>();
-				subMesh.m_maxTexCoord[0] = subMeshInfo["texCoordMax"][0].get<float>();
-				subMesh.m_maxTexCoord[1] = subMeshInfo["texCoordMax"][1].get<float>();
-				subMesh.m_vertexCount = subMeshInfo["vertexCount"].get<uint32_t>();
-				subMesh.m_indexCount = subMeshInfo["indexCount"].get<uint32_t>();
-
-				subMesh.m_indices = (uint16_t *)(meshData + dataOffset);
-				dataOffset += subMesh.m_indexCount * sizeof(uint16_t);
-
-				subMesh.m_positions = (float *)(meshData + dataOffset);
-				dataOffset += subMesh.m_vertexCount * sizeof(float) * 3;
-
-				subMesh.m_normals = (float *)(meshData + dataOffset);
-				dataOffset += subMesh.m_vertexCount * sizeof(float) * 3;
-
-				subMesh.m_tangents = (float *)(meshData + dataOffset);
-				dataOffset += subMesh.m_vertexCount * sizeof(float) * 4;
-
-				subMesh.m_texCoords = (float *)(meshData + dataOffset);
-				dataOffset += subMesh.m_vertexCount * sizeof(float) * 2;
-
-				
-				if (subMeshInfo.find("skinned") != subMeshInfo.end() && subMeshInfo["skinned"].get<bool>())
-				{
-					anySkinned = true;
-
-					subMesh.m_jointIndices = (uint32_t *)(meshData + dataOffset);
-					dataOffset += subMesh.m_vertexCount * sizeof(uint32_t) * 2;
-
-					subMesh.m_jointWeights = (uint32_t *)(meshData + dataOffset);
-					dataOffset += subMesh.m_vertexCount * sizeof(uint32_t);
-
-					meshAssetData->m_isSkinned = true;
-				}
-
-				subMeshes.push_back(subMesh);
+				assetData->setAssetStatus(AssetStatus::ERROR);
+				Log::err("MeshAssetHandler: Failed to open asset data file \"%s\"!", path);
+				return false;
 			}
-
-			if (anySkinned)
-			{
-				assert(info.find("matrixPaletteSize") != info.end());
-				meshAssetData->m_matrixPaletteSize = info["matrixPaletteSize"].get<uint32_t>();
-			}
-
-			m_renderer->createSubMeshes(subMeshCount, subMeshes.data(), subMeshHandles.data());
-
-			delete[] meshData;
 		}
 	}
 

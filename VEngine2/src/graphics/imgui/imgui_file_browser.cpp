@@ -40,6 +40,11 @@ void ImGuiFileBrowser::draw() noexcept
 	}
 }
 
+eastl::string ImGuiFileBrowser::getCurrentPath() const noexcept
+{
+	return m_currentPath;
+}
+
 void ImGuiFileBrowser::drawPathMenu(eastl::string *newPath, bool *newPathIsFromHistory) noexcept
 {
 	// history forward/backward buttons

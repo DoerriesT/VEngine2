@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include "UUID.h"
 #include "Asset.h"
-#include "AssetDatabase.h"
 #include "utility/SpinLock.h"
 
 class AssetData;
@@ -17,18 +16,21 @@ public:
 	static void shutdown();
 	static AssetManager *get();
 
+	// assets
+	AssetID createAsset(const AssetType &assetType, const char *path, const char *sourcePath) noexcept;
+
 	template<typename T>
 	Asset<T> getAsset(const AssetID &assetID) noexcept;
 	AssetData *getAssetData(const AssetID &assetID, const AssetType &assetType) noexcept;
 	void unloadAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept;
+	
+	// asset handlers
+	
 	void registerAssetHandler(const AssetType &assetType, AssetHandler *handler) noexcept;
 	void unregisterAssetHandler(const AssetType &assetType);
-	AssetDatabase *getAssetDatabase() noexcept;
-	const AssetDatabase *getAssetDatabase() const noexcept;
 
 private:
 	static AssetManager *s_instance;
-	AssetDatabase m_assetDatabase;
 	eastl::hash_map<AssetID, AssetData *, StringIDHash> m_assetMap;
 	eastl::hash_map<AssetType, AssetHandler *, UUIDHash> m_assetHandlerMap;
 	SpinLock m_assetMutex;

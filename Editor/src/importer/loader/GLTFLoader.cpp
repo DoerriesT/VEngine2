@@ -30,7 +30,7 @@ namespace
 		std::string m_name;
 		std::vector<bool> m_isJoint; // one per skeleton
 		std::vector<glm::mat4> m_invBindMatrices; // one per skeleton
-		std::vector<ImportedJointAnimationClip> m_animClips;
+		std::vector<LoadedAnimationClip::JointAnimationClip> m_animClips;
 	};
 
 	struct ImportContext
@@ -290,7 +290,7 @@ static glm::mat4 getLocalNodeTransform(const tinygltf::Model &gltfModel, int nod
 	return localTransform;
 }
 
-static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const std::vector<std::vector<int>> &jointMaps, std::vector<bool> &visitedNodes, bool invertTexcoordY, ImportedModel &resultModel)
+static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const std::vector<std::vector<int>> &jointMaps, std::vector<bool> &visitedNodes, bool invertTexcoordY, LoadedModel &resultModel)
 {
 	const auto &node = gltfModel.nodes[nodeIdx];
 
@@ -388,8 +388,8 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 					jointsAccessor = attributeIt->second;
 				}
 
-				ImportedMesh rawMesh{};
-				rawMesh.m_name = gltfMesh.name + std::to_string(i);
+				LoadedModel::Mesh rawMesh{};
+				rawMesh.m_name = gltfMesh.name.c_str() + eastl::to_string(i);
 				rawMesh.m_materialIndex = primitive.material == -1 ? 0 : primitive.material;
 
 				for (size_t j = 0; j < triangleCount; ++j)
@@ -585,8 +585,8 @@ static void loadSkeletonNodesRecursive(
 	uint32_t parentIdx,
 	const std::vector<PerNodeData> &perNodeData,
 	std::vector<int> &jointMap,
-	std::vector<ImportedAnimationClip> &animClips,
-	ImportedModel &resultModel)
+	std::vector<LoadedAnimationClip> &animClips,
+	LoadedModel &resultModel)
 {
 	const tinygltf::Node &node = gltfModel.nodes[nodeIdx];
 
@@ -599,8 +599,8 @@ static void loadSkeletonNodesRecursive(
 	// is the current node part of the current skeleton?
 	if (auto it = std::find(gltfJointsArray.cbegin(), gltfJointsArray.cend(), (int)nodeIdx); it != gltfJointsArray.cend())
 	{
-		ImportedJoint joint{};
-		joint.m_name = node.name;
+		LoadedSkeleton::Joint joint{};
+		joint.m_name = node.name.c_str();
 		joint.m_invBindPose = perNodeData[nodeIdx].m_invBindMatrices[skeletonIndex];// *glm::inverse(globalTransform);
 		joint.m_parentIdx = parentIdx;
 
@@ -621,7 +621,7 @@ static void loadSkeletonNodesRecursive(
 	}
 }
 
-static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel, const std::vector<PerNodeData> &perNodeData, bool importSkeletons, bool importAnimations, std::vector<std::vector<int>> &jointMaps, ImportedModel &resultModel)
+static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel, const std::vector<PerNodeData> &perNodeData, bool importSkeletons, bool importAnimations, std::vector<std::vector<int>> &jointMaps, LoadedModel &resultModel)
 {
 	jointMaps = {};
 	jointMaps.resize(gltfModel.skins.size());
@@ -634,12 +634,12 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 		glm::mat4 rootTransform = glm::identity<glm::mat4>();
 		int skeletonRoot = findSkeletonRootNodeIndexAndTransform(gltfModel, &rootTransform);
 
-		std::vector<ImportedAnimationClip> animClips(gltfModel.animations.size());
+		std::vector<LoadedAnimationClip> animClips(gltfModel.animations.size());
 
 		// assign anim clip names
 		for (size_t j = 0; j < gltfModel.animations.size(); ++j)
 		{
-			animClips[j].m_name = gltfModel.animations[j].name.empty() ? "animation_clip" + std::to_string(j) : gltfModel.animations[j].name;
+			animClips[j].m_name = gltfModel.animations[j].name.empty() ? "animation_clip" + eastl::to_string(j) : gltfModel.animations[j].name.c_str();
 			animClips[j].m_skeletonIndex = i;
 		}
 
@@ -835,7 +835,7 @@ static std::vector<PerNodeData> generatePerNodeData(const tinygltf::Model &gltfM
 	return perNodeData;
 }
 
-bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, ImportedModel &model)
+bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, LoadedModel &model)
 {
 	tinygltf::Model gltfModel;
 	tinygltf::TinyGLTF loader;
@@ -864,11 +864,11 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 	// import materials (but only if there are meshes in this file)
 	if (importMeshes && !gltfModel.meshes.empty())
 	{
-		auto getTexturePath = [](const tinygltf::Model &model, int textureIndex) -> std::string
+		auto getTexturePath = [](const tinygltf::Model &model, int textureIndex) -> eastl::string
 		{
 			if (textureIndex >= 0 && textureIndex < model.textures.size())
 			{
-				return model.images[model.textures[textureIndex].source].uri;
+				return model.images[model.textures[textureIndex].source].uri.c_str();
 			}
 			else
 			{
@@ -879,9 +879,9 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 		// check if we need to create a default material
 		if (gltfModel.materials.empty())
 		{
-			ImportedMaterial mat{};
+			LoadedMaterial mat{};
 			mat.m_name = "null";
-			mat.m_alpha = ImportedMaterial::Alpha::OPAQUE;
+			mat.m_alpha = LoadedMaterial::Alpha::OPAQUE;
 			mat.m_albedoFactor = glm::vec3(1.0f);
 			mat.m_metalnessFactor = 0.0f;
 			mat.m_roughnessFactor = 1.0f;
@@ -904,9 +904,9 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 		{
 			const auto &gltfMat = gltfModel.materials[i];
 
-			ImportedMaterial mat{};
-			mat.m_name = gltfMat.name;
-			mat.m_alpha = gltfMat.alphaMode == "OPAQUE" ? ImportedMaterial::Alpha::OPAQUE : gltfMat.alphaMode == "MASK" ? ImportedMaterial::Alpha::MASKED : ImportedMaterial::Alpha::BLENDED;
+			LoadedMaterial mat{};
+			mat.m_name = gltfMat.name.c_str();
+			mat.m_alpha = gltfMat.alphaMode == "OPAQUE" ? LoadedMaterial::Alpha::OPAQUE : gltfMat.alphaMode == "MASK" ? LoadedMaterial::Alpha::MASKED : LoadedMaterial::Alpha::BLENDED;
 			mat.m_albedoFactor = (glm::vec3)glm::make_vec3(gltfMat.pbrMetallicRoughness.baseColorFactor.data());
 			mat.m_metalnessFactor = (float)gltfMat.pbrMetallicRoughness.metallicFactor;
 			mat.m_roughnessFactor = (float)gltfMat.pbrMetallicRoughness.roughnessFactor;

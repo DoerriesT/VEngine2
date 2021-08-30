@@ -183,18 +183,19 @@ void AssetBrowserWindow::importButton() noexcept
 		uint32_t fileExtensionIndex;
 		if (FileDialog::showFileDialog(dialogParams, selectedFiles, fileExtensionIndex))
 		{
-			Log::info(("Importing File: " + selectedFiles[0].u8string()).c_str());
+			eastl::string srcPath = std::filesystem::relative(selectedFiles[0], std::filesystem::current_path()).generic_u8string().c_str();
+			Log::info("Importing File: \"%s\"", srcPath.c_str());
 
 			m_importAssetTask = {};
-			m_importAssetTask.m_srcPath = selectedFiles[0].u8string();
-			m_importAssetTask.m_dstPath = "assets/meshes/" + selectedFiles[0].filename().replace_extension().u8string();
+			m_importAssetTask.m_srcPath = srcPath;
+			m_importAssetTask.m_dstPath = m_fileBrowser.getCurrentPath() + "/" + selectedFiles[0].filename().replace_extension().generic_u8string().c_str();
 
 			switch (fileExtensionIndex)
 			{
 			case 0:
-				m_importAssetTask.m_importOptions.m_fileType = ModelImporter::FileType::WAVEFRONT_OBJ; break;
+				m_importAssetTask.m_importOptions.m_fileType = AssetImporter::FileType::WAVEFRONT_OBJ; break;
 			case 1:
-				m_importAssetTask.m_importOptions.m_fileType = ModelImporter::FileType::GLTF; break;
+				m_importAssetTask.m_importOptions.m_fileType = AssetImporter::FileType::GLTF; break;
 			default:
 				assert(false);
 				break;
@@ -220,7 +221,7 @@ void AssetBrowserWindow::importButton() noexcept
 			m_currentlyImporting.test_and_set();
 			s_future = std::async(std::launch::async, [this]()
 				{
-					ModelImporter::importModel(m_importAssetTask.m_importOptions, m_engine->getPhysics(), m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
+					AssetImporter::importAsset(m_importAssetTask.m_importOptions, m_engine->getPhysics(), m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
 					m_currentlyImporting.clear();
 				});
 
