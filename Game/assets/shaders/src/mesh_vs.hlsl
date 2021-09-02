@@ -31,8 +31,8 @@ VSOutput main(VSInput input)
 
 	output.worldSpacePosition = mul(g_Constants.modelMatrix, float4(input.position, 1.0f)).xyz;
 	output.position = mul(g_Constants.viewProjectionMatrix, float4(output.worldSpacePosition, 1.0f));
-	output.normal = mul((float3x3)g_Constants.modelMatrix, input.normal);
-	output.tangent = float4(mul((float3x3)g_Constants.modelMatrix, input.tangent.xyz), input.tangent.w);
+	output.normal = normalize(mul((float3x3)g_Constants.modelMatrix, input.normal));
+	output.tangent = float4(normalize(mul((float3x3)g_Constants.modelMatrix, input.tangent.xyz)), input.tangent.w);
 	output.texCoord = input.texCoord;
 
 	return output;
