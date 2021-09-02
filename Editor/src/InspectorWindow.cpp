@@ -12,124 +12,127 @@ InspectorWindow::InspectorWindow(Engine *engine) noexcept
 
 void InspectorWindow::draw(EntityID entity) noexcept
 {
-	if (!m_visible || !ImGui::Begin("Inspector"))
+	if (!m_visible)
 	{
 		return;
 	}
 
-	if (entity != m_lastDisplayedEntity)
+	ImGui::Begin("Inspector");
 	{
-		m_lastDisplayedEntity = entity;
-		memset(m_nameStringTemp, 0, sizeof(m_nameStringTemp));
+		if (entity != m_lastDisplayedEntity)
+		{
+			m_lastDisplayedEntity = entity;
+			memset(m_nameStringTemp, 0, sizeof(m_nameStringTemp));
 
-		// look up name of selected entity
+			// look up name of selected entity
+			if (entity != k_nullEntity)
+			{
+				Level *level = m_engine->getLevel();
+
+				const auto &sceneGraphNodes = level->getSceneGraphNodes();
+
+				for (auto *n : sceneGraphNodes)
+				{
+					if (n->m_entity == entity)
+					{
+						m_currentSceneGraphNode = n;
+						break;
+					}
+				}
+
+				static_assert(sizeof(m_nameStringTemp) == SceneGraphNode::k_maxNameLength);
+				strcpy_s(m_nameStringTemp, m_currentSceneGraphNode->m_name);
+			}
+		}
+
 		if (entity != k_nullEntity)
 		{
-			Level *level = m_engine->getLevel();
+			ECS &ecs = *m_engine->getECS();
 
-			const auto &sceneGraphNodes = level->getSceneGraphNodes();
-
-			for (auto *n : sceneGraphNodes)
+			if (ImGui::InputText("Entity Name", m_nameStringTemp, IM_ARRAYSIZE(m_nameStringTemp), ImGuiInputTextFlags_EnterReturnsTrue))
 			{
-				if (n->m_entity == entity)
-				{
-					m_currentSceneGraphNode = n;
-					break;
-				}
+				strcpy_s(m_currentSceneGraphNode->m_name, m_nameStringTemp);
 			}
 
-			static_assert(sizeof(m_nameStringTemp) == SceneGraphNode::k_maxNameLength);
-			strcpy_s(m_nameStringTemp, m_currentSceneGraphNode->m_name);
-		}
-	}
+			auto compMask = ecs.getComponentMask(entity);
 
-	if (entity != k_nullEntity)
-	{
-		ECS &ecs = *m_engine->getECS();
-		
-		if (ImGui::InputText("Entity Name", m_nameStringTemp, IM_ARRAYSIZE(m_nameStringTemp), ImGuiInputTextFlags_EnterReturnsTrue))
-		{
-			strcpy_s(m_currentSceneGraphNode->m_name, m_nameStringTemp);
-		}
-
-		auto compMask = ecs.getComponentMask(entity);
-
-		if (ImGui::Button("Add Component"))
-		{
-			ImGui::OpenPopup("add_component_popup");
-		}
-
-		if (ImGui::BeginPopup("add_component_popup"))
-		{
-
-			ImGui::Text("Component to add:");
-			ImGui::Separator();
-
-			auto registeredComponentMask = ecs.getRegisteredComponentMask();
-
-			forEachComponentType(registeredComponentMask, [&](size_t, ComponentID componentID)
-				{
-					if (compMask[componentID])
-					{
-						return;
-					}
-
-					if (ImGui::Selectable(ECSComponentInfoTable::getComponentInfo(componentID).m_displayName))
-					{
-						ecs.addComponentsTypeless(entity, 1, &componentID);
-					}
-				});
-
-			ImGui::EndPopup();
-		}
-
-		ImGui::Separator();
-		ImGui::NewLine();
-
-		forEachComponentType(compMask,
-			[&](size_t, ComponentID componentID)
+			if (ImGui::Button("Add Component"))
 			{
-				const auto &compInfo = ECSComponentInfoTable::getComponentInfo(componentID);
+				ImGui::OpenPopup("add_component_popup");
+			}
 
-				void *component = ecs.getComponentTypeless(entity, componentID);
+			if (ImGui::BeginPopup("add_component_popup"))
+			{
 
-				bool open = true;
-				ImGui::PushID((const void *)compInfo.m_name);
-				bool displayComponent = ImGui::CollapsingHeader(compInfo.m_displayName, &open, ImGuiTreeNodeFlags_DefaultOpen);
-				ImGuiHelpers::Tooltip(compInfo.m_tooltip);
+				ImGui::Text("Component to add:");
+				ImGui::Separator();
 
-				if (!open)
-				{
-					ImGui::OpenPopup("Delete Component?");
-				}
+				auto registeredComponentMask = ecs.getRegisteredComponentMask();
 
-				if (ImGui::BeginPopupModal("Delete Component?", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-				{
-					ImGui::Text("Delete %s Component.\n", compInfo.m_displayName);
-					ImGui::Separator();
-
-					if (ImGui::Button("OK", ImVec2(120, 0)))
+				forEachComponentType(registeredComponentMask, [&](size_t, ComponentID componentID)
 					{
-						ecs.removeComponentsTypeless(entity, 1, &componentID);
-						displayComponent = false;
-						ImGui::CloseCurrentPopup();
-					}
-					ImGui::SetItemDefaultFocus();
-					ImGui::SameLine();
-					if (ImGui::Button("Cancel", ImVec2(120, 0)))
-					{
-						ImGui::CloseCurrentPopup();
-					}
-					ImGui::EndPopup();
-				}
-				ImGui::PopID();
+						if (compMask[componentID])
+						{
+							return;
+						}
 
-				if (displayComponent)
+						if (ImGui::Selectable(ECSComponentInfoTable::getComponentInfo(componentID).m_displayName))
+						{
+							ecs.addComponentsTypeless(entity, 1, &componentID);
+						}
+					});
+
+				ImGui::EndPopup();
+			}
+
+			ImGui::Separator();
+			ImGui::NewLine();
+
+			forEachComponentType(compMask,
+				[&](size_t, ComponentID componentID)
 				{
-					compInfo.m_onGUI(component);
-				}
+					const auto &compInfo = ECSComponentInfoTable::getComponentInfo(componentID);
 
-			});
+					void *component = ecs.getComponentTypeless(entity, componentID);
+
+					bool open = true;
+					ImGui::PushID((const void *)compInfo.m_name);
+					bool displayComponent = ImGui::CollapsingHeader(compInfo.m_displayName, &open, ImGuiTreeNodeFlags_DefaultOpen);
+					ImGuiHelpers::Tooltip(compInfo.m_tooltip);
+
+					if (!open)
+					{
+						ImGui::OpenPopup("Delete Component?");
+					}
+
+					if (ImGui::BeginPopupModal("Delete Component?", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+					{
+						ImGui::Text("Delete %s Component.\n", compInfo.m_displayName);
+						ImGui::Separator();
+
+						if (ImGui::Button("OK", ImVec2(120, 0)))
+						{
+							ecs.removeComponentsTypeless(entity, 1, &componentID);
+							displayComponent = false;
+							ImGui::CloseCurrentPopup();
+						}
+						ImGui::SetItemDefaultFocus();
+						ImGui::SameLine();
+						if (ImGui::Button("Cancel", ImVec2(120, 0)))
+						{
+							ImGui::CloseCurrentPopup();
+						}
+						ImGui::EndPopup();
+					}
+					ImGui::PopID();
+
+					if (displayComponent)
+					{
+						compInfo.m_onGUI(component);
+					}
+
+				});
+		}
 	}
 	ImGui::End();
 }
