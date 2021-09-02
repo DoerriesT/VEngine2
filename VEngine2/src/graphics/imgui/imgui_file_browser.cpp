@@ -4,10 +4,19 @@
 #include "filesystem/Path.h"
 #include <cctype>
 
-ImGuiFileBrowser::ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ThumbnailCallback thumbnailCallback, FileFilterCallback filterCallback, void *callbackUserData) noexcept
+ImGuiFileBrowser::ImGuiFileBrowser(
+	IFileSystem *fs, 
+	const char *currentPath, 
+	ThumbnailCallback thumbnailCallback, 
+	FileFilterCallback filterCallback, 
+	IsDragDropSourceCallback isDragDropSourceCallback, 
+	DragDropSourcePayloadCallback dragDropSourcePayloadCallback, 
+	void *callbackUserData) noexcept
 	:m_fs(fs),
 	m_thumbnailCallback(thumbnailCallback),
 	m_fileFilterCallback(filterCallback),
+	m_isDragDropCallback(isDragDropSourceCallback),
+	m_dragDropPayloadCallback(dragDropSourcePayloadCallback),
 	m_callbackUserData(callbackUserData),
 	m_currentPath(currentPath)
 {
@@ -228,7 +237,7 @@ void ImGuiFileBrowser::drawMainArea(eastl::string *newPath) noexcept
 							{
 								return true;
 							}
-							if (ffd.m_isFile && m_fileFilterCallback && !m_fileFilterCallback(ffd.m_path, m_callbackUserData))
+							if (ffd.m_isFile && m_fileFilterCallback && !m_fileFilterCallback(ffd, m_callbackUserData))
 							{
 								return true;
 							}
@@ -244,33 +253,56 @@ void ImGuiFileBrowser::drawMainArea(eastl::string *newPath) noexcept
 
 							ImGui::PushID(displayName.c_str());
 
-							ImGui::BeginGroup();
+							ImTextureID thumbnail = 0;
+							if (m_thumbnailCallback)
 							{
-								ImTextureID thumbnail = 0;
-								if (m_thumbnailCallback)
-								{
-									thumbnail = m_thumbnailCallback(ffd.m_path, m_callbackUserData);
-								}
-
-								if (thumbnail)
-								{
-									ImGui::Image(thumbnail, ImVec2(itemSize - 20.0f, itemSize - 16));
-								}
-								else
-								{
-									ImGui::Button("???", ImVec2(itemSize - 20.0f, itemSize - 16));
-								}
-
-								ImGui::TextWrapped(displayName.c_str());
+								thumbnail = m_thumbnailCallback(ffd, m_callbackUserData);
 							}
-							ImGui::EndGroup();
-							if (ImGui::IsItemHovered())
+
+							auto drawElement = [](float itemSize, ImTextureID thumbnail, const char *displayName)
+							{
+								ImGui::BeginGroup();
+								{
+									if (thumbnail)
+									{
+										ImGui::Image(thumbnail, ImVec2(itemSize - 20.0f, itemSize - 16));
+									}
+									else
+									{
+										ImGui::Button("???", ImVec2(itemSize - 20.0f, itemSize - 16));
+									}
+
+									ImGui::TextWrapped(displayName);
+								}
+								ImGui::EndGroup();
+							};
+
+							drawElement(itemSize, thumbnail, displayName.c_str());
+							if (m_isDragDropCallback(ffd, m_callbackUserData))
+							{
+								if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+								{
+									m_dragDropPayloadCallback(ffd, m_callbackUserData);
+
+									drawElement(itemSize, thumbnail, displayName.c_str());
+
+									ImGui::EndDragDropSource();
+								}
+							}
+							
+							
+							bool isHovered = ImGui::IsItemHovered();
+							bool isClicked = ImGui::IsItemClicked();
+							bool isDoubleClicked = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+
+
+							if (isHovered)
 							{
 								ImGui::SetTooltip(displayName.c_str());
 							}
-							if (ImGui::IsItemClicked())
+							if (isClicked)
 							{
-								if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+								if (isDoubleClicked)
 								{
 									if (ffd.m_isDirectory)
 									{

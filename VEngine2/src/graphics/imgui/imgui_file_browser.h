@@ -4,14 +4,24 @@
 #include "Handles.h"
 
 class IFileSystem;
+struct FileFindData;
 
 class ImGuiFileBrowser
 {
 public:
-	using ThumbnailCallback = void *(*)(const char *path, void *userData);
-	using FileFilterCallback = bool (*)(const char *path, void *userData);
+	using ThumbnailCallback = void *(*)(const FileFindData &ffd, void *userData);
+	using FileFilterCallback = bool (*)(const FileFindData &ffd, void *userData);
+	using IsDragDropSourceCallback = bool (*)(const FileFindData &ffd, void *userData);
+	using DragDropSourcePayloadCallback = void (*)(const FileFindData &ffd, void *userData);
 
-	explicit ImGuiFileBrowser(IFileSystem *fs, const char *currentPath, ThumbnailCallback thumbnailCallback, FileFilterCallback filterCallback, void *callbackUserData) noexcept;
+	explicit ImGuiFileBrowser(
+		IFileSystem *fs, 
+		const char *currentPath, 
+		ThumbnailCallback thumbnailCallback, 
+		FileFilterCallback filterCallback, 
+		IsDragDropSourceCallback isDragDropSourceCallback,
+		DragDropSourcePayloadCallback dragDropSourcePayloadCallback,
+		void *callbackUserData) noexcept;
 	void draw() noexcept;
 	eastl::string getCurrentPath() const noexcept;
 
@@ -19,6 +29,8 @@ private:
 	IFileSystem *m_fs;
 	ThumbnailCallback m_thumbnailCallback;
 	FileFilterCallback m_fileFilterCallback;
+	IsDragDropSourceCallback m_isDragDropCallback;
+	DragDropSourcePayloadCallback m_dragDropPayloadCallback;
 	void *m_callbackUserData;
 	eastl::string m_currentPath;
 	eastl::string m_subDirPopupPath;

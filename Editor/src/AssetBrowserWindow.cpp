@@ -15,6 +15,7 @@
 #include <Log.h>
 #include <future>
 #include <filesystem/VirtualFileSystem.h>
+#include <asset/Asset.h>
 
 
 #ifdef WIN32
@@ -23,9 +24,10 @@
 
 static std::future<void> s_future;
 
-static void *thumbnailCallback(const char *path, void *userData)
+static void *thumbnailCallback(const FileFindData &ffd, void *userData)
 {
 	Engine *engine = (Engine *)userData;
+	const char *path = ffd.m_path;
 
 #ifdef WIN32
 
@@ -128,14 +130,34 @@ static void *thumbnailCallback(const char *path, void *userData)
 #endif
 }
 
-static bool fileFilterCallback(const char *path, void *userData)
+static bool fileFilterCallback(const FileFindData &ffd, void *userData)
 {
-	return VirtualFileSystem::get().exists((eastl::string(path) + ".meta").c_str());
+	return VirtualFileSystem::get().exists((eastl::string(ffd.m_path) + ".meta").c_str());
+}
+
+static bool isDragDropSourceCallback(const FileFindData &ffd, void *userData)
+{
+	return ffd.m_isFile;
+}
+
+static void dragDropSourcePayloadCallback(const FileFindData &ffd, void *userData)
+{
+	assert(eastl::string_view(ffd.m_path).starts_with("/assets/"));
+
+	AssetID assetID(ffd.m_path + 8);
+	ImGui::SetDragDropPayload("ASSET_ID", &assetID, sizeof(assetID));
 }
 
 AssetBrowserWindow::AssetBrowserWindow(Engine *engine) noexcept
 	:m_engine(engine),
-	m_fileBrowser(&VirtualFileSystem::get(), "/assets", thumbnailCallback, fileFilterCallback, engine)
+	m_fileBrowser(
+		&VirtualFileSystem::get(), 
+		"/assets", 
+		thumbnailCallback, 
+		fileFilterCallback, 
+		isDragDropSourceCallback,
+		dragDropSourcePayloadCallback,
+		engine)
 {
 }
 
