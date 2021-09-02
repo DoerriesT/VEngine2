@@ -57,8 +57,7 @@ AssetManager *AssetManager::get()
 
 AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, const char *sourcePath) noexcept
 {
-	eastl::string_view sv(path);
-	assert(sv.starts_with("/assets/"));
+	assert(eastl::string_view(path).starts_with("/assets/"));
 
 	constexpr size_t assetsDirPathOffset = 8; // length of "/assets/" string without null terminator
 
