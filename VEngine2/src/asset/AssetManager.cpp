@@ -72,9 +72,13 @@ AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, 
 	parentPath[parentPathOffset] = '\0';
 	VirtualFileSystem::get().createDirectoryHierarchy(parentPath);
 
+	char assetTypeStr[AssetType::k_uuidStringSize];
+	assetType.toString(assetTypeStr);
+
 	// create meta file
 	std::stringstream metaFileData;
 	metaFileData << resultAssetID.m_string << '\n';
+	metaFileData << assetTypeStr;
 	metaFileData << sourcePath << '\n';
 	std::string str = metaFileData.str();
 

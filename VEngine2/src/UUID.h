@@ -6,7 +6,7 @@
 /// </summary>
 struct TUUID
 {
-	static constexpr size_t s_uuidStringSize = 37; // includes space for null-terminator
+	static constexpr size_t k_uuidStringSize = 37; // includes space for null-terminator
 
 	union
 	{
