@@ -11,7 +11,7 @@ void MeshComponent::onGUI(void *instance) noexcept
 	ImGui::BeginGroup();
 	ImGui::Image(ImGui::GetIO().Fonts->TexID, ImVec2(64, 64));
 	ImGui::SameLine();
-	ImGui::Text(c.m_mesh->getAssetID().m_string);
+	ImGui::Text(c.m_mesh.get() ? c.m_mesh->getAssetID().m_string : "EMPTY");
 	ImGui::EndGroup();
 
 	if (ImGui::BeginDragDropTarget())
