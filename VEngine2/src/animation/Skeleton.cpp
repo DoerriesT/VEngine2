@@ -1,82 +1,55 @@
 #include "Skeleton.h"
 #include "utility/Utility.h"
 
-Skeleton::Skeleton(size_t fileSize, const char *fileData) noexcept
+Skeleton::Skeleton(const SkeletonCreateInfo &createInfo) noexcept
+	:m_jointCount(createInfo.m_jointCount),
+	m_memory(createInfo.m_memory),
+	m_invBindPoseMatrices(createInfo.m_invBindPoseMatrices),
+	m_parentIndices(createInfo.m_parentIndices),
+	m_jointNames(createInfo.m_jointNames)
 {
-	static_assert(sizeof(glm::mat4) == (sizeof(float) * 16));
+}
 
-	size_t curFileOffset = 0;
+Skeleton::Skeleton(Skeleton &&other) noexcept
+	:m_jointCount(other.m_jointCount),
+	m_memory(other.m_memory),
+	m_invBindPoseMatrices(other.m_invBindPoseMatrices),
+	m_parentIndices(other.m_parentIndices),
+	m_jointNames(other.m_jointNames)
+{
+	other.m_jointCount = 0;
+	other.m_memory = nullptr;
+	other.m_invBindPoseMatrices = nullptr;
+	other.m_parentIndices = nullptr;
+	other.m_jointNames = nullptr;
+}
 
-	m_jointCount = *reinterpret_cast<const uint32_t *>(fileData + curFileOffset);
-	curFileOffset += 4;
-
-	size_t parentIndicesDstOffset = 0;
-	size_t namesDstOffset = 0;
-	size_t rawCopySize = 0;
-
-	size_t memorySize = 0;
-
-	// matrices
-	memorySize += m_jointCount * sizeof(glm::mat4);
-
-	// parent indices
-	memorySize = util::alignPow2Up(memorySize, alignof(uint32_t));
-	parentIndicesDstOffset = memorySize;
-	memorySize += m_jointCount * sizeof(uint32_t);
-
-	// we cannot copy the strings from the file directly, so we only copy up to this point
-	// and handle the strings manually
-	rawCopySize = memorySize;
-
-	// names
-	memorySize = util::alignPow2Up(memorySize, alignof(StringID));
-	namesDstOffset = memorySize;
-	memorySize += m_jointCount * sizeof(StringID);
-
-	// allocate memory
-	m_memory = new char[memorySize];
-	assert(m_memory);
-
-	assert((curFileOffset + rawCopySize) < fileSize);
-
-	// copy data to our allocation
-	memcpy(m_memory, fileData + curFileOffset, rawCopySize);
-
-	// set up pointers
-	m_invBindPoseMatrices = reinterpret_cast<const glm::mat4 *>(m_memory);
-	m_parentIndices = reinterpret_cast<const uint32_t *>(m_memory + parentIndicesDstOffset);
-	m_jointNames = reinterpret_cast<const StringID *>(m_memory + namesDstOffset);
-
-
-	// handle strings
-	curFileOffset += rawCopySize;
-	for (size_t i = 0; i < m_jointCount; ++i)
+Skeleton &Skeleton::operator=(Skeleton &&other) noexcept
+{
+	if (&other != this)
 	{
-		assert(curFileOffset < fileSize);
-
-		size_t strLen = 0;
-		while (fileData[curFileOffset + strLen] != '\0')
+		if (m_memory)
 		{
-			assert(curFileOffset + strLen < fileSize);
-			++strLen;
+			delete[] m_memory;
 		}
 
-		assert(strLen);
+		m_jointCount = other.m_jointCount;
+		m_memory = other.m_memory;
+		m_invBindPoseMatrices = other.m_invBindPoseMatrices;
+		m_parentIndices = other.m_parentIndices;
+		m_jointNames = other.m_jointNames;
 
-		new (m_memory + namesDstOffset + i * sizeof(StringID)) StringID(fileData + curFileOffset);
-
-		curFileOffset += strLen + 1; // dont forget the null terminator
+		other.m_jointCount = 0;
+		other.m_memory = nullptr;
+		other.m_invBindPoseMatrices = nullptr;
+		other.m_parentIndices = nullptr;
+		other.m_jointNames = nullptr;
 	}
+	return *this;
 }
 
 Skeleton::~Skeleton()
 {
-	// we placement newed the names, so call destructors now
-	for (size_t i = 0; i < m_jointCount; ++i)
-	{
-		m_jointNames[i].~StringID();
-	}
-
 	delete[] m_memory;
 	m_memory = nullptr;
 }

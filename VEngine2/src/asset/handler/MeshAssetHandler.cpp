@@ -61,12 +61,53 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 		// load mesh
 		{
 			auto fileSize = VirtualFileSystem::get().size(path);
+
+			if (fileSize < sizeof(MeshAssetData::FileHeader))
+			{
+				assetData->setAssetStatus(AssetStatus::ERROR);
+				Log::err("MeshAssetHandler: Mesh asset data file \"%s\" has a wrong format! (Too small to contain header data)", path);
+				return false;
+			}
+
 			eastl::vector<char> fileData(fileSize);
 
 			if (VirtualFileSystem::get().readFile(path, fileSize, fileData.data(), true))
 			{
 				const char *data = fileData.data();
+
+				// we checked earlier that the header actually fits inside the file
 				MeshAssetData::FileHeader header = *reinterpret_cast<const MeshAssetData::FileHeader *>(data);
+
+				// check the magic number
+				MeshAssetData::FileHeader defaultHeader{};
+				if (memcmp(header.m_magicNumber, defaultHeader.m_magicNumber, sizeof(defaultHeader.m_magicNumber)) != 0)
+				{
+					assetData->setAssetStatus(AssetStatus::ERROR);
+					Log::err("MeshAssetHandler: Mesh asset data file \"%s\" has a wrong format! (Magic number does not match)", path);
+					return false;
+				}
+
+				// check the version
+				if (header.m_version != MeshAssetData::Version::LATEST)
+				{
+					assetData->setAssetStatus(AssetStatus::ERROR);
+					Log::err("MeshAssetHandler: Mesh asset data file \"%s\" has unsupported version \"%u\"!", path, (unsigned)header.m_version);
+					return false;
+				}
+
+				// check the file size
+				if (header.m_fileSize > fileSize)
+				{
+					assetData->setAssetStatus(AssetStatus::ERROR);
+					Log::err("MeshAssetHandler: File size (%u) specified in header of mesh asset data file \"%s\" is greater than actual file size (%u)!", path, (unsigned)header.m_fileSize, (unsigned)fileSize);
+					return false;
+				}
+
+				if (header.m_fileSize < fileSize)
+				{
+					Log::warn("MeshAssetHandler: File size (%u) specified in header of mesh asset data file \"%s\" is less than actual file size (%u)!", path, (unsigned)header.m_fileSize, (unsigned)fileSize);
+				}
+
 				const char *dataSegment = fileData.data() + header.m_dataSegmentStart;
 
 				meshAssetData->m_matrixPaletteSize = header.m_matrixPaletteSize;

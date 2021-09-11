@@ -698,9 +698,6 @@
     <ClCompile Include="src\animation\Skeleton.cpp">
       <Filter>src\animation</Filter>
     </ClCompile>
-    <ClCompile Include="src\animation\AnimationGraph.cpp">
-      <Filter>src\animation</Filter>
-    </ClCompile>
     <ClCompile Include="src\animation\JointPose.cpp">
       <Filter>src\animation</Filter>
     </ClCompile>

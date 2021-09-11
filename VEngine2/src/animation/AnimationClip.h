@@ -2,37 +2,56 @@
 #include <stdint.h>
 #include "utility/DeletedCopyMove.h"
 #include "JointPose.h"
-#include <EASTL/vector.h>
 
-class AnimationClip
+struct AnimationClipJointInfo
 {
-public:
-	explicit AnimationClip(size_t fileSize, const char *fileData) noexcept;
-	DELETED_COPY_MOVE(AnimationClip);
-	~AnimationClip();
-	float getDuration() const noexcept;
-	uint32_t getJointCount() const noexcept;
-	JointPose getJointPose(size_t jointIdx, float time, bool loop, bool extractRootMotion) const noexcept;
-	void getRootVelocity(float time, bool loop, float *result) const noexcept;
+	uint32_t m_translationFrameCount;
+	uint32_t m_rotationFrameCount;
+	uint32_t m_scaleFrameCount;
+	uint32_t m_translationArrayOffset;
+	uint32_t m_rotationArrayOffset;
+	uint32_t m_scaleArrayOffset;
+};
 
-private:
-	uint32_t m_jointCount = 0;
-	float m_duration = 0.0f;
-	char *m_memory = nullptr;
+static_assert(sizeof(AnimationClipJointInfo) == (6 * sizeof(uint32_t)));
+static_assert(alignof(AnimationClipJointInfo) == alignof(uint32_t));
 
-	// 6 uints per joint: 
-	// 0: translation frame count
-	// 1: rotation frame count
-	// 2: scale frame count
-	// 3: translation array offset
-	// 4: rotation array offset
-	// 5: scale array offset
-	const uint32_t *m_perJointInfo = nullptr;
+struct AnimationClipCreateInfo
+{
+	uint32_t m_jointCount;
+	float m_duration;
+	const char *m_memory;
+	const AnimationClipJointInfo *m_perJointInfo;
 	const float *m_translationTimeKeys = nullptr;
 	const float *m_rotationTimeKeys = nullptr;
 	const float *m_scaleTimeKeys = nullptr;
 	const float *m_translationData = nullptr; // 3 floats per entry
 	const float *m_rotationData = nullptr; // 4 floats (quaternion xyzw) per entry
 	const float *m_scaleData = nullptr; // 1 float per entry (uniform scale)
-	eastl::vector<float> m_rootVelocityData;
+};
+
+class AnimationClip
+{
+public:
+	explicit AnimationClip() noexcept = default;
+	explicit AnimationClip(const AnimationClipCreateInfo &createInfo) noexcept;
+	AnimationClip(AnimationClip &&other) noexcept;
+	AnimationClip &operator=(AnimationClip &&other) noexcept;
+	DELETED_COPY(AnimationClip);
+	~AnimationClip();
+	float getDuration() const noexcept;
+	uint32_t getJointCount() const noexcept;
+	JointPose getJointPose(size_t jointIdx, float time, bool loop, bool extractRootMotion) const noexcept;
+
+private:
+	uint32_t m_jointCount = 0;
+	float m_duration = 0.0f;
+	const char *m_memory = nullptr;
+	const AnimationClipJointInfo *m_perJointInfo = nullptr;
+	const float *m_translationTimeKeys = nullptr;
+	const float *m_rotationTimeKeys = nullptr;
+	const float *m_scaleTimeKeys = nullptr;
+	const float *m_translationData = nullptr; // 3 floats per entry
+	const float *m_rotationData = nullptr; // 4 floats (quaternion xyzw) per entry
+	const float *m_scaleData = nullptr; // 1 float per entry (uniform scale)
 };

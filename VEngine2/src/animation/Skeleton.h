@@ -4,11 +4,23 @@
 #include "utility/DeletedCopyMove.h"
 #include <glm/mat4x4.hpp>
 
+struct SkeletonCreateInfo
+{
+	uint32_t m_jointCount;
+	const glm::mat4 *m_invBindPoseMatrices;
+	const uint32_t *m_parentIndices;
+	const StringID *m_jointNames;
+	const char *m_memory;
+};
+
 class Skeleton
 {
 public:
-	explicit Skeleton(size_t fileSize, const char *fileData) noexcept;
-	DELETED_COPY_MOVE(Skeleton);
+	explicit Skeleton() noexcept = default;
+	explicit Skeleton(const SkeletonCreateInfo &createInfo) noexcept;
+	Skeleton(Skeleton &&other) noexcept;
+	Skeleton &operator=(Skeleton &&other) noexcept;
+	DELETED_COPY(Skeleton);
 	~Skeleton();
 	uint32_t getJointCount() const noexcept;
 	const glm::mat4 *getInvBindPoseMatrices() const noexcept;
@@ -17,7 +29,7 @@ public:
 
 private:
 	uint32_t m_jointCount = 0;
-	char *m_memory = nullptr;
+	const char *m_memory = nullptr;
 	const glm::mat4 *m_invBindPoseMatrices = nullptr;
 	const uint32_t *m_parentIndices = nullptr;
 	const StringID *m_jointNames = nullptr;

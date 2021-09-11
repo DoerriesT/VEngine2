@@ -279,7 +279,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\animation\AnimationClip.cpp" />
-    <ClCompile Include="src\animation\AnimationGraph.cpp" />
     <ClCompile Include="src\animation\AnimationSystem.cpp" />
     <ClCompile Include="src\animation\JointPose.cpp" />
     <ClCompile Include="src\animation\Skeleton.cpp" />

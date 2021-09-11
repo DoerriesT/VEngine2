@@ -10,9 +10,9 @@ public:
 
 	// AnimationGraph interface
 
-	void preExecute(AnimationGraphContext *context, float deltaTime) noexcept override;
-	void execute(AnimationGraphContext *context, size_t jointIndex, float deltaTime, JointPose *resultJointPose) const noexcept override;
-	void postExecute(AnimationGraphContext *context, float deltaTime) noexcept override;
+	void preExecute(ECS *ecs, EntityID entity, float deltaTime) noexcept override;
+	void execute(ECS *ecs, EntityID entity, size_t jointIndex, float deltaTime, JointPose *resultJointPose) const noexcept override;
+	void postExecute(ECS *ecs, EntityID entity, float deltaTime) noexcept override;
 	bool isActive() const noexcept override;
 
 private:

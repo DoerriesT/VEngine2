@@ -22,24 +22,39 @@ bool SkeletonImporter::importSkeletons(size_t count, const LoadedSkeleton *skele
 		{
 			const auto &skele = skeletons[i];
 
-			// write joint count
-			const uint32_t jointCount = static_cast<uint32_t>(skele.m_joints.size());
-			vfs.write(fh, 4, &jointCount);
+			SkeletonAssetData::FileHeader header{};
+			header.m_fileSize = sizeof(header);
+			header.m_jointCount = (uint32_t)skele.m_joints.size();
+
+			// compute file size
+			{
+				header.m_fileSize += header.m_jointCount * sizeof(glm::mat4); // inv bind matrices
+				header.m_fileSize += header.m_jointCount * sizeof(uint32_t); // parent indices
+				
+				// joint names
+				for (size_t j = 0; j < header.m_jointCount; ++j)
+				{
+					header.m_fileSize += (uint32_t)skele.m_joints[j].m_name.length() + 1;
+				}
+			}
+
+			vfs.write(fh, sizeof(header), &header);
+
 
 			// write joints
-			for (size_t j = 0; j < jointCount; ++j)
+			for (size_t j = 0; j < header.m_jointCount; ++j)
 			{
 				vfs.write(fh, sizeof(float) * 16, &skele.m_joints[j].m_invBindPose[0][0]);
 			}
 
 			// write parent indices
-			for (size_t j = 0; j < jointCount; ++j)
+			for (size_t j = 0; j < header.m_jointCount; ++j)
 			{
 				vfs.write(fh, sizeof(LoadedSkeleton::Joint::m_parentIdx), &skele.m_joints[j].m_parentIdx);
 			}
 
 			// write joint names
-			for (size_t j = 0; j < jointCount; ++j)
+			for (size_t j = 0; j < header.m_jointCount; ++j)
 			{
 				const char *str = skele.m_joints[j].m_name.c_str();
 				vfs.write(fh, skele.m_joints[j].m_name.length() + 1, str);

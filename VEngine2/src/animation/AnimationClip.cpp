@@ -33,111 +33,79 @@ static void sampleData(uint32_t componentCount, float time, uint32_t frameCount,
 		}
 	}
 
-	
+
 }
 
-AnimationClip::AnimationClip(size_t fileSize, const char *fileData) noexcept
+AnimationClip::AnimationClip(const AnimationClipCreateInfo &createInfo) noexcept
+	:m_jointCount(createInfo.m_jointCount),
+	m_duration(createInfo.m_duration),
+	m_memory(createInfo.m_memory),
+	m_perJointInfo(createInfo.m_perJointInfo),
+	m_translationTimeKeys(createInfo.m_translationTimeKeys),
+	m_rotationTimeKeys(createInfo.m_rotationTimeKeys),
+	m_scaleTimeKeys(createInfo.m_scaleTimeKeys),
+	m_translationData(createInfo.m_translationData),
+	m_rotationData(createInfo.m_rotationData),
+	m_scaleData(createInfo.m_scaleData)
 {
-	// at least jointCount and duration
-	assert(fileSize >= 8);
+}
 
-	size_t curFileOffset = 0;
+AnimationClip::AnimationClip(AnimationClip &&other) noexcept
+	:m_jointCount(other.m_jointCount),
+	m_duration(other.m_duration),
+	m_memory(other.m_memory),
+	m_perJointInfo(other.m_perJointInfo),
+	m_translationTimeKeys(other.m_translationTimeKeys),
+	m_rotationTimeKeys(other.m_rotationTimeKeys),
+	m_scaleTimeKeys(other.m_scaleTimeKeys),
+	m_translationData(other.m_translationData),
+	m_rotationData(other.m_rotationData),
+	m_scaleData(other.m_scaleData)
+{
+	other.m_jointCount = 0;
+	other.m_duration = 0.0f;
+	other.m_memory = nullptr;
+	other.m_perJointInfo = nullptr;
+	other.m_translationTimeKeys = nullptr;
+	other.m_rotationTimeKeys = nullptr;
+	other.m_scaleTimeKeys = nullptr;
+	other.m_translationData = nullptr;
+	other.m_rotationData = nullptr;
+	other.m_scaleData = nullptr;
+}
 
-	m_jointCount = *reinterpret_cast<const uint32_t *>(fileData + curFileOffset);
-	curFileOffset += 4;
-
-	m_duration = *reinterpret_cast<const float *>(fileData + curFileOffset);
-	curFileOffset += 4;
-
-	const uint32_t *jointInfo = reinterpret_cast<const uint32_t *>(fileData + curFileOffset);
-
-	const size_t lastEntryIdx = m_jointCount - 1;
-
-
-	assert((curFileOffset + m_jointCount * 6 * sizeof(uint32_t)) < fileSize);
-
-	const uint32_t lastEntryTranslationFrameCount = jointInfo[lastEntryIdx * 6 + 0];
-	const uint32_t lastEntryRotationFrameCount = jointInfo[lastEntryIdx * 6 + 1];
-	const uint32_t lastEntryScaleFrameCount = jointInfo[lastEntryIdx * 6 + 2];
-	const uint32_t lastEntryTranslationOffset = jointInfo[lastEntryIdx * 6 + 3];
-	const uint32_t lastEntryRotationOffset = jointInfo[lastEntryIdx * 6 + 4];
-	const uint32_t lastEntryScaleOffset = jointInfo[lastEntryIdx * 6 + 5];
-
-	const uint32_t translationCount = lastEntryTranslationOffset + lastEntryTranslationFrameCount;
-	const uint32_t rotationCount = lastEntryRotationOffset + lastEntryRotationFrameCount;
-	const uint32_t scaleCount = lastEntryScaleOffset + lastEntryScaleFrameCount;
-
-	size_t memorySize = 0;
-	memorySize += m_jointCount * 6 * sizeof(uint32_t); // per joint info
-	memorySize += (translationCount + rotationCount + scaleCount) * sizeof(float); // time keys
-	memorySize += translationCount * sizeof(float) * 3; // translation data
-	memorySize += rotationCount * sizeof(float) * 4; // rotation data
-	memorySize += scaleCount * sizeof(float) * 1; // scale data
-
-	assert((curFileOffset + memorySize) <= fileSize);
-
-	// allocate memory
-	m_memory = new char[memorySize];
-	assert(m_memory);
-
-	// copy data to our allocation
-	memcpy(m_memory, fileData + curFileOffset, memorySize);
-
-	// set up pointers
-	size_t curMemOffset = 0;
-
-	m_perJointInfo = reinterpret_cast<const uint32_t *>(m_memory + curMemOffset);
-	curMemOffset += m_jointCount * 6 * sizeof(uint32_t);
-
-	m_translationTimeKeys = reinterpret_cast<const float *>(m_memory + curMemOffset);
-	curMemOffset += translationCount * sizeof(float);
-
-	m_rotationTimeKeys = reinterpret_cast<const float *>(m_memory + curMemOffset);
-	curMemOffset += rotationCount * sizeof(float);
-
-	m_scaleTimeKeys = reinterpret_cast<const float *>(m_memory + curMemOffset);
-	curMemOffset += scaleCount * sizeof(float);
-
-	m_translationData = reinterpret_cast<const float *>(m_memory + curMemOffset);
-	curMemOffset += translationCount * sizeof(float) * 3;
-
-	m_rotationData = reinterpret_cast<const float *>(m_memory + curMemOffset);
-	curMemOffset += rotationCount * sizeof(float) * 4;
-
-	m_scaleData = reinterpret_cast<const float *>(m_memory + curMemOffset);
-	curMemOffset += scaleCount * sizeof(float) * 1;
-
-	// compute root motion
+AnimationClip &AnimationClip::operator=(AnimationClip &&other) noexcept
+{
+	if (&other != this)
 	{
-		const uint32_t rootTranslationFrameCount = jointInfo[0 * 6 + 0];
-
-		float prevTrans[3];
-		prevTrans[0] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 0];
-		prevTrans[1] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 1];
-		prevTrans[2] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 2];
-		float prevTimeKey = m_translationTimeKeys[rootTranslationFrameCount - 1];
-
-		for (size_t i = 0; i < rootTranslationFrameCount; ++i)
+		if (m_memory)
 		{
-			float curTrans[3];
-			// add final frame translation to handle wrap around more easily
-			curTrans[0] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 0] + m_translationData[i * 3 + 0];
-			curTrans[1] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 1] + m_translationData[i * 3 + 1];
-			curTrans[2] = m_translationData[(rootTranslationFrameCount - 1) * 3 + 2] + m_translationData[i * 3 + 2];
-
-			float curTimeKey = m_translationTimeKeys[rootTranslationFrameCount - 1] + m_translationTimeKeys[i];
-
-			float timeDiff = curTimeKey - prevTimeKey;
-			float velocity[3];
-			velocity[0] = (curTrans[0] - prevTrans[0]) / timeDiff;
-			velocity[1] = (curTrans[1] - prevTrans[1]) / timeDiff;
-			velocity[2] = (curTrans[2] - prevTrans[2]) / timeDiff;
-
-			m_rootVelocityData.push_back(velocity[0]);
-			m_rootVelocityData.push_back(velocity[1]);
-			m_rootVelocityData.push_back(velocity[2]);
+			delete[] m_memory;
 		}
+
+		m_jointCount = other.m_jointCount;
+		m_duration = other.m_duration;
+		m_memory = other.m_memory;
+		m_perJointInfo = other.m_perJointInfo;
+		m_translationTimeKeys = other.m_translationTimeKeys;
+		m_rotationTimeKeys = other.m_rotationTimeKeys;
+		m_scaleTimeKeys = other.m_scaleTimeKeys;
+		m_translationData = other.m_translationData;
+		m_rotationData = other.m_rotationData;
+		m_scaleData = other.m_scaleData;
+
+		other.m_jointCount = 0;
+		other.m_duration = 0.0f;
+		other.m_memory = nullptr;
+		other.m_perJointInfo = nullptr;
+		other.m_translationTimeKeys = nullptr;
+		other.m_rotationTimeKeys = nullptr;
+		other.m_scaleTimeKeys = nullptr;
+		other.m_translationData = nullptr;
+		other.m_rotationData = nullptr;
+		other.m_scaleData = nullptr;
 	}
+	return *this;
 }
 
 AnimationClip::~AnimationClip()
@@ -166,8 +134,8 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop, bo
 
 	// translation
 	{
-		uint32_t frameCount = m_perJointInfo[jointIdx * 6 + 0];
-		size_t arrayOffset = m_perJointInfo[jointIdx * 6 + 3];
+		uint32_t frameCount = m_perJointInfo[jointIdx].m_translationFrameCount;
+		size_t arrayOffset = m_perJointInfo[jointIdx].m_translationArrayOffset;
 
 		if (frameCount)
 		{
@@ -189,8 +157,8 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop, bo
 
 	// rotation
 	{
-		uint32_t frameCount = m_perJointInfo[jointIdx * 6 + 1];
-		size_t arrayOffset = m_perJointInfo[jointIdx * 6 + 4];
+		uint32_t frameCount = m_perJointInfo[jointIdx].m_rotationFrameCount;
+		size_t arrayOffset = m_perJointInfo[jointIdx].m_rotationArrayOffset;
 
 		if (frameCount)
 		{
@@ -225,8 +193,8 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop, bo
 
 	// scale
 	{
-		uint32_t frameCount = m_perJointInfo[jointIdx * 6 + 2];
-		size_t arrayOffset = m_perJointInfo[jointIdx * 6 + 5];
+		uint32_t frameCount = m_perJointInfo[jointIdx].m_scaleFrameCount;
+		size_t arrayOffset = m_perJointInfo[jointIdx].m_scaleArrayOffset;
 
 		if (frameCount)
 		{
@@ -238,18 +206,4 @@ JointPose AnimationClip::getJointPose(size_t jointIdx, float time, bool loop, bo
 	}
 
 	return jointPose;
-}
-
-void AnimationClip::getRootVelocity(float time, bool loop, float *result) const noexcept
-{
-	result[0] = 0.0f;
-	result[1] = 0.0f;
-	result[2] = 0.0f;
-
-	uint32_t frameCount = m_perJointInfo[0 * 6 + 0];
-
-	if (frameCount)
-	{
-		sampleData(3, time, frameCount, loop, m_translationTimeKeys, m_rootVelocityData.data(), result);
-	}
 }

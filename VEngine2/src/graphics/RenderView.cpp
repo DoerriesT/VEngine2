@@ -11,6 +11,7 @@
 #include "component/SkinnedMeshComponent.h"
 #include <glm/gtx/transform.hpp>
 #include "MeshManager.h"
+#include "animation/Skeleton.h"
 
 RenderView::RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
 	:m_ecs(ecs),
@@ -110,6 +111,8 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 				{
 					continue;
 				}
+
+				assert(smc.m_matrixPalette.size() == smc.m_skeleton->getSkeleton()->getJointCount());
 
 				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
 				const auto &submeshhandles = smc.m_mesh->getSubMeshhandles();

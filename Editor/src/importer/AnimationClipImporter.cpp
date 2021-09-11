@@ -41,12 +41,26 @@ bool AnimationClipImporter::importAnimationClips(size_t count, const LoadedAnima
 
 		if (FileHandle fh = vfs.open(dstPath.c_str(), FileMode::WRITE, true))
 		{
-			// write joint count
-			const uint32_t jointCount = (uint32_t)animClip.m_jointAnimations.size();
-			vfs.write(fh, 4, &jointCount);
+			AnimationClipAssetData::FileHeader header{};
+			header.m_fileSize = sizeof(header);
+			header.m_jointCount = (uint32_t)animClip.m_jointAnimations.size();
+			header.m_duration = animClip.m_duration;
 
-			// write duration
-			vfs.write(fh, 4, &animClip.m_duration);
+			// compute file size
+			{
+				header.m_fileSize += header.m_jointCount * sizeof(uint32_t) * 6; // per joint info
+				for (const auto &jointClip : animClip.m_jointAnimations)
+				{
+					header.m_fileSize += (uint32_t)jointClip.m_translationChannel.m_timeKeys.size() * sizeof(uint32_t);
+					header.m_fileSize += (uint32_t)jointClip.m_rotationChannel.m_timeKeys.size() * sizeof(uint32_t);
+					header.m_fileSize += (uint32_t)jointClip.m_scaleChannel.m_timeKeys.size() * sizeof(uint32_t);
+					header.m_fileSize += (uint32_t)jointClip.m_translationChannel.m_translations.size() * sizeof(glm::vec3);
+					header.m_fileSize += (uint32_t)jointClip.m_rotationChannel.m_rotations.size() * sizeof(glm::quat);
+					header.m_fileSize += (uint32_t)jointClip.m_scaleChannel.m_scales.size() * sizeof(float);
+				}
+			}
+
+			vfs.write(fh, sizeof(header), &header);
 
 			uint32_t curTranslationArrayOffset = 0;
 			uint32_t curRotationArrayOffset = 0;

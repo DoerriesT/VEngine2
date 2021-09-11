@@ -77,7 +77,7 @@ AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, 
 	// create meta file
 	std::stringstream metaFileData;
 	metaFileData << resultAssetID.m_string << '\n';
-	metaFileData << assetTypeStr;
+	metaFileData << assetTypeStr << '\n';
 	metaFileData << sourcePath << '\n';
 	std::string str = metaFileData.str();
 

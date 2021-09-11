@@ -16,17 +16,17 @@ CustomAnimGraph::CustomAnimGraph() noexcept
 {
 }
 
-void CustomAnimGraph::preExecute(AnimationGraphContext *context, float deltaTime) noexcept
+void CustomAnimGraph::preExecute(ECS *ecs, EntityID entity, float deltaTime) noexcept
 {
-	const auto &mc = context->getECS()->getComponent<CharacterMovementComponent>(context->getEntityID());
+	const auto &mc = ecs->getComponent<CharacterMovementComponent>(entity);
 	m_speed = glm::length(glm::vec2(mc->m_velocityX, mc->m_velocityZ));
 }
 
-void CustomAnimGraph::execute(AnimationGraphContext *context, size_t jointIndex, float deltaTime, JointPose *resultJointPose) const noexcept
+void CustomAnimGraph::execute(ECS *ecs, EntityID entity, size_t jointIndex, float deltaTime, JointPose *resultJointPose) const noexcept
 {
-	const auto *idleClip = context->getAnimationClip(m_idleClip->getAnimationClipHandle());
-	const auto *walkClip = context->getAnimationClip(m_walkClip->getAnimationClipHandle());
-	const auto *runClip = context->getAnimationClip(m_runClip->getAnimationClipHandle());
+	const auto *idleClip = m_idleClip->getAnimationClip();
+	const auto *walkClip = m_walkClip->getAnimationClip();
+	const auto *runClip = m_runClip->getAnimationClip();
 
 	const bool extractRootMotion = false;
 	const bool loop = true;
@@ -42,15 +42,15 @@ void CustomAnimGraph::execute(AnimationGraphContext *context, size_t jointIndex,
 	*resultJointPose = JointPose::lerp1DArray(3, inputPoses, s_speedKeys, fabsf(m_speed));
 }
 
-void CustomAnimGraph::postExecute(AnimationGraphContext *context, float deltaTime) noexcept
+void CustomAnimGraph::postExecute(ECS *ecs, EntityID entity, float deltaTime) noexcept
 {
 	if (!m_paused)
 	{
 		const AnimationClip *clips[]
 		{
-			context->getAnimationClip(m_idleClip->getAnimationClipHandle()),
-			context->getAnimationClip(m_walkClip->getAnimationClipHandle()),
-			context->getAnimationClip(m_runClip->getAnimationClipHandle())
+			m_idleClip->getAnimationClip(),
+			m_walkClip->getAnimationClip(),
+			m_runClip->getAnimationClip()
 		};
 
 		size_t index0;

@@ -539,13 +539,20 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 
 						processedIndexCount = i;
 
-						Log::info(("Processed SubMesh # " + eastl::to_string(header.m_subMeshCount - 1)).c_str());
+						Log::info("Processed SubMesh # %u", (unsigned)header.m_subMeshCount - 1);
 					}
 				}
 			}
 		}
 
 		header.m_dataSegmentStart = static_cast<uint32_t>(sizeof(header) + subMeshHeaders.size() * sizeof(subMeshHeaders[0]));
+
+		// compute file size
+		{
+			header.m_fileSize = sizeof(header);
+			header.m_fileSize += (uint32_t)subMeshHeaders.size() * sizeof(subMeshHeaders[0]);
+			header.m_fileSize += (uint32_t)dataSegment.size();
+		}
 
 		assetMgr->createAsset(MeshAssetData::k_assetType, dstPath.c_str(), sourcePath);
 

@@ -102,7 +102,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	Timer timer;
 
-	float accumulator = 0.0f;
+	constexpr float k_stepSize = 1.0f / 60.0f;
+	float accumulator = k_stepSize; // make sure we simulate in the first frame
 
 	while (!m_window->shouldClose())
 	{
@@ -112,7 +113,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		float timeDelta = fminf(0.5f, static_cast<float>(timer.getTimeDelta()));
 
 
-		constexpr float k_stepSize = 1.0f / 60.0f;
+		
 		accumulator += timeDelta;
 		while (accumulator >= k_stepSize)
 		{

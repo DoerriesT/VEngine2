@@ -1,6 +1,6 @@
 #pragma once
 #include "Asset.h"
-#include "Handles.h"
+#include "animation/AnimationClip.h"
 
 /// <summary>
 /// AssetData implementation for animation clips.
@@ -11,9 +11,24 @@ class AnimationClipAssetData : public AssetData
 public:
 	static constexpr AssetType k_assetType = "7DFD6BE8-A4EF-4BDE-AAB1-2354612ED211"_uuid;
 
+	enum class Version : uint32_t
+	{
+		V_1_0 = 0,
+		LATEST = V_1_0,
+	};
+
+	struct FileHeader
+	{
+		char m_magicNumber[8] = { 'V', 'E', 'A', 'N', 'I', 'M', ' ', ' ' };
+		Version m_version = Version::V_1_0;
+		uint32_t m_fileSize;
+		uint32_t m_jointCount;
+		float m_duration;
+	};
+
 	explicit AnimationClipAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
-	AnimationClipHandle getAnimationClipHandle() const noexcept { return m_animationClipHandle; }
+	const AnimationClip *getAnimationClip() const noexcept { return &m_animationClip; }
 
 private:
-	AnimationClipHandle m_animationClipHandle = {};
+	AnimationClip m_animationClip;
 };

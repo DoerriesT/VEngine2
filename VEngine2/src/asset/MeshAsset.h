@@ -12,8 +12,17 @@ class MeshAssetData : public AssetData
 public:
 	static constexpr AssetType k_assetType = "EAFC3928-AFA1-4225-9354-92B3303302CD"_uuid;
 
+	enum class Version : uint32_t
+	{
+		V_1_0 = 0,
+		LATEST = V_1_0,
+	};
+
 	struct FileHeader
 	{
+		char m_magicNumber[8] = { 'V', 'E', 'M', 'E', 'S', 'H', ' ', ' ' };
+		Version m_version = Version::V_1_0;
+		uint32_t m_fileSize;
 		uint32_t m_dataSegmentStart;
 		uint32_t m_matrixPaletteSize;
 		uint32_t m_physicsConvexMeshDataOffset;

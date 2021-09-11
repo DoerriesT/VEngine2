@@ -24,6 +24,7 @@ class AssetData
 {
 public:
 	explicit AssetData(const AssetID &assetID, const AssetType &assetType) noexcept;
+	virtual ~AssetData() noexcept = default;
 	void acquire() noexcept;
 	void release() noexcept;
 	int32_t getReferenceCount() const noexcept;
