@@ -16,6 +16,7 @@
 #include <component/CharacterControllerComponent.h>
 #include <component/CharacterMovementComponent.h>
 #include <component/InputStateComponent.h>
+#include <component/RawInputStateComponent.h>
 #include <asset/AssetManager.h>
 #include <Editor.h>
 #include <graphics/Renderer.h>
@@ -26,15 +27,23 @@
 #include <physics/Physics.h>
 #include "CustomAnimGraph.h"
 #include <filesystem/VirtualFileSystem.h>
+#include <filesystem/RawFileSystem.h>
 #include "Log.h"
 #include <iostream>
 #include <filesystem/Path.h>
+
+FileSystemWatcherHandle watcherHandle;
 
 class DummyGameLogic : public IGameLogic
 {
 public:
 	void init(Engine *engine) noexcept override
 	{
+		watcherHandle = VirtualFileSystem::get().openFileSystemWatcher("/assets", [](const char *path, FileChangeType changeType, void *userData)
+			{
+				printf("%s : %i\n", path, (int)changeType);
+			}, nullptr);
+
 		m_engine = engine;
 		m_fpsCameraController = new FPSCameraController(m_engine->getECS());
 		m_thirdPersonCameraController = new ThirdPersonCameraController(m_engine->getECS());
@@ -187,6 +196,12 @@ public:
 
 			auto *playerMovementComponent = m_engine->getECS()->getComponent<CharacterMovementComponent>(m_playerEntity);
 			m_thirdPersonCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<TransformComponent>(m_playerEntity), playerMovementComponent, m_engine->getPhysics());
+
+			if (m_engine->getECS()->getSingletonComponent<RawInputStateComponent>()->isKeyPressed(InputKey::K))
+			{
+				VirtualFileSystem::get().closeFileSystemWatcher(watcherHandle);
+				watcherHandle = {};
+			}
 
 			const auto *inputState = m_engine->getECS()->getSingletonComponent<InputStateComponent>();
 

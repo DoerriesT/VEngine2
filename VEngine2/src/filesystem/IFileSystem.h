@@ -3,6 +3,7 @@
 
 enum FileHandle : size_t { NULL_FILE_HANDLE };
 enum FileFindHandle : size_t { NULL_FILE_FIND_HANDLE };
+enum FileSystemWatcherHandle : size_t { NULL_FILE_SYSTEM_WATCHER_HANDLE };
 
 struct FileFindData;
 
@@ -50,6 +51,34 @@ enum class FileMode
 	APPEND_OR_CREATE_READ_WRITE
 };
 
+enum class FileChangeType
+{
+	/// <summary>
+	/// The file was added to the directory.
+	/// </summary>
+	ADDED,
+
+	/// <summary>
+	/// The file was removed from the directory.
+	/// </summary>
+	REMOVED,
+
+	/// <summary>
+	/// The file was modified. This can be a change in the time stamp or attributes
+	/// </summary>
+	MODIFIED,
+
+	/// <summary>
+	/// The file was renamed and this is the old name.
+	/// </summary>
+	RENAMED_OLD_NAME,
+
+	/// <summary>
+	/// The file was renamed and this is the new name.
+	/// </summary>
+	RENAMED_NEW_NAME
+};
+
 struct FileFindData
 {
 	char m_path[260];
@@ -61,6 +90,8 @@ class IFileSystem
 {
 public:
 	static constexpr size_t k_maxPathLength = 260; // including null terminator
+
+	using FileSystemWatcherCallback = void(*)(const char *path, FileChangeType changeType, void *userData);
 
 	virtual bool exists(const char *path) const noexcept = 0;
 	virtual bool isDirectory(const char *path) const noexcept = 0;
@@ -83,6 +114,9 @@ public:
 	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept = 0;
 	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept = 0;
 	virtual void findClose(FileFindHandle findHandle) noexcept = 0;
+
+	virtual FileSystemWatcherHandle openFileSystemWatcher(const char *path, FileSystemWatcherCallback callback, void *userData) noexcept = 0;
+	virtual void closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle) noexcept = 0;
 
 	template<typename T>
 	void iterate(const char *dirPath, T &&func) noexcept

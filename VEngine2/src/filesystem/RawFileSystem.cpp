@@ -456,3 +456,226 @@ void RawFileSystem::findClose(FileFindHandle findHandle) noexcept
 	static_assert(false);
 #endif
 }
+
+static void fileSystemWatcherOnNotify(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, OVERLAPPED *lpOverlapped);
+
+static bool beginReadDirectoryChanges(OVERLAPPED *lpOverlapped)
+{
+	RawFileSystem::FileSystemWatcherThreadData *threadUserData = (RawFileSystem::FileSystemWatcherThreadData *)lpOverlapped->hEvent;
+
+	constexpr DWORD readDirChangeFiler = 
+		FILE_NOTIFY_CHANGE_CREATION | 
+		FILE_NOTIFY_CHANGE_LAST_WRITE | 
+		FILE_NOTIFY_CHANGE_SIZE |
+		FILE_NOTIFY_CHANGE_DIR_NAME | 
+		FILE_NOTIFY_CHANGE_FILE_NAME;
+
+	DWORD bytesReturned = 0; // unused for async use
+
+	BOOL status = ::ReadDirectoryChangesW(
+		threadUserData->m_watchDirectoryHandle,
+		threadUserData->m_buffer,
+		(DWORD)threadUserData->m_bufferSize,
+		true, // monitor children
+		readDirChangeFiler,
+		&bytesReturned,
+		lpOverlapped,
+		fileSystemWatcherOnNotify
+	);
+
+	return status;
+}
+
+static void fileSystemWatcherOnNotify(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, OVERLAPPED *lpOverlapped)
+{
+	RawFileSystem::FileSystemWatcherThreadData *threadUserData = (RawFileSystem::FileSystemWatcherThreadData *)lpOverlapped->hEvent;
+
+	// the I/O operation was aborted; tell the thread to kill itself 
+	if (dwErrorCode == ERROR_OPERATION_ABORTED)
+	{
+		threadUserData->m_keepRunning.clear();
+		return;
+	}
+
+	if (dwNumberOfBytesTransfered != 0)
+	{
+		wchar_t tmpW[IFileSystem::k_maxPathLength];
+
+
+		FILE_NOTIFY_INFORMATION *info = (FILE_NOTIFY_INFORMATION *)threadUserData->m_buffer;
+		while (info)
+		{
+			FileChangeType changeType{};
+			bool validAction = true;
+
+			switch (info->Action)
+			{
+			case FILE_ACTION_ADDED:
+				changeType = FileChangeType::ADDED;
+				break;
+			case FILE_ACTION_REMOVED:
+				changeType = FileChangeType::REMOVED;
+				break;
+			case FILE_ACTION_MODIFIED:
+				changeType = FileChangeType::MODIFIED;
+				break;
+			case FILE_ACTION_RENAMED_OLD_NAME:
+				changeType = FileChangeType::RENAMED_OLD_NAME;
+				break;
+			case FILE_ACTION_RENAMED_NEW_NAME:
+				changeType = FileChangeType::RENAMED_NEW_NAME;
+				break;
+			default:
+				validAction = false;
+				break;
+			}
+
+			if (validAction)
+			{
+				// copy to local memory, correct separator and add null terminator
+				assert((info->FileNameLength % sizeof(wchar_t)) == 0);
+				size_t copyLen = eastl::min<size_t>(info->FileNameLength / sizeof(wchar_t), (IFileSystem::k_maxPathLength - 1));
+
+				for (size_t i = 0; i < copyLen; ++i)
+				{
+					tmpW[i] = info->FileName[i] == L'\\' ? L'/' : info->FileName[i];
+				}
+				tmpW[copyLen] = L'\0';
+
+				// concatenate to watch path
+				strcat_s(threadUserData->m_path, IFileSystem::k_maxPathLength, narrow(tmpW).c_str());
+
+				// invoke user callback
+				threadUserData->m_userCallback(threadUserData->m_path, changeType, threadUserData->m_userCallbackUserData);
+
+				// reset watch path
+				threadUserData->m_path[threadUserData->m_pathLen] = '\0';
+			}
+
+			info = info->NextEntryOffset == 0 ? nullptr : (FILE_NOTIFY_INFORMATION *)(((char *)info) + info->NextEntryOffset);
+		}
+	}
+
+	// apparently you need to call the next ReadDirectoryChangesW from inside the completion routine
+	beginReadDirectoryChanges(lpOverlapped);
+}
+
+static DWORD WINAPI fileSystemWatcherThreadFunc(_In_ void *lpParameter)
+{
+	::SetThreadDescription(GetCurrentThread(), L"FileSystemWatcherThread");
+
+	RawFileSystem::FileSystemWatcherThreadData *threadUserData = (RawFileSystem::FileSystemWatcherThreadData *)lpParameter;
+
+	OVERLAPPED overlapped;
+	::ZeroMemory(&overlapped, sizeof(overlapped));
+	overlapped.hEvent = threadUserData; // hEvent is unused in the async + completion routine case, so we can store our own data here
+
+	beginReadDirectoryChanges(&overlapped);
+
+	while (threadUserData->m_keepRunning.test())
+	{
+		::SleepEx(INFINITE, true);
+	}
+
+	return EXIT_SUCCESS;
+}
+
+FileSystemWatcherHandle RawFileSystem::openFileSystemWatcher(const char *path, FileSystemWatcherCallback callback, void *userData) noexcept
+{
+	// allocate buffer for directory change data
+	const size_t bufferSize = 4096;
+	char *buffer = new char[bufferSize];
+
+	if (!buffer)
+	{
+		return NULL_FILE_SYSTEM_WATCHER_HANDLE;
+	}
+
+	// create handle for watched directory
+	HANDLE dirHandle = ::CreateFileW(widen(path).c_str(), FILE_LIST_DIRECTORY, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
+	if (dirHandle == INVALID_HANDLE_VALUE)
+	{
+		return NULL_FILE_SYSTEM_WATCHER_HANDLE;
+	}
+
+	// create handle of our watcher
+	FileSystemWatcherHandle resultHandle = {};
+	{
+		LOCK_HOLDER(m_fileSystemWatchersSpinLock);
+		resultHandle = (FileSystemWatcherHandle)m_fileSystemWatcherHandleManager.allocate();
+
+		// failed to allocate handle
+		if (!resultHandle)
+		{
+			::CloseHandle(dirHandle);
+			return NULL_FILE_SYSTEM_WATCHER_HANDLE;
+		}
+	}
+
+	const size_t idx = (size_t)resultHandle - 1;
+	assert(!m_fileSystemWatcherThreadData[idx].m_keepRunning.test());
+
+	strcpy_s(m_fileSystemWatcherThreadData[idx].m_path, path);
+	strcat_s(m_fileSystemWatcherThreadData[idx].m_path, "/");
+	m_fileSystemWatcherThreadData[idx].m_pathLen = strlen(m_fileSystemWatcherThreadData[idx].m_path);
+	m_fileSystemWatcherThreadData[idx].m_buffer = buffer;
+	m_fileSystemWatcherThreadData[idx].m_bufferSize = bufferSize;
+	m_fileSystemWatcherThreadData[idx].m_keepRunning.test_and_set();
+	m_fileSystemWatcherThreadData[idx].m_watchDirectoryHandle = dirHandle;
+	m_fileSystemWatcherThreadData[idx].m_userCallback = callback;
+	m_fileSystemWatcherThreadData[idx].m_userCallbackUserData = userData;
+	m_fileSystemWatcherThreadData[idx].m_threadhandle = ::CreateThread(nullptr, 0, fileSystemWatcherThreadFunc, &m_fileSystemWatcherThreadData[idx], 0, nullptr);
+
+	return resultHandle;
+}
+
+void RawFileSystem::closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle) noexcept
+{
+	if (!watcherHandle)
+	{
+		return;
+	}
+
+	const size_t idx = (size_t)watcherHandle - 1;
+
+	// reset atomic flag to signal to the thread to kill itself
+	m_fileSystemWatcherThreadData[idx].m_keepRunning.clear();
+
+	// wake up the thread
+	auto dummyAPC = [](ULONG_PTR Parameter) 
+	{ 
+		/*no need to do anything; we just want to wake the thread to check its flag*/ 
+	};
+
+	auto ret = ::QueueUserAPC(dummyAPC, m_fileSystemWatcherThreadData[idx].m_threadhandle, 0);
+	assert(ret != 0);
+
+	//bool bval = ::CancelIo(m_fileSystemWatcherThreadData[idx].m_watchDirectoryHandle);
+	//assert(bval);
+
+	// wait for the thread to actually finish before freeing its slot on the array
+	ret = ::WaitForSingleObject(m_fileSystemWatcherThreadData[idx].m_threadhandle, INFINITE);
+	assert(ret == WAIT_OBJECT_0);
+
+	// close thread handle
+	::CloseHandle(m_fileSystemWatcherThreadData[idx].m_threadhandle);
+	m_fileSystemWatcherThreadData[idx].m_threadhandle = nullptr;
+
+	// close directory handle
+	::CloseHandle(m_fileSystemWatcherThreadData[idx].m_watchDirectoryHandle);
+	m_fileSystemWatcherThreadData[idx].m_watchDirectoryHandle = nullptr;
+
+	// free buffer
+	delete[] m_fileSystemWatcherThreadData[idx].m_buffer;
+	m_fileSystemWatcherThreadData[idx].m_buffer = nullptr;
+
+	// now we can free our handle
+	LOCK_HOLDER(m_fileSystemWatchersSpinLock);
+	m_fileSystemWatcherHandleManager.free(watcherHandle);
+
+}
+
+RawFileSystem::RawFileSystem() noexcept
+	:m_fileSystemWatcherHandleManager(k_maxFileSystemWatchers)
+{
+}

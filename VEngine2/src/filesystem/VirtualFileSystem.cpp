@@ -265,3 +265,51 @@ void VirtualFileSystem::findClose(FileFindHandle findHandle) noexcept
 {
 	RawFileSystem::get().findClose(findHandle);
 }
+
+namespace
+{
+	struct WrapperCallbackUserData
+	{
+		VirtualFileSystem *m_vfs;
+		IFileSystem::FileSystemWatcherCallback m_actualCallback;
+		void *m_actualCallbackUserdata;
+		FileSystemWatcherHandle m_rawHandle;
+	};
+}
+
+FileSystemWatcherHandle VirtualFileSystem::openFileSystemWatcher(const char *path, FileSystemWatcherCallback callback, void *userData) noexcept
+{
+	char resolvedPath[k_maxPathLength] = {};
+	resolve(path, resolvedPath);
+
+	WrapperCallbackUserData *wrapperUserData = new WrapperCallbackUserData();
+	wrapperUserData->m_vfs = this;
+	wrapperUserData->m_actualCallback = callback;
+	wrapperUserData->m_actualCallbackUserdata = userData;
+
+	auto wrapperCallback = [](const char *path, FileChangeType changeType, void *userData)
+	{
+		WrapperCallbackUserData *wrapperUserData = (WrapperCallbackUserData *)userData;
+		
+		char unresolved[k_maxPathLength];
+		wrapperUserData->m_vfs->unresolve(path, unresolved);
+
+		wrapperUserData->m_actualCallback(unresolved, changeType, wrapperUserData->m_actualCallbackUserdata);
+	};
+
+	wrapperUserData->m_rawHandle = RawFileSystem::get().openFileSystemWatcher(resolvedPath, wrapperCallback, wrapperUserData);
+
+	return (FileSystemWatcherHandle)(size_t)wrapperUserData;
+}
+
+void VirtualFileSystem::closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle) noexcept
+{
+	if (watcherHandle == 0)
+	{
+		return;
+	}
+
+	WrapperCallbackUserData *data = (WrapperCallbackUserData *)(size_t)watcherHandle;
+	RawFileSystem::get().closeFileSystemWatcher(data->m_rawHandle);
+	delete data;
+}

@@ -31,9 +31,12 @@ public:
 	bool readFile(const char *filePath, size_t bufferSize, void *buffer, bool binary) noexcept override;
 	bool writeFile(const char *filePath, size_t bufferSize, const void *buffer, bool binary) noexcept override;
 
-	virtual FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept override;
-	virtual bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept override;
+	FileFindHandle findFirst(const char *dirPath, FileFindData *result) noexcept override;
+	bool findNext(FileFindHandle findHandle, FileFindData *result) noexcept override;
 	void findClose(FileFindHandle findHandle) noexcept override;
+
+	FileSystemWatcherHandle openFileSystemWatcher(const char *path, FileSystemWatcherCallback callback, void *userData) noexcept override;
+	void closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle) noexcept override;
 
 private:
 	eastl::string_map<eastl::vector<eastl::string8>> m_mountPoints;
