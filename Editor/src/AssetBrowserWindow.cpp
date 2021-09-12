@@ -16,6 +16,7 @@
 #include <future>
 #include <filesystem/VirtualFileSystem.h>
 #include <asset/Asset.h>
+#include <asset/AssetMetaDataRegistry.h>
 
 
 #ifdef WIN32
@@ -137,7 +138,7 @@ static bool fileFilterCallback(const FileFindData &ffd, void *userData)
 
 static bool isDragDropSourceCallback(const FileFindData &ffd, void *userData)
 {
-	return ffd.m_isFile;
+	return ffd.m_isFile && AssetMetaDataRegistry::get()->isRegistered(AssetID(ffd.m_path + 8));
 }
 
 static void dragDropSourcePayloadCallback(const FileFindData &ffd, void *userData)

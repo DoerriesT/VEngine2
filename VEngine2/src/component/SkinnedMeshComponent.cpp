@@ -6,6 +6,15 @@ void SkinnedMeshComponent::onGUI(void *instance) noexcept
 {
 	SkinnedMeshComponent &c = *reinterpret_cast<SkinnedMeshComponent *>(instance);
 
-	ImGui::LabelText("Skinned Mesh Asset", c.m_mesh->getAssetID().m_string);
-	ImGui::LabelText("Skeleton Asset", c.m_skeleton->getAssetID().m_string);
+	AssetData *resultAssetData = nullptr;
+
+	if (ImGuiHelpers::AssetPicker("Mesh Asset", MeshAssetData::k_assetType, c.m_mesh.get(), &resultAssetData))
+	{
+		c.m_mesh = resultAssetData;
+	}
+
+	if (ImGuiHelpers::AssetPicker("Skeleton Asset", SkeletonAssetData::k_assetType, c.m_skeleton.get(), &resultAssetData))
+	{
+		c.m_skeleton = resultAssetData;
+	}
 }

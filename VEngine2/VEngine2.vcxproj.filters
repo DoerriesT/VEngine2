@@ -441,6 +441,9 @@
     <ClInclude Include="src\graphics\imgui\imgui_file_browser.h">
       <Filter>src\graphics\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\AssetMetaDataRegistry.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -745,6 +748,9 @@
     </ClCompile>
     <ClCompile Include="src\graphics\imgui\imgui_file_browser.cpp">
       <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\AssetMetaDataRegistry.cpp">
+      <Filter>src\asset</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

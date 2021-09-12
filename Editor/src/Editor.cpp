@@ -8,6 +8,7 @@
 #include "SceneGraphWindow.h"
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
+#include <asset/AssetMetaDataRegistry.h>
 
 Editor::Editor(IGameLogic *gameLogic) noexcept
 	:m_gameLogic(gameLogic)
@@ -16,6 +17,7 @@ Editor::Editor(IGameLogic *gameLogic) noexcept
 
 void Editor::init(Engine *engine) noexcept
 {
+	AssetMetaDataRegistry::get()->init();
 	m_engine = engine;
 
 	TransformComponent transC{};
@@ -140,4 +142,6 @@ void Editor::shutdown() noexcept
 	delete m_inspectorWindow;
 	delete m_assetBrowserWindow;
 	delete m_sceneGraphWindow;
+
+	AssetMetaDataRegistry::get()->shutdown();
 }

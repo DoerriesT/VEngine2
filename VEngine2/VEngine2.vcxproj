@@ -156,6 +156,7 @@
     <ClInclude Include="src\animation\Skeleton.h" />
     <ClInclude Include="src\asset\AnimationClipAsset.h" />
     <ClInclude Include="src\asset\Asset.h" />
+    <ClInclude Include="src\asset\AssetMetaDataRegistry.h" />
     <ClInclude Include="src\asset\AssetManager.h" />
     <ClInclude Include="src\asset\handler\AnimationClipAssetHandler.h" />
     <ClInclude Include="src\asset\handler\AssetHandler.h" />
@@ -284,6 +285,7 @@
     <ClCompile Include="src\animation\Skeleton.cpp" />
     <ClCompile Include="src\asset\Asset.cpp" />
     <ClCompile Include="src\asset\AssetManager.cpp" />
+    <ClCompile Include="src\asset\AssetMetaDataRegistry.cpp" />
     <ClCompile Include="src\asset\handler\AnimationClipAssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\AssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\AssetHandlerRegistration.cpp" />
