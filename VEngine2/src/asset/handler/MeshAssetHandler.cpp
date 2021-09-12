@@ -60,6 +60,13 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 		// load mesh
 		{
+			if (!VirtualFileSystem::get().exists(path) || VirtualFileSystem::get().isDirectory(path))
+			{
+				assetData->setAssetStatus(AssetStatus::ERROR);
+				Log::err("MeshAssetHandler: Mesh asset data file \"%s\" could not be found!", path);
+				return false;
+			}
+
 			auto fileSize = VirtualFileSystem::get().size(path);
 
 			if (fileSize < sizeof(MeshAssetData::FileHeader))

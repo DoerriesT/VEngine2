@@ -55,6 +55,13 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 
 	// load asset
 	{
+		if (!VirtualFileSystem::get().exists(path) || VirtualFileSystem::get().isDirectory(path))
+		{
+			assetData->setAssetStatus(AssetStatus::ERROR);
+			Log::err("SkeletonAssetHandler: Skeleton asset data file \"%s\" could not be found!", path);
+			return false;
+		}
+
 		auto fileSize = VirtualFileSystem::get().size(path);
 
 		if (fileSize < sizeof(SkeletonAssetData::FileHeader))

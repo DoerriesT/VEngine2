@@ -54,6 +54,13 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 
 	// load asset
 	{
+		if (!VirtualFileSystem::get().exists(path) || VirtualFileSystem::get().isDirectory(path))
+		{
+			assetData->setAssetStatus(AssetStatus::ERROR);
+			Log::err("AnimationClipAssetHandler: Animation clip asset data file \"%s\" could not be found!", path);
+			return false;
+		}
+
 		auto fileSize = VirtualFileSystem::get().size(path);
 
 		if (fileSize < sizeof(AnimationClipAssetData::FileHeader))

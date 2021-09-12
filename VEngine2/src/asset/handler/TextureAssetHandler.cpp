@@ -54,6 +54,13 @@ bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) 
 
 	// load file
 	{
+		if (!VirtualFileSystem::get().exists(path) || VirtualFileSystem::get().isDirectory(path))
+		{
+			assetData->setAssetStatus(AssetStatus::ERROR);
+			Log::err("TextureAssetHandler: Texture asset data file \"%s\" could not be found!", path);
+			return false;
+		}
+
 		auto fileSize = VirtualFileSystem::get().size(path);
 		eastl::vector<char> fileData(fileSize);
 
