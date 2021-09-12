@@ -133,4 +133,38 @@ public:
 			findClose(h);
 		}
 	}
+
+	template<typename T>
+	void iterateRecursive(const char *dirPath, T &&func) noexcept
+	{
+		iterateRecursiveInternal(dirPath, func);
+	}
+
+private:
+	template<typename T>
+	bool iterateRecursiveInternal(const char *dirPath, T &&func) noexcept
+	{
+		FileFindData ffd;
+		auto h = findFirst(dirPath, &ffd);
+		if (h)
+		{
+			bool cont = false;
+			do
+			{
+				cont = func(ffd);
+				if (cont && ffd.m_isDirectory)
+				{
+					cont = iterateRecursiveInternal(ffd.m_path, func);
+				}
+			} while (cont && findNext(h, &ffd));
+			findClose(h);
+			
+			return cont;
+		}
+		else
+		{
+			// not finding anything does not mean that the search should be aborted
+			return true;
+		}
+	}
 };
