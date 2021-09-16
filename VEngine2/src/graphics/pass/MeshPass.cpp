@@ -4,8 +4,9 @@
 #include "graphics/BufferStackAllocator.h"
 #include "graphics/Mesh.h"
 #include <EASTL/iterator.h> // eastl::size()
-#include <optick.h>
 #include "utility/Utility.h"
+#define PROFILING_GPU_ENABLE
+#include "profiling/Profiling.h"
 
 MeshPass::MeshPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout)
 	:m_device(device)
@@ -121,8 +122,9 @@ MeshPass::~MeshPass()
 
 void MeshPass::record(gal::CommandList *cmdList, const Data &data)
 {
-	OPTICK_GPU_EVENT("MeshPass");
-	cmdList->beginDebugLabel("Mesh");
+	GAL_SCOPED_GPU_LABEL(cmdList, "MeshPass");
+	PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "MeshPass");
+	PROFILING_ZONE_SCOPED;
 
 	gal::ClearColorValue clearColor{};
 	clearColor.m_float32[0] = 1.0f;
@@ -258,6 +260,4 @@ void MeshPass::record(gal::CommandList *cmdList, const Data &data)
 		}
 	}
 	cmdList->endRenderPass();
-
-	cmdList->endDebugLabel();
 }

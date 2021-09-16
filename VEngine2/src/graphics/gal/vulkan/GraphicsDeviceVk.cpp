@@ -9,7 +9,7 @@
 #include "MemoryAllocatorVk.h"
 #include "UtilityVk.h"
 #include "SwapChainVk.h"
-#include <optick.h>
+#include <tracy/TracyVulkan.hpp>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -150,7 +150,7 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		}
 	}
 
-	const char *const deviceExtensions[]{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	const char *const deviceExtensions[]{ VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME };
 	const char *const optionalExtensions[]{ VK_EXT_MEMORY_BUDGET_EXTENSION_NAME };
 	bool supportsMemoryBudgetExtension = false;
 
@@ -526,12 +526,24 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 	m_gpuMemoryAllocator = new MemoryAllocatorVk();
 	m_gpuMemoryAllocator->init(m_device, m_physicalDevice, supportsMemoryBudgetExtension);
 
-	OPTICK_GPU_INIT_VULKAN(&m_device, &m_physicalDevice, &m_graphicsQueue.m_queue, &m_graphicsQueue.m_queueFamily, 1);
+	VkCommandPoolCreateInfo poolCreateInfo{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, m_graphicsQueue.m_queueFamily };
+	VkCommandPool cmdPool;
+	UtilityVk::checkResult(vkCreateCommandPool(m_device, &poolCreateInfo, nullptr, &cmdPool), "Failed to create command pool!");
+	
+	VkCommandBuffer cmdBuf;
+	VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1 };
+	vkAllocateCommandBuffers(m_device, &allocInfo, &cmdBuf);
+
+	m_profilingContext = TracyVkContextCalibrated(m_physicalDevice, m_device, m_graphicsQueue.m_queue, cmdBuf, vkGetPhysicalDeviceCalibrateableTimeDomainsEXT, vkGetCalibratedTimestampsEXT);
+
+	vkDestroyCommandPool(m_device, cmdPool, nullptr);
 }
 
 gal::GraphicsDeviceVk::~GraphicsDeviceVk()
 {
 	vkDeviceWaitIdle(m_device);
+
+	TracyVkDestroy((TracyVkCtx)m_profilingContext);
 
 	m_gpuMemoryAllocator->destroy();
 	delete m_gpuMemoryAllocator;
@@ -1142,6 +1154,11 @@ uint64_t gal::GraphicsDeviceVk::getBufferCopyRowPitchAlignment() const
 float gal::GraphicsDeviceVk::getMaxSamplerAnisotropy() const
 {
 	return m_properties.limits.maxSamplerAnisotropy;
+}
+
+void *gal::GraphicsDeviceVk::getProfilingContext() const
+{
+	return m_profilingContext;
 }
 
 VkDevice gal::GraphicsDeviceVk::getDevice() const

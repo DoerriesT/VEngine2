@@ -4,6 +4,7 @@
 #include "ecs/ECS.h"
 #include "component/RawInputStateComponent.h"
 #include "component/InputStateComponent.h"
+#include "profiling/Profiling.h"
 
 UserInput::UserInput(Window &window, ECS *ecs)
 	:m_window(window),
@@ -22,6 +23,8 @@ void UserInput::resize(int32_t offsetX, int32_t offsetY, uint32_t width, uint32_
 
 void UserInput::input()
 {
+	PROFILING_ZONE_SCOPED;
+
 	// update raw input state component
 	{
 		auto *state = m_ecs->getSingletonComponent<RawInputStateComponent>();

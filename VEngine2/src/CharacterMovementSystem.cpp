@@ -5,6 +5,7 @@
 #include "component/CharacterMovementComponent.h"
 #include <glm/gtc/type_ptr.hpp>
 #include "Log.h"
+#include "profiling/Profiling.h"
 
 CharacterMovementSystem::CharacterMovementSystem(ECS *ecs) noexcept
 	:m_ecs(ecs)
@@ -13,6 +14,8 @@ CharacterMovementSystem::CharacterMovementSystem(ECS *ecs) noexcept
 
 void CharacterMovementSystem::update(float timeDelta) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	m_ecs->iterate<TransformComponent, CharacterMovementComponent, CharacterControllerComponent>(
 		[timeDelta](size_t count, const EntityID *entities, TransformComponent *transformComps, CharacterMovementComponent *movementComps, CharacterControllerComponent *controllerComps)
 		{

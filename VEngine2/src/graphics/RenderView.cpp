@@ -136,6 +136,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	uint32_t skinnedMeshCount = static_cast<uint32_t>(modelMatrices.size()) - meshCount;
 
 	MeshPass::Data meshPassData{};
+	meshPassData.m_profilingCtx = m_device->getProfilingContext();
 	meshPassData.m_bufferAllocator = bufferAllocator;
 	meshPassData.m_offsetBufferSet = offsetBufferSet;
 	meshPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
@@ -156,6 +157,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	
 
 	GridPass::Data gridPassData{};
+	gridPassData.m_profilingCtx = m_device->getProfilingContext();
 	gridPassData.m_bufferAllocator = bufferAllocator;
 	gridPassData.m_offsetBufferSet = offsetBufferSet;
 	gridPassData.m_width = m_width;

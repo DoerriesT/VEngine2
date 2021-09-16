@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "Engine.h"
 #include <EASTL/fixed_vector.h>
 #include <task/Task.h>
@@ -30,6 +31,7 @@
 #include "Log.h"
 #include <iostream>
 #include <filesystem/Path.h>
+#include <profiling/Profiling.h>
 
 class DummyGameLogic : public IGameLogic
 {
@@ -170,6 +172,8 @@ public:
 
 	void update(float deltaTime) noexcept override
 	{
+		PROFILING_ZONE_SCOPED;
+
 		if (m_playing)
 		{
 			m_engine->getRenderer()->setCameraEntity(m_cameraEntity);

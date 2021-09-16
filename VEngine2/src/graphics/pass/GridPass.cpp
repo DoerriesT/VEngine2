@@ -1,7 +1,8 @@
 #include "GridPass.h"
 #include "graphics/gal/Initializers.h"
 #include "graphics/BufferStackAllocator.h"
-#include <optick.h>
+#define PROFILING_GPU_ENABLE
+#include "profiling/Profiling.h"
 
 GridPass::GridPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout)
 	:m_device(device)
@@ -40,8 +41,9 @@ GridPass::~GridPass()
 
 void GridPass::record(gal::CommandList *cmdList, const Data &data)
 {
-	OPTICK_GPU_EVENT("GridPass");
-	cmdList->beginDebugLabel("Grid");
+	GAL_SCOPED_GPU_LABEL(cmdList, "Grid");
+	PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GridPass");
+	PROFILING_ZONE_SCOPED;
 
 	struct GridConstants
 	{
@@ -90,6 +92,4 @@ void GridPass::record(gal::CommandList *cmdList, const Data &data)
 		cmdList->draw(6, 1, 0, 0);
 	}
 	cmdList->endRenderPass();
-
-	cmdList->endDebugLabel();
 }

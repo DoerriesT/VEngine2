@@ -10,6 +10,7 @@ class ImGuiPass
 public:
 	struct Data
 	{
+		void *m_profilingCtx;
 		BufferStackAllocator *m_vertexBufferAllocator;
 		BufferStackAllocator *m_indexBufferAllocator;
 		gal::DescriptorSet *m_bindlessSet;

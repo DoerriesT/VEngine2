@@ -7,7 +7,6 @@
 #include "RenderView.h"
 #include "pass/ImGuiPass.h"
 #include <glm/gtc/type_ptr.hpp>
-#include <optick.h>
 #include "imgui/imgui.h"
 #include "MeshManager.h"
 #include "TextureLoader.h"
@@ -16,6 +15,8 @@
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
 #include "Camera.h"
+#define PROFILING_GPU_ENABLE
+#include "profiling/Profiling.h"
 
 Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height) noexcept
 	:m_ecs(ecs)
@@ -77,7 +78,11 @@ Renderer::~Renderer() noexcept
 
 void Renderer::render() noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	m_semaphore->wait(m_waitValues[m_frame & 1]);
+
+	PROFILING_GPU_NEW_FRAME(m_device->getProfilingContext());
 
 	m_cmdListPools[m_frame & 1]->reset();
 	m_rendererResources->m_constantBufferStackAllocators[m_frame & 1]->reset();
@@ -92,7 +97,7 @@ void Renderer::render() noexcept
 
 	cmdList->begin();
 	{
-		OPTICK_GPU_CONTEXT((VkCommandBuffer)cmdList->getNativeHandle());
+		PROFILING_ZONE_SCOPED_N("Record CommandList");
 
 		// upload textures and meshes
 		m_textureLoader->flushUploadCopies(cmdList, m_frame);
@@ -171,6 +176,7 @@ void Renderer::render() noexcept
 				// imgui
 				{
 					ImGuiPass::Data imguiPassData{};
+					imguiPassData.m_profilingCtx = m_device->getProfilingContext();
 					imguiPassData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1];
 					imguiPassData.m_indexBufferAllocator = m_rendererResources->m_indexBufferStackAllocators[m_frame & 1];
 					imguiPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
@@ -194,7 +200,7 @@ void Renderer::render() noexcept
 			}
 		}
 
-		
+		PROFILING_GPU_COLLECT(m_device->getProfilingContext(), cmdList);
 	}
 	cmdList->end();
 
@@ -209,7 +215,6 @@ void Renderer::render() noexcept
 
 	m_graphicsQueue->submit(1, &submitInfo);
 
-	OPTICK_GPU_FLIP(m_swapChain->getNativeHandle());
 	if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 	{
 		m_swapChain->present(m_semaphore, m_semaphoreValue, m_semaphore, m_semaphoreValue + 1);

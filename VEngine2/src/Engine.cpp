@@ -1,9 +1,9 @@
+#define NOMINMAX
 #include "Engine.h"
 #include "Log.h"
 #include "window/Window.h"
 #include "graphics/Renderer.h"
 #include "input/UserInput.h"
-#include <optick.h>
 #include "utility/Timer.h"
 #include "graphics/imgui/imgui.h"
 #include "input/ImGuiInputAdapter.h"
@@ -20,6 +20,7 @@
 #include "CharacterMovementSystem.h"
 #include "filesystem/RawFileSystem.h"
 #include "filesystem/VirtualFileSystem.h"
+#include "profiling/Profiling.h"
 
 // these are needed for EASTL
 
@@ -107,7 +108,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	while (!m_window->shouldClose())
 	{
-		OPTICK_FRAME("MainThread");
+		PROFILING_FRAME_MARK;
 
 		timer.update();
 		float timeDelta = fminf(0.5f, static_cast<float>(timer.getTimeDelta()));
@@ -117,6 +118,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		accumulator += timeDelta;
 		while (accumulator >= k_stepSize)
 		{
+			PROFILING_ZONE_SCOPED_N("Simulation");
+
 			accumulator -= k_stepSize;
 			
 

@@ -1359,5 +1359,17 @@ namespace gal
 		virtual uint64_t getBufferCopyOffsetAlignment() const = 0;
 		virtual uint64_t getBufferCopyRowPitchAlignment() const = 0;
 		virtual float getMaxSamplerAnisotropy() const = 0;
+		virtual void *getProfilingContext() const = 0;
+	};
+
+	struct ScopedLabel
+	{
+		explicit ScopedLabel(CommandList *cmdList, const char *label) : m_cmdList(cmdList) { m_cmdList->beginDebugLabel(label); }
+		~ScopedLabel() { m_cmdList->endDebugLabel(); }
+		CommandList *m_cmdList;
 	};
 }
+
+#define GAL_CONCAT_(a, b) a##b
+#define GAL_CONCAT(a, b) GAL_CONCAT_(a, b)
+#define GAL_SCOPED_GPU_LABEL(cmdList, name) gal::ScopedLabel GAL_CONCAT(gpuLabel, __LINE__)(cmdList, name)

@@ -2,8 +2,9 @@
 #include "graphics/gal/Initializers.h"
 #include "graphics/BufferStackAllocator.h"
 #include "graphics/imgui/imgui.h"
-#include <optick.h>
 #include <EASTL/iterator.h> // eastl::size()
+#define PROFILING_GPU_ENABLE
+#include "profiling/Profiling.h"
 
 namespace
 {
@@ -66,13 +67,16 @@ void ImGuiPass::record(gal::CommandList *cmdList, const Data &data)
 	{
 		return;
 	}
+
+	GAL_SCOPED_GPU_LABEL(cmdList, "ImGui");
+	PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "ImGuiPass");
+	PROFILING_ZONE_SCOPED;
+
 	// Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
 	int fb_width = (int)(data.m_imGuiDrawData->DisplaySize.x * data.m_imGuiDrawData->FramebufferScale.x);
 	int fb_height = (int)(data.m_imGuiDrawData->DisplaySize.y * data.m_imGuiDrawData->FramebufferScale.y);
 	if (fb_width <= 0 || fb_height <= 0 || data.m_imGuiDrawData->TotalVtxCount == 0)
 		return;
-
-	cmdList->beginDebugLabel("ImGui");
 
 	// Upload vertex/index data into a single contiguous GPU buffer
 	uint64_t vertexBufferByteOffset = 0;
@@ -209,6 +213,4 @@ void ImGuiPass::record(gal::CommandList *cmdList, const Data &data)
 		}
 	}
 	cmdList->endRenderPass();
-
-	cmdList->endDebugLabel();
 }

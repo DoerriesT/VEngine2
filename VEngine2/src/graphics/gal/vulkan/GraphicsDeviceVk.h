@@ -62,13 +62,15 @@ namespace gal
 		uint64_t getBufferAlignment(DescriptorType bufferType, uint64_t elementSize) const override;
 		uint64_t getMinUniformBufferOffsetAlignment() const override;
 		uint64_t getMinStorageBufferOffsetAlignment() const override;
-		uint64_t getBufferCopyOffsetAlignment() const  override;
-		uint64_t getBufferCopyRowPitchAlignment() const  override;
-		float getMaxSamplerAnisotropy() const;
+		uint64_t getBufferCopyOffsetAlignment() const override;
+		uint64_t getBufferCopyRowPitchAlignment() const override;
+		float getMaxSamplerAnisotropy() const override;
+		void *getProfilingContext() const override;
 		VkDevice getDevice() const;
 		VkRenderPass getRenderPass(const RenderPassDescriptionVk &renderPassDescription);
 		VkFramebuffer getFramebuffer(const FramebufferDescriptionVk &framebufferDescription);
 		const VkPhysicalDeviceProperties &getDeviceProperties() const;
+		
 
 	private:
 		VkInstance m_instance;
@@ -100,5 +102,6 @@ namespace gal
 		DynamicObjectMemoryPool<DescriptorSetPoolVk> m_descriptorSetPoolMemoryPool;
 		DynamicObjectMemoryPool<DescriptorSetLayoutVk> m_descriptorSetLayoutMemoryPool;
 		bool m_debugLayers;
+		void *m_profilingContext = nullptr;
 	};
 }

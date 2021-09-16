@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "GraphicsDeviceDx12.h"
 #include "assert.h"
 #include "SwapChainDx12.h"
@@ -5,6 +6,7 @@
 #include "utility/Utility.h"
 #include "D3D12MemAlloc.h"
 #include "./../Initializers.h"
+#include <tracy/TracyD3D12.hpp>
 
 #define GPU_DESCRIPTOR_HEAP_SIZE (1000000)
 #define GPU_SAMPLER_DESCRIPTOR_HEAP_SIZE (1024)
@@ -304,11 +306,15 @@ gal::GraphicsDeviceDx12::GraphicsDeviceDx12(void *windowHandle, bool debugLayer)
 
 		UtilityDx12::checkResult(m_device->CreateCommandSignature(&dispatchIndirectCmdSigDesc, nullptr, __uuidof(ID3D12CommandSignature), (void **)&m_cmdListRecordContext.m_dispatchIndirectSignature), "Failed to create command signature!");
 	}
+
+	m_profilingContext = TracyD3D12Context(m_device, (ID3D12CommandQueue *)m_graphicsQueue.getNativeHandle());
 }
 
 gal::GraphicsDeviceDx12::~GraphicsDeviceDx12()
 {
 	waitIdle();
+
+	TracyD3D12Destroy((TracyD3D12Ctx)m_profilingContext);
 
 	//m_gpuMemoryAllocator->destroy();
 	//delete m_gpuMemoryAllocator;
@@ -923,4 +929,9 @@ uint64_t gal::GraphicsDeviceDx12::getBufferCopyRowPitchAlignment() const
 float gal::GraphicsDeviceDx12::getMaxSamplerAnisotropy() const
 {
 	return D3D12_MAX_MAXANISOTROPY;
+}
+
+void *gal::GraphicsDeviceDx12::getProfilingContext() const
+{
+	return m_profilingContext;
 }

@@ -6,6 +6,7 @@
 #include "component/PhysicsComponent.h"
 #include "component/TransformComponent.h"
 #include "component/CharacterControllerComponent.h"
+#include "profiling/Profiling.h"
 
 #define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL;	}
 
@@ -130,6 +131,8 @@ Physics::~Physics() noexcept
 
 void Physics::update(float deltaTime) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	// initialize new entities and apply kinematics
 	m_ecs->iterate<TransformComponent, PhysicsComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, PhysicsComponent *physicsC)
 		{

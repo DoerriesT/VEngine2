@@ -9,6 +9,7 @@
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
 #include <asset/AssetMetaDataRegistry.h>
+#include <profiling/Profiling.h>
 
 Editor::Editor(IGameLogic *gameLogic) noexcept
 	:m_gameLogic(gameLogic)
@@ -45,6 +46,8 @@ void Editor::setPlaying(bool playing) noexcept
 
 void Editor::update(float deltaTime) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	// begin main dock space/main menu bar
 	{
 		// We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,

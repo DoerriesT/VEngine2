@@ -58,6 +58,9 @@
     <Filter Include="src\filesystem">
       <UniqueIdentifier>{cf4784a3-c294-43f0-bb23-ed0142127ac3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\profiling">
+      <UniqueIdentifier>{7d2b61ea-fb8b-4664-8e17-dc4eaf502439}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -443,6 +446,9 @@
     </ClInclude>
     <ClInclude Include="src\asset\AssetMetaDataRegistry.h">
       <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\profiling\Profiling.h">
+      <Filter>src\profiling</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

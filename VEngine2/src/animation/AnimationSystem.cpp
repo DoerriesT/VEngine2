@@ -9,6 +9,7 @@
 #include <EASTL/fixed_vector.h>
 #include "Log.h"
 #include "AnimationGraph.h"
+#include "profiling/Profiling.h"
 
 AnimationSystem::AnimationSystem(ECS *ecs) noexcept
 	:m_ecs(ecs)
@@ -21,6 +22,8 @@ AnimationSystem::~AnimationSystem() noexcept
 
 void AnimationSystem::update(float deltaTime) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	m_ecs->iterate<SkinnedMeshComponent>([this, deltaTime](size_t count, const EntityID *entities, SkinnedMeshComponent *skinnedMeshC)
 		{
 			for (size_t i = 0; i < count; ++i)

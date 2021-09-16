@@ -11,6 +11,7 @@ class MeshPass
 public:
 	struct Data
 	{
+		void *m_profilingCtx;
 		BufferStackAllocator *m_bufferAllocator;
 		gal::DescriptorSet *m_offsetBufferSet;
 		gal::DescriptorSet *m_bindlessSet;

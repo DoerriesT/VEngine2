@@ -65,8 +65,9 @@ namespace gal
 		uint64_t getMinUniformBufferOffsetAlignment() const override;
 		uint64_t getMinStorageBufferOffsetAlignment() const override;
 		uint64_t getBufferCopyOffsetAlignment() const  override;
-		uint64_t getBufferCopyRowPitchAlignment() const  override;
+		uint64_t getBufferCopyRowPitchAlignment() const override;
 		float getMaxSamplerAnisotropy() const override;
+		void *getProfilingContext() const override;
 
 	private:
 		ID3D12Device *m_device;
@@ -101,5 +102,6 @@ namespace gal
 		DynamicObjectMemoryPool<DescriptorSetPoolDx12> m_descriptorSetPoolMemoryPool;
 		DynamicObjectMemoryPool<DescriptorSetLayoutDx12> m_descriptorSetLayoutMemoryPool;
 		bool m_debugLayers;
+		void *m_profilingContext = nullptr;
 	};
 }

@@ -2,3 +2,5 @@
 VEngine2/x64
 x64
 packages
+Game/assets/textures
+Game/assets/meshes
