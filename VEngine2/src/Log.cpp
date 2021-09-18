@@ -2,8 +2,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <EASTL/vector.h>
+#include "utility/SpinLock.h"
 
-static eastl::vector<char> formatIntoVector(const char *fmt, va_list args)
+static char s_logScratchMem[2048];
+static SpinLock s_logSpinLock;
+
+static const char *formatV(const char *fmt, va_list args)
 {
     // make a copy
     va_list argsCopy;
@@ -15,13 +19,10 @@ static eastl::vector<char> formatIntoVector(const char *fmt, va_list args)
     // clean up copy
     va_end(argsCopy);
 
-    // allocate memory
-    eastl::vector<char> buffer(requiredSize);
-
     // format
-    vsnprintf(buffer.data(), buffer.size(), fmt, args);
+    vsnprintf(s_logScratchMem, sizeof(s_logScratchMem), fmt, args);
 
-    return buffer;
+    return s_logScratchMem;
 }
 
 void Log::info(const char *fmt, ...)
@@ -29,12 +30,14 @@ void Log::info(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    auto buffer = formatIntoVector(fmt, args);
+    LOCK_HOLDER(s_logSpinLock);
+
+    const char *formattedStr = formatV(fmt, args);
 
     // clean up varargs
     va_end(args);
 
-    printf("INFO: %s\n", buffer.data());
+    printf("INFO: %s\n", formattedStr);
 }
 
 void Log::warn(const char *fmt, ...)
@@ -42,12 +45,14 @@ void Log::warn(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    auto buffer = formatIntoVector(fmt, args);
+    LOCK_HOLDER(s_logSpinLock);
+
+    const char *formattedStr = formatV(fmt, args);
 
     // clean up varargs
     va_end(args);
 
-    printf("WARNING: %s\n", buffer.data());
+    printf("WARNING: %s\n", formattedStr);
 }
 
 void Log::err(const char *fmt, ...)
@@ -55,10 +60,12 @@ void Log::err(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
 
-    auto buffer = formatIntoVector(fmt, args);
+    LOCK_HOLDER(s_logSpinLock);
+
+    const char *formattedStr = formatV(fmt, args);
 
     // clean up varargs
     va_end(args);
 
-    printf("ERROR: %s\n", buffer.data());
+    printf("ERROR: %s\n", formattedStr);
 }
