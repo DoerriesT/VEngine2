@@ -90,7 +90,7 @@ void *operator new[](std::size_t count, std::align_val_t al, const std::nothrow_
 	return ptr;
 }
 
-void operator delete  (void *ptr) noexcept
+void operator delete(void *ptr) noexcept
 {
 	PROFILING_MEM_FREE(ptr);
 	free(ptr);
@@ -102,7 +102,7 @@ void operator delete[](void *ptr) noexcept
 	free(ptr);
 }
 
-void operator delete  (void *ptr, std::align_val_t al) noexcept
+void operator delete(void *ptr, std::align_val_t al) noexcept
 {
 	PROFILING_MEM_FREE(ptr);
 	free(ptr);
@@ -157,12 +157,14 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	{
 		char currentPath[IFileSystem::k_maxPathLength] = {};
 		RawFileSystem::get().getCurrentPath(currentPath);
-		VirtualFileSystem::get().mount((std::string(currentPath) + "/assets").c_str(), "assets");
+		strcat_s(currentPath, "/assets");
+		VirtualFileSystem::get().mount(currentPath, "assets");
 	}
 
 
 	m_gameLogic = gameLogic;
-	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
+	Window window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
+	m_window = &window;
 	Timer::init();
 
 	m_level = new Level();
@@ -270,7 +272,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	delete m_physics;
 	delete m_renderer;
 	delete m_ecs;
-	delete m_window;
+	m_window = nullptr;
 
 	return 0;
 }
