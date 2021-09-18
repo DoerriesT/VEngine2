@@ -61,6 +61,9 @@
     <Filter Include="src\profiling">
       <UniqueIdentifier>{7d2b61ea-fb8b-4664-8e17-dc4eaf502439}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\utility\allocator">
+      <UniqueIdentifier>{789677a9-a6ea-43d7-9702-ac9101f7dcb0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -212,12 +215,6 @@
     </ClInclude>
     <ClInclude Include="src\task\Task.h">
       <Filter>src\task</Filter>
-    </ClInclude>
-    <ClInclude Include="src\utility\PoolAllocator.h">
-      <Filter>src\utility</Filter>
-    </ClInclude>
-    <ClInclude Include="src\utility\LinearAllocator.h">
-      <Filter>src\utility</Filter>
     </ClInclude>
     <ClInclude Include="src\utility\SpinLock.h">
       <Filter>src\utility</Filter>
@@ -450,6 +447,18 @@
     <ClInclude Include="src\profiling\Profiling.h">
       <Filter>src\profiling</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\allocator\LinearAllocator.h">
+      <Filter>src\utility\allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\allocator\PoolAllocator.h">
+      <Filter>src\utility\allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\allocator\IAllocator.h">
+      <Filter>src\utility\allocator</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utility\allocator\DefaultAllocator.h">
+      <Filter>src\utility\allocator</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -577,12 +586,6 @@
     </ClCompile>
     <ClCompile Include="src\task\Task.cpp">
       <Filter>src\task</Filter>
-    </ClCompile>
-    <ClCompile Include="src\utility\PoolAllocator.cpp">
-      <Filter>src\utility</Filter>
-    </ClCompile>
-    <ClCompile Include="src\utility\LinearAllocator.cpp">
-      <Filter>src\utility</Filter>
     </ClCompile>
     <ClCompile Include="src\utility\SpinLock.cpp">
       <Filter>src\utility</Filter>
@@ -757,6 +760,18 @@
     </ClCompile>
     <ClCompile Include="src\asset\AssetMetaDataRegistry.cpp">
       <Filter>src\asset</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\allocator\LinearAllocator.cpp">
+      <Filter>src\utility\allocator</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\allocator\PoolAllocator.cpp">
+      <Filter>src\utility\allocator</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\allocator\IAllocator.cpp">
+      <Filter>src\utility\allocator</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp">
+      <Filter>src\utility\allocator</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

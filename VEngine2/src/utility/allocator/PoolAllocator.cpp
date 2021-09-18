@@ -1,7 +1,7 @@
 #include "PoolAllocator.h"
 #include <stdlib.h>
 #include <assert.h>
-#include "Utility.h"
+#include "utility/Utility.h"
 
 static constexpr uint32_t s_invalidIndex = 0xFFFFFFFF;
 

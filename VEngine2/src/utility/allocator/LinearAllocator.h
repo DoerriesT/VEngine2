@@ -1,7 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include "IAllocator.h"
 
-class LinearAllocator
+class LinearAllocator : public IAllocator
 {
 public:
 	typedef size_t Marker;
@@ -18,11 +19,11 @@ public:
 	
 	// EASTL allocator interface:
 	
-	void *allocate(size_t n, int flags = 0) noexcept;
-	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept;
-	void  deallocate(void *p, size_t n) noexcept;
-	const char *get_name() const noexcept;
-	void set_name(const char *pName) noexcept;
+	void *allocate(size_t n, int flags = 0) noexcept override;
+	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept override;
+	void  deallocate(void *p, size_t n) noexcept override;
+	const char *get_name() const noexcept override;
+	void set_name(const char *pName) noexcept override;
 
 
 	Marker getMarker() noexcept;

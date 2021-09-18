@@ -1,6 +1,6 @@
 #include "LinearAllocator.h"
 #include <stdlib.h>
-#include "Utility.h"
+#include "utility/Utility.h"
 
 LinearAllocator::LinearAllocator(char *memory, size_t stackSizeBytes, const char *name) noexcept
 	:m_name(name),

@@ -1,7 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include "IAllocator.h"
 
-class FixedPoolAllocator
+class FixedPoolAllocator : public IAllocator
 {
 public:
 	explicit FixedPoolAllocator(char *memory, size_t elementSize, size_t elementCount, const char *name = nullptr) noexcept;
@@ -16,11 +17,11 @@ public:
 
 	// EASTL allocator interface:
 
-	void *allocate(size_t n, int flags = 0) noexcept;
-	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept;
-	void  deallocate(void *p, size_t n) noexcept;
-	const char *get_name() const noexcept;
-	void set_name(const char *pName) noexcept;
+	void *allocate(size_t n, int flags = 0) noexcept override;
+	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept override;
+	void  deallocate(void *p, size_t n) noexcept override;
+	const char *get_name() const noexcept override;
+	void set_name(const char *pName) noexcept override;
 
 	size_t getFreeElementCount() const noexcept;
 
@@ -34,7 +35,7 @@ private:
 	bool m_ownsMemory = false;
 };
 
-class DynamicPoolAllocator
+class DynamicPoolAllocator : public IAllocator
 {
 public:
 	explicit DynamicPoolAllocator(size_t elementSize, size_t initialElementCount, const char *name = nullptr) noexcept;
@@ -48,11 +49,11 @@ public:
 
 	// EASTL allocator interface:
 
-	void *allocate(size_t n, int flags = 0) noexcept;
-	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept;
-	void  deallocate(void *p, size_t n) noexcept;
-	const char *get_name() const noexcept;
-	void set_name(const char *pName) noexcept;
+	void *allocate(size_t n, int flags = 0) noexcept override;
+	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept override;
+	void  deallocate(void *p, size_t n) noexcept override;
+	const char *get_name() const noexcept override;
+	void set_name(const char *pName) noexcept override;
 
 	size_t getFreeElementCount() const noexcept;
 	void clearEmptyPools() noexcept;
