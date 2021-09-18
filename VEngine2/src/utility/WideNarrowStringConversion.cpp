@@ -34,3 +34,39 @@ eastl::wstring widen(const char *s) noexcept
 
 	return result;
 }
+
+bool narrow(const wchar_t *s, size_t resultBufferSize, char *resultBuffer) noexcept
+{
+	int requiredSize = ::WideCharToMultiByte(CP_UTF8, 0, s, -1, nullptr, 0, nullptr, nullptr);
+
+	assert(requiredSize > 0);
+
+	if (requiredSize > resultBufferSize)
+	{
+		return false;
+	}
+
+	int writtenSize = ::WideCharToMultiByte(CP_UTF8, 0, s, -1, resultBuffer, requiredSize, nullptr, nullptr);
+
+	assert(writtenSize == requiredSize);
+
+	return true;
+}
+
+bool widen(const char *s, size_t resultBufferSize, wchar_t *resultBuffer) noexcept
+{
+	int requiredSize = ::MultiByteToWideChar(CP_UTF8, 0, s, -1, nullptr, 0);
+
+	assert(requiredSize > 0);
+
+	if (requiredSize > resultBufferSize)
+	{
+		return false;
+	}
+
+	int writtenSize = ::MultiByteToWideChar(CP_UTF8, 0, s, -1, resultBuffer, requiredSize);
+
+	assert(writtenSize == requiredSize);
+
+	return true;
+}

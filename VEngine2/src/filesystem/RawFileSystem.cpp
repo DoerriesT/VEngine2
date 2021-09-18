@@ -34,15 +34,37 @@ RawFileSystem &RawFileSystem::get() noexcept
 
 void RawFileSystem::getCurrentPath(char *path) const noexcept
 {
-	std::error_code ec;
-	auto str = std::filesystem::current_path(ec).generic_u8string();
-	if (!std::system_category().default_error_condition(ec.value()))
+	wchar_t tmp[k_maxPathLength];
+	DWORD charsWritten = ::GetCurrentDirectoryW((DWORD)k_maxPathLength, tmp);
+
+	// call failed or our buffer is not large enough
+	if (charsWritten == 0 || charsWritten >= k_maxPathLength)
 	{
-		memcpy(path, str.c_str(), str.length() + 1);
-	}
-	else
-	{
+		if (charsWritten >= k_maxPathLength)
+		{
+			Log::err("RawFileSystem::getCurrentPath(): Ran out of scratch memory.");
+		}
 		path[0] = '\0';
+		return;
+	}
+
+	if (!narrow(tmp, k_maxPathLength, path))
+	{
+		Log::err("RawFileSystem::getCurrentPath(): Ran out of scratch memory.");
+		path[0] = '\0';
+		return;
+	}
+
+	// convert backwards to forwards slashes
+	char *ptr = path;
+	while (*ptr)
+	{
+		if (*ptr == '\\')
+		{
+			*ptr = '/';
+		}
+
+		++ptr;
 	}
 }
 
