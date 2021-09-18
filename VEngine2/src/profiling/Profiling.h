@@ -10,8 +10,10 @@
 #include <tracy/Tracy.hpp>
 
 #define PROFILING_FRAME_MARK FrameMark
-#define PROFILING_ZONE_SCOPED ZoneScoped
-#define PROFILING_ZONE_SCOPED_N ZoneScopedN
+#define PROFILING_ZONE_SCOPED ZoneScopedS(25)
+#define PROFILING_ZONE_SCOPED_N(name) ZoneScopedNS(name, 25)
+#define PROFILING_MEM_ALLOC(ptr, count) TracyAllocS(ptr, count, 25)
+#define PROFILING_MEM_FREE(ptr) TracyFreeS(ptr, 25)
 
 #ifdef PROFILING_GPU_ENABLE
 

@@ -34,6 +34,110 @@ void *__cdecl operator new[](size_t size, size_t alignment, size_t alignmentOffs
 	return new uint8_t[size];
 }
 
+void *operator new(std::size_t count)
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new[](std::size_t count)
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new(std::size_t count, std::align_val_t al)
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new[](std::size_t count, std::align_val_t al)
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new(std::size_t count, const std::nothrow_t &) noexcept
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new[](std::size_t count, const std::nothrow_t &) noexcept
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new(std::size_t count, std::align_val_t al, const std::nothrow_t &) noexcept
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void *operator new[](std::size_t count, std::align_val_t al, const std::nothrow_t &) noexcept
+{
+	auto ptr = malloc(count);
+	PROFILING_MEM_ALLOC(ptr, count);
+	return ptr;
+}
+
+void operator delete  (void *ptr) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete[](void *ptr) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete  (void *ptr, std::align_val_t al) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete[](void *ptr, std::align_val_t al) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete  (void *ptr, std::size_t sz) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete[](void *ptr, std::size_t sz) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete  (void *ptr, std::size_t sz, std::align_val_t al) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
+void operator delete[](void *ptr, std::size_t sz, std::align_val_t al) noexcept
+{
+	PROFILING_MEM_FREE(ptr);
+	free(ptr);
+}
+
 namespace EA
 {
 	namespace StdC
@@ -55,7 +159,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		RawFileSystem::get().getCurrentPath(currentPath);
 		VirtualFileSystem::get().mount((std::string(currentPath) + "/assets").c_str(), "assets");
 	}
-	
+
 
 	m_gameLogic = gameLogic;
 	m_window = new Window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
@@ -114,14 +218,14 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		float timeDelta = fminf(0.5f, static_cast<float>(timer.getTimeDelta()));
 
 
-		
+
 		accumulator += timeDelta;
 		while (accumulator >= k_stepSize)
 		{
 			PROFILING_ZONE_SCOPED_N("Simulation");
 
 			accumulator -= k_stepSize;
-			
+
 
 			m_window->pollEvents();
 
@@ -160,7 +264,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	AssetHandlerRegistration::unregisterHandlers();
 	AssetManager::shutdown();
-	
+
 	delete m_userInput;
 	delete m_animationSystem;
 	delete m_physics;
