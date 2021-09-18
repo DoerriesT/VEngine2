@@ -17,7 +17,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 void charCallback(GLFWwindow *window, unsigned int codepoint);
 void joystickCallback(int joystickId, int event);
 
-Window::Window(unsigned int width, unsigned int height, WindowMode windowMode, const std::string &title)
+Window::Window(unsigned int width, unsigned int height, WindowMode windowMode, const char *title)
 	:m_windowHandle(),
 	m_cursors(),
 	m_windowMode(windowMode),
@@ -28,10 +28,9 @@ Window::Window(unsigned int width, unsigned int height, WindowMode windowMode, c
 	m_height(height),
 	m_windowedWidth(width),
 	m_windowedHeight(height),
-	m_title(title),
-	m_configurationChanged(),
-	m_gamepads(16)
+	m_configurationChanged()
 {
+	strcpy_s(m_title, title);
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -41,7 +40,7 @@ Window::Window(unsigned int width, unsigned int height, WindowMode windowMode, c
 	{
 	case WindowMode::WINDOWED:
 	{
-		m_windowHandle = glfwCreateWindow(m_width, m_height, m_title.c_str(), nullptr, nullptr);
+		m_windowHandle = glfwCreateWindow(m_width, m_height, m_title, nullptr, nullptr);
 		break;
 	}
 	case WindowMode::FULL_SCREEN:
@@ -49,7 +48,7 @@ Window::Window(unsigned int width, unsigned int height, WindowMode windowMode, c
 		GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 		const GLFWvidmode *mode = glfwGetVideoMode(monitor);
 
-		m_windowHandle = glfwCreateWindow(mode->width, mode->height, m_title.c_str(), glfwGetPrimaryMonitor(), nullptr);
+		m_windowHandle = glfwCreateWindow(mode->width, mode->height, m_title, glfwGetPrimaryMonitor(), nullptr);
 		break;
 	}
 	default:
@@ -158,7 +157,7 @@ void Window::pollEvents()
 		int axisCount;
 		int buttonCount;
 
-		for (int i = 0; i < m_gamepads.size(); ++i)
+		for (int i = 0; i < eastl::size(m_gamepads); ++i)
 		{
 			bool connected = glfwJoystickPresent(i);
 
@@ -303,21 +302,22 @@ Window::WindowMode Window::getWindowMode() const
 	return m_windowMode;
 }
 
-void Window::setTitle(const std::string &title)
+void Window::setTitle(const char *title)
 {
-	m_title = title;
-	glfwSetWindowTitle(m_windowHandle, m_title.c_str());
+	strcpy_s(m_title, title);
+	glfwSetWindowTitle(m_windowHandle, m_title);
 }
 
 void Window::addInputListener(IInputListener *listener)
 {
+	assert(m_inputListeners.size() < m_inputListeners.capacity());
 	m_inputListeners.push_back(listener);
-	listener->onGamepadStateUpdate(m_gamepads.size(), m_gamepads.data());
+	listener->onGamepadStateUpdate(eastl::size(m_gamepads), m_gamepads);
 }
 
 void Window::removeInputListener(IInputListener *listener)
 {
-	ContainerUtility::remove(m_inputListeners, listener);
+	m_inputListeners.erase(eastl::remove(m_inputListeners.begin(), m_inputListeners.end(), listener), m_inputListeners.end());
 }
 
 const char *Window::getClipboardText() const

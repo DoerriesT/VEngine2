@@ -1,8 +1,7 @@
 #pragma once
-#include <vector>
 #include "input/IInputListener.h"
 #include "input/GamepadState.h"
-#include <string>
+#include <EASTL/fixed_vector.h>
 
 struct GLFWwindow;
 struct GLFWcursor;
@@ -42,7 +41,7 @@ public:
 		WINDOWED, FULL_SCREEN
 	};
 
-	explicit Window(unsigned int width, unsigned int height, WindowMode windowMode, const std::string &title);
+	explicit Window(unsigned int width, unsigned int height, WindowMode windowMode, const char *title);
 	~Window();
 	void pollEvents();
 	void *getWindowHandle() const;
@@ -57,7 +56,7 @@ public:
 	MouseCursorMode getMouseCursorMode() const;
 	void setWindowMode(WindowMode windowMode);
 	WindowMode getWindowMode() const;
-	void setTitle(const std::string &title);
+	void setTitle(const char *title);
 	void addInputListener(IInputListener *listener);
 	void removeInputListener(IInputListener *listener);
 	const char *getClipboardText() const;
@@ -78,9 +77,9 @@ private:
 	unsigned int m_height;
 	unsigned int m_windowedWidth;
 	unsigned int m_windowedHeight;
-	std::string m_title;
-	std::vector<IInputListener *> m_inputListeners;
-	std::vector<GamepadState> m_gamepads;
+	char m_title[256];
+	eastl::fixed_vector<IInputListener *, 16, false> m_inputListeners;
+	GamepadState m_gamepads[16];
 	bool m_configurationChanged;
 	MouseCursorMode m_mouseCursorMode = MouseCursorMode::NORMAL;
 };
