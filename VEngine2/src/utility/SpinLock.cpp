@@ -66,7 +66,7 @@ void SpinLock::lock() noexcept
 	}
 }
 
-bool SpinLock::tryLock() noexcept
+bool SpinLock::try_lock() noexcept
 {
 	return m_state.test_and_set(eastl::memory_order_acquire);
 }
