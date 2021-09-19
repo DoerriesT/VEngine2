@@ -1,8 +1,8 @@
 #include "RenderPassCacheVk.h"
 #include "GraphicsDeviceVk.h"
 #include "UtilityVk.h"
-#include "assert.h"
-#include "Utility/Utility.h"
+#include <assert.h>
+#include "utility/Utility.h"
 
 
 gal::RenderPassDescriptionVk::RenderPassDescriptionVk()

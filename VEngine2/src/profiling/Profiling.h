@@ -8,10 +8,14 @@
 #endif
 
 #include <tracy/Tracy.hpp>
+#include <tracy/TracyC.h>
 
 #define PROFILING_FRAME_MARK FrameMark
 #define PROFILING_ZONE_SCOPED ZoneScopedS(25)
 #define PROFILING_ZONE_SCOPED_N(name) ZoneScopedNS(name, 25)
+#define PROFILING_ZONE_BEGIN(zoneVarName) TracyCZoneS(zoneVarName, 25, true)
+#define PROFILING_ZONE_BEGIN_N(zoneVarName, name) TracyCZoneNS(zoneVarName, name, 25, true)
+#define PROFILING_ZONE_END(zoneVarName) TracyCZoneEnd(zoneVarName)
 #define PROFILING_MEM_ALLOC(ptr, count) TracyAllocS(ptr, count, 25)
 #define PROFILING_MEM_FREE(ptr) TracyFreeS(ptr, 25)
 

@@ -1,7 +1,6 @@
 #include "GraphicsDeviceVk.h"
 #include "volk.h"
 #include <GLFW/glfw3.h>
-#include "Utility/Utility.h"
 #include "RenderPassCacheVk.h"
 #include "FramebufferCacheVk.h"
 #include "MemoryAllocatorVk.h"
@@ -9,9 +8,10 @@
 #include "SwapChainVk.h"
 #include "Log.h"
 #include <tracy/TracyVulkan.hpp>
+#include "utility/Utility.h"
+#include "utility/Memory.h"
 #include "utility/allocator/DefaultAllocator.h"
 #include "utility/allocator/LinearAllocator.h"
-#include "utility/Memory.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -617,7 +617,7 @@ void gal::GraphicsDeviceVk::createGraphicsPipelines(uint32_t count, const Graphi
 {
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		pipelines[i] = ALLOC_NEW(&m_graphicsPipelineMemoryPool, GraphicsPipelineVk) GraphicsPipelineVk(*this, createInfo[i]);
+		pipelines[i] = ALLOC_NEW(&m_graphicsPipelineMemoryPool, GraphicsPipelineVk) (*this, createInfo[i]);
 	}
 }
 
@@ -625,7 +625,7 @@ void gal::GraphicsDeviceVk::createComputePipelines(uint32_t count, const Compute
 {
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		pipelines[i] = ALLOC_NEW(&m_computePipelineMemoryPool, ComputePipelineVk) ComputePipelineVk(*this, createInfo[i]);
+		pipelines[i] = ALLOC_NEW(&m_computePipelineMemoryPool, ComputePipelineVk) (*this, createInfo[i]);
 	}
 }
 
@@ -655,7 +655,7 @@ void gal::GraphicsDeviceVk::createCommandListPool(const Queue *queue, CommandLis
 {
 	auto *queueVk = dynamic_cast<const QueueVk *>(queue);
 	assert(queueVk);
-	*commandListPool = ALLOC_NEW(&m_commandListPoolMemoryPool, CommandListPoolVk) CommandListPoolVk(*this, *queueVk);
+	*commandListPool = ALLOC_NEW(&m_commandListPoolMemoryPool, CommandListPoolVk) (*this, *queueVk);
 }
 
 void gal::GraphicsDeviceVk::destroyCommandListPool(CommandListPool *commandListPool)
@@ -671,7 +671,7 @@ void gal::GraphicsDeviceVk::destroyCommandListPool(CommandListPool *commandListP
 
 void gal::GraphicsDeviceVk::createQueryPool(QueryType queryType, uint32_t queryCount, QueryPool **queryPool)
 {
-	*queryPool = ALLOC_NEW(&m_queryPoolMemoryPool, QueryPoolVk) QueryPoolVk(m_device, queryType, queryCount, (QueryPipelineStatisticFlags)0);
+	*queryPool = ALLOC_NEW(&m_queryPoolMemoryPool, QueryPoolVk) (m_device, queryType, queryCount, (QueryPipelineStatisticFlags)0);
 }
 
 void gal::GraphicsDeviceVk::destroyQueryPool(QueryPool *queryPool)
@@ -712,7 +712,7 @@ void gal::GraphicsDeviceVk::createImage(const ImageCreateInfo &imageCreateInfo, 
 
 	UtilityVk::checkResult(m_gpuMemoryAllocator->createImage(allocInfo, createInfo, nativeHandle, allocHandle), "Failed to create Image!");
 
-	*image = ALLOC_NEW(&m_imageMemoryPool, ImageVk) ImageVk(nativeHandle, allocHandle, imageCreateInfo);
+	*image = ALLOC_NEW(&m_imageMemoryPool, ImageVk) (nativeHandle, allocHandle, imageCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::createBuffer(const BufferCreateInfo &bufferCreateInfo, MemoryPropertyFlags requiredMemoryPropertyFlags, MemoryPropertyFlags preferredMemoryPropertyFlags, bool dedicated, Buffer **buffer)
@@ -756,7 +756,7 @@ void gal::GraphicsDeviceVk::createBuffer(const BufferCreateInfo &bufferCreateInf
 
 	UtilityVk::checkResult(m_gpuMemoryAllocator->createBuffer(allocInfo, createInfo, nativeHandle, allocHandle), "Failed to create Buffer!");
 
-	*buffer = ALLOC_NEW(&m_bufferMemoryPool, BufferVk) BufferVk(nativeHandle, allocHandle, bufferCreateInfo, m_gpuMemoryAllocator, this);
+	*buffer = ALLOC_NEW(&m_bufferMemoryPool, BufferVk) (nativeHandle, allocHandle, bufferCreateInfo, m_gpuMemoryAllocator, this);
 }
 
 void gal::GraphicsDeviceVk::destroyImage(Image *image)
@@ -785,7 +785,7 @@ void gal::GraphicsDeviceVk::destroyBuffer(Buffer *buffer)
 
 void gal::GraphicsDeviceVk::createImageView(const ImageViewCreateInfo &imageViewCreateInfo, ImageView **imageView)
 {
-	*imageView = ALLOC_NEW(&m_imageViewMemoryPool, ImageViewVk) ImageViewVk(m_device, imageViewCreateInfo);
+	*imageView = ALLOC_NEW(&m_imageViewMemoryPool, ImageViewVk) (m_device, imageViewCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::createImageView(Image *image, ImageView **imageView)
@@ -834,7 +834,7 @@ void gal::GraphicsDeviceVk::createImageView(Image *image, ImageView **imageView)
 
 void gal::GraphicsDeviceVk::createBufferView(const BufferViewCreateInfo &bufferViewCreateInfo, BufferView **bufferView)
 {
-	*bufferView = ALLOC_NEW(&m_bufferViewMemoryPool, BufferViewVk) BufferViewVk(m_device, bufferViewCreateInfo);
+	*bufferView = ALLOC_NEW(&m_bufferViewMemoryPool, BufferViewVk) (m_device, bufferViewCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::destroyImageView(ImageView *imageView)
@@ -861,7 +861,7 @@ void gal::GraphicsDeviceVk::destroyBufferView(BufferView *bufferView)
 
 void gal::GraphicsDeviceVk::createSampler(const SamplerCreateInfo &samplerCreateInfo, Sampler **sampler)
 {
-	*sampler = ALLOC_NEW(&m_samplerMemoryPool, SamplerVk) SamplerVk(m_device, samplerCreateInfo);
+	*sampler = ALLOC_NEW(&m_samplerMemoryPool, SamplerVk) (m_device, samplerCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::destroySampler(Sampler *sampler)
@@ -877,7 +877,7 @@ void gal::GraphicsDeviceVk::destroySampler(Sampler *sampler)
 
 void gal::GraphicsDeviceVk::createSemaphore(uint64_t initialValue, Semaphore **semaphore)
 {
-	*semaphore = ALLOC_NEW(&m_semaphoreMemoryPool, SemaphoreVk) SemaphoreVk(m_device, initialValue);
+	*semaphore = ALLOC_NEW(&m_semaphoreMemoryPool, SemaphoreVk) (m_device, initialValue);
 }
 
 void gal::GraphicsDeviceVk::destroySemaphore(Semaphore *semaphore)
@@ -896,7 +896,7 @@ void gal::GraphicsDeviceVk::createDescriptorSetPool(uint32_t maxSets, const Desc
 	const DescriptorSetLayoutVk *layoutVk = dynamic_cast<const DescriptorSetLayoutVk *>(descriptorSetLayout);
 	assert(layoutVk);
 
-	*descriptorSetPool = ALLOC_NEW(&m_descriptorSetPoolMemoryPool, DescriptorSetPoolVk) DescriptorSetPoolVk(m_device, maxSets, layoutVk);
+	*descriptorSetPool = ALLOC_NEW(&m_descriptorSetPoolMemoryPool, DescriptorSetPoolVk) (m_device, maxSets, layoutVk);
 }
 
 void gal::GraphicsDeviceVk::destroyDescriptorSetPool(DescriptorSetPool *descriptorSetPool)
@@ -958,7 +958,7 @@ void gal::GraphicsDeviceVk::createDescriptorSetLayout(uint32_t bindingCount, con
 		bindingsVk[i] = { b.m_binding, typeVk , b.m_descriptorCount, UtilityVk::translateShaderStageFlags(b.m_stageFlags), nullptr };
 	}
 
-	*descriptorSetLayout = ALLOC_NEW(&m_descriptorSetLayoutMemoryPool, DescriptorSetLayoutVk) DescriptorSetLayoutVk(m_device, bindingCount, bindingsVk, bindingFlagsVk);
+	*descriptorSetLayout = ALLOC_NEW(&m_descriptorSetLayoutMemoryPool, DescriptorSetLayoutVk) (m_device, bindingCount, bindingsVk, bindingFlagsVk);
 }
 
 void gal::GraphicsDeviceVk::destroyDescriptorSetLayout(DescriptorSetLayout *descriptorSetLayout)

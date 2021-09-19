@@ -1,7 +1,7 @@
 #include "UtilityVk.h"
-#include <cstdio>
-#include <cstring>
-#include "assert.h"
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
 #include "utility/Utility.h"
 
 VkResult gal::UtilityVk::checkResult(VkResult result, const char *errorMsg, bool exitOnError)

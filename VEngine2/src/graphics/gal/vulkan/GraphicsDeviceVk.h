@@ -71,7 +71,6 @@ namespace gal
 		VkFramebuffer getFramebuffer(const FramebufferDescriptionVk &framebufferDescription);
 		const VkPhysicalDeviceProperties &getDeviceProperties() const;
 		
-
 	private:
 		VkInstance m_instance = VK_NULL_HANDLE;
 		VkDevice m_device = VK_NULL_HANDLE;

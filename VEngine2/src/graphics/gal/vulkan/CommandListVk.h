@@ -1,6 +1,7 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include "volk.h"
+#include "utility/allocator/LinearAllocator.h"
 
 namespace gal
 {
@@ -9,8 +10,8 @@ namespace gal
 	class CommandListVk : public CommandList
 	{
 	public:
-		explicit CommandListVk(VkCommandBuffer commandBuffer, GraphicsDeviceVk *device);
-		void *getNativeHandle() const;
+		explicit CommandListVk(VkCommandBuffer commandBuffer, GraphicsDeviceVk *device) noexcept;
+		void *getNativeHandle() const override;
 		void begin() override;
 		void end() override;
 		void bindPipeline(const GraphicsPipeline *pipeline) override;
@@ -57,7 +58,10 @@ namespace gal
 		virtual void endDebugLabel() override;
 
 	private:
+		static constexpr size_t k_scratchMemorySize = 1024 * 16;
 		VkCommandBuffer m_commandBuffer;
 		GraphicsDeviceVk *m_device;
+		ScopedAllocation m_scratchMemoryAllocation;
+		LinearAllocator m_linearAllocator;
 	};
 }

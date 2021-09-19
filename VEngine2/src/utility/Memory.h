@@ -1,4 +1,5 @@
 #pragma once
+#include <malloc.h>
 
 /// Makes a stack allocation, this allocation gets cleared on function exit
 /// NOT on scope exit

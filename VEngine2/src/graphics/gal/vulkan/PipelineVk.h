@@ -1,7 +1,7 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include "volk.h"
-#include <vector>
+#include <EASTL/fixed_vector.h>
 
 namespace gal
 {
@@ -23,6 +23,7 @@ namespace gal
 		const DescriptorSetLayout *getDescriptorSetLayout(uint32_t index) const override;
 		VkPipelineLayout getLayout() const;
 		void bindStaticSamplerSet(VkCommandBuffer cmdBuf) const;
+
 	private:
 		VkPipeline m_pipeline;
 		VkPipelineLayout m_pipelineLayout;
@@ -31,7 +32,7 @@ namespace gal
 		VkDescriptorSetLayout m_staticSamplerDescriptorSetLayout;
 		VkDescriptorPool m_staticSamplerDescriptorPool;
 		VkDescriptorSet m_staticSamplerDescriptorSet;
-		std::vector<VkSampler> m_staticSamplers;
+		eastl::fixed_vector<VkSampler, 16> m_staticSamplers;
 	};
 
 	class ComputePipelineVk : public ComputePipeline
@@ -48,6 +49,7 @@ namespace gal
 		const DescriptorSetLayout *getDescriptorSetLayout(uint32_t index) const override;
 		VkPipelineLayout getLayout() const;
 		void bindStaticSamplerSet(VkCommandBuffer cmdBuf) const;
+
 	private:
 		VkPipeline m_pipeline;
 		VkPipelineLayout m_pipelineLayout;
@@ -56,6 +58,6 @@ namespace gal
 		VkDescriptorSetLayout m_staticSamplerDescriptorSetLayout;
 		VkDescriptorPool m_staticSamplerDescriptorPool;
 		VkDescriptorSet m_staticSamplerDescriptorSet;
-		std::vector<VkSampler> m_staticSamplers;
+		eastl::fixed_vector<VkSampler, 16> m_staticSamplers;
 	};
 }

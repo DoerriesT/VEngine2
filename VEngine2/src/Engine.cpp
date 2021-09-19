@@ -48,6 +48,8 @@ namespace EA
 
 int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 {
+	PROFILING_ZONE_BEGIN_N(engineInitZone, "Engine Init");
+
 	FileDialog::initializeCOM();
 
 	// set VFS mount points
@@ -111,6 +113,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	CharacterMovementSystem characterMovementSystem(m_ecs);
 
 	m_gameLogic->init(this);
+
+	PROFILING_ZONE_END(engineInitZone);
 
 	Timer timer;
 

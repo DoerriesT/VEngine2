@@ -1,6 +1,6 @@
 #include "QueueVk.h"
-#include <vector>
 #include "UtilityVk.h"
+#include "utility/Memory.h"
 
 void *gal::QueueVk::getNativeHandle() const
 {
@@ -29,6 +29,7 @@ bool gal::QueueVk::canPresent() const
 
 void gal::QueueVk::submit(uint32_t count, const SubmitInfo *submitInfo)
 {
+	// compute number of involved semaphores (both wait and signal), number of command buffers and number of wait dst stage masks
 	size_t semaphoreCount = 0;
 	size_t commandBufferCount = 0;
 	size_t waitMaskCount = 0;
@@ -39,38 +40,45 @@ void gal::QueueVk::submit(uint32_t count, const SubmitInfo *submitInfo)
 		commandBufferCount += submitInfo[i].m_commandListCount;
 	}
 
-	// TODO: avoid dynamic heap allocation
-	std::vector<VkSubmitInfo> submitInfoVk(count);
-	std::vector<VkTimelineSemaphoreSubmitInfo> timelineSemaphoreInfoVk(count);
-	std::vector<VkSemaphore> semaphores;
-	semaphores.reserve(semaphoreCount);
-	std::vector<VkPipelineStageFlags> waitDstStageMasks;
-	waitDstStageMasks.reserve(waitMaskCount);
-	std::vector<VkCommandBuffer> commandBuffers;
-	commandBuffers.reserve(commandBufferCount);
+	// allocate arrays
+	VkSubmitInfo *submitInfoVk = ALLOC_A_T(VkSubmitInfo, count);
+	VkTimelineSemaphoreSubmitInfo *timelineSemaphoreInfoVk = ALLOC_A_T(VkTimelineSemaphoreSubmitInfo, count);
+	VkSemaphore *semaphoresVk = ALLOC_A_T(VkSemaphore, semaphoreCount);
+	VkPipelineStageFlags *waitDstStageMasksVk = ALLOC_A_T(VkPipelineStageFlags, waitMaskCount);
+	VkCommandBuffer *commandBuffersVk = ALLOC_A_T(VkCommandBuffer, commandBufferCount);
+
+	// keep track of the current offset into the secondary arrays. submitInfoVk and timelineSemaphoreInfoVk can be indexed with i
+	size_t semaphoreCurOffset = 0;
+	size_t commandBuffersCurOffset = 0;
+	size_t waitMaskCurOffset = 0;
 
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		size_t waitSemaphoreOffset = semaphores.size();
-		size_t commandBuffersOffset = commandBuffers.size();
-		size_t waitMaskOffset = waitDstStageMasks.size();
+		// store the base offset into the secondary arrays for this submit info
+		const size_t waitSemaphoreSubmitInfoOffset = semaphoreCurOffset;
+		const size_t commandBuffersSubmitInfoOffset = commandBuffersCurOffset;
+		const size_t waitMaskSubmitInfoOffset = waitMaskCurOffset;
 
+		// copy wait semaphores and wait stage masks
 		for (uint32_t j = 0; j < submitInfo[i].m_waitSemaphoreCount; ++j)
 		{
-			semaphores.push_back((VkSemaphore)submitInfo[i].m_waitSemaphores[j]->getNativeHandle());
-			waitDstStageMasks.push_back(UtilityVk::translatePipelineStageFlags(submitInfo[i].m_waitDstStageMask[j]));
+			semaphoresVk[semaphoreCurOffset++] = (VkSemaphore)submitInfo[i].m_waitSemaphores[j]->getNativeHandle();
+			waitDstStageMasksVk[waitMaskCurOffset++] = UtilityVk::translatePipelineStageFlags(submitInfo[i].m_waitDstStageMask[j]);
 		}
 
+		// copy command buffers
 		for (uint32_t j = 0; j < submitInfo[i].m_commandListCount; ++j)
 		{
-			commandBuffers.push_back((VkCommandBuffer)submitInfo[i].m_commandLists[j]->getNativeHandle());
+			commandBuffersVk[commandBuffersCurOffset++] = (VkCommandBuffer)submitInfo[i].m_commandLists[j]->getNativeHandle();
 		}
 
-		size_t signalSemaphoreOffset = semaphores.size();
+		// store the base offset into the semaphore array for signal semaphores (both wait and signal semaphores share the same array)
+		const size_t signalSemaphoreSubmitInfoOffset = semaphoreCurOffset;
 
+		// copy signal semaphores
 		for (uint32_t j = 0; j < submitInfo[i].m_signalSemaphoreCount; ++j)
 		{
-			semaphores.push_back((VkSemaphore)submitInfo[i].m_signalSemaphores[j]->getNativeHandle());
+			semaphoresVk[semaphoreCurOffset++] = (VkSemaphore)submitInfo[i].m_signalSemaphores[j]->getNativeHandle();
 		}
 
 		auto &timelineSubInfo = timelineSemaphoreInfoVk[i];
@@ -84,15 +92,15 @@ void gal::QueueVk::submit(uint32_t count, const SubmitInfo *submitInfo)
 		subInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
 		subInfo.pNext = &timelineSubInfo;
 		subInfo.waitSemaphoreCount = submitInfo[i].m_waitSemaphoreCount;
-		subInfo.pWaitSemaphores = semaphores.data() + waitSemaphoreOffset;
-		subInfo.pWaitDstStageMask = waitDstStageMasks.data() + waitMaskOffset;
+		subInfo.pWaitSemaphores = semaphoresVk + waitSemaphoreSubmitInfoOffset;
+		subInfo.pWaitDstStageMask = waitDstStageMasksVk + waitMaskSubmitInfoOffset;
 		subInfo.commandBufferCount = submitInfo[i].m_commandListCount;
-		subInfo.pCommandBuffers = commandBuffers.data() + commandBuffersOffset;
+		subInfo.pCommandBuffers = commandBuffersVk + commandBuffersSubmitInfoOffset;
 		subInfo.signalSemaphoreCount = submitInfo[i].m_signalSemaphoreCount;
-		subInfo.pSignalSemaphores = semaphores.data() + signalSemaphoreOffset;
+		subInfo.pSignalSemaphores = semaphoresVk + signalSemaphoreSubmitInfoOffset;
 	}
 
-	UtilityVk::checkResult(vkQueueSubmit(m_queue, count, submitInfoVk.data(), VK_NULL_HANDLE), "Failed to submit to Queue!");
+	UtilityVk::checkResult(vkQueueSubmit(m_queue, count, submitInfoVk, VK_NULL_HANDLE), "Failed to submit to Queue!");
 }
 
 void gal::QueueVk::waitIdle() const

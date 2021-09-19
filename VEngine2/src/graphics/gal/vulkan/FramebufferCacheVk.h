@@ -1,6 +1,6 @@
 #pragma once
 #include "volk.h"
-#include <EASTL/hash_map.h>
+#include <EASTL/fixed_hash_map.h>
 #include "FramebufferDescriptionVk.h"
 
 namespace gal
@@ -20,7 +20,7 @@ namespace gal
 		~FramebufferCacheVk();
 		VkFramebuffer getFramebuffer(const FramebufferDescriptionVk &framebufferDescription);
 	private:
-		eastl::hash_map<FramebufferDescriptionVk, VkFramebuffer, FramebufferDescriptionHashVk> m_framebuffers;
+		eastl::fixed_hash_map<FramebufferDescriptionVk, VkFramebuffer, 64, 65, true, FramebufferDescriptionHashVk> m_framebuffers;
 		VkDevice m_device;
 	};
 }

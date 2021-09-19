@@ -2,7 +2,6 @@
 #include "MemoryAllocatorVk.h"
 #include "GraphicsDeviceVk.h"
 #include "UtilityVk.h"
-#include <algorithm>
 #include "utility/Utility.h"
 
 gal::SamplerVk::SamplerVk(VkDevice device, const SamplerCreateInfo &createInfo)
@@ -99,7 +98,7 @@ void gal::BufferVk::invalidate(uint32_t count, const MemoryRange *ranges)
 	const uint32_t iterations = (count + (batchSize - 1)) / batchSize;
 	for (uint32_t i = 0; i < iterations; ++i)
 	{
-		uint32_t countVk = std::min(batchSize, count - i * batchSize);
+		uint32_t countVk = eastl::min(batchSize, count - i * batchSize);
 		VkMappedMemoryRange rangesVk[batchSize];
 		for (uint32_t j = 0; j < countVk; ++j)
 		{
@@ -121,7 +120,7 @@ void gal::BufferVk::flush(uint32_t count, const MemoryRange *ranges)
 	const uint32_t iterations = (count + (batchSize - 1)) / batchSize;
 	for (uint32_t i = 0; i < iterations; ++i)
 	{
-		uint32_t countVk = std::min(batchSize, count - i * batchSize);
+		uint32_t countVk = eastl::min(batchSize, count - i * batchSize);
 		VkMappedMemoryRange rangesVk[batchSize];
 		for (uint32_t j = 0; j < countVk; ++j)
 		{

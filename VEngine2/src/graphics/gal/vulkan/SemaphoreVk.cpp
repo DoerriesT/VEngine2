@@ -1,6 +1,5 @@
 #include "SemaphoreVk.h"
 #include "UtilityVk.h"
-#include <limits>
 
 gal::SemaphoreVk::SemaphoreVk(VkDevice device, uint64_t initialValue)
 	:m_device(device),
@@ -40,7 +39,7 @@ void gal::SemaphoreVk::wait(uint64_t waitValue) const
 	waitInfo.pSemaphores = &m_semaphore;
 	waitInfo.pValues = &waitValue;
 
-	UtilityVk::checkResult(vkWaitSemaphores(m_device, &waitInfo, std::numeric_limits<uint64_t>::max()), "Failed to wait on semaphore!");
+	UtilityVk::checkResult(vkWaitSemaphores(m_device, &waitInfo, UINT64_MAX), "Failed to wait on semaphore!");
 }
 
 void gal::SemaphoreVk::signal(uint64_t signalValue) const

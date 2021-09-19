@@ -13,7 +13,7 @@ static void createPipelineLayout(VkDevice device,
 	VkDescriptorSetLayout &staticSamplerDescriptorSetLayout,
 	VkDescriptorPool &staticSamplerDescriptorPool,
 	VkDescriptorSet &staticSamplerDescriptorSet,
-	std::vector<VkSampler> &staticSamplers);
+	eastl::fixed_vector<VkSampler, 16> &staticSamplers);
 
 gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const GraphicsPipelineCreateInfo &createInfo)
 	:m_pipeline(VK_NULL_HANDLE),
@@ -155,7 +155,6 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 		}
 	}
 
-
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	{
 		inputAssemblyState.topology = UtilityVk::translate(createInfo.m_inputAssemblyState.m_primitiveTopology);
@@ -175,7 +174,6 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 		viewportState.pScissors = reinterpret_cast<const VkRect2D *>(createInfo.m_viewportState.m_scissors);
 	}
 
-
 	VkPipelineRasterizationStateCreateInfo rasterizationState = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	{
 		rasterizationState.depthClampEnable = createInfo.m_rasterizationState.m_depthClampEnable;
@@ -190,7 +188,6 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 		rasterizationState.lineWidth = createInfo.m_rasterizationState.m_lineWidth;
 	}
 
-
 	VkPipelineMultisampleStateCreateInfo multisamplingState = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 	{
 		multisamplingState.rasterizationSamples = static_cast<VkSampleCountFlagBits>(createInfo.m_multiSampleState.m_rasterizationSamples);
@@ -200,7 +197,6 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 		multisamplingState.alphaToCoverageEnable = createInfo.m_multiSampleState.m_alphaToCoverageEnable;
 		multisamplingState.alphaToOneEnable = createInfo.m_multiSampleState.m_alphaToOneEnable;
 	}
-
 
 	VkPipelineDepthStencilStateCreateInfo depthStencilState = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
 	{
@@ -227,7 +223,6 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 		depthStencilState.minDepthBounds = createInfo.m_depthStencilState.m_minDepthBounds;
 		depthStencilState.maxDepthBounds = createInfo.m_depthStencilState.m_maxDepthBounds;
 	}
-
 
 	VkPipelineColorBlendStateCreateInfo blendState = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
 	VkPipelineColorBlendAttachmentState colorBlendAttachmentStates[8];
@@ -259,7 +254,6 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 	VkPipelineDynamicStateCreateInfo dynamicState = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	dynamicState.pDynamicStates = dynamicStatesArray;
 	UtilityVk::translateDynamicStateFlags(createInfo.m_dynamicStateFlags, dynamicState.dynamicStateCount, dynamicStatesArray);
-
 
 	VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	pipelineInfo.flags = 0;
@@ -430,7 +424,7 @@ static void createPipelineLayout(
 	VkDescriptorSetLayout &staticSamplerDescriptorSetLayout,
 	VkDescriptorPool &staticSamplerDescriptorPool,
 	VkDescriptorSet &staticSamplerDescriptorSet,
-	std::vector<VkSampler> &staticSamplers)
+	eastl::fixed_vector<VkSampler, 16> &staticSamplers)
 {
 	staticSamplerDescriptorSetLayout = VK_NULL_HANDLE;
 	staticSamplerDescriptorPool = VK_NULL_HANDLE;
@@ -441,7 +435,7 @@ static void createPipelineLayout(
 	if (layoutCreateInfo.m_staticSamplerCount > 0)
 	{
 		staticSamplers.reserve(layoutCreateInfo.m_staticSamplerCount);
-		std::vector<VkDescriptorSetLayoutBinding> staticSamplerBindings;
+		eastl::fixed_vector<VkDescriptorSetLayoutBinding, 16> staticSamplerBindings;
 		staticSamplerBindings.reserve(layoutCreateInfo.m_staticSamplerCount);
 
 		for (size_t i = 0; i < layoutCreateInfo.m_staticSamplerCount; ++i)

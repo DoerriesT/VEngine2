@@ -1,11 +1,10 @@
 #include "DescriptorSetVk.h"
-#include <algorithm>
-#include <new>
 #include "UtilityVk.h"
 #include "ResourceVk.h"
-#include "assert.h"
-#include <vector>
-#include "Utility/Utility.h"
+#include <assert.h>
+#include <EASTL/vector.h>
+#include "utility/Utility.h"
+#include "utility/allocator/DefaultAllocator.h"
 
 gal::DescriptorSetLayoutVk::DescriptorSetLayoutVk(VkDevice device, uint32_t bindingCount, const VkDescriptorSetLayoutBinding *bindings, const VkDescriptorBindingFlags *bindingFlags)
 	:m_device(device),
@@ -14,7 +13,7 @@ gal::DescriptorSetLayoutVk::DescriptorSetLayoutVk(VkDevice device, uint32_t bind
 {
 	for (uint32_t i = 0; i < bindingCount; ++i)
 	{
-		assert(static_cast<size_t>(bindings[i].descriptorType) < std::size(m_typeCounts));
+		assert(static_cast<size_t>(bindings[i].descriptorType) < eastl::size(m_typeCounts));
 		m_typeCounts[static_cast<size_t>(bindings[i].descriptorType)] += bindings[i].descriptorCount;
 	}
 
@@ -63,11 +62,11 @@ void gal::DescriptorSetVk::update(uint32_t count, const DescriptorSetUpdate *upd
 	const uint32_t iterations = (count + (batchSize - 1)) / batchSize;
 	for (uint32_t i = 0; i < iterations; ++i)
 	{
-		const uint32_t countVk = std::min(batchSize, count - i * batchSize);
+		const uint32_t countVk = eastl::min(batchSize, count - i * batchSize);
 
-		std::vector<VkDescriptorImageInfo> imageInfos;
-		std::vector<VkDescriptorBufferInfo> bufferInfos;
-		std::vector<VkBufferView> texelBufferViews;
+		eastl::vector<VkDescriptorImageInfo> imageInfos;
+		eastl::vector<VkDescriptorBufferInfo> bufferInfos;
+		eastl::vector<VkBufferView> texelBufferViews;
 
 		size_t imageInfoReserveCount = 0;
 		size_t bufferInfoReserveCount = 0;
@@ -287,7 +286,7 @@ gal::DescriptorSetPoolVk::DescriptorSetPoolVk(VkDevice device, uint32_t maxSets,
 	UtilityVk::checkResult(vkCreateDescriptorPool(m_device, &poolCreateInfo, nullptr, &m_descriptorPool), "Failed to create DescriptorPool!");
 
 	// allocate memory to placement new DescriptorSetVk
-	m_descriptorSetMemory = new char[sizeof(DescriptorSetVk) * m_poolSize];
+	m_descriptorSetMemory = (char *)DefaultAllocator::get()->allocate(sizeof(DescriptorSetVk) * m_poolSize, alignof(DescriptorSetVk), 0);
 }
 
 gal::DescriptorSetPoolVk::~DescriptorSetPoolVk()
@@ -298,7 +297,7 @@ gal::DescriptorSetPoolVk::~DescriptorSetPoolVk()
 	// which would require keeping a list of all sets. since DescriptorSetVk is a POD, we can
 	// simply scrap the backing memory without first doing this.
 
-	delete[] m_descriptorSetMemory;
+	DefaultAllocator::get()->deallocate(m_descriptorSetMemory, sizeof(DescriptorSetVk) * m_poolSize);
 	m_descriptorSetMemory = nullptr;
 }
 
@@ -321,7 +320,7 @@ void gal::DescriptorSetPoolVk::allocateDescriptorSets(uint32_t count, Descriptor
 	const uint32_t iterations = (count + (batchSize - 1)) / batchSize;
 	for (uint32_t i = 0; i < iterations; ++i)
 	{
-		const uint32_t countVk = std::min(batchSize, count - i * batchSize);
+		const uint32_t countVk = eastl::min(batchSize, count - i * batchSize);
 		VkDescriptorSetLayout layoutsVk[batchSize];
 		for (uint32_t j = 0; j < countVk; ++j)
 		{

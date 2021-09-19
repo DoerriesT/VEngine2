@@ -1,9 +1,8 @@
 #include "SwapChainVk.h"
-#include <limits>
-#include "Utility/Utility.h"
 #include "UtilityVk.h"
 #include "SemaphoreVk.h"
 #include "QueueVk.h"
+#include "utility/Utility.h"
 #include "utility/Memory.h"
 
 gal::SwapChainVk::SwapChainVk(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, Queue *presentQueue, uint32_t width, uint32_t height, bool fullscreen, PresentMode presentMode)
@@ -11,16 +10,6 @@ gal::SwapChainVk::SwapChainVk(VkPhysicalDevice physicalDevice, VkDevice device, 
 	m_device(device),
 	m_surface(surface),
 	m_presentQueue(presentQueue),
-	m_swapChain(VK_NULL_HANDLE),
-	m_imageCount(),
-	m_images(),
-	m_imageMemoryPool(),
-	m_imageFormat(),
-	m_extent(),
-	m_currentImageIndex(-1),
-	m_acquireSemaphores(),
-	m_presentSemaphores(),
-	m_frameIndex(0),
 	m_fullscreen(fullscreen),
 	m_presentMode(presentMode)
 {
@@ -142,7 +131,7 @@ gal::Extent2D gal::SwapChainVk::getRecreationExtent() const
 	VkSurfaceCapabilitiesKHR surfaceCapabilities;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &surfaceCapabilities);
 
-	const auto extentVk = surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max() ? surfaceCapabilities.currentExtent : surfaceCapabilities.minImageExtent;
+	const auto extentVk = surfaceCapabilities.currentExtent.width != UINT32_MAX ? surfaceCapabilities.currentExtent : surfaceCapabilities.minImageExtent;
 	return { extentVk.width, extentVk.height };
 }
 
@@ -218,7 +207,7 @@ void gal::SwapChainVk::create(uint32_t width, uint32_t height)
 	// find proper extent
 	VkExtent2D extent;
 	{
-		if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+		if (surfaceCapabilities.currentExtent.width != UINT32_MAX)
 		{
 			extent = surfaceCapabilities.currentExtent;
 		}
@@ -226,8 +215,8 @@ void gal::SwapChainVk::create(uint32_t width, uint32_t height)
 		{
 			extent =
 			{
-				std::max(surfaceCapabilities.minImageExtent.width, std::min(surfaceCapabilities.maxImageExtent.width, width)),
-				std::max(surfaceCapabilities.minImageExtent.height, std::min(surfaceCapabilities.maxImageExtent.height, height))
+				eastl::max(surfaceCapabilities.minImageExtent.width, eastl::min(surfaceCapabilities.maxImageExtent.width, width)),
+				eastl::max(surfaceCapabilities.minImageExtent.height, eastl::min(surfaceCapabilities.maxImageExtent.height, height))
 			};
 		}
 	}
@@ -346,20 +335,20 @@ uint32_t gal::SwapChainVk::acquireImageIndex(VkSemaphore semaphore)
 	do
 	{
 		--remainingAttempts;
-		VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, std::numeric_limits<uint64_t>::max(), semaphore, fence, &imageIndex);
+		VkResult result = vkAcquireNextImageKHR(m_device, m_swapChain, UINT64_MAX, semaphore, fence, &imageIndex);
 
 		switch (result)
 		{
 		case VK_SUCCESS:
 			if (semaphore == VK_NULL_HANDLE)
 			{
-				UtilityVk::checkResult(vkWaitForFences(m_device, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()), "Failed to wait on Fence!");
+				UtilityVk::checkResult(vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX), "Failed to wait on Fence!");
 			}
 			break;
 		case VK_SUBOPTIMAL_KHR:
 			if (semaphore == VK_NULL_HANDLE)
 			{
-				UtilityVk::checkResult(vkWaitForFences(m_device, 1, &fence, VK_TRUE, std::numeric_limits<uint64_t>::max()), "Failed to wait on Fence!");
+				UtilityVk::checkResult(vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX), "Failed to wait on Fence!");
 			}
 		case VK_ERROR_OUT_OF_DATE_KHR:
 			resize(m_extent.m_width, m_extent.m_height, false);

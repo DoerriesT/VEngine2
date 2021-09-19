@@ -1,8 +1,8 @@
 #pragma once
 #include "volk.h"
 #include <EASTL/vector.h>
-#include "Utility/ObjectPool.h"
-#include "Utility/TLSFAllocator.h"
+#include "utility/ObjectPool.h"
+#include "utility/TLSFAllocator.h"
 
 namespace gal
 {

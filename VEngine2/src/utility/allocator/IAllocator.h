@@ -4,7 +4,20 @@
 #include "utility/DeletedCopyMove.h"
 #include <assert.h>
 
-#define ALLOC_NEW(allocator, type) new ((allocator)->allocate(sizeof(type), alignof(type), 0))
+struct PlacementNewDummy 
+{
+	explicit PlacementNewDummy() {};
+};
+
+// Overrides for new/delete with a dummy parameter to ensure there won't be a conflict if a library user
+// tries to override global placement new.
+void *operator new(size_t size, void *pObjMem, PlacementNewDummy dummy) noexcept;
+
+// Override for delete should never be called, this is only here to make sure there are no compiler warnings.
+void operator delete(void *pObj, void *pObjMem, PlacementNewDummy dummy) noexcept;
+
+#define PLACEMENT_NEW(memory) new ((memory), PlacementNewDummy{})
+#define ALLOC_NEW(allocator, type) PLACEMENT_NEW((allocator)->allocate(sizeof(type), alignof(type), 0)) type
 #define ALLOC_DELETE(allocator, ptr) (allocator)->deleteObject(ptr)
 
 /// <summary>
@@ -124,7 +137,7 @@ public:
 	template<typename... Args>
 	static UniquePtr create(IAllocator *allocator, Args &&... args) noexcept
 	{
-		return UniquePtr<T>(ALLOC_NEW(allocator, T) T(static_cast<Args &&>(args)...), allocator);
+		return UniquePtr<T>(ALLOC_NEW(allocator, T) (static_cast<Args &&>(args)...), allocator);
 	}
 
 	UniquePtr() = default;

@@ -2,7 +2,7 @@
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include "volk.h"
 #include "ResourceVk.h"
-#include "Utility/ObjectPool.h"
+#include "utility/ObjectPool.h"
 
 namespace gal
 {
@@ -29,22 +29,22 @@ namespace gal
 		static constexpr uint32_t k_maxImageCount = 8;
 		static constexpr uint32_t k_semaphoreCount = 3;
 
-		VkPhysicalDevice m_physicalDevice;
-		VkDevice m_device;
-		VkSurfaceKHR m_surface;
-		Queue *m_presentQueue;
-		VkSwapchainKHR m_swapChain;
-		uint32_t m_imageCount;
-		ImageVk *m_images[k_maxImageCount];
+		VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+		VkDevice m_device = VK_NULL_HANDLE;
+		VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+		Queue *m_presentQueue = nullptr;
+		VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
+		uint32_t m_imageCount = 0;
+		ImageVk *m_images[k_maxImageCount] = {};
 		StaticObjectMemoryPool<ImageVk, k_maxImageCount> m_imageMemoryPool;
-		Format m_imageFormat;
-		Extent2D m_extent;
-		uint32_t m_currentImageIndex;
-		VkSemaphore m_acquireSemaphores[k_semaphoreCount];
-		VkSemaphore m_presentSemaphores[k_semaphoreCount];
-		uint64_t m_frameIndex;
-		bool m_fullscreen;
-		PresentMode m_presentMode;
+		Format m_imageFormat = Format::UNDEFINED;
+		Extent2D m_extent = {};
+		uint32_t m_currentImageIndex = -1;
+		VkSemaphore m_acquireSemaphores[k_semaphoreCount] = {};
+		VkSemaphore m_presentSemaphores[k_semaphoreCount] = {};
+		uint64_t m_frameIndex = 0;
+		bool m_fullscreen = false;
+		PresentMode m_presentMode = PresentMode::IMMEDIATE;
 
 		void create(uint32_t width, uint32_t height);
 		void destroy();

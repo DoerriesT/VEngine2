@@ -1,6 +1,17 @@
 #include "IAllocator.h"
 #include <new>
 
+void *operator new(size_t size, void *pObjMem, PlacementNewDummy dummy) noexcept
+{
+	assert(pObjMem);
+	return pObjMem;
+}
+
+void operator delete(void *pObj, void *pObjMem, PlacementNewDummy dummy) noexcept
+{
+	assert(false);
+}
+
 void *operator new(std::size_t count, IAllocator *allocator) noexcept
 {
 	return allocator->allocate(count);

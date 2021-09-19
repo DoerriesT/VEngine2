@@ -1,8 +1,9 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include "volk.h"
-#include "Utility/ObjectPool.h"
+#include "utility/allocator/PoolAllocator.h"
 #include "CommandListVk.h"
+#include <EASTL/fixed_vector.h>
 
 namespace gal
 {
@@ -25,6 +26,7 @@ namespace gal
 	private:
 		GraphicsDeviceVk *m_device;
 		VkCommandPool m_commandPool;
-		DynamicObjectMemoryPool<CommandListVk> m_commandListMemoryPool;
+		DynamicPoolAllocator m_commandListMemoryPool;
+		eastl::fixed_vector<CommandListVk *, 32> m_liveCommandLists;
 	};
 }
