@@ -1,6 +1,7 @@
 #include "PipelineDx12.h"
 #include "utility/Utility.h"
 #include "UtilityDx12.h"
+#include <vector>
 
 
 using namespace gal;

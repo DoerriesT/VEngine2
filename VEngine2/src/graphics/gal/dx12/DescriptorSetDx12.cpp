@@ -227,7 +227,7 @@ gal::DescriptorSetLayoutDx12::DescriptorSetLayoutDx12(uint32_t bindingCount, con
 
 	for (size_t i = 0; i < bindingCount; ++i)
 	{
-		m_descriptorCount = max(bindings[i].m_binding + bindings[i].m_descriptorCount, m_descriptorCount);
+		m_descriptorCount = eastl::max<uint32_t>(bindings[i].m_binding + bindings[i].m_descriptorCount, m_descriptorCount);
 		auto type = bindings[i].m_descriptorType;
 		m_rootDescriptorMask |= ((type == DescriptorType::OFFSET_CONSTANT_BUFFER) ? 1u : 0u) << i;
 		hasSamplers = hasSamplers || type == DescriptorType::SAMPLER;

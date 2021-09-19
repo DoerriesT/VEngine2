@@ -4,8 +4,7 @@
 #include "UtilityVk.h"
 #include "SemaphoreVk.h"
 #include "QueueVk.h"
-#include <vector>
-#include <algorithm>
+#include "utility/Memory.h"
 
 gal::SwapChainVk::SwapChainVk(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, Queue *presentQueue, uint32_t width, uint32_t height, bool fullscreen, PresentMode presentMode)
 	:m_physicalDevice(physicalDevice),
@@ -59,7 +58,7 @@ uint32_t gal::SwapChainVk::getCurrentImageIndex()
 
 void gal::SwapChainVk::present(Semaphore *waitSemaphore, uint64_t semaphoreWaitValue, Semaphore *signalSemaphore, uint64_t semaphoreSignalValue)
 {
-	const uint32_t resIdx = m_frameIndex % s_semaphoreCount;
+	const uint32_t resIdx = m_frameIndex % k_semaphoreCount;
 	VkQueue presentQueueVk = (VkQueue)m_presentQueue->getNativeHandle();
 
 	// Vulkan swapchains do not support timeline semaphores, so we need to wait on the timeline semaphore and signal the binary semaphore
@@ -166,69 +165,51 @@ gal::Queue *gal::SwapChainVk::getPresentQueue() const
 void gal::SwapChainVk::create(uint32_t width, uint32_t height)
 {
 	VkSurfaceCapabilitiesKHR surfaceCapabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &surfaceCapabilities);
 
 	uint32_t formatCount;
 	vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, nullptr);
-
-	if (formatCount != 0)
-	{
-		formats.resize(static_cast<size_t>(formatCount));
-		vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, formats.data());
-	}
+	VkSurfaceFormatKHR *formats = ALLOC_A_T(VkSurfaceFormatKHR, formatCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, formats);
 
 	uint32_t presentModeCount;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &presentModeCount, nullptr);
-
-	if (presentModeCount != 0)
-	{
-		presentModes.resize(static_cast<size_t>(presentModeCount));
-		vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &presentModeCount, presentModes.data());
-	}
+	VkPresentModeKHR *presentModes = ALLOC_A_T(VkPresentModeKHR, presentModeCount);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &presentModeCount, presentModes);
 
 	// find surface format
 	VkSurfaceFormatKHR surfaceFormat;
 	{
-		if (formats.size() == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
+		bool foundOptimal = false;
+		for (size_t i = 0; i < formatCount; ++i)
 		{
-			surfaceFormat = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+			if (formats[i].format == VK_FORMAT_B8G8R8A8_UNORM && formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			{
+				surfaceFormat = formats[i];
+				foundOptimal = true;
+				break;
+			}
 		}
-		else
+		if (!foundOptimal)
 		{
-			bool foundOptimal = false;
-			for (const auto &format : formats)
-			{
-				if (format.format == VK_FORMAT_B8G8R8A8_UNORM && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-				{
-					surfaceFormat = format;
-					foundOptimal = true;
-					break;
-				}
-			}
-			if (!foundOptimal)
-			{
-				surfaceFormat = formats[0];
-			}
+			surfaceFormat = formats[0];
 		}
 	}
 
 	// find present mode
 	VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR; // VK_PRESENT_MODE_FIFO_KHR is always supported
 	{
-		for (const auto &mode : presentModes)
+		for (size_t i = 0; i < presentModeCount; ++i)
 		{
 			// prefer VK_PRESENT_MODE_MAILBOX_KHR to VK_PRESENT_MODE_FIFO_KHR for vsync
-			if (m_presentMode == PresentMode::V_SYNC && mode == VK_PRESENT_MODE_MAILBOX_KHR)
+			if (m_presentMode == PresentMode::V_SYNC && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
 			{
-				presentMode = mode;
+				presentMode = presentModes[i];
 				break;
 			}
-			else if (m_presentMode == PresentMode::IMMEDIATE && mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+			else if (m_presentMode == PresentMode::IMMEDIATE && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)
 			{
-				presentMode = mode;
+				presentMode = presentModes[i];
 				break;
 			}
 		}
@@ -277,12 +258,12 @@ void gal::SwapChainVk::create(uint32_t width, uint32_t height)
 	}
 
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &m_imageCount, nullptr);
-	if (m_imageCount > s_maxImageCount)
+	if (m_imageCount > k_maxImageCount)
 	{
 		util::fatalExit("Swap chain image count higher than supported maximum!", EXIT_FAILURE);
 	}
 
-	VkImage imagesVk[s_maxImageCount];
+	VkImage imagesVk[k_maxImageCount];
 
 	vkGetSwapchainImagesKHR(m_device, m_swapChain, &m_imageCount, imagesVk);
 
@@ -312,7 +293,7 @@ void gal::SwapChainVk::create(uint32_t width, uint32_t height)
 	m_extent = { extent.width, extent.height };
 
 	// create semaphores
-	for (size_t i = 0; i < s_semaphoreCount; ++i)
+	for (size_t i = 0; i < k_semaphoreCount; ++i)
 	{
 		VkSemaphoreCreateInfo createInfo{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 
@@ -324,7 +305,7 @@ void gal::SwapChainVk::create(uint32_t width, uint32_t height)
 void gal::SwapChainVk::destroy()
 {
 	vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
-	for (size_t i = 0; i < s_semaphoreCount; ++i)
+	for (size_t i = 0; i < k_semaphoreCount; ++i)
 	{
 		vkDestroySemaphore(m_device, m_acquireSemaphores[i], nullptr);
 		vkDestroySemaphore(m_device, m_presentSemaphores[i], nullptr);

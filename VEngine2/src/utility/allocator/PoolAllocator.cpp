@@ -3,12 +3,12 @@
 #include <assert.h>
 #include "utility/Utility.h"
 
-static constexpr uint32_t s_invalidIndex = 0xFFFFFFFF;
+static constexpr uint32_t k_invalidIndex = 0xFFFFFFFF;
 
 static uint32_t initializeLinkedList(char *memory, size_t elementSize, size_t elementCount) noexcept
 {
-	assert(elementSize >= sizeof(s_invalidIndex));
-	*(uint32_t *)(memory) = s_invalidIndex; // set "next" index of last item in free list to invalid index
+	assert(elementSize >= sizeof(k_invalidIndex));
+	*(uint32_t *)(memory) = k_invalidIndex; // set "next" index of last item in free list to invalid index
 
 	uint32_t prevElementIndex = 0;
 	for (size_t i = 1; i < elementCount; ++i)
@@ -51,7 +51,7 @@ FixedPoolAllocator::FixedPoolAllocator(FixedPoolAllocator &&other) noexcept
 {
 	other.m_memory = nullptr;
 	other.m_freeElementCount = 0;
-	other.m_freeListHeadIndex = s_invalidIndex;
+	other.m_freeListHeadIndex = k_invalidIndex;
 	other.m_ownsMemory = false;
 }
 
@@ -65,9 +65,12 @@ FixedPoolAllocator::~FixedPoolAllocator()
 
 void *FixedPoolAllocator::allocate(size_t n, int flags) noexcept
 {
-	assert(n == m_elementSize);
+	if (n > m_elementSize)
+	{
+		return nullptr;
+	}
 
-	if (n == m_elementSize && m_freeListHeadIndex != s_invalidIndex)
+	if (m_freeListHeadIndex != k_invalidIndex)
 	{
 		char *resultPtr = m_memory + m_elementSize * m_freeListHeadIndex;
 		m_freeListHeadIndex = *(uint32_t *)resultPtr;
@@ -86,9 +89,17 @@ void *FixedPoolAllocator::allocate(size_t n, size_t alignment, size_t offset, in
 
 void FixedPoolAllocator::deallocate(void *p, size_t n) noexcept
 {
-	size_t elementIndex = (char *)p - m_memory;
+	// get element index of the memory slot we are freeing
+	const size_t offsetFromPoolStart = (char *)p - m_memory;
+	assert((offsetFromPoolStart % m_elementSize) == 0);
+	const size_t elementIndex = offsetFromPoolStart / m_elementSize;
 	assert(elementIndex < m_elementCount);
-	*(uint32_t *)p = m_freeListHeadIndex;
+
+	// write free list header value into our freed memory...
+	uint32_t *poolFreeList = (uint32_t *)p;
+	*poolFreeList = m_freeListHeadIndex;
+
+	// ... and set our newly freed slot as head of the free list
 	m_freeListHeadIndex = (uint32_t)elementIndex;
 	++m_freeElementCount;
 }
@@ -139,14 +150,17 @@ DynamicPoolAllocator::~DynamicPoolAllocator()
 
 void *DynamicPoolAllocator::allocate(size_t n, int flags) noexcept
 {
-	assert(n == m_elementSize);
+	if (n > m_elementSize)
+	{
+		return nullptr;
+	}
 
 	// find a pool with some space
 	Pool *pool = m_pools;
 	while (pool)
 	{
 		// found a pool with free elements -> allocate and return
-		if (pool->m_freeListHeadIndex != s_invalidIndex)
+		if (pool->m_freeListHeadIndex != k_invalidIndex)
 		{
 			char *resultPtr = pool->m_memory + m_elementSize * pool->m_freeListHeadIndex;
 			pool->m_freeListHeadIndex = *(uint32_t *)resultPtr;
@@ -160,16 +174,16 @@ void *DynamicPoolAllocator::allocate(size_t n, int flags) noexcept
 	}
 
 	// we're still here, which means we ran out of pools -> create a new one
-	size_t poolCapacity = m_nextPoolCapacity;
+	const size_t poolCapacity = m_nextPoolCapacity;
 	m_nextPoolCapacity = m_nextPoolCapacity + (m_nextPoolCapacity / 2);
-	size_t poolElementMemorySize = poolCapacity * m_elementSize;
-	size_t poolMemoryOffset = util::alignUp(poolElementMemorySize, alignof(Pool));
+	const size_t poolElementMemorySize = poolCapacity * m_elementSize;
+	const size_t poolInfoOffset = util::alignUp(poolElementMemorySize, alignof(Pool)); // place book keeping data at the end of the allocation
 	
 	// allocate memory for both elements and pool book keeping data
-	char *poolMemory = (char *)malloc(poolMemoryOffset + sizeof(Pool));
+	char *poolMemory = (char *)malloc(poolInfoOffset + sizeof(Pool));
 
 	// placement new pool at correct offset
-	Pool *newPool = new (poolMemory + poolMemoryOffset) Pool();
+	Pool *newPool = new (poolMemory + poolInfoOffset) Pool();
 	*newPool = {};
 	newPool->m_nextPool = m_pools;
 	newPool->m_memory = poolMemory;
@@ -201,16 +215,31 @@ void *DynamicPoolAllocator::allocate(size_t n, size_t alignment, size_t offset, 
 void DynamicPoolAllocator::deallocate(void *p, size_t n) noexcept
 {
 	// find correct pool
-	Pool *pool = m_pools;
-	while (pool)
+	for (Pool *pool = m_pools; pool != nullptr; pool = pool->m_nextPool)
 	{
-		if (p >= pool->m_memory && p < (pool->m_memory + pool->m_elementCount * m_elementSize))
+		char *lowerBound = pool->m_memory;
+		char *upperBound = pool->m_memory + pool->m_elementCount * m_elementSize;
+	
+		// does the pointer belong to this pool?
+		if (p >= lowerBound && p < upperBound)
 		{
-			size_t elementIndex = (char *)p - pool->m_memory;
-			*(uint32_t *)p = pool->m_freeListHeadIndex;
+			// get element index of the memory slot we are freeing
+			const size_t offsetFromPoolStart = ((char *)p) - pool->m_memory;
+			assert((offsetFromPoolStart % m_elementSize) == 0);
+			const size_t elementIndex = offsetFromPoolStart / m_elementSize;
+			assert(elementIndex < pool->m_elementCount);
+
+			// write free list header value into our freed memory...
+			uint32_t *poolFreeList = (uint32_t *)p;
+			*poolFreeList = pool->m_freeListHeadIndex;
+
+			// ... and set our newly freed slot as head of the free list
 			pool->m_freeListHeadIndex = (uint32_t)elementIndex;
+
 			++(pool->m_freeElementCount);
 			++m_freeElementCount;
+
+			return;
 		}
 	}
 

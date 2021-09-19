@@ -96,3 +96,40 @@ void LinearAllocator::reset() noexcept
 {
 	m_currentOffset = 0;
 }
+
+LinearAllocatorFrame::LinearAllocatorFrame(LinearAllocator *allocator, const char *name) noexcept
+	:m_allocator(allocator),
+	m_name(name),
+	m_startMarker(allocator->getMarker())
+{
+}
+
+LinearAllocatorFrame::~LinearAllocatorFrame() noexcept
+{
+	m_allocator->freeToMarker(m_startMarker);
+}
+
+void *LinearAllocatorFrame::allocate(size_t n, int flags) noexcept
+{
+	return m_allocator->allocate(n, flags);
+}
+
+void *LinearAllocatorFrame::allocate(size_t n, size_t alignment, size_t offset, int flags) noexcept
+{
+	return m_allocator->allocate(n, alignment, offset, flags);
+}
+
+void LinearAllocatorFrame::deallocate(void *p, size_t n) noexcept
+{
+	m_allocator->deallocate(p, n);
+}
+
+const char *LinearAllocatorFrame::get_name() const noexcept
+{
+	return m_name;
+}
+
+void LinearAllocatorFrame::set_name(const char *pName) noexcept
+{
+	m_name = pName;
+}

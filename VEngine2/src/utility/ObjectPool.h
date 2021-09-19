@@ -1,6 +1,6 @@
 #pragma once
-#include <vector>
-#include <cassert>
+#include <EASTL/vector.h>
+#include <assert.h>
 
 template<typename T>
 struct RawView
@@ -113,7 +113,7 @@ private:
 
 	const size_t m_firstBlockCapacity;
 	size_t m_allocationCount;
-	std::vector<ItemBlock> m_blocks;
+	eastl::vector<ItemBlock> m_blocks;
 
 	void createBlock();
 };

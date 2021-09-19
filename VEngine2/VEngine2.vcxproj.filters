@@ -459,6 +459,9 @@
     <ClInclude Include="src\utility\allocator\DefaultAllocator.h">
       <Filter>src\utility\allocator</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\Memory.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">

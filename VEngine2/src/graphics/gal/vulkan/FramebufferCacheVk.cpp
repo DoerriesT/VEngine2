@@ -50,8 +50,7 @@ size_t gal::FramebufferDescriptionHashVk::operator()(const FramebufferDescriptio
 }
 
 gal::FramebufferCacheVk::FramebufferCacheVk(VkDevice device)
-	:m_framebuffers(),
-	m_device(device)
+	:m_device(device)
 {
 }
 

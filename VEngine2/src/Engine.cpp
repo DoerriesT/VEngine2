@@ -21,6 +21,7 @@
 #include "filesystem/RawFileSystem.h"
 #include "filesystem/VirtualFileSystem.h"
 #include "profiling/Profiling.h"
+#include "utility/allocator/DefaultAllocator.h"
 
 // these are needed for EASTL
 
@@ -32,110 +33,6 @@ void *__cdecl operator new[](size_t size, const char *name, int flags, unsigned 
 void *__cdecl operator new[](size_t size, size_t alignment, size_t alignmentOffset, const char *pName, int flags, unsigned debugFlags, const char *file, int line)
 {
 	return new uint8_t[size];
-}
-
-void *operator new(std::size_t count)
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new[](std::size_t count)
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new(std::size_t count, std::align_val_t al)
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new[](std::size_t count, std::align_val_t al)
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new(std::size_t count, const std::nothrow_t &) noexcept
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new[](std::size_t count, const std::nothrow_t &) noexcept
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new(std::size_t count, std::align_val_t al, const std::nothrow_t &) noexcept
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void *operator new[](std::size_t count, std::align_val_t al, const std::nothrow_t &) noexcept
-{
-	auto ptr = malloc(count);
-	PROFILING_MEM_ALLOC(ptr, count);
-	return ptr;
-}
-
-void operator delete(void *ptr) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete[](void *ptr) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete(void *ptr, std::align_val_t al) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete[](void *ptr, std::align_val_t al) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete  (void *ptr, std::size_t sz) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete[](void *ptr, std::size_t sz) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete  (void *ptr, std::size_t sz, std::align_val_t al) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
-}
-
-void operator delete[](void *ptr, std::size_t sz, std::align_val_t al) noexcept
-{
-	PROFILING_MEM_FREE(ptr);
-	free(ptr);
 }
 
 namespace EA
@@ -192,10 +89,18 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	ComponentRegistration::registerAllComponents(m_ecs);
 
-	m_renderer = new Renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
-	m_physics = new Physics(m_ecs);
-	m_animationSystem = new AnimationSystem(m_ecs);
-	m_userInput = new UserInput(*m_window, m_ecs);
+	Renderer renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
+	m_renderer = &renderer;
+	
+	Physics physics(m_ecs);
+	m_physics = &physics;
+	
+	AnimationSystem animationSystem(m_ecs);
+	m_animationSystem = &animationSystem;
+	
+	UserInput userInput(*m_window, m_ecs);
+	m_userInput = &userInput;
+
 	AssetManager::init();
 
 	AssetHandlerRegistration::registerHandlers(m_renderer, m_physics, m_animationSystem);
@@ -267,10 +172,10 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	AssetHandlerRegistration::unregisterHandlers();
 	AssetManager::shutdown();
 
-	delete m_userInput;
-	delete m_animationSystem;
-	delete m_physics;
-	delete m_renderer;
+	m_userInput = nullptr;
+	m_animationSystem = nullptr;
+	m_physics = nullptr;
+	m_renderer = nullptr;
 	delete m_ecs;
 	m_window = nullptr;
 

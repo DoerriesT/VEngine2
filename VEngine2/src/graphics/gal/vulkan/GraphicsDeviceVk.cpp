@@ -2,14 +2,16 @@
 #include "volk.h"
 #include <GLFW/glfw3.h>
 #include "Utility/Utility.h"
-#include <iostream>
-#include <set>
 #include "RenderPassCacheVk.h"
 #include "FramebufferCacheVk.h"
 #include "MemoryAllocatorVk.h"
 #include "UtilityVk.h"
 #include "SwapChainVk.h"
+#include "Log.h"
 #include <tracy/TracyVulkan.hpp>
+#include "utility/allocator/DefaultAllocator.h"
+#include "utility/allocator/LinearAllocator.h"
+#include "utility/Memory.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -21,42 +23,28 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	{
 		return VK_FALSE;
 	}
-	std::cerr << "validation layer:\n"
-		<< "Message ID Name: " << pCallbackData->pMessageIdName << "\n"
-		<< "Message ID Number: " << pCallbackData->messageIdNumber << "\n"
-		<< "Message: " << pCallbackData->pMessage << std::endl;
+
+	Log::err("Vulkan Validation Layer:");
+	Log::err("Message ID Name: %s", pCallbackData->pMessageIdName);
+	Log::err("Message ID Number: %i", pCallbackData->messageIdNumber);
+	Log::err("Message: %s", pCallbackData->pMessage);
 
 	return VK_FALSE;
 }
 
 gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
-	:m_instance(),
-	m_device(),
-	m_physicalDevice(),
-	m_features(),
-	m_enabledFeatures(),
-	m_properties(),
-	m_subgroupProperties(),
-	m_graphicsQueue(),
-	m_computeQueue(),
-	m_transferQueue(),
-	m_surface(),
-	m_debugUtilsMessenger(),
-	m_renderPassCache(),
-	m_gpuMemoryAllocator(),
-	m_swapChain(),
-	m_graphicsPipelineMemoryPool(64),
-	m_computePipelineMemoryPool(64),
-	m_commandListPoolMemoryPool(32),
-	m_imageMemoryPool(256),
-	m_bufferMemoryPool(256),
-	m_imageViewMemoryPool(512),
-	m_bufferViewMemoryPool(32),
-	m_samplerMemoryPool(16),
-	m_semaphoreMemoryPool(16),
-	m_queryPoolMemoryPool(16),
-	m_descriptorSetPoolMemoryPool(16),
-	m_descriptorSetLayoutMemoryPool(8),
+	:m_graphicsPipelineMemoryPool(sizeof(GraphicsPipelineVk), 64, "GraphicsPipelineVk Pool Allocator"),
+	m_computePipelineMemoryPool(sizeof(ComputePipelineVk), 64, "ComputePipelineVk Pool Allocator"),
+	m_commandListPoolMemoryPool(sizeof(CommandListPoolVk), 32, "CommandListPoolVk Pool Allocator"),
+	m_imageMemoryPool(sizeof(ImageVk), 1024, "ImageVk Pool Allocator"),
+	m_bufferMemoryPool(sizeof(BufferVk), 1024, "BufferVk Pool Allocator"),
+	m_imageViewMemoryPool(sizeof(ImageViewVk), 1024, "ImageViewVk Pool Allocator"),
+	m_bufferViewMemoryPool(sizeof(BufferViewVk), 64, "BufferViewVk Pool Allocator"),
+	m_samplerMemoryPool(sizeof(SamplerVk), 16, "SamplerVk Pool Allocator"),
+	m_semaphoreMemoryPool(sizeof(SemaphoreVk), 16, "SemaphoreVk Pool Allocator"),
+	m_queryPoolMemoryPool(sizeof(QueryPoolVk), 16, "QueryPoolVk Pool Allocator"),
+	m_descriptorSetPoolMemoryPool(sizeof(DescriptorSetPoolVk), 16, "DescriptorSetPoolVk Pool Allocator"),
+	m_descriptorSetLayoutMemoryPool(sizeof(DescriptorSetLayoutVk), 16, "DescriptorSetLayoutVk Pool Allocator"),
 	m_debugLayers(debugLayer)
 {
 	if (volkInitialize() != VK_SUCCESS)
@@ -64,8 +52,14 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		util::fatalExit("Failed to initialize volk!", EXIT_FAILURE);
 	}
 
+	const size_t scratchMemorySize = 1024 * 1024;
+	ScopedAllocation scopedScratchMemAlloc(DefaultAllocator::get(), DefaultAllocator::get()->allocate(scratchMemorySize), scratchMemorySize);
+	LinearAllocator linearAllocator((char *)scopedScratchMemAlloc.getAllocation(), scratchMemorySize, "GraphicsDeviceVk Initialization Linear Allocator");
+
 	// create instance
 	{
+		LinearAllocatorFrame linearAllocatorFrame(&linearAllocator);
+
 		VkApplicationInfo appInfo{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 		appInfo.pApplicationName = "Vulkan";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -73,30 +67,32 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.apiVersion = VK_API_VERSION_1_2;
 
-		// extensions
+		// instance extensions
 		uint32_t glfwExtensionCount = 0;
 		const char **glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-		std::vector<const char *> extensions(glfwExtensions, glfwExtensions + static_cast<size_t>(glfwExtensionCount));
 
-		//if (g_vulkanDebugCallBackEnabled)
-		{
-			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-		}
+		// allocate array for glfw extensions + our custom extensions (currently only VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+		uint32_t requiredInstanceExtensionCount = glfwExtensionCount + 1;
+		const char **requiredInstanceExtensions = linearAllocatorFrame.allocateArray<const char *>(requiredInstanceExtensionCount);
+		assert(requiredInstanceExtensions);
+		memcpy(requiredInstanceExtensions, glfwExtensions, glfwExtensionCount * sizeof(const char *));
+		requiredInstanceExtensions[glfwExtensionCount] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 
 		// make sure all requested extensions are available
 		{
 			uint32_t instanceExtensionCount = 0;
 			vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr);
-			std::vector<VkExtensionProperties> extensionProperties(instanceExtensionCount);
-			vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, extensionProperties.data());
+			VkExtensionProperties *extensionProperties = linearAllocatorFrame.allocateArray<VkExtensionProperties>(instanceExtensionCount);
+			assert(extensionProperties);
+			vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, extensionProperties);
 
-			for (auto &requestedExtension : extensions)
+			for (size_t i = 0; i < requiredInstanceExtensionCount; ++i)
 			{
 				bool found = false;
-				for (auto &presentExtension : extensionProperties)
+				for (size_t j = 0; j < instanceExtensionCount; ++j)
 				{
-					if (strcmp(requestedExtension, presentExtension.extensionName) == 0)
+					if (strcmp(requiredInstanceExtensions[i], extensionProperties[j].extensionName) == 0)
 					{
 						found = true;
 						break;
@@ -105,7 +101,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 
 				if (!found)
 				{
-					util::fatalExit(("Requested extension not present! " + std::string(requestedExtension)).c_str(), EXIT_FAILURE);
+					Log::err("Requested extension not present! %s", requiredInstanceExtensions[i]);
+					util::fatalExit("Requested extension not present!", EXIT_FAILURE);
 				}
 			}
 		}
@@ -114,8 +111,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		createInfo.pApplicationInfo = &appInfo;
 		createInfo.enabledLayerCount = 0;
 		createInfo.ppEnabledLayerNames = nullptr;
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-		createInfo.ppEnabledExtensionNames = extensions.data();
+		createInfo.enabledExtensionCount = requiredInstanceExtensionCount;
+		createInfo.ppEnabledExtensionNames = requiredInstanceExtensions;
 
 		if (vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS)
 		{
@@ -151,11 +148,14 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 	}
 
 	const char *const deviceExtensions[]{ VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME };
-	const char *const optionalExtensions[]{ VK_EXT_MEMORY_BUDGET_EXTENSION_NAME };
+	const size_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
+	//const char *const optionalExtensions[]{ VK_EXT_MEMORY_BUDGET_EXTENSION_NAME };
 	bool supportsMemoryBudgetExtension = false;
 
 	// pick physical device
 	{
+		LinearAllocatorFrame linearAllocatorFrame(&linearAllocator);
+
 		uint32_t physicalDeviceCount = 0;
 		vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr);
 
@@ -164,8 +164,9 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 			util::fatalExit("Failed to find GPUs with Vulkan support!", EXIT_FAILURE);
 		}
 
-		std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
-		vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, physicalDevices.data());
+		VkPhysicalDevice *physicalDevices = linearAllocatorFrame.allocateArray<VkPhysicalDevice>(physicalDeviceCount);
+		assert(physicalDevices);
+		vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, physicalDevices);
 
 		struct DeviceInfo
 		{
@@ -180,10 +181,15 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 			bool m_memoryBudgetExtensionSupported;
 		};
 
-		std::vector<DeviceInfo> suitableDevices;
+		size_t suitableDeviceCount = 0;
+		DeviceInfo *suitableDevices = linearAllocatorFrame.allocateArray<DeviceInfo>(physicalDeviceCount);
 
-		for (const auto &physicalDevice : physicalDevices)
+		for (size_t physicalDevIdx = 0; physicalDevIdx < physicalDeviceCount; ++physicalDevIdx)
 		{
+			LinearAllocatorFrame linearAllocatorInnerLoopFrame(&linearAllocator);
+
+			auto physicalDevice = physicalDevices[physicalDevIdx];
+
 			// find queue indices
 			int graphicsFamilyIndex = -1;
 			int computeFamilyIndex = -1;
@@ -193,9 +199,9 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 			{
 				uint32_t queueFamilyCount = 0;
 				vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-
-				std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-				vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
+				VkQueueFamilyProperties *queueFamilies = linearAllocatorInnerLoopFrame.allocateArray<VkQueueFamilyProperties>(queueFamilyCount);
+				assert(queueFamilies);
+				vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
 
 				// find graphics queue
 				for (uint32_t queueFamilyIndex = 0; queueFamilyIndex < queueFamilyCount; ++queueFamilyIndex)
@@ -260,22 +266,37 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 			{
 				uint32_t extensionCount;
 				vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+				VkExtensionProperties *availableExtensions = linearAllocatorInnerLoopFrame.allocateArray<VkExtensionProperties>(extensionCount);
+				assert(availableExtensions);
+				vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions);
 
-				std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-				vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, availableExtensions.data());
-
-				std::set<std::string> requiredExtensions(std::begin(deviceExtensions), std::end(deviceExtensions));
-
-				for (const auto &extension : availableExtensions)
+				// mark all found extensions...
+				bool foundDeviceExtensions[deviceExtensionCount] = {};
+				for (size_t i = 0; i < extensionCount; ++i)
 				{
-					requiredExtensions.erase(extension.extensionName);
-					if (strcmp(extension.extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME) == 0)
+					for (size_t devExtIdx = 0; devExtIdx < deviceExtensionCount; ++devExtIdx)
+					{
+						if (strcmp(availableExtensions[i].extensionName, deviceExtensions[devExtIdx]) == 0)
+						{
+							foundDeviceExtensions[devExtIdx] = true;
+						}
+					}
+					if (strcmp(availableExtensions[i].extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME) == 0)
 					{
 						memoryBudgetExtensionSupported = true;
 					}
 				}
 
-				extensionsSupported = requiredExtensions.empty();
+				// ...and check if any extensions were not marked (not found)
+				extensionsSupported = true;
+				for (auto b : foundDeviceExtensions)
+				{
+					if (!b)
+					{
+						extensionsSupported = false;
+						break;
+					}
+				}
 			}
 
 			// test if the device supports a swapchain
@@ -337,26 +358,26 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 				deviceInfo.m_computeQueuePresentable = static_cast<bool>(computeFamilyPresentable);
 				deviceInfo.m_memoryBudgetExtensionSupported = memoryBudgetExtensionSupported;
 
-				suitableDevices.push_back(deviceInfo);
+				suitableDevices[suitableDeviceCount++] = deviceInfo;
 			}
 		}
 
-		std::cout << "Found " << suitableDevices.size() << " suitable device(s):" << std::endl;
+		Log::info("Found %u suitable device(s):", (unsigned)suitableDeviceCount);
 
 		size_t deviceIndex = 1;
 
-		if (suitableDevices.empty())
+		if (suitableDeviceCount == 0)
 		{
 			util::fatalExit("Failed to find a suitable GPU!", EXIT_FAILURE);
 		}
 
-		for (size_t i = 0; i < suitableDevices.size(); ++i)
+		for (size_t i = 0; i < suitableDeviceCount; ++i)
 		{
-			std::cout << "[" << i << "] " << suitableDevices[i].m_properties.deviceName << std::endl;
+			Log::info("[%u] %s", (unsigned)i, suitableDevices[i].m_properties.deviceName);
 		}
 
 		// select first device if there is only a single one
-		if (suitableDevices.size() == 1)
+		if (suitableDeviceCount == 1)
 		{
 			deviceIndex = 0;
 		}
@@ -413,18 +434,37 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 
 	// create logical device and retrieve queues
 	{
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		std::set<uint32_t> uniqueQueueFamilies{ m_graphicsQueue.m_queueFamily, m_computeQueue.m_queueFamily, m_transferQueue.m_queueFamily };
+		LinearAllocatorFrame linearAllocatorFrame(&linearAllocator);
+
+		uint32_t queueCreateInfoCount = 0;
+		VkDeviceQueueCreateInfo queueCreateInfos[3];
+		uint32_t uniqueQueueFamilies[3];// { m_graphicsQueue.m_queueFamily, m_computeQueue.m_queueFamily, m_transferQueue.m_queueFamily };
+		uint32_t uniqueQueueFamilyCount = 0;
+
+		// the first queue will always be unique
+		uniqueQueueFamilies[uniqueQueueFamilyCount++] = m_graphicsQueue.m_queueFamily;
+
+		// check if the compute queue is unique and add it if it is
+		if (m_computeQueue.m_queueFamily != uniqueQueueFamilies[0])
+		{
+			uniqueQueueFamilies[uniqueQueueFamilyCount++] = m_computeQueue.m_queueFamily;
+		}
+
+		// same for the transfer queue
+		if (m_transferQueue.m_queueFamily != uniqueQueueFamilies[0] && m_transferQueue.m_queueFamily != uniqueQueueFamilies[1])
+		{
+			uniqueQueueFamilies[uniqueQueueFamilyCount++] = m_transferQueue.m_queueFamily;
+		}
 
 		float queuePriority = 1.0f;
-		for (uint32_t queueFamily : uniqueQueueFamilies)
+		for (size_t i = 0; i < uniqueQueueFamilyCount; ++i)
 		{
 			VkDeviceQueueCreateInfo queueCreateInfo{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-			queueCreateInfo.queueFamilyIndex = queueFamily;
+			queueCreateInfo.queueFamilyIndex = uniqueQueueFamilies[i];
 			queueCreateInfo.queueCount = 1;
 			queueCreateInfo.pQueuePriorities = &queuePriority;
 
-			queueCreateInfos.push_back(queueCreateInfo);
+			queueCreateInfos[queueCreateInfoCount++] = queueCreateInfo;
 		}
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
@@ -461,8 +501,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		extensions[requiredDeviceExtensionCount] = VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
 
 		VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &vulkan12Features };
-		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-		createInfo.pQueueCreateInfos = queueCreateInfos.data();
+		createInfo.queueCreateInfoCount = queueCreateInfoCount;
+		createInfo.pQueueCreateInfos = queueCreateInfos;
 		createInfo.enabledLayerCount = 0;
 		createInfo.ppEnabledLayerNames = nullptr;
 		createInfo.pEnabledFeatures = &deviceFeatures;
@@ -480,8 +520,10 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 
 		uint32_t queueFamilyPropertyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, nullptr);
-		std::vector<VkQueueFamilyProperties> queueFamilyProperites(queueFamilyPropertyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, queueFamilyProperites.data());
+		VkQueueFamilyProperties *queueFamilyProperites = linearAllocatorFrame.allocateArray<VkQueueFamilyProperties>(queueFamilyPropertyCount);
+		assert(queueFamilyProperites);
+		vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, queueFamilyProperites);
+
 		m_graphicsQueue.m_timestampValidBits = queueFamilyProperites[m_graphicsQueue.m_queueFamily].timestampValidBits;
 		m_computeQueue.m_timestampValidBits = queueFamilyProperites[m_computeQueue.m_queueFamily].timestampValidBits;
 		m_transferQueue.m_timestampValidBits = queueFamilyProperites[m_transferQueue.m_queueFamily].timestampValidBits;
@@ -526,17 +568,20 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 	m_gpuMemoryAllocator = new MemoryAllocatorVk();
 	m_gpuMemoryAllocator->init(m_device, m_physicalDevice, supportsMemoryBudgetExtension);
 
-	VkCommandPoolCreateInfo poolCreateInfo{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, m_graphicsQueue.m_queueFamily };
-	VkCommandPool cmdPool;
-	UtilityVk::checkResult(vkCreateCommandPool(m_device, &poolCreateInfo, nullptr, &cmdPool), "Failed to create command pool!");
-	
-	VkCommandBuffer cmdBuf;
-	VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1 };
-	vkAllocateCommandBuffers(m_device, &allocInfo, &cmdBuf);
+	// create profiling context
+	{
+		VkCommandPoolCreateInfo poolCreateInfo{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, nullptr, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, m_graphicsQueue.m_queueFamily };
+		VkCommandPool cmdPool;
+		UtilityVk::checkResult(vkCreateCommandPool(m_device, &poolCreateInfo, nullptr, &cmdPool), "Failed to create command pool!");
 
-	m_profilingContext = TracyVkContextCalibrated(m_physicalDevice, m_device, m_graphicsQueue.m_queue, cmdBuf, vkGetPhysicalDeviceCalibrateableTimeDomainsEXT, vkGetCalibratedTimestampsEXT);
+		VkCommandBuffer cmdBuf;
+		VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, nullptr, cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1 };
+		vkAllocateCommandBuffers(m_device, &allocInfo, &cmdBuf);
 
-	vkDestroyCommandPool(m_device, cmdPool, nullptr);
+		m_profilingContext = TracyVkContextCalibrated(m_physicalDevice, m_device, m_graphicsQueue.m_queue, cmdBuf, vkGetPhysicalDeviceCalibrateableTimeDomainsEXT, vkGetCalibratedTimestampsEXT);
+
+		vkDestroyCommandPool(m_device, cmdPool, nullptr);
+	}
 }
 
 gal::GraphicsDeviceVk::~GraphicsDeviceVk()
@@ -572,9 +617,7 @@ void gal::GraphicsDeviceVk::createGraphicsPipelines(uint32_t count, const Graphi
 {
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		auto *memory = m_graphicsPipelineMemoryPool.alloc();
-		assert(memory);
-		pipelines[i] = new(memory) GraphicsPipelineVk(*this, createInfo[i]);
+		pipelines[i] = ALLOC_NEW(&m_graphicsPipelineMemoryPool, GraphicsPipelineVk) GraphicsPipelineVk(*this, createInfo[i]);
 	}
 }
 
@@ -582,9 +625,7 @@ void gal::GraphicsDeviceVk::createComputePipelines(uint32_t count, const Compute
 {
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		auto *memory = m_computePipelineMemoryPool.alloc();
-		assert(memory);
-		pipelines[i] = new(memory) ComputePipelineVk(*this, createInfo[i]);
+		pipelines[i] = ALLOC_NEW(&m_computePipelineMemoryPool, ComputePipelineVk) ComputePipelineVk(*this, createInfo[i]);
 	}
 }
 
@@ -595,9 +636,7 @@ void gal::GraphicsDeviceVk::destroyGraphicsPipeline(GraphicsPipeline *pipeline)
 		auto *pipelineVk = dynamic_cast<GraphicsPipelineVk *>(pipeline);
 		assert(pipelineVk);
 
-		// call destructor and free backing memory
-		pipelineVk->~GraphicsPipelineVk();
-		m_graphicsPipelineMemoryPool.free(reinterpret_cast<RawView<GraphicsPipelineVk> *>(pipelineVk));
+		ALLOC_DELETE(&m_graphicsPipelineMemoryPool, pipelineVk);
 	}
 }
 
@@ -608,19 +647,15 @@ void gal::GraphicsDeviceVk::destroyComputePipeline(ComputePipeline *pipeline)
 		auto *pipelineVk = dynamic_cast<ComputePipelineVk *>(pipeline);
 		assert(pipelineVk);
 
-		// call destructor and free backing memory
-		pipelineVk->~ComputePipelineVk();
-		m_computePipelineMemoryPool.free(reinterpret_cast<RawView<ComputePipelineVk> *>(pipelineVk));
+		ALLOC_DELETE(&m_computePipelineMemoryPool, pipelineVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createCommandListPool(const Queue *queue, CommandListPool **commandListPool)
 {
-	auto *memory = m_commandListPoolMemoryPool.alloc();
-	assert(memory);
 	auto *queueVk = dynamic_cast<const QueueVk *>(queue);
 	assert(queueVk);
-	*commandListPool = new(memory) CommandListPoolVk(*this, *queueVk);
+	*commandListPool = ALLOC_NEW(&m_commandListPoolMemoryPool, CommandListPoolVk) CommandListPoolVk(*this, *queueVk);
 }
 
 void gal::GraphicsDeviceVk::destroyCommandListPool(CommandListPool *commandListPool)
@@ -630,17 +665,13 @@ void gal::GraphicsDeviceVk::destroyCommandListPool(CommandListPool *commandListP
 		auto *poolVk = dynamic_cast<CommandListPoolVk *>(commandListPool);
 		assert(poolVk);
 
-		// call destructor and free backing memory
-		poolVk->~CommandListPoolVk();
-		m_commandListPoolMemoryPool.free(reinterpret_cast<RawView<CommandListPoolVk> *>(poolVk));
+		ALLOC_DELETE(&m_commandListPoolMemoryPool, poolVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createQueryPool(QueryType queryType, uint32_t queryCount, QueryPool **queryPool)
 {
-	auto *memory = m_queryPoolMemoryPool.alloc();
-	assert(memory);
-	*queryPool = new(memory) QueryPoolVk(m_device, queryType, queryCount, (QueryPipelineStatisticFlags)0);
+	*queryPool = ALLOC_NEW(&m_queryPoolMemoryPool, QueryPoolVk) QueryPoolVk(m_device, queryType, queryCount, (QueryPipelineStatisticFlags)0);
 }
 
 void gal::GraphicsDeviceVk::destroyQueryPool(QueryPool *queryPool)
@@ -650,17 +681,12 @@ void gal::GraphicsDeviceVk::destroyQueryPool(QueryPool *queryPool)
 		auto *poolVk = dynamic_cast<QueryPoolVk *>(queryPool);
 		assert(poolVk);
 
-		// call destructor and free backing memory
-		poolVk->~QueryPoolVk();
-		m_queryPoolMemoryPool.free(reinterpret_cast<RawView<QueryPoolVk> *>(poolVk));
+		ALLOC_DELETE(&m_queryPoolMemoryPool, poolVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createImage(const ImageCreateInfo &imageCreateInfo, MemoryPropertyFlags requiredMemoryPropertyFlags, MemoryPropertyFlags preferredMemoryPropertyFlags, bool dedicated, Image **image)
 {
-	auto *memory = m_imageMemoryPool.alloc();
-	assert(memory);
-
 	AllocationCreateInfoVk allocInfo;
 	allocInfo.m_requiredFlags = UtilityVk::translateMemoryPropertyFlags(requiredMemoryPropertyFlags);
 	allocInfo.m_preferredFlags = UtilityVk::translateMemoryPropertyFlags(preferredMemoryPropertyFlags);
@@ -686,14 +712,11 @@ void gal::GraphicsDeviceVk::createImage(const ImageCreateInfo &imageCreateInfo, 
 
 	UtilityVk::checkResult(m_gpuMemoryAllocator->createImage(allocInfo, createInfo, nativeHandle, allocHandle), "Failed to create Image!");
 
-	*image = new(memory) ImageVk(nativeHandle, allocHandle, imageCreateInfo);
+	*image = ALLOC_NEW(&m_imageMemoryPool, ImageVk) ImageVk(nativeHandle, allocHandle, imageCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::createBuffer(const BufferCreateInfo &bufferCreateInfo, MemoryPropertyFlags requiredMemoryPropertyFlags, MemoryPropertyFlags preferredMemoryPropertyFlags, bool dedicated, Buffer **buffer)
 {
-	auto *memory = m_bufferMemoryPool.alloc();
-	assert(memory);
-
 	AllocationCreateInfoVk allocInfo;
 	allocInfo.m_requiredFlags = UtilityVk::translateMemoryPropertyFlags(requiredMemoryPropertyFlags);
 	allocInfo.m_preferredFlags = UtilityVk::translateMemoryPropertyFlags(preferredMemoryPropertyFlags);
@@ -715,7 +738,7 @@ void gal::GraphicsDeviceVk::createBuffer(const BufferCreateInfo &bufferCreateInf
 	{
 		uniqueQueueFamilyIndices[queueFamilyIndexCount++] = queueFamilyIndices[1];
 	}
-	if (queueFamilyIndices[2] != queueFamilyIndices[0])
+	if (queueFamilyIndices[2] != queueFamilyIndices[1] && queueFamilyIndices[2] != queueFamilyIndices[0])
 	{
 		uniqueQueueFamilyIndices[queueFamilyIndexCount++] = queueFamilyIndices[2];
 	}
@@ -733,7 +756,7 @@ void gal::GraphicsDeviceVk::createBuffer(const BufferCreateInfo &bufferCreateInf
 
 	UtilityVk::checkResult(m_gpuMemoryAllocator->createBuffer(allocInfo, createInfo, nativeHandle, allocHandle), "Failed to create Buffer!");
 
-	*buffer = new(memory) BufferVk(nativeHandle, allocHandle, bufferCreateInfo, m_gpuMemoryAllocator, this);
+	*buffer = ALLOC_NEW(&m_bufferMemoryPool, BufferVk) BufferVk(nativeHandle, allocHandle, bufferCreateInfo, m_gpuMemoryAllocator, this);
 }
 
 void gal::GraphicsDeviceVk::destroyImage(Image *image)
@@ -744,9 +767,7 @@ void gal::GraphicsDeviceVk::destroyImage(Image *image)
 		assert(imageVk);
 		m_gpuMemoryAllocator->destroyImage((VkImage)imageVk->getNativeHandle(), reinterpret_cast<AllocationHandleVk>(imageVk->getAllocationHandle()));
 
-		// call destructor and free backing memory
-		imageVk->~ImageVk();
-		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageVk> *>(imageVk));
+		ALLOC_DELETE(&m_imageMemoryPool, imageVk);
 	}
 }
 
@@ -758,18 +779,13 @@ void gal::GraphicsDeviceVk::destroyBuffer(Buffer *buffer)
 		assert(bufferVk);
 		m_gpuMemoryAllocator->destroyBuffer((VkBuffer)bufferVk->getNativeHandle(), reinterpret_cast<AllocationHandleVk>(bufferVk->getAllocationHandle()));
 
-		// call destructor and free backing memory
-		bufferVk->~BufferVk();
-		m_bufferMemoryPool.free(reinterpret_cast<RawView<BufferVk> *>(bufferVk));
+		ALLOC_DELETE(&m_bufferMemoryPool, bufferVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createImageView(const ImageViewCreateInfo &imageViewCreateInfo, ImageView **imageView)
 {
-	auto *memory = m_imageViewMemoryPool.alloc();
-	assert(memory);
-
-	*imageView = new(memory) ImageViewVk(m_device, imageViewCreateInfo);
+	*imageView = ALLOC_NEW(&m_imageViewMemoryPool, ImageViewVk) ImageViewVk(m_device, imageViewCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::createImageView(Image *image, ImageView **imageView)
@@ -818,10 +834,7 @@ void gal::GraphicsDeviceVk::createImageView(Image *image, ImageView **imageView)
 
 void gal::GraphicsDeviceVk::createBufferView(const BufferViewCreateInfo &bufferViewCreateInfo, BufferView **bufferView)
 {
-	auto *memory = m_bufferViewMemoryPool.alloc();
-	assert(memory);
-
-	*bufferView = new(memory) BufferViewVk(m_device, bufferViewCreateInfo);
+	*bufferView = ALLOC_NEW(&m_bufferViewMemoryPool, BufferViewVk) BufferViewVk(m_device, bufferViewCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::destroyImageView(ImageView *imageView)
@@ -831,9 +844,7 @@ void gal::GraphicsDeviceVk::destroyImageView(ImageView *imageView)
 		auto *viewVk = dynamic_cast<ImageViewVk *>(imageView);
 		assert(viewVk);
 
-		// call destructor and free backing memory
-		viewVk->~ImageViewVk();
-		m_imageViewMemoryPool.free(reinterpret_cast<RawView<ImageViewVk> *>(viewVk));
+		ALLOC_DELETE(&m_imageViewMemoryPool, viewVk);
 	}
 }
 
@@ -844,18 +855,13 @@ void gal::GraphicsDeviceVk::destroyBufferView(BufferView *bufferView)
 		auto *viewVk = dynamic_cast<BufferViewVk *>(bufferView);
 		assert(viewVk);
 
-		// call destructor and free backing memory
-		viewVk->~BufferViewVk();
-		m_bufferViewMemoryPool.free(reinterpret_cast<RawView<BufferViewVk> *>(viewVk));
+		ALLOC_DELETE(&m_bufferViewMemoryPool, viewVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createSampler(const SamplerCreateInfo &samplerCreateInfo, Sampler **sampler)
 {
-	auto *memory = m_samplerMemoryPool.alloc();
-	assert(memory);
-
-	*sampler = new(memory) SamplerVk(m_device, samplerCreateInfo);
+	*sampler = ALLOC_NEW(&m_samplerMemoryPool, SamplerVk) SamplerVk(m_device, samplerCreateInfo);
 }
 
 void gal::GraphicsDeviceVk::destroySampler(Sampler *sampler)
@@ -865,18 +871,13 @@ void gal::GraphicsDeviceVk::destroySampler(Sampler *sampler)
 		auto *samplerVk = dynamic_cast<SamplerVk *>(sampler);
 		assert(samplerVk);
 
-		// call destructor and free backing memory
-		samplerVk->~SamplerVk();
-		m_samplerMemoryPool.free(reinterpret_cast<RawView<SamplerVk> *>(samplerVk));
+		ALLOC_DELETE(&m_samplerMemoryPool, samplerVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createSemaphore(uint64_t initialValue, Semaphore **semaphore)
 {
-	auto *memory = m_semaphoreMemoryPool.alloc();
-	assert(memory);
-
-	*semaphore = new(memory) SemaphoreVk(m_device, initialValue);
+	*semaphore = ALLOC_NEW(&m_semaphoreMemoryPool, SemaphoreVk) SemaphoreVk(m_device, initialValue);
 }
 
 void gal::GraphicsDeviceVk::destroySemaphore(Semaphore *semaphore)
@@ -886,21 +887,16 @@ void gal::GraphicsDeviceVk::destroySemaphore(Semaphore *semaphore)
 		auto *semaphoreVk = dynamic_cast<SemaphoreVk *>(semaphore);
 		assert(semaphoreVk);
 
-		// call destructor and free backing memory
-		semaphoreVk->~SemaphoreVk();
-		m_semaphoreMemoryPool.free(reinterpret_cast<RawView<SemaphoreVk> *>(semaphoreVk));
+		ALLOC_DELETE(&m_semaphoreMemoryPool, semaphoreVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createDescriptorSetPool(uint32_t maxSets, const DescriptorSetLayout *descriptorSetLayout, DescriptorSetPool **descriptorSetPool)
 {
-	auto *memory = m_descriptorSetPoolMemoryPool.alloc();
-	assert(memory);
-
 	const DescriptorSetLayoutVk *layoutVk = dynamic_cast<const DescriptorSetLayoutVk *>(descriptorSetLayout);
 	assert(layoutVk);
 
-	*descriptorSetPool = new(memory) DescriptorSetPoolVk(m_device, maxSets, layoutVk);
+	*descriptorSetPool = ALLOC_NEW(&m_descriptorSetPoolMemoryPool, DescriptorSetPoolVk) DescriptorSetPoolVk(m_device, maxSets, layoutVk);
 }
 
 void gal::GraphicsDeviceVk::destroyDescriptorSetPool(DescriptorSetPool *descriptorSetPool)
@@ -910,21 +906,14 @@ void gal::GraphicsDeviceVk::destroyDescriptorSetPool(DescriptorSetPool *descript
 		auto *poolVk = dynamic_cast<DescriptorSetPoolVk *>(descriptorSetPool);
 		assert(poolVk);
 
-		// call destructor and free backing memory
-		poolVk->~DescriptorSetPoolVk();
-		m_descriptorSetPoolMemoryPool.free(reinterpret_cast<RawView<DescriptorSetPoolVk> *>(poolVk));
+		ALLOC_DELETE(&m_descriptorSetPoolMemoryPool, poolVk);
 	}
 }
 
 void gal::GraphicsDeviceVk::createDescriptorSetLayout(uint32_t bindingCount, const DescriptorSetLayoutBinding *bindings, DescriptorSetLayout **descriptorSetLayout)
 {
-	auto *memory = m_descriptorSetLayoutMemoryPool.alloc();
-	assert(memory);
-
-	std::vector<VkDescriptorSetLayoutBinding> bindingsVk;
-	std::vector<VkDescriptorBindingFlags> bindingFlagsVk;
-	bindingsVk.reserve(bindingCount);
-	bindingFlagsVk.reserve(bindingCount);
+	VkDescriptorSetLayoutBinding *bindingsVk = ALLOC_A_T(VkDescriptorSetLayoutBinding, bindingCount);
+	VkDescriptorBindingFlags *bindingFlagsVk = ALLOC_A_T(VkDescriptorBindingFlags, bindingCount);
 
 	for (uint32_t i = 0; i < bindingCount; ++i)
 	{
@@ -965,11 +954,11 @@ void gal::GraphicsDeviceVk::createDescriptorSetLayout(uint32_t bindingCount, con
 			break;
 		}
 
-		bindingFlagsVk.push_back(UtilityVk::translateDescriptorBindingFlags(b.m_bindingFlags));
-		bindingsVk.push_back({ b.m_binding, typeVk , b.m_descriptorCount, UtilityVk::translateShaderStageFlags(b.m_stageFlags), nullptr });
+		bindingFlagsVk[i] = UtilityVk::translateDescriptorBindingFlags(b.m_bindingFlags);
+		bindingsVk[i] = { b.m_binding, typeVk , b.m_descriptorCount, UtilityVk::translateShaderStageFlags(b.m_stageFlags), nullptr };
 	}
 
-	*descriptorSetLayout = new(memory) DescriptorSetLayoutVk(m_device, bindingCount, bindingsVk.data(), bindingFlagsVk.data());
+	*descriptorSetLayout = ALLOC_NEW(&m_descriptorSetLayoutMemoryPool, DescriptorSetLayoutVk) DescriptorSetLayoutVk(m_device, bindingCount, bindingsVk, bindingFlagsVk);
 }
 
 void gal::GraphicsDeviceVk::destroyDescriptorSetLayout(DescriptorSetLayout *descriptorSetLayout)
@@ -979,9 +968,7 @@ void gal::GraphicsDeviceVk::destroyDescriptorSetLayout(DescriptorSetLayout *desc
 		auto *layoutVk = dynamic_cast<DescriptorSetLayoutVk *>(descriptorSetLayout);
 		assert(layoutVk);
 
-		// call destructor and free backing memory
-		layoutVk->~DescriptorSetLayoutVk();
-		m_descriptorSetLayoutMemoryPool.free(reinterpret_cast<RawView<DescriptorSetLayoutVk> *>(layoutVk));
+		ALLOC_DELETE(&m_descriptorSetLayoutMemoryPool, layoutVk);
 	}
 }
 

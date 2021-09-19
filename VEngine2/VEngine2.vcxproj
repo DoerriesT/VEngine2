@@ -342,6 +342,7 @@
     <ClInclude Include="src\utility\ErasedType.h" />
     <ClInclude Include="src\utility\HandleManager.h" />
     <ClInclude Include="src\utility\DeletedCopyMove.h" />
+    <ClInclude Include="src\utility\Memory.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
     <ClInclude Include="src\utility\SpinLock.h" />
     <ClInclude Include="src\utility\StringID.h" />

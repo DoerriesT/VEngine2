@@ -1,6 +1,6 @@
 #pragma once
 #include "volk.h"
-#include <vector>
+#include <EASTL/vector.h>
 #include "Utility/ObjectPool.h"
 #include "Utility/TLSFAllocator.h"
 
@@ -31,7 +31,7 @@ namespace gal
 	{
 		uint32_t m_memoryType;
 		size_t m_allocationSize;
-		std::vector<TLSFSpanDebugInfo> m_spans;
+		eastl::vector<TLSFSpanDebugInfo> m_spans;
 	};
 
 	class MemoryAllocatorVk
@@ -48,7 +48,7 @@ namespace gal
 		VkResult mapMemory(AllocationHandleVk allocationHandle, void **data);
 		void unmapMemory(AllocationHandleVk allocationHandle);
 		AllocationInfoVk getAllocationInfo(AllocationHandleVk allocationHandle);
-		std::vector<MemoryBlockDebugInfoVk> getDebugInfo() const;
+		eastl::vector<MemoryBlockDebugInfoVk> getDebugInfo() const;
 		size_t getMaximumBlockSize() const;
 		void getFreeUsedWastedSizes(size_t &free, size_t &used, size_t &wasted) const;
 		void destroy();
@@ -68,7 +68,7 @@ namespace gal
 			VkResult mapMemory(size_t blockIndex, VkDeviceSize offset, void **data);
 			void unmapMemory(size_t blockIndex);
 			void getFreeUsedWastedSizes(size_t &free, size_t &used, size_t &wasted) const;
-			void getDebugInfo(std::vector<MemoryBlockDebugInfoVk> &result) const;
+			void getDebugInfo(eastl::vector<MemoryBlockDebugInfoVk> &result) const;
 			void destroy();
 
 		private:
@@ -76,35 +76,36 @@ namespace gal
 			{
 				MAX_BLOCKS = 16
 			};
-			VkDevice m_device;
-			VkPhysicalDevice m_physicalDevice;
-			uint32_t m_memoryType;
-			uint32_t m_heapIndex;
-			VkDeviceSize m_bufferImageGranularity;
-			VkDeviceSize m_preferredBlockSize;
-			VkDeviceSize *m_heapUsage;
-			VkDeviceSize m_heapSizeLimit;
-			VkDeviceSize m_blockSizes[MAX_BLOCKS];
-			VkDeviceMemory m_memory[MAX_BLOCKS];
-			void *m_mappedPtr[MAX_BLOCKS];
-			size_t m_mapCount[MAX_BLOCKS];
-			TLSFAllocator *m_allocators[MAX_BLOCKS];
-			bool m_useMemoryBudgetExtension;
+			VkDevice m_device = VK_NULL_HANDLE;
+			VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+			uint32_t m_memoryType = -1;
+			uint32_t m_heapIndex = -1;
+			VkDeviceSize m_bufferImageGranularity = 0;
+			VkDeviceSize m_preferredBlockSize = 0;
+			VkDeviceSize *m_heapUsage = nullptr;
+			VkDeviceSize m_heapSizeLimit = 0;
+			VkDeviceSize m_blockSizes[MAX_BLOCKS] = {};
+			VkDeviceMemory m_memory[MAX_BLOCKS] = {};
+			void *m_mappedPtr[MAX_BLOCKS] = {};
+			size_t m_mapCount[MAX_BLOCKS] = {};
+			TLSFAllocator *m_allocators[MAX_BLOCKS] = {};
+			alignas(TLSFAllocator) char m_allocatorMemory[MAX_BLOCKS * sizeof(TLSFAllocator)];
+			bool m_useMemoryBudgetExtension = false;
 
 			bool allocFromBlock(size_t blockIndex, VkDeviceSize size, VkDeviceSize alignment, AllocationInfoVk &allocationInfo);
 			void getBudget(VkDeviceSize &budget, VkDeviceSize &usage);
 		};
 
-		VkDevice m_device;
-		VkPhysicalDevice m_physicalDevice;
-		VkPhysicalDeviceMemoryProperties m_memoryProperties;
-		VkDeviceSize m_bufferImageGranularity;
-		VkDeviceSize m_nonCoherentAtomSize;
-		VkDeviceSize m_heapSizeLimits[VK_MAX_MEMORY_HEAPS];
-		VkDeviceSize m_heapUsage[VK_MAX_MEMORY_HEAPS];
-		MemoryPoolVk m_pools[VK_MAX_MEMORY_TYPES];
+		VkDevice m_device = VK_NULL_HANDLE;
+		VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+		VkPhysicalDeviceMemoryProperties m_memoryProperties = {};
+		VkDeviceSize m_bufferImageGranularity = 0;
+		VkDeviceSize m_nonCoherentAtomSize = 0;
+		VkDeviceSize m_heapSizeLimits[VK_MAX_MEMORY_HEAPS] = {};
+		VkDeviceSize m_heapUsage[VK_MAX_MEMORY_HEAPS] = {};
+		MemoryPoolVk m_pools[VK_MAX_MEMORY_TYPES] = {};
 		DynamicObjectPool<AllocationInfoVk> m_allocationInfoPool;
-		bool m_useMemoryBudgetExtension;
+		bool m_useMemoryBudgetExtension = false;
 
 		VkResult findMemoryTypeIndex(uint32_t memoryTypeBitsRequirement, VkMemoryPropertyFlags requiredProperties, VkMemoryPropertyFlags preferredProperties, uint32_t &memoryTypeIndex);
 	};

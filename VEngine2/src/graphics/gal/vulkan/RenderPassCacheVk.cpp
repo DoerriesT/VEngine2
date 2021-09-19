@@ -46,8 +46,7 @@ size_t gal::RenderPassDescriptionHashVk::operator()(const RenderPassDescriptionV
 }
 
 gal::RenderPassCacheVk::RenderPassCacheVk(VkDevice device)
-	:m_renderPasses(),
-	m_device(device)
+	:m_device(device)
 {
 }
 

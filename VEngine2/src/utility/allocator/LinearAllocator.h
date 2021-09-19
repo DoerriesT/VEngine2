@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "utility/DeletedCopyMove.h"
 #include "IAllocator.h"
 
 class LinearAllocator : public IAllocator
@@ -36,4 +37,23 @@ private:
 	char *m_memory = nullptr;
 	size_t m_currentOffset = 0;
 	bool m_ownsMemory = false;
+};
+
+class LinearAllocatorFrame : public IAllocator
+{
+public:
+	explicit LinearAllocatorFrame(LinearAllocator *allocator, const char *name = nullptr) noexcept;
+	DELETED_COPY_MOVE(LinearAllocatorFrame);
+	~LinearAllocatorFrame() noexcept;
+
+	void *allocate(size_t n, int flags = 0) noexcept override;
+	void *allocate(size_t n, size_t alignment, size_t offset, int flags = 0) noexcept override;
+	void  deallocate(void *p, size_t n) noexcept override;
+	const char *get_name() const noexcept override;
+	void set_name(const char *pName) noexcept override;
+
+private:
+	LinearAllocator *m_allocator;
+	const char *m_name;
+	LinearAllocator::Marker m_startMarker;
 };

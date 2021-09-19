@@ -26,8 +26,8 @@ namespace gal
 		Queue *getPresentQueue() const override;
 
 	private:
-		static constexpr uint32_t s_maxImageCount = 8;
-		static constexpr uint32_t s_semaphoreCount = 3;
+		static constexpr uint32_t k_maxImageCount = 8;
+		static constexpr uint32_t k_semaphoreCount = 3;
 
 		VkPhysicalDevice m_physicalDevice;
 		VkDevice m_device;
@@ -35,13 +35,13 @@ namespace gal
 		Queue *m_presentQueue;
 		VkSwapchainKHR m_swapChain;
 		uint32_t m_imageCount;
-		ImageVk *m_images[s_maxImageCount];
-		StaticObjectMemoryPool<ImageVk, s_maxImageCount> m_imageMemoryPool;
+		ImageVk *m_images[k_maxImageCount];
+		StaticObjectMemoryPool<ImageVk, k_maxImageCount> m_imageMemoryPool;
 		Format m_imageFormat;
 		Extent2D m_extent;
 		uint32_t m_currentImageIndex;
-		VkSemaphore m_acquireSemaphores[s_semaphoreCount];
-		VkSemaphore m_presentSemaphores[s_semaphoreCount];
+		VkSemaphore m_acquireSemaphores[k_semaphoreCount];
+		VkSemaphore m_presentSemaphores[k_semaphoreCount];
 		uint64_t m_frameIndex;
 		bool m_fullscreen;
 		PresentMode m_presentMode;

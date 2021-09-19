@@ -2,12 +2,7 @@
 #include "utility/Utility.h"
 
 gal::MemoryAllocatorVk::MemoryAllocatorVk()
-	:m_device(VK_NULL_HANDLE),
-	m_physicalDevice(VK_NULL_HANDLE),
-	m_memoryProperties(),
-	m_bufferImageGranularity(),
-	m_nonCoherentAtomSize(),
-	m_allocationInfoPool(256)
+	:m_allocationInfoPool(256)
 {
 }
 
@@ -286,9 +281,9 @@ gal::AllocationInfoVk gal::MemoryAllocatorVk::getAllocationInfo(AllocationHandle
 	return *reinterpret_cast<AllocationInfoVk *>(allocationHandle);
 }
 
-std::vector<gal::MemoryBlockDebugInfoVk> gal::MemoryAllocatorVk::getDebugInfo() const
+eastl::vector<gal::MemoryBlockDebugInfoVk> gal::MemoryAllocatorVk::getDebugInfo() const
 {
-	std::vector<MemoryBlockDebugInfoVk> result;
+	eastl::vector<MemoryBlockDebugInfoVk> result;
 
 	for (uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
 	{
@@ -455,7 +450,8 @@ VkResult gal::MemoryAllocatorVk::MemoryPoolVk::alloc(VkDeviceSize size, VkDevice
 		*m_heapUsage += memoryAllocateInfo.allocationSize;
 
 		m_blockSizes[blockIndex] = memoryAllocateInfo.allocationSize;
-		m_allocators[blockIndex] = new TLSFAllocator(static_cast<uint32_t>(memoryAllocateInfo.allocationSize), static_cast<uint32_t>(m_bufferImageGranularity));
+		char *tlsfAllocatorMemory = m_allocatorMemory + blockIndex * sizeof(TLSFAllocator);
+		m_allocators[blockIndex] = new (tlsfAllocatorMemory) TLSFAllocator(static_cast<uint32_t>(memoryAllocateInfo.allocationSize), static_cast<uint32_t>(m_bufferImageGranularity));
 
 		if (allocFromBlock(blockIndex, size, alignment, allocationInfo))
 		{
@@ -537,14 +533,14 @@ void gal::MemoryAllocatorVk::MemoryPoolVk::getFreeUsedWastedSizes(size_t &free, 
 	}
 }
 
-void gal::MemoryAllocatorVk::MemoryPoolVk::getDebugInfo(std::vector<MemoryBlockDebugInfoVk> &result) const
+void gal::MemoryAllocatorVk::MemoryPoolVk::getDebugInfo(eastl::vector<MemoryBlockDebugInfoVk> &result) const
 {
 	for (size_t blockIndex = 0; blockIndex < MAX_BLOCKS; ++blockIndex)
 	{
 		if (m_blockSizes[blockIndex])
 		{
 			result.push_back({ m_memoryType, m_blockSizes[blockIndex] });
-			std::vector<TLSFSpanDebugInfo> &spanInfos = result.back().m_spans;
+			eastl::vector<TLSFSpanDebugInfo> &spanInfos = result.back().m_spans;
 
 			size_t count;
 			m_allocators[blockIndex]->getDebugInfo(&count, nullptr);
@@ -562,7 +558,8 @@ void gal::MemoryAllocatorVk::MemoryPoolVk::destroy()
 		{
 			vkFreeMemory(m_device, m_memory[blockIndex], nullptr);
 
-			delete m_allocators[blockIndex];
+			// we placement newed these, so we need to manually call the dtor
+			m_allocators[blockIndex]->~TLSFAllocator();
 			m_allocators[blockIndex] = nullptr;
 		}
 	}

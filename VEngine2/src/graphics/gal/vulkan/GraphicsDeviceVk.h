@@ -1,7 +1,7 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include "QueueVk.h"
-#include "Utility/ObjectPool.h"
+#include "utility/allocator/PoolAllocator.h"
 #include "PipelineVk.h"
 #include "CommandListPoolVk.h"
 #include "ResourceVk.h"
@@ -73,35 +73,35 @@ namespace gal
 		
 
 	private:
-		VkInstance m_instance;
-		VkDevice m_device;
-		VkPhysicalDevice m_physicalDevice;
-		VkPhysicalDeviceFeatures m_features;
-		VkPhysicalDeviceFeatures m_enabledFeatures;
-		VkPhysicalDeviceProperties m_properties;
-		VkPhysicalDeviceSubgroupProperties m_subgroupProperties;
-		QueueVk m_graphicsQueue;
-		QueueVk m_computeQueue;
-		QueueVk m_transferQueue;
-		VkSurfaceKHR m_surface;
-		VkDebugUtilsMessengerEXT m_debugUtilsMessenger;
-		RenderPassCacheVk *m_renderPassCache;
-		FramebufferCacheVk *m_framebufferCache;
-		MemoryAllocatorVk *m_gpuMemoryAllocator;
-		SwapChainVk *m_swapChain;
-		DynamicObjectMemoryPool<GraphicsPipelineVk> m_graphicsPipelineMemoryPool;
-		DynamicObjectMemoryPool<ComputePipelineVk> m_computePipelineMemoryPool;
-		DynamicObjectMemoryPool<CommandListPoolVk> m_commandListPoolMemoryPool;
-		DynamicObjectMemoryPool<ImageVk> m_imageMemoryPool;
-		DynamicObjectMemoryPool<BufferVk> m_bufferMemoryPool;
-		DynamicObjectMemoryPool<ImageViewVk> m_imageViewMemoryPool;
-		DynamicObjectMemoryPool<BufferViewVk> m_bufferViewMemoryPool;
-		DynamicObjectMemoryPool<SamplerVk> m_samplerMemoryPool;
-		DynamicObjectMemoryPool<SemaphoreVk> m_semaphoreMemoryPool;
-		DynamicObjectMemoryPool<QueryPoolVk> m_queryPoolMemoryPool;
-		DynamicObjectMemoryPool<DescriptorSetPoolVk> m_descriptorSetPoolMemoryPool;
-		DynamicObjectMemoryPool<DescriptorSetLayoutVk> m_descriptorSetLayoutMemoryPool;
-		bool m_debugLayers;
+		VkInstance m_instance = VK_NULL_HANDLE;
+		VkDevice m_device = VK_NULL_HANDLE;
+		VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+		VkPhysicalDeviceFeatures m_features = {};
+		VkPhysicalDeviceFeatures m_enabledFeatures = {};
+		VkPhysicalDeviceProperties m_properties = {};
+		VkPhysicalDeviceSubgroupProperties m_subgroupProperties = {};
+		QueueVk m_graphicsQueue = {};
+		QueueVk m_computeQueue = {};
+		QueueVk m_transferQueue = {};
+		VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+		VkDebugUtilsMessengerEXT m_debugUtilsMessenger = VK_NULL_HANDLE;
+		RenderPassCacheVk *m_renderPassCache = nullptr;
+		FramebufferCacheVk *m_framebufferCache = nullptr;
+		MemoryAllocatorVk *m_gpuMemoryAllocator = nullptr;
+		SwapChainVk *m_swapChain = nullptr;
+		DynamicPoolAllocator m_graphicsPipelineMemoryPool;
+		DynamicPoolAllocator m_computePipelineMemoryPool;
+		DynamicPoolAllocator m_commandListPoolMemoryPool;
+		DynamicPoolAllocator m_imageMemoryPool;
+		DynamicPoolAllocator m_bufferMemoryPool;
+		DynamicPoolAllocator m_imageViewMemoryPool;
+		DynamicPoolAllocator m_bufferViewMemoryPool;
+		DynamicPoolAllocator m_samplerMemoryPool;
+		DynamicPoolAllocator m_semaphoreMemoryPool;
+		DynamicPoolAllocator m_queryPoolMemoryPool;
+		DynamicPoolAllocator m_descriptorSetPoolMemoryPool;
+		DynamicPoolAllocator m_descriptorSetLayoutMemoryPool;
+		bool m_debugLayers = false;
 		void *m_profilingContext = nullptr;
 	};
 }

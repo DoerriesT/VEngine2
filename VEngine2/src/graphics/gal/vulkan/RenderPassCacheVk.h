@@ -1,6 +1,6 @@
 #pragma once
 #include "volk.h"
-#include <unordered_map>
+#include <EASTL/hash_map.h>
 #include "RenderPassDescriptionVk.h"
 
 namespace gal
@@ -20,7 +20,7 @@ namespace gal
 		~RenderPassCacheVk();
 		VkRenderPass getRenderPass(const RenderPassDescriptionVk &renderPassDescription);
 	private:
-		std::unordered_map<RenderPassDescriptionVk, VkRenderPass, RenderPassDescriptionHashVk> m_renderPasses;
+		eastl::hash_map<RenderPassDescriptionVk, VkRenderPass, RenderPassDescriptionHashVk> m_renderPasses;
 		VkDevice m_device;
 	};
 }
