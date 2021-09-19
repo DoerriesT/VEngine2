@@ -6,7 +6,8 @@
 #include "AssetBrowserWindow.h"
 #include <graphics/imgui/imgui.h>
 #include <graphics/imgui/imgui_internal.h>
-#include <unordered_map>
+#include <EASTL/string_hash_map.h>
+#include <EASTL/hash_map.h>
 #include <graphics/Renderer.h>
 #include <Engine.h>
 #include <UUID.h>
@@ -33,9 +34,9 @@ static void *thumbnailCallback(const FileFindData &ffd, void *userData)
 #ifdef WIN32
 
 	// maps from path to texture ID
-	static std::unordered_map<std::string, ImTextureID> iconMap;
+	static eastl::string_hash_map<ImTextureID> iconMap;
 	// maps from icon hash to texture ID
-	static std::unordered_map<size_t, ImTextureID> hasedIconMap;
+	static eastl::hash_map<size_t, ImTextureID> hasedIconMap;
 
 	char resolvedPath[IFileSystem::k_maxPathLength];
 	VirtualFileSystem::get().resolve(path, resolvedPath);
