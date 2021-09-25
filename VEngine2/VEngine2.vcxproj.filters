@@ -776,6 +776,9 @@
     <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp">
       <Filter>src\utility\allocator</Filter>
     </ClCompile>
+    <ClCompile Include="src\profiling\TracyClient.cpp">
+      <Filter>src\profiling</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\libs\EASTL.natvis" />

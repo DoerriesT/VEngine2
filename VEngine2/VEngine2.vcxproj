@@ -443,6 +443,7 @@
     <ClCompile Include="src\input\UserInput.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\physics\Physics.cpp" />
+    <ClCompile Include="src\profiling\TracyClient.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp" />
