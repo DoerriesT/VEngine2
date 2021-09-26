@@ -643,7 +643,7 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 			animClips[j].m_skeletonIndex = i;
 		}
 
-		loadSkeletonNodesRecursive(gltfModel, i, skeletonRoot, rootTransform, -1, perNodeData, jointMaps[i], animClips, resultModel);
+		loadSkeletonNodesRecursive(gltfModel, (int)i, skeletonRoot, rootTransform, -1, perNodeData, jointMaps[i], animClips, resultModel);
 
 		if (importAnimations)
 		{
