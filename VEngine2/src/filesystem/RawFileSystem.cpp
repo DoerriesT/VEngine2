@@ -5,10 +5,15 @@
 #include <assert.h>
 #include <string.h>
 #include <Windows.h>
+#include <EASTL/string_hash_map.h>
+#include <EASTL/hash_map.h>
 #include "Log.h"
 #include "Path.h"
 #include "utility/WideNarrowStringConversion.h"
 #include "utility/Memory.h"
+#include "utility/Utility.h"
+#include "graphics/Renderer.h"
+#include <ShObjIdl_core.h>
 
 namespace
 {
@@ -841,6 +846,115 @@ void RawFileSystem::closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle
 	LOCK_HOLDER(m_fileSystemWatchersSpinLock);
 	m_fileSystemWatcherHandleManager.free(watcherHandle);
 
+}
+
+TextureHandle RawFileSystem::getIcon(const char *path, Renderer *renderer, uint32_t *preferredWidth, uint32_t *preferredHeight) noexcept
+{
+	// maps from path to texture ID
+	static eastl::string_hash_map<TextureHandle> iconMap;
+	// maps from icon hash to texture ID
+	static eastl::hash_map<size_t, TextureHandle> hasedIconMap;
+
+	{
+		LOCK_HOLDER(m_iconCacheSpinLock);
+
+		auto it = iconMap.find(path);
+		if (it != iconMap.end())
+		{
+			return it->second;
+		}
+	}
+	
+
+	TextureHandle resultTexID = {};
+
+	const size_t pathLen = strlen(path);
+	wchar_t *pathW = ALLOC_A_T(wchar_t, pathLen + 1);
+	if (!widen(path, pathLen + 1, pathW))
+	{
+		Log::err("RawFileSystem::getIcon(): Failed to widen() path!");
+		return NULL_TEXTURE_HANDLE;
+	}
+
+	for (size_t i = 0; pathW[i] != L'\0'; ++i)
+	{
+		if (pathW[i] == L'/')
+		{
+			pathW[i] = L'\\';
+		}
+	}
+
+	// create IShellItemImageFactory from path
+	IShellItemImageFactory *imageFactory = nullptr;
+	auto hr = SHCreateItemFromParsingName(pathW, nullptr, __uuidof(IShellItemImageFactory), (void **)&imageFactory);
+
+	if (SUCCEEDED(hr))
+	{
+		SIZE size = { (LONG)*preferredWidth, (LONG)*preferredHeight };
+
+		//sz - Size of the image, SIIGBF_BIGGERSIZEOK - GetImage will stretch down the bitmap (preserving aspect ratio)
+		HBITMAP hbmp;
+		hr = imageFactory->GetImage(size, SIIGBF_RESIZETOFIT, &hbmp);
+		if (SUCCEEDED(hr))
+		{
+			// query info about bitmap
+			DIBSECTION ds;
+			GetObjectW(hbmp, sizeof(ds), &ds);
+			int byteSize = ds.dsBm.bmWidth * ds.dsBm.bmHeight * (ds.dsBm.bmBitsPixel / 8);
+
+			if (byteSize != 0)
+			{
+				// allocate memory and copy bitmap data to it
+				uint8_t *data = new uint8_t[byteSize];
+				GetBitmapBits(hbmp, byteSize, data);
+
+				*preferredWidth = (uint32_t)ds.dsBm.bmWidth;
+				*preferredWidth = (uint32_t)ds.dsBm.bmHeight;
+
+				size_t hash = 0;
+
+				// convert from BGRA to RGBA
+				for (size_t i = 0; i < byteSize; i += 4)
+				{
+					auto tmp = data[i];
+					data[i] = data[i + 2];
+					data[i + 2] = tmp;
+
+					util::hashCombine(hash, *(uint32_t *)(data + i));
+				}
+
+				{
+					LOCK_HOLDER(m_iconCacheSpinLock);
+
+					// found an identical image in our cache
+					auto hashIt = hasedIconMap.find(hash);
+					if (hashIt != hasedIconMap.end())
+					{
+						iconMap[path] = hashIt->second;
+						resultTexID = hashIt->second;
+					}
+					else
+					{
+						// create texture and store in maps
+						resultTexID = renderer->loadRawRGBA8(byteSize, (char *)data, path, ds.dsBm.bmWidth, ds.dsBm.bmHeight);
+						iconMap[path] = resultTexID;
+						hasedIconMap[hash] = resultTexID;
+					}
+				}
+				
+
+				// dont forget to free our allocation!
+				delete[] data;
+			}
+
+
+			DeleteObject(hbmp);
+		}
+
+		imageFactory->Release();
+	}
+
+	return resultTexID;
 }
 
 RawFileSystem::RawFileSystem() noexcept

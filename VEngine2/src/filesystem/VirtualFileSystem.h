@@ -38,6 +38,8 @@ public:
 	FileSystemWatcherHandle openFileSystemWatcher(const char *path, FileSystemWatcherCallback callback, void *userData) noexcept override;
 	void closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle) noexcept override;
 
+	TextureHandle getIcon(const char *path, Renderer *renderer, uint32_t *preferredWidth, uint32_t *preferredHeight) noexcept override;
+
 private:
 	eastl::string_map<eastl::vector<eastl::string8>> m_mountPoints;
 

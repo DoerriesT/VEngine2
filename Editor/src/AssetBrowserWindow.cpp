@@ -1,13 +1,6 @@
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
 #include "AssetBrowserWindow.h"
 #include <graphics/imgui/imgui.h>
 #include <graphics/imgui/imgui_internal.h>
-#include <EASTL/string_hash_map.h>
-#include <EASTL/hash_map.h>
 #include <graphics/Renderer.h>
 #include <Engine.h>
 #include <UUID.h>
@@ -19,117 +12,15 @@
 #include <asset/Asset.h>
 #include <asset/AssetMetaDataRegistry.h>
 
-
-#ifdef WIN32
-#include <ShObjIdl_core.h>
-#endif
-
 static std::future<void> s_future;
 
 static void *thumbnailCallback(const FileFindData &ffd, void *userData)
 {
 	Engine *engine = (Engine *)userData;
-	const char *path = ffd.m_path;
-
-#ifdef WIN32
-
-	// maps from path to texture ID
-	static eastl::string_hash_map<ImTextureID> iconMap;
-	// maps from icon hash to texture ID
-	static eastl::hash_map<size_t, ImTextureID> hasedIconMap;
-
-	char resolvedPath[IFileSystem::k_maxPathLength];
-	VirtualFileSystem::get().resolve(path, resolvedPath);
-
-	auto it = iconMap.find(resolvedPath);
-	if (it != iconMap.end())
-	{
-		return it->second;
-	}
-
-	ImTextureID resultTexID = {};
-
-	// create IShellItemImageFactory from path
-	IShellItemImageFactory *imageFactory = nullptr;
-	std::wstring shellPath;
-	for (size_t i = 0; resolvedPath[i]; ++i)
-	{
-		if (resolvedPath[i] == '/')
-		{
-			shellPath.push_back('\\');
-		}
-		else
-		{
-			shellPath.push_back(resolvedPath[i]);
-		}
-	}
-
-	auto hr = SHCreateItemFromParsingName(shellPath.c_str(), nullptr, __uuidof(IShellItemImageFactory), (void **)&imageFactory);
-
-	if (SUCCEEDED(hr))
-	{
-		SIZE size = { 128, 128 };
-
-		//sz - Size of the image, SIIGBF_BIGGERSIZEOK - GetImage will stretch down the bitmap (preserving aspect ratio)
-		HBITMAP hbmp;
-		hr = imageFactory->GetImage(size, SIIGBF_RESIZETOFIT, &hbmp);
-		if (SUCCEEDED(hr))
-		{
-			// query info about bitmap
-			DIBSECTION ds;
-			GetObject(hbmp, sizeof(ds), &ds);
-			int byteSize = ds.dsBm.bmWidth * ds.dsBm.bmHeight * (ds.dsBm.bmBitsPixel / 8);
-
-			if (byteSize != 0)
-			{
-				// allocate memory and copy bitmap data to it
-				uint8_t *data = (uint8_t *)malloc(byteSize);
-				GetBitmapBits(hbmp, byteSize, data);
-
-				size_t hash = 0;
-
-				// convert from BGRA to RGBA
-				for (size_t i = 0; i < byteSize; i += 4)
-				{
-					auto tmp = data[i];
-					data[i] = data[i + 2];
-					data[i + 2] = tmp;
-
-					util::hashCombine(hash, *(uint32_t *)(data + i));
-				}
-
-				// found an identical image in our cache
-				auto hashIt = hasedIconMap.find(hash);
-				if (hashIt != hasedIconMap.end())
-				{
-					iconMap[resolvedPath] = hashIt->second;
-					resultTexID = hashIt->second;
-				}
-				else
-				{
-					// create texture and store in maps
-					auto textureHandle = engine->getRenderer()->loadRawRGBA8(byteSize, (char *)data, path, ds.dsBm.bmWidth, ds.dsBm.bmHeight);
-					resultTexID = engine->getRenderer()->getImGuiTextureID(textureHandle);
-					iconMap[resolvedPath] = resultTexID;
-					hasedIconMap[hash] = resultTexID;
-				}
-
-				// dont forget to free our allocation!
-				free(data);
-			}
-
-
-			DeleteObject(hbmp);
-		}
-
-		imageFactory->Release();
-	}
-
-	return resultTexID;
-
-#else // WIN32
-	static_assert(false);
-#endif
+	auto *renderer = engine->getRenderer();
+	uint32_t w = 128;
+	uint32_t h = 128;
+	return renderer->getImGuiTextureID(VirtualFileSystem::get().getIcon(ffd.m_path, engine->getRenderer(), &w, &h));
 }
 
 static bool fileFilterCallback(const FileFindData &ffd, void *userData)

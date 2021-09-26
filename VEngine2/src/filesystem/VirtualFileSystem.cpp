@@ -313,3 +313,11 @@ void VirtualFileSystem::closeFileSystemWatcher(FileSystemWatcherHandle watcherHa
 	RawFileSystem::get().closeFileSystemWatcher(data->m_rawHandle);
 	delete data;
 }
+
+TextureHandle VirtualFileSystem::getIcon(const char *path, Renderer *renderer, uint32_t *preferredWidth, uint32_t *preferredHeight) noexcept
+{
+	char resolvedPath[k_maxPathLength] = {};
+	resolve(path, resolvedPath);
+
+	return RawFileSystem::get().getIcon(resolvedPath, renderer, preferredWidth, preferredHeight);
+}

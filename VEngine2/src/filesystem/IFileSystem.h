@@ -1,11 +1,13 @@
 #pragma once
 #include <stdint.h>
+#include "Handles.h"
 
 enum FileHandle : size_t { NULL_FILE_HANDLE };
 enum FileFindHandle : size_t { NULL_FILE_FIND_HANDLE };
 enum FileSystemWatcherHandle : size_t { NULL_FILE_SYSTEM_WATCHER_HANDLE };
 
 struct FileFindData;
+class Renderer;
 
 enum class FileMode
 {
@@ -117,6 +119,8 @@ public:
 
 	virtual FileSystemWatcherHandle openFileSystemWatcher(const char *path, FileSystemWatcherCallback callback, void *userData) noexcept = 0;
 	virtual void closeFileSystemWatcher(FileSystemWatcherHandle watcherHandle) noexcept = 0;
+
+	virtual TextureHandle getIcon(const char *path, Renderer *renderer, uint32_t *preferredWidth, uint32_t *preferredHeight) noexcept = 0;
 
 	template<typename T>
 	void iterate(const char *dirPath, T &&func) noexcept
