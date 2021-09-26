@@ -1,7 +1,6 @@
 #pragma once
 #include <EASTL/vector.h>
 #include <EASTL/bitset.h>
-#include <EASTL/functional.h>
 #include <EASTL/hash_map.h>
 #include <assert.h>
 #include "utility/ErasedType.h"
@@ -28,12 +27,6 @@ private:
 class ECS
 {
 public:
-	template<typename T>
-	struct Identity
-	{
-		using type = T;
-	};
-
 	/// <summary>
 	///  Registers a component with the ECS. Must be called on a component type before it can be used in any way.
 	/// </summary>
@@ -287,11 +280,18 @@ public:
 
 	/// <summary>
 	/// Invokes the given function on all entity/component arrays that contain the requested components.
+	/// The function must have the following signature:
+	/// 
+	/// void func(size_t entityCount, const EntityID *entities, (const T *components)... )
+	/// 
+	/// where (const T *components)... is the unpacked template varargs list of components to fetch.
+	/// 
 	/// </summary>
 	/// <typeparam name="...T">The components to iterate over.</typeparam>
-	/// <param name="func">The function to invoke for each set of matching entity/component arrays.</param>
-	template<typename ...T>
-	inline void iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func);
+	/// <typeparam name="F">The type of the function/callable object to invoke for each set of matching entity/component arrays.</typeparam>
+	/// <param name="func">The function/callable object to invoke for each set of matching entity/component arrays.</param>
+	template<typename ...T, typename F>
+	inline void iterate(F &&func);
 
 	/// <summary>
 	/// Gets a singleton component.

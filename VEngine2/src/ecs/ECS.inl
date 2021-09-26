@@ -264,8 +264,8 @@ inline bool ECS::hasComponents(EntityID entity) const noexcept
 	return record.m_archetype && (... && (record.m_archetype->getComponentMask()[ComponentIDGenerator::getID<T>()]));
 }
 
-template<typename ...T>
-inline void ECS::iterate(const typename Identity<eastl::function<void(size_t, const EntityID *, T*...)>>::type &func)
+template<typename ...T, typename F>
+inline void ECS::iterate(F &&func)
 {
 	assert(isRegisteredComponent<T...>());
 	assert(isNotSingletonComponent<T...>());
