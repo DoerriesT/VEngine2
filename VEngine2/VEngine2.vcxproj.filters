@@ -381,9 +381,6 @@
     <ClInclude Include="src\asset\AnimationClipAsset.h">
       <Filter>src\asset</Filter>
     </ClInclude>
-    <ClInclude Include="src\animation\AnimationGraph.h">
-      <Filter>src\animation</Filter>
-    </ClInclude>
     <ClInclude Include="src\animation\JointPose.h">
       <Filter>src\animation</Filter>
     </ClInclude>
@@ -461,6 +458,9 @@
     </ClInclude>
     <ClInclude Include="src\utility\Memory.h">
       <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\AnimationGraph.h">
+      <Filter>src\animation</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -778,6 +778,9 @@
     </ClCompile>
     <ClCompile Include="src\profiling\TracyClient.cpp">
       <Filter>src\profiling</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\AnimationGraph.cpp">
+      <Filter>src\animation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

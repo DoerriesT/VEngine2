@@ -217,7 +217,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\CustomAnimGraph.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -227,9 +226,6 @@
     <ProjectReference Include="..\VEngine2\VEngine2.vcxproj">
       <Project>{d205e9bb-48ee-4f3e-8cda-beefafcd8baf}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\CustomAnimGraph.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

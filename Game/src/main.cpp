@@ -26,12 +26,66 @@
 #include <graphics/Camera.h>
 #include <Level.h>
 #include <physics/Physics.h>
-#include "CustomAnimGraph.h"
+#include <animation/AnimationGraph.h>
 #include <filesystem/VirtualFileSystem.h>
 #include "Log.h"
 #include <iostream>
 #include <filesystem/Path.h>
 #include <profiling/Profiling.h>
+
+static AnimationGraph *setupAnimationGraph()
+{
+	Asset<AnimationClipAssetData> animClips[]
+	{
+		AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/idle.anim")),
+		AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk0.anim")),
+		AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/run.anim"))
+	};
+
+	AnimationGraphParameter params[2];
+	params[0].m_type = AnimationGraphParameter::Type::BOOL;
+	params[0].m_data.b = true;
+	params[0].m_name = SID("loop");
+	params[1].m_type = AnimationGraphParameter::Type::FLOAT;
+	params[1].m_data.f = 0.0f;
+	params[1].m_name = SID("speed");
+
+	AnimationGraphNode nodes[4];
+
+	// 1D array lerp node
+	nodes[0].m_nodeType = AnimationGraphNodeType::LERP_1D_ARRAY;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[0] = 1;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[1] = 2;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[2] = 3;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[0] = 0.0f;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[1] = 2.0f;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[2] = 6.0f;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputCount = 3;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_alpha = 1;
+
+	// idle clip node
+	nodes[1].m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
+	nodes[1].m_nodeData.m_clipNodeData.m_animClip = 0;
+	nodes[1].m_nodeData.m_clipNodeData.m_loop = 0;
+
+	// walk clip node
+	nodes[2].m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
+	nodes[2].m_nodeData.m_clipNodeData.m_animClip = 1;
+	nodes[2].m_nodeData.m_clipNodeData.m_loop = 0;
+
+	// run clip node
+	nodes[3].m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
+	nodes[3].m_nodeData.m_clipNodeData.m_animClip = 2;
+	nodes[3].m_nodeData.m_clipNodeData.m_loop = 0;
+
+	auto animLogic = [](AnimationGraph *graph, ECS *ecs, EntityID entity, float deltaTime)
+	{
+		const auto &mc = ecs->getComponent<CharacterMovementComponent>(entity);
+		graph->setFloatParam(SID("speed"), glm::length(glm::vec2(mc->m_velocityX, mc->m_velocityZ)));
+	};
+
+	return new AnimationGraph(4, nodes, 2, params, 3, animClips, animLogic);
+}
 
 class DummyGameLogic : public IGameLogic
 {
@@ -66,7 +120,7 @@ public:
 			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character.mesh"));
 			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
 
-			m_customAnimGraph = new CustomAnimGraph();
+			m_customAnimGraph = setupAnimationGraph();
 
 			TransformComponent transC{};
 			transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
@@ -214,14 +268,14 @@ public:
 		//glm::vec3 rootMotion = glm::vec3(0.0f, 0.0f, 1.0f) * 0.01f * m_customAnimGraph->getRootMotionSpeed();
 		//manTc->m_translation += rootMotion;
 
-		ImGui::Begin("Custom Animation Graph Controls");
-
-		ImGui::SliderFloat("Phase", &m_customAnimGraph->m_phase, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::SliderFloat("Speed", &m_customAnimGraph->m_speed, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		ImGui::Checkbox("Active", &m_customAnimGraph->m_active);
-		ImGui::Checkbox("Paused", &m_customAnimGraph->m_paused);
-
-		ImGui::End();
+		//ImGui::Begin("Custom Animation Graph Controls");
+		//
+		//ImGui::SliderFloat("Phase", &m_customAnimGraph->m_phase, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		//ImGui::SliderFloat("Speed", &m_customAnimGraph->m_speed, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		//ImGui::Checkbox("Active", &m_customAnimGraph->m_active);
+		//ImGui::Checkbox("Paused", &m_customAnimGraph->m_paused);
+		//
+		//ImGui::End();
 	}
 
 	void shutdown() noexcept override
@@ -257,7 +311,7 @@ private:
 	EntityID m_manEntity;
 	EntityID m_playerEntity;
 	PhysicsMaterialHandle m_physicsMaterial = {};
-	CustomAnimGraph *m_customAnimGraph = {};
+	AnimationGraph *m_customAnimGraph = {};
 	bool m_playing = true;
 
 	void createPhysicsObject(const glm::vec3 &pos, const glm::vec3 &vel, PhysicsMobility mobility)

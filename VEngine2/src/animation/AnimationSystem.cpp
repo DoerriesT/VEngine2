@@ -31,7 +31,6 @@ void AnimationSystem::update(float deltaTime) noexcept
 				auto &smc = skinnedMeshC[i];
 
 				// compute matrix palette for this frame
-				if (smc.m_animationGraph->isActive())
 				{
 					const Skeleton *skel = smc.m_skeleton->getSkeleton();
 					size_t jointCount = skel->getJointCount();
@@ -44,14 +43,13 @@ void AnimationSystem::update(float deltaTime) noexcept
 						smc.m_matrixPalette.resize(jointCount);
 					}
 
-					smc.m_animationGraph->preExecute(m_ecs, entities[i], deltaTime);
+					smc.m_animationGraph->preEvaluate(m_ecs, entities[i], deltaTime);
 
 					// compute local poses (can be done in parallel)
 					eastl::vector<glm::mat4> localPoses(jointCount);
 					for (size_t i = 0; i < jointCount; ++i)
 					{
-						JointPose pose;
-						smc.m_animationGraph->execute(m_ecs, entities[i], i, deltaTime, &pose);
+						JointPose pose = smc.m_animationGraph->evaluate(i);
 
 						glm::mat4 localPose =
 							glm::translate(glm::make_vec3(pose.m_trans))
@@ -61,7 +59,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 						localPoses[i] = localPose;
 					}
 
-					smc.m_animationGraph->postExecute(m_ecs, entities[i], deltaTime);
+					smc.m_animationGraph->updatePhase(deltaTime);
 
 					// compute global poses and matrix palette (cant be done in parallel)
 					eastl::vector<glm::mat4> globalPoses(jointCount);
