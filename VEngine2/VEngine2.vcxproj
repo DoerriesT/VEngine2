@@ -299,6 +299,8 @@
     <ClInclude Include="src\graphics\imgui\imgui.h" />
     <ClInclude Include="src\graphics\imgui\imgui_file_browser.h" />
     <ClInclude Include="src\graphics\imgui\imgui_internal.h" />
+    <ClInclude Include="src\graphics\imgui\imnodes.h" />
+    <ClInclude Include="src\graphics\imgui\imnodes_internal.h" />
     <ClInclude Include="src\graphics\imgui\imstb_rectpack.h" />
     <ClInclude Include="src\graphics\imgui\imstb_textedit.h" />
     <ClInclude Include="src\graphics\imgui\imstb_truetype.h" />
@@ -425,6 +427,7 @@
     <ClCompile Include="src\graphics\imgui\imgui_file_browser.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_tables.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\graphics\imgui\imnodes.cpp" />
     <ClCompile Include="src\graphics\MaterialManager.cpp" />
     <ClCompile Include="src\graphics\MeshManager.cpp" />
     <ClCompile Include="src\graphics\pass\GridPass.cpp" />

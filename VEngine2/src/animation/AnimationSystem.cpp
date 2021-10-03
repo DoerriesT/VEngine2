@@ -43,6 +43,16 @@ void AnimationSystem::update(float deltaTime) noexcept
 						smc.m_matrixPalette.resize(jointCount);
 					}
 
+					// early out if the graph is invalid
+					if (!smc.m_animationGraph->isValid())
+					{
+						for (size_t j = 0; j < jointCount; ++j)
+						{
+							smc.m_matrixPalette[j] = glm::identity<glm::mat4>();
+						}
+						continue;
+					}
+
 					smc.m_animationGraph->preEvaluate(m_ecs, entities[i], deltaTime);
 
 					// compute local poses (can be done in parallel)

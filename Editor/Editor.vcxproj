@@ -214,6 +214,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\AnimationGraphWindow.h" />
     <ClInclude Include="src\AssetBrowserWindow.h" />
     <ClInclude Include="src\Editor.h" />
     <ClInclude Include="src\importer\AnimationClipImporter.h" />
@@ -230,6 +231,7 @@
     <ClInclude Include="src\ViewportWindow.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AnimationGraphWindow.cpp" />
     <ClCompile Include="src\AssetBrowserWindow.cpp" />
     <ClCompile Include="src\Editor.cpp" />
     <ClCompile Include="src\importer\AnimationClipImporter.cpp" />

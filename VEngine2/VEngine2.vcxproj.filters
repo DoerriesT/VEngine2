@@ -462,6 +462,12 @@
     <ClInclude Include="src\animation\AnimationGraph.h">
       <Filter>src\animation</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imnodes.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\imgui\imnodes_internal.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -781,6 +787,9 @@
     </ClCompile>
     <ClCompile Include="src\animation\AnimationGraph.cpp">
       <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\imnodes.cpp">
+      <Filter>src\graphics\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

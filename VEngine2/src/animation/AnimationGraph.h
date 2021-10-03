@@ -113,6 +113,7 @@ class AnimationGraph
 public:
 	explicit AnimationGraph() = default;
 	explicit AnimationGraph(
+		size_t rootNodeIndex,
 		size_t nodeCount, 
 		const AnimationGraphNode *nodes, 
 		size_t parameterCount, 
@@ -139,8 +140,14 @@ public:
 	const AnimationGraphNode *getNodes() const noexcept;
 	size_t getParameterCount() const noexcept;
 	const AnimationGraphParameter *getParameters() const noexcept;
+	size_t getAnimationClipAssetCount() const noexcept;
+	const Asset<AnimationClipAssetData> *getAnimationClipAssets() const noexcept;
+	AnimationGraphLogicCallback getLogicCallback() const noexcept;
+	size_t getRootNodeIndex() const noexcept;
+	bool isValid() const noexcept;
 
 private:
+	size_t m_rootNodeIndex = -1;
 	AnimationGraphNode *m_nodes = nullptr;
 	size_t m_nodeCount = 0;
 	AnimationGraphParameter *m_parameters = nullptr;
@@ -149,6 +156,7 @@ private:
 	size_t m_animationClipCount;
 	AnimationGraphLogicCallback m_logicCallback;
 	float m_phase = 0.0f;
+	bool m_isValid = false;
 
 	JointPose evaluate(size_t jointIdx, const AnimationGraphNode &node) const noexcept;
 	float evaluateDuration(const AnimationGraphNode &node) const noexcept;
@@ -157,4 +165,5 @@ private:
 	float getFloatParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
 	int32_t getIntParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
 	bool getBoolParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
+	bool validate(AnimationGraphNodeData::NodeIndex idx) const noexcept;
 };

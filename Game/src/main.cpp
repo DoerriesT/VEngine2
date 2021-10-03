@@ -50,7 +50,7 @@ static AnimationGraph *setupAnimationGraph()
 	params[1].m_data.f = 0.0f;
 	params[1].m_name = SID("speed");
 
-	AnimationGraphNode nodes[4];
+	AnimationGraphNode nodes[4] = {};
 
 	// 1D array lerp node
 	nodes[0].m_nodeType = AnimationGraphNodeType::LERP_1D_ARRAY;
@@ -84,7 +84,7 @@ static AnimationGraph *setupAnimationGraph()
 		graph->setFloatParam(SID("speed"), glm::length(glm::vec2(mc->m_velocityX, mc->m_velocityZ)));
 	};
 
-	return new AnimationGraph(4, nodes, 2, params, 3, animClips, animLogic);
+	return new AnimationGraph(0, eastl::size(nodes), nodes, eastl::size(params), params, eastl::size(animClips), animClips, animLogic);
 }
 
 class DummyGameLogic : public IGameLogic

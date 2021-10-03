@@ -6,8 +6,10 @@
 #include "InspectorWindow.h"
 #include "AssetBrowserWindow.h"
 #include "SceneGraphWindow.h"
+#include "AnimationGraphWindow.h"
 #include <component/CameraComponent.h>
 #include <component/TransformComponent.h>
+#include <component/SkinnedMeshComponent.h>
 #include <asset/AssetMetaDataRegistry.h>
 #include <profiling/Profiling.h>
 
@@ -33,6 +35,7 @@ void Editor::init(Engine *engine) noexcept
 	m_inspectorWindow = new InspectorWindow(engine);
 	m_assetBrowserWindow = new AssetBrowserWindow(engine);
 	m_sceneGraphWindow = new SceneGraphWindow(engine);
+	m_animationGraphWindow = new AnimationGraphWindow(engine);
 
 	m_gameLogic->init(engine);
 	m_gameIsPlaying = false;
@@ -127,6 +130,18 @@ void Editor::update(float deltaTime) noexcept
 	m_inspectorWindow->draw(m_sceneGraphWindow->getSelectedEntity());
 	m_viewportWindow->draw(deltaTime, m_gameIsPlaying);
 	m_assetBrowserWindow->draw();
+
+	AnimationGraph *animGraph = nullptr;
+
+	m_engine->getECS()->iterate<SkinnedMeshComponent>([&animGraph](size_t count, const EntityID *entities, SkinnedMeshComponent *skinnedMeshC)
+		{
+			if (count > 0)
+			{
+				animGraph = skinnedMeshC->m_animationGraph;
+			}
+		});
+
+	m_animationGraphWindow->draw(animGraph);
 	
 
 	m_gameLogic->update(deltaTime);
@@ -145,6 +160,7 @@ void Editor::shutdown() noexcept
 	delete m_inspectorWindow;
 	delete m_assetBrowserWindow;
 	delete m_sceneGraphWindow;
+	delete m_animationGraphWindow;
 
 	AssetMetaDataRegistry::get()->shutdown();
 }

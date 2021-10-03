@@ -6,6 +6,7 @@
 #include "input/UserInput.h"
 #include "utility/Timer.h"
 #include "graphics/imgui/imgui.h"
+#include "graphics/imgui/imnodes.h"
 #include "input/ImGuiInputAdapter.h"
 #include "asset/AssetManager.h"
 #include "utility/Utility.h"
@@ -72,6 +73,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	{
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
+		ImNodes::CreateContext();
 		ImGuiIO &io = ImGui::GetIO(); (void)io;
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
@@ -151,6 +153,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			m_userInput->input();
 			imguiInputAdapter.update();
 			ImGui::NewFrame();
+			bool imnodesLinkDetachModifierDown = m_userInput->isKeyPressed(InputKey::LEFT_ALT);
+			ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &imnodesLinkDetachModifierDown;
 
 
 			ImGui::ShowDemoWindow();
@@ -175,6 +179,9 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	AssetHandlerRegistration::unregisterHandlers();
 	AssetManager::shutdown();
+
+	ImNodes::DestroyContext();
+	ImGui::DestroyContext();
 
 	m_userInput = nullptr;
 	m_animationSystem = nullptr;

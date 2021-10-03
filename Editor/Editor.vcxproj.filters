@@ -57,6 +57,9 @@
     <ClInclude Include="src\importer\mikktspace.h">
       <Filter>src\importer</Filter>
     </ClInclude>
+    <ClInclude Include="src\AnimationGraphWindow.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Editor.cpp">
@@ -139,6 +142,9 @@
     </ClCompile>
     <ClCompile Include="src\importer\mikktspace.c">
       <Filter>src\importer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AnimationGraphWindow.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

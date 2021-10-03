@@ -3,6 +3,7 @@
 #include <ecs/ECS.h>
 
 AnimationGraph::AnimationGraph(
+	size_t rootNodeIndex,
 	size_t nodeCount, 
 	const AnimationGraphNode *nodes, 
 	size_t parameterCount, 
@@ -11,7 +12,8 @@ AnimationGraph::AnimationGraph(
 	const Asset<AnimationClipAssetData> *animationClips,
 	AnimationGraphLogicCallback logicCallback
 ) noexcept
-	:m_nodeCount(nodeCount),
+	:m_rootNodeIndex(rootNodeIndex),
+	m_nodeCount(nodeCount),
 	m_parameterCount(parameterCount),
 	m_animationClipCount(animationClipCount),
 	m_logicCallback(logicCallback)
@@ -27,10 +29,13 @@ AnimationGraph::AnimationGraph(
 	{
 		m_animationClipAssets[i] = animationClips[i];
 	}
+
+	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 }
 
 AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
-	:m_nodeCount(other.m_nodeCount),
+	:m_rootNodeIndex(other.m_rootNodeIndex),
+	m_nodeCount(other.m_nodeCount),
 	m_parameterCount(other.m_parameterCount),
 	m_animationClipCount(other.m_animationClipCount),
 	m_logicCallback(other.m_logicCallback)
@@ -46,10 +51,13 @@ AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
 	{
 		m_animationClipAssets[i] = other.m_animationClipAssets[i];
 	}
+
+	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 }
 
 AnimationGraph::AnimationGraph(AnimationGraph &&other) noexcept
-	:m_nodeCount(other.m_nodeCount),
+	:m_rootNodeIndex(other.m_rootNodeIndex),
+	m_nodeCount(other.m_nodeCount),
 	m_parameterCount(other.m_parameterCount),
 	m_animationClipCount(other.m_animationClipCount),
 	m_logicCallback(other.m_logicCallback)
@@ -62,6 +70,8 @@ AnimationGraph::AnimationGraph(AnimationGraph &&other) noexcept
 
 	m_animationClipAssets = other.m_animationClipAssets;
 	other.m_animationClipAssets = nullptr;
+
+	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 }
 
 AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
@@ -72,6 +82,7 @@ AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
 		delete[] m_parameters;
 		delete[] m_animationClipAssets;
 
+		m_rootNodeIndex = other.m_rootNodeIndex;
 		m_nodeCount = other.m_nodeCount;
 		m_parameterCount = other.m_parameterCount;
 		m_animationClipCount = other.m_animationClipCount;
@@ -88,6 +99,8 @@ AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
 		{
 			m_animationClipAssets[i] = other.m_animationClipAssets[i];
 		}
+
+		m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 	}
 
 	return *this;
@@ -99,7 +112,9 @@ AnimationGraph &AnimationGraph::operator=(AnimationGraph &&other) noexcept
 	{
 		delete[] m_nodes;
 		delete[] m_parameters;
+		delete[] m_animationClipAssets;
 
+		m_rootNodeIndex = other.m_rootNodeIndex;
 		m_nodeCount = other.m_nodeCount;
 		m_parameterCount = other.m_parameterCount;
 		m_animationClipCount = other.m_animationClipCount;
@@ -112,6 +127,8 @@ AnimationGraph &AnimationGraph::operator=(AnimationGraph &&other) noexcept
 		other.m_parameters = nullptr;
 		m_animationClipAssets = other.m_animationClipAssets;
 		other.m_animationClipAssets = nullptr;
+
+		m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 	}
 
 	return *this;
@@ -131,12 +148,12 @@ void AnimationGraph::preEvaluate(ECS *ecs, EntityID entity, float deltaTime) noe
 
 JointPose AnimationGraph::evaluate(size_t jointIdx) const noexcept
 {
-	return evaluate(jointIdx, m_nodes[0]);
+	return isValid() ? evaluate(jointIdx, m_nodes[m_rootNodeIndex]) : JointPose{};
 }
 
 void AnimationGraph::updatePhase(float deltaTime) noexcept
 {
-	const float duration = evaluateDuration(m_nodes[0]);
+	const float duration = evaluateDuration(m_nodes[m_rootNodeIndex]);
 	m_phase += deltaTime / duration;
 
 	if (m_phase > 1.0f || m_phase < 0.0f)
@@ -281,6 +298,31 @@ size_t AnimationGraph::getParameterCount() const noexcept
 const AnimationGraphParameter *AnimationGraph::getParameters() const noexcept
 {
 	return m_parameters;
+}
+
+size_t AnimationGraph::getAnimationClipAssetCount() const noexcept
+{
+	return m_animationClipCount;
+}
+
+const Asset<AnimationClipAssetData> *AnimationGraph::getAnimationClipAssets() const noexcept
+{
+	return m_animationClipAssets;
+}
+
+AnimationGraphLogicCallback AnimationGraph::getLogicCallback() const noexcept
+{
+	return m_logicCallback;
+}
+
+size_t AnimationGraph::getRootNodeIndex() const noexcept
+{
+	return m_rootNodeIndex;
+}
+
+bool AnimationGraph::isValid() const noexcept
+{
+	return m_rootNodeIndex != -1 && m_isValid;
 }
 
 JointPose AnimationGraph::evaluate(size_t jointIdx, const AnimationGraphNode &node) const noexcept
@@ -442,18 +484,77 @@ float AnimationGraph::lerpDuration(const AnimationGraphNode &x, const AnimationG
 
 float AnimationGraph::getFloatParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept
 {
+	if (idx == -1)
+	{
+		return 0.0f;
+	}
+	assert(idx < m_parameterCount);
 	assert(m_parameters[idx].m_type == AnimationGraphParameter::Type::FLOAT);
 	return m_parameters[idx].m_data.f;
 }
 
 int32_t AnimationGraph::getIntParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept
 {
+	if (idx == -1)
+	{
+		return 0;
+	}
+	assert(idx < m_parameterCount);
 	assert(m_parameters[idx].m_type == AnimationGraphParameter::Type::INT);
 	return m_parameters[idx].m_data.i;
 }
 
 bool AnimationGraph::getBoolParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept
 {
+	if (idx == -1)
+	{
+		return false;
+	}
+	assert(idx < m_parameterCount);
 	assert(m_parameters[idx].m_type == AnimationGraphParameter::Type::BOOL);
 	return m_parameters[idx].m_data.b;
+}
+
+bool AnimationGraph::validate(AnimationGraphNodeData::NodeIndex idx) const noexcept
+{
+	if (idx == -1)
+	{
+		return false;
+	}
+
+	const auto &node = m_nodes[idx];
+
+	switch (node.m_nodeType)
+	{
+	case AnimationGraphNodeType::ANIM_CLIP:
+	{
+		return node.m_nodeData.m_clipNodeData.m_animClip != -1 && m_animationClipAssets[node.m_nodeData.m_clipNodeData.m_animClip].get() != nullptr;
+	}
+	case AnimationGraphNodeType::LERP:
+	{
+		return validate(node.m_nodeData.m_lerpNodeData.m_inputA) && validate(node.m_nodeData.m_lerpNodeData.m_inputB);
+	}
+	case AnimationGraphNodeType::LERP_1D_ARRAY:
+	{
+		for (size_t i = 0; i < node.m_nodeData.m_lerp1DArrayNodeData.m_inputCount; ++i)
+		{
+			if (!validate(node.m_nodeData.m_lerp1DArrayNodeData.m_inputs[i]))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	case AnimationGraphNodeType::LERP_2D:
+	{
+		return validate(node.m_nodeData.m_lerp2DNodeData.m_inputTL) 
+			&& validate(node.m_nodeData.m_lerp2DNodeData.m_inputTR)
+			&& validate(node.m_nodeData.m_lerp2DNodeData.m_inputBL)
+			&& validate(node.m_nodeData.m_lerp2DNodeData.m_inputBR);
+	}
+	default:
+		assert(false);
+		break;
+	}
+	return false;
 }
