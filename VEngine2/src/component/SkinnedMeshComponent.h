@@ -7,6 +7,7 @@
 #include <glm/mat4x4.hpp>
 
 class AnimationGraph;
+struct lua_State;
 
 struct SkinnedMeshComponent
 {
@@ -16,6 +17,8 @@ struct SkinnedMeshComponent
 	eastl::vector<glm::mat4> m_matrixPalette;
 
 	static void onGUI(void *instance) noexcept;
+	static void toLua(lua_State *L, void *instance) noexcept;
+	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "SkinnedMeshComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Skinned Mesh Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

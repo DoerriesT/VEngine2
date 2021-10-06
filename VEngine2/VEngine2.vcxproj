@@ -173,7 +173,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>PX_PHYSX_STATIC_LIB;GLM_FORCE_DEPTH_ZERO_TO_ONE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>LUA_USE_APICHECK;PX_PHYSX_STATIC_LIB;GLM_FORCE_DEPTH_ZERO_TO_ONE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -222,6 +222,7 @@
   <ItemGroup>
     <ClInclude Include="src\animation\AnimationClip.h" />
     <ClInclude Include="src\animation\AnimationGraph.h" />
+    <ClInclude Include="src\animation\AnimationGraphLua.h" />
     <ClInclude Include="src\animation\AnimationSystem.h" />
     <ClInclude Include="src\animation\JointPose.h" />
     <ClInclude Include="src\animation\Skeleton.h" />
@@ -254,6 +255,7 @@
     <ClInclude Include="src\ecs\ECS.h" />
     <ClInclude Include="src\ecs\ECSCommon.h" />
     <ClInclude Include="src\ecs\ECSComponentInfoTable.h" />
+    <ClInclude Include="src\ecs\ECSLua.h" />
     <ClInclude Include="src\Engine.h" />
     <ClInclude Include="src\filesystem\IFileSystem.h" />
     <ClInclude Include="src\filesystem\Path.h" />
@@ -333,6 +335,35 @@
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\physics\Physics.h" />
     <ClInclude Include="src\profiling\Profiling.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lapi.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lauxlib.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lcode.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lctype.h" />
+    <ClInclude Include="src\script\lua-5.4.3\ldebug.h" />
+    <ClInclude Include="src\script\lua-5.4.3\ldo.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lfunc.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lgc.h" />
+    <ClInclude Include="src\script\lua-5.4.3\ljumptab.h" />
+    <ClInclude Include="src\script\lua-5.4.3\llex.h" />
+    <ClInclude Include="src\script\lua-5.4.3\llimits.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lmem.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lobject.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lopcodes.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lopnames.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lparser.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lprefix.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lstate.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lstring.h" />
+    <ClInclude Include="src\script\lua-5.4.3\ltable.h" />
+    <ClInclude Include="src\script\lua-5.4.3\ltm.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lua.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lua.hpp" />
+    <ClInclude Include="src\script\lua-5.4.3\luaconf.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lualib.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lundump.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lvm.h" />
+    <ClInclude Include="src\script\lua-5.4.3\lzio.h" />
+    <ClInclude Include="src\script\LuaUtil.h" />
     <ClInclude Include="src\task\Fiber.h" />
     <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\allocator\DefaultAllocator.h" />
@@ -358,6 +389,7 @@
   <ItemGroup>
     <ClCompile Include="src\animation\AnimationClip.cpp" />
     <ClCompile Include="src\animation\AnimationGraph.cpp" />
+    <ClCompile Include="src\animation\AnimationGraphLua.cpp" />
     <ClCompile Include="src\animation\AnimationSystem.cpp" />
     <ClCompile Include="src\animation\JointPose.cpp" />
     <ClCompile Include="src\animation\Skeleton.cpp" />
@@ -384,6 +416,7 @@
     <ClCompile Include="src\ecs\Archetype.cpp" />
     <ClCompile Include="src\ecs\ECS.cpp" />
     <ClCompile Include="src\ecs\ECSComponentInfoTable.cpp" />
+    <ClCompile Include="src\ecs\ECSLua.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\filesystem\Path.cpp" />
     <ClCompile Include="src\filesystem\RawFileSystem.cpp" />
@@ -448,6 +481,41 @@
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\physics\Physics.cpp" />
     <ClCompile Include="src\profiling\TracyClient.cpp" />
+    <ClCompile Include="src\script\lua-5.4.3\lapi.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lauxlib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lbaselib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lcode.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lcorolib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lctype.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ldblib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ldebug.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ldo.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ldump.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lfunc.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lgc.c" />
+    <ClCompile Include="src\script\lua-5.4.3\linit.c" />
+    <ClCompile Include="src\script\lua-5.4.3\liolib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\llex.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lmathlib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lmem.c" />
+    <ClCompile Include="src\script\lua-5.4.3\loadlib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lobject.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lopcodes.c" />
+    <ClCompile Include="src\script\lua-5.4.3\loslib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lparser.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lstate.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lstring.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lstrlib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ltable.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ltablib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\ltm.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lua.c" />
+    <ClCompile Include="src\script\lua-5.4.3\luac.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lundump.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lutf8lib.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lvm.c" />
+    <ClCompile Include="src\script\lua-5.4.3\lzio.c" />
+    <ClCompile Include="src\script\LuaUtil.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp" />

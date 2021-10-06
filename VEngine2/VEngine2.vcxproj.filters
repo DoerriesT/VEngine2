@@ -64,6 +64,12 @@
     <Filter Include="src\utility\allocator">
       <UniqueIdentifier>{789677a9-a6ea-43d7-9702-ac9101f7dcb0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\script">
+      <UniqueIdentifier>{49c3f1fe-7f68-4111-bc79-f3998aa68155}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\script\lua-5.4.3">
+      <UniqueIdentifier>{30218036-2526-4c70-8c7b-ed38df0915f8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Engine.h">
@@ -468,6 +474,99 @@
     <ClInclude Include="src\graphics\imgui\imnodes_internal.h">
       <Filter>src\graphics\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lapi.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lauxlib.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lcode.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lctype.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\ldebug.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\ldo.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lfunc.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lgc.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\ljumptab.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\llex.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\llimits.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lmem.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lobject.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lopcodes.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lopnames.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lparser.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lprefix.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lstate.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lstring.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\ltable.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\ltm.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lua.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lua.hpp">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\luaconf.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lualib.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lundump.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lvm.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\lua-5.4.3\lzio.h">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\LuaUtil.h">
+      <Filter>src\script</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ecs\ECSLua.h">
+      <Filter>src\ecs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\AnimationGraphLua.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -790,6 +889,117 @@
     </ClCompile>
     <ClCompile Include="src\graphics\imgui\imnodes.cpp">
       <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lapi.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lauxlib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lbaselib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lcode.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lcorolib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lctype.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ldblib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ldebug.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ldo.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ldump.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lfunc.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lgc.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\linit.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\liolib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\llex.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lmathlib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lmem.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\loadlib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lobject.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lopcodes.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\loslib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lparser.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lstate.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lstring.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lstrlib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ltable.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ltablib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\ltm.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lua.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\luac.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lundump.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lutf8lib.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lvm.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\lua-5.4.3\lzio.c">
+      <Filter>src\script\lua-5.4.3</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\LuaUtil.cpp">
+      <Filter>src\script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ecs\ECSLua.cpp">
+      <Filter>src\ecs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\AnimationGraphLua.cpp">
+      <Filter>src\animation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

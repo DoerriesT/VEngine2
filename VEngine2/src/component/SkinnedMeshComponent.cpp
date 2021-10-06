@@ -18,3 +18,11 @@ void SkinnedMeshComponent::onGUI(void *instance) noexcept
 		c.m_skeleton = resultAssetData;
 	}
 }
+
+void SkinnedMeshComponent::toLua(lua_State *L, void *instance) noexcept
+{
+}
+
+void SkinnedMeshComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+}

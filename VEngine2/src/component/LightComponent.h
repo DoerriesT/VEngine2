@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+struct lua_State;
+
 struct LightComponent
 {
 	uint32_t m_color = 0xFFFFFFFF;
@@ -11,6 +13,8 @@ struct LightComponent
 	bool m_shadows = false;
 
 	static void onGUI(void *instance) noexcept;
+	static void toLua(lua_State *L, void *instance) noexcept;
+	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "LightComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Light Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

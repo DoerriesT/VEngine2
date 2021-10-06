@@ -32,6 +32,11 @@
 #include <iostream>
 #include <filesystem/Path.h>
 #include <profiling/Profiling.h>
+#include <script/lua-5.4.3/lua.hpp>
+#include <script/LuaUtil.h>
+#include <ecs/ECSComponentInfoTable.h>
+#include <ecs/ECSLua.h>
+#include <animation/AnimationGraphLua.h>
 
 static AnimationGraph *setupAnimationGraph()
 {
@@ -80,8 +85,50 @@ static AnimationGraph *setupAnimationGraph()
 
 	auto animLogic = [](AnimationGraph *graph, ECS *ecs, EntityID entity, float deltaTime)
 	{
-		const auto &mc = ecs->getComponent<CharacterMovementComponent>(entity);
-		graph->setFloatParam(SID("speed"), glm::length(glm::vec2(mc->m_velocityX, mc->m_velocityZ)));
+		lua_State *L = luaL_newstate();
+		luaL_openlibs(L);
+		ECSLua::open(L);
+		AnimationGraphLua::open(L);
+
+		if (luaL_dofile(L, "assets/scripts/anim_graph_test.lua") != LUA_OK)
+		{
+			printf("%s\n", lua_tostring(L, lua_gettop(L)));
+			return;
+		}
+
+		// the script has returned a table with the script functions
+
+		// get the update() function
+		lua_getfield(L, -1, "update");
+
+		// create arguments (self, graph, ecs, entity, deltaTime)
+		{
+			// self
+			lua_pushvalue(L, -2);
+
+			// graph
+			AnimationGraphLua::createInstance(L, graph);
+
+			// ecs
+			ECSLua::createInstance(L, ecs);
+
+			// entity
+			lua_pushinteger(L, (lua_Integer)entity);
+
+			// delta time
+			lua_pushnumber(L, (lua_Number)deltaTime);
+		}
+
+		// call update() function
+		if (lua_pcall(L, 5, 0, 0) != LUA_OK)
+		{
+			printf("%s\n", lua_tostring(L, lua_gettop(L)));
+		}
+
+		lua_close(L);
+
+		//const auto &mc = ecs->getComponent<CharacterMovementComponent>(entity);
+		//graph->setFloatParam(SID("speed"), glm::length(glm::vec2(mc->m_velocityX, mc->m_velocityZ)));
 	};
 
 	return new AnimationGraph(0, eastl::size(nodes), nodes, eastl::size(params), params, eastl::size(animClips), animClips, animLogic);

@@ -282,16 +282,31 @@ public:
 	/// Invokes the given function on all entity/component arrays that contain the requested components.
 	/// The function must have the following signature:
 	/// 
-	/// void func(size_t entityCount, const EntityID *entities, (const T *components)... )
+	/// void func(size_t entityCount, const EntityID *entities, (T *components)... )
 	/// 
-	/// where (const T *components)... is the unpacked template varargs list of components to fetch.
+	/// where (T *components)... is the unpacked template varargs list of components to fetch.
 	/// 
 	/// </summary>
 	/// <typeparam name="...T">The components to iterate over.</typeparam>
 	/// <typeparam name="F">The type of the function/callable object to invoke for each set of matching entity/component arrays.</typeparam>
 	/// <param name="func">The function/callable object to invoke for each set of matching entity/component arrays.</param>
 	template<typename ...T, typename F>
-	inline void iterate(F &&func);
+	inline void iterate(F &&func) noexcept;
+
+	/// <summary>
+	/// Invokes the given function on all entity/component arrays that contain the requested components.
+	/// The function must have the following signature:
+	/// 
+	/// void func(size_t entityCount, const EntityID *entities, void **components)
+	/// 
+	/// where void **components is an array of componentCount pointers to arrays of the requested components.
+	/// </summary>
+	/// <typeparam name="F">The type of the function/callable object to invoke for each set of matching entity/component arrays.</typeparam>
+	/// <param name="componentCount">The size of the componentIDs array.</param>
+	/// <param name="componentIDs">The IDs of the components to iterate over.</param>
+	/// <param name="func">The function/callable object to invoke for each set of matching entity/component arrays.</param>
+	template<typename F>
+	inline void iterateTypeless(size_t componentCount, const ComponentID *componentIDs, F &&func) noexcept;
 
 	/// <summary>
 	/// Gets a singleton component.

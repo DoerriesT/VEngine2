@@ -1,5 +1,7 @@
 #pragma once
-#include <cstdint>
+#include <stdint.h>
+
+struct lua_State;
 
 enum class CrouchState : uint32_t
 {
@@ -29,6 +31,8 @@ struct CharacterMovementComponent
 	bool m_exitCrouchInputAction;
 
 	static void onGUI(void *instance) noexcept;
+	static void toLua(lua_State *L, void *instance) noexcept;
+	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "CharacterMovementComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Character Movement Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

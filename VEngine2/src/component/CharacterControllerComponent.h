@@ -1,6 +1,8 @@
 #pragma once
 #include "utility/Enum.h"
 
+struct lua_State;
+
 enum class CharacterControllerCollisionFlags
 {
 	NONE = 0,
@@ -34,6 +36,8 @@ struct CharacterControllerComponent
 	void *m_internalControllerHandle = nullptr;
 
 	static void onGUI(void *instance) noexcept;
+	static void toLua(lua_State *L, void *instance) noexcept;
+	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "CharacterControllerComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Character Controller Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

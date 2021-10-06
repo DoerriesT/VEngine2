@@ -18,3 +18,11 @@ void CameraComponent::onGUI(void *instance) noexcept
 	ImGui::DragFloat("Far Plane", &cc.m_far, 0.1f, 0.05f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 	ImGuiHelpers::Tooltip("The distance of the camera far plane.");
 }
+
+void CameraComponent::toLua(lua_State *L, void *instance) noexcept
+{
+}
+
+void CameraComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+}

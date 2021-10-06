@@ -42,3 +42,11 @@ void CharacterControllerComponent::onGUI(void *instance) noexcept
 	bool collisionDown = (c.m_collisionFlags & CharacterControllerCollisionFlags::DOWN) != 0;
 	ImGui::Checkbox("Collision Down", &collisionDown);
 }
+
+void CharacterControllerComponent::toLua(lua_State *L, void *instance) noexcept
+{
+}
+
+void CharacterControllerComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+}

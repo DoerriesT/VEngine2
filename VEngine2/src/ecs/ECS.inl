@@ -1,5 +1,6 @@
 #pragma once
 #include "ECS.h"
+#include "utility/Memory.h"
 
 template<typename T>
 inline void ECS::registerComponent() noexcept
@@ -265,7 +266,7 @@ inline bool ECS::hasComponents(EntityID entity) const noexcept
 }
 
 template<typename ...T, typename F>
-inline void ECS::iterate(F &&func)
+inline void ECS::iterate(F &&func) noexcept
 {
 	assert(isRegisteredComponent<T...>());
 	assert(isNotSingletonComponent<T...>());
@@ -293,6 +294,45 @@ inline void ECS::iterate(F &&func)
 				if (chunk.m_size > 0)
 				{
 					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(chunk.m_memory + at.getComponentArrayOffset(ComponentIDGenerator::getID<T>())))...);
+				}
+			}
+		}
+	}
+}
+
+template<typename F>
+inline void ECS::iterateTypeless(size_t componentCount, const ComponentID *componentIDs, F &&func) noexcept
+{
+	assert(isRegisteredComponent(componentCount, componentIDs));
+	assert(isNotSingletonComponent(componentCount, componentIDs));
+
+	// build search mask
+	ComponentMask searchMask = 0;
+
+	for (size_t j = 0; j < componentCount; ++j)
+	{
+		searchMask.set(componentIDs[j], true);
+	}
+
+	void **componentArrayPointers = ALLOC_A_T(void *, componentCount);
+
+	// search through all archetypes and look for matching masks
+	for (auto &atPtr : m_archetypes)
+	{
+		auto &at = *atPtr;
+		// archetype matches search mask
+		if ((at.getComponentMask() & searchMask) == searchMask)
+		{
+			const auto &memoryChunks = at.getMemoryChunks();
+			for (auto &chunk : memoryChunks)
+			{
+				if (chunk.m_size > 0)
+				{
+					for (size_t j = 0; j < componentCount; ++j)
+					{
+						componentArrayPointers[j] = chunk.m_memory + at.getComponentArrayOffset(componentIDs[j]);
+					}
+					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), componentArrayPointers);
 				}
 			}
 		}

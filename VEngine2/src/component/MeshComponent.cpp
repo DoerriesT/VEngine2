@@ -12,3 +12,11 @@ void MeshComponent::onGUI(void *instance) noexcept
 		c.m_mesh = resultAssetData;
 	}
 }
+
+void MeshComponent::toLua(lua_State *L, void *instance) noexcept
+{
+}
+
+void MeshComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+}

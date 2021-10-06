@@ -52,3 +52,11 @@ void PhysicsComponent::onGUI(void *instance) noexcept
 
 	ImGui::DragFloat("Density", &c.m_density, 0.01f, 0.01f, FLT_MAX);
 }
+
+void PhysicsComponent::toLua(lua_State *L, void *instance) noexcept
+{
+}
+
+void PhysicsComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+}

@@ -1,6 +1,7 @@
 #include "CharacterMovementComponent.h"
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
+#include "script/LuaUtil.h"
 
 void CharacterMovementComponent::onGUI(void *instance) noexcept
 {
@@ -38,4 +39,42 @@ void CharacterMovementComponent::onGUI(void *instance) noexcept
 
 	bool exitCrouchInput = c.m_exitCrouchInputAction;
 	ImGui::Checkbox("Exit Crouch Input", &exitCrouchInput);
+}
+
+void CharacterMovementComponent::toLua(lua_State *L, void *instance) noexcept
+{
+	CharacterMovementComponent &c = *reinterpret_cast<CharacterMovementComponent *>(instance);
+
+	LuaUtil::setTableIntegerField(L, "m_crouchState", (lua_Integer)c.m_crouchState);
+	LuaUtil::setTableNumberField(L, "m_crouchPercentage", (lua_Number)c.m_crouchPercentage);
+	LuaUtil::setTableNumberField(L, "m_velocityX", (lua_Number)c.m_velocityX);
+	LuaUtil::setTableNumberField(L, "m_velocityY", (lua_Number)c.m_velocityY);
+	LuaUtil::setTableNumberField(L, "m_velocityZ", (lua_Number)c.m_velocityZ);
+	LuaUtil::setTableBoolField(L, "m_active", c.m_active);
+	LuaUtil::setTableBoolField(L, "m_jumping", c.m_jumping);
+	LuaUtil::setTableNumberField(L, "m_movementXInputAxis", (lua_Number)c.m_movementXInputAxis);
+	LuaUtil::setTableNumberField(L, "m_movementZInputAxis", (lua_Number)c.m_movementZInputAxis);
+	LuaUtil::setTableNumberField(L, "m_turnRightInputAxis", (lua_Number)c.m_turnRightInputAxis);
+	LuaUtil::setTableBoolField(L, "m_jumpInputAction", c.m_jumpInputAction);
+	LuaUtil::setTableBoolField(L, "m_enterCrouchInputAction", c.m_enterCrouchInputAction);
+	LuaUtil::setTableBoolField(L, "m_exitCrouchInputAction", c.m_exitCrouchInputAction);
+}
+
+void CharacterMovementComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+	CharacterMovementComponent &c = *reinterpret_cast<CharacterMovementComponent *>(instance);
+
+	c.m_crouchState = (CrouchState)LuaUtil::getTableIntegerField(L, "m_crouchState");
+	c.m_crouchPercentage = (float)LuaUtil::getTableNumberField(L, "m_crouchState");
+	c.m_velocityX = (float)LuaUtil::getTableNumberField(L, "m_velocityX");
+	c.m_velocityY = (float)LuaUtil::getTableNumberField(L, "m_velocityY");
+	c.m_velocityZ = (float)LuaUtil::getTableNumberField(L, "m_velocityZ");
+	c.m_active = LuaUtil::getTableBoolField(L, "m_active");
+	c.m_jumping = LuaUtil::getTableBoolField(L, "m_jumping");
+	c.m_movementXInputAxis = (float)LuaUtil::getTableNumberField(L, "m_movementXInputAxis");
+	c.m_movementZInputAxis = (float)LuaUtil::getTableNumberField(L, "m_movementZInputAxis");
+	c.m_turnRightInputAxis = (float)LuaUtil::getTableNumberField(L, "m_turnRightInputAxis");
+	c.m_jumpInputAction = LuaUtil::getTableBoolField(L, "m_jumpInputAction");
+	c.m_enterCrouchInputAction = LuaUtil::getTableBoolField(L, "m_enterCrouchInputAction");
+	c.m_exitCrouchInputAction = LuaUtil::getTableBoolField(L, "m_exitCrouchInputAction");
 }

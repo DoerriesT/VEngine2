@@ -29,3 +29,11 @@ void LightComponent::onGUI(void *instance) noexcept
 	ImGui::Checkbox("Casts Shadows", &c.m_shadows);
 	ImGuiHelpers::Tooltip("Enables shadows for this light source.");
 }
+
+void LightComponent::toLua(lua_State *L, void *instance) noexcept
+{
+}
+
+void LightComponent::fromLua(lua_State *L, void *instance) noexcept
+{
+}

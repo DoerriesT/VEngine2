@@ -2,6 +2,8 @@
 #include <glm/vec3.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+struct lua_State;
+
 struct TransformComponent
 {
 	enum class Mobility
@@ -17,6 +19,8 @@ struct TransformComponent
 	glm::mat4 m_previousTransformation;
 
 	static void onGUI(void *instance) noexcept;
+	static void toLua(lua_State *L, void *instance) noexcept;
+	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "TransformComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Transform Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

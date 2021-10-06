@@ -1,6 +1,8 @@
 #pragma once
 #include "Handles.h"
 
+struct lua_State;
+
 enum class PhysicsMobility : uint32_t
 {
 	STATIC = 0,
@@ -37,6 +39,8 @@ struct PhysicsComponent
 	void *m_internalPhysicsActorHandle = nullptr;
 
 	static void onGUI(void *instance) noexcept;
+	static void toLua(lua_State *L, void *instance) noexcept;
+	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "PhysicsComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Physics Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }
