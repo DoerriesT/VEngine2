@@ -1,19 +1,6 @@
 #include "Archetype.h"
 #include "utility/Utility.h"
 
-void forEachComponentType(const ComponentMask &mask, const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept
-{
-	size_t componentIndex = 0;
-	auto componentID = mask.DoFindFirst();
-	while (componentID != mask.kSize)
-	{
-		f(componentIndex, componentID);
-
-		componentID = mask.DoFindNext(componentID);
-		++componentIndex;
-	}
-}
-
 Archetype::Archetype(const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept
 	:m_componentMask(componentMask),
 	m_componentInfo(componentInfo),

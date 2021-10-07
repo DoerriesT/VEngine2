@@ -196,6 +196,8 @@ void AnimationGraph::preEvaluate(ECS *ecs, EntityID entity, float deltaTime) noe
 		Log::err("AnimationGraph: Failed to execute controller script \"%s\" with error: %s", m_controllerScript->getAssetID().m_string, lua_tostring(L, lua_gettop(L)));
 	}
 
+	lua_settop(L, 1);
+
 	//m_logicCallback(this, ecs, entity, deltaTime);
 
 	//const auto &mc = ecs->getComponent<CharacterMovementComponent>(entity);

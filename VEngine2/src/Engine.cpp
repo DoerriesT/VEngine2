@@ -23,6 +23,7 @@
 #include "filesystem/VirtualFileSystem.h"
 #include "profiling/Profiling.h"
 #include "utility/allocator/DefaultAllocator.h"
+#include "script/ScriptSystem.h"
 
 // these are needed for EASTL
 
@@ -102,6 +103,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	AnimationSystem animationSystem(m_ecs);
 	m_animationSystem = &animationSystem;
 	
+	ScriptSystem scriptSystem(m_ecs);
+
 	UserInput userInput(*m_window, m_ecs);
 	m_userInput = &userInput;
 
@@ -162,6 +165,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			m_physics->update(k_stepSize);
 
 			m_gameLogic->update(k_stepSize);
+
+			scriptSystem.update(k_stepSize);
 
 			characterMovementSystem.update(k_stepSize);
 

@@ -7,6 +7,7 @@
 #include "CharacterControllerComponent.h"
 #include "CharacterMovementComponent.h"
 #include "SkinnedMeshComponent.h"
+#include "ScriptComponent.h"
 #include "RawInputStateComponent.h"
 #include "InputStateComponent.h"
 #include "ecs/ECS.h"
@@ -30,6 +31,7 @@ void ComponentRegistration::registerAllComponents(ECS *ecs) noexcept
 	registerComponent<CharacterControllerComponent>(ecs);
 	registerComponent<CharacterMovementComponent>(ecs);
 	registerComponent<SkinnedMeshComponent>(ecs);
+	registerComponent<ScriptComponent>(ecs);
 
 	// singleton components
 	ecs->registerSingletonComponent<RawInputStateComponent>(RawInputStateComponent{});

@@ -251,6 +251,7 @@
     <ClInclude Include="src\component\MeshComponent.h" />
     <ClInclude Include="src\component\PhysicsComponent.h" />
     <ClInclude Include="src\component\CharacterMovementComponent.h" />
+    <ClInclude Include="src\component\ScriptComponent.h" />
     <ClInclude Include="src\component\SkinnedMeshComponent.h" />
     <ClInclude Include="src\component\TransformComponent.h" />
     <ClInclude Include="src\ecs\Archetype.h" />
@@ -366,6 +367,7 @@
     <ClInclude Include="src\script\lua-5.4.3\lvm.h" />
     <ClInclude Include="src\script\lua-5.4.3\lzio.h" />
     <ClInclude Include="src\script\LuaUtil.h" />
+    <ClInclude Include="src\script\ScriptSystem.h" />
     <ClInclude Include="src\task\Fiber.h" />
     <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\allocator\DefaultAllocator.h" />
@@ -414,6 +416,7 @@
     <ClCompile Include="src\component\MeshComponent.cpp" />
     <ClCompile Include="src\component\PhysicsComponent.cpp" />
     <ClCompile Include="src\component\CharacterMovementComponent.cpp" />
+    <ClCompile Include="src\component\ScriptComponent.cpp" />
     <ClCompile Include="src\component\SkinnedMeshComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
     <ClCompile Include="src\ecs\Archetype.cpp" />
@@ -519,6 +522,7 @@
     <ClCompile Include="src\script\lua-5.4.3\lvm.c" />
     <ClCompile Include="src\script\lua-5.4.3\lzio.c" />
     <ClCompile Include="src\script\LuaUtil.cpp" />
+    <ClCompile Include="src\script\ScriptSystem.cpp" />
     <ClCompile Include="src\task\Fiber.cpp" />
     <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp" />

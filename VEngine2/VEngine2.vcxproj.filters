@@ -573,6 +573,12 @@
     <ClInclude Include="src\asset\handler\ScriptAssetHandler.h">
       <Filter>src\asset\handler</Filter>
     </ClInclude>
+    <ClInclude Include="src\component\ScriptComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\script\ScriptSystem.h">
+      <Filter>src\script</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1009,6 +1015,12 @@
     </ClCompile>
     <ClCompile Include="src\asset\handler\ScriptAssetHandler.cpp">
       <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\ScriptComponent.cpp">
+      <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\script\ScriptSystem.cpp">
+      <Filter>src\script</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

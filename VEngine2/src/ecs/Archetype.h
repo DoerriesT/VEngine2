@@ -1,6 +1,5 @@
 #pragma once
 #include <stdint.h>
-#include <EASTL/functional.h>
 #include <EASTL/vector.h>
 #include "ECSCommon.h"
 #include "utility/ErasedType.h"
@@ -42,7 +41,19 @@ struct ArchetypeMemoryChunk
 /// </summary>
 /// <param name="mask">The ComponentMask to iterate over.</param>
 /// <param name="f">A callback to invoke on each set bit.</param>
-void forEachComponentType(const ComponentMask &mask, const eastl::function<void(size_t index, ComponentID componentID)> &f) noexcept;
+template<typename F>
+inline void forEachComponentType(const ComponentMask &mask, F &&f) noexcept
+{
+	size_t componentIndex = 0;
+	auto componentID = mask.DoFindFirst();
+	while (componentID != mask.kSize)
+	{
+		f(componentIndex, componentID);
+
+		componentID = mask.DoFindNext(componentID);
+		++componentIndex;
+	}
+}
 
 /// <summary>
 /// An Archetype has blocks of memory for storing all entities (and their components) of the same type. Entities are of the same type
