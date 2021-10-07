@@ -567,6 +567,12 @@
     <ClInclude Include="src\animation\AnimationGraphLua.h">
       <Filter>src\animation</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\ScriptAsset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\ScriptAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1000,6 +1006,9 @@
     </ClCompile>
     <ClCompile Include="src\animation\AnimationGraphLua.cpp">
       <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\ScriptAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

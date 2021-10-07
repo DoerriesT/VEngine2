@@ -2,9 +2,11 @@
 #include "JointPose.h"
 #include "AnimationClip.h"
 #include "asset/AnimationClipAsset.h"
+#include "asset/ScriptAsset.h"
 #include "utility/StringID.h"
 #include "ecs/ECSCommon.h"
 
+struct lua_State;
 struct AnimationGraphNode;
 class ECS;
 class AnimationGraph;
@@ -120,7 +122,7 @@ public:
 		const AnimationGraphParameter *parameters, 
 		size_t animationClipCount, 
 		const Asset<AnimationClipAssetData> *animationClips,
-		AnimationGraphLogicCallback logicCallback) noexcept;
+		const Asset<ScriptAssetData> &controllerScript) noexcept;
 	AnimationGraph(const AnimationGraph &other) noexcept;
 	AnimationGraph(AnimationGraph &&other) noexcept;
 	AnimationGraph &operator=(const AnimationGraph &other) noexcept;
@@ -142,7 +144,7 @@ public:
 	const AnimationGraphParameter *getParameters() const noexcept;
 	size_t getAnimationClipAssetCount() const noexcept;
 	const Asset<AnimationClipAssetData> *getAnimationClipAssets() const noexcept;
-	AnimationGraphLogicCallback getLogicCallback() const noexcept;
+	Asset<ScriptAssetData> getControllerScript() const noexcept;
 	size_t getRootNodeIndex() const noexcept;
 	bool isValid() const noexcept;
 
@@ -154,7 +156,8 @@ private:
 	size_t m_parameterCount = 0;
 	Asset<AnimationClipAssetData> *m_animationClipAssets = nullptr;
 	size_t m_animationClipCount;
-	AnimationGraphLogicCallback m_logicCallback;
+	Asset<ScriptAssetData> m_controllerScript;
+	lua_State *m_scriptLuaState = nullptr;
 	float m_phase = 0.0f;
 	bool m_isValid = false;
 
@@ -166,4 +169,5 @@ private:
 	int32_t getIntParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
 	bool getBoolParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
 	bool validate(AnimationGraphNodeData::NodeIndex idx) const noexcept;
+	void reloadScript() noexcept;
 };

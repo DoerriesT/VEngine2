@@ -1,6 +1,11 @@
 #include "AnimationGraph.h"
 #include "utility/Utility.h"
-#include <ecs/ECS.h>
+#include "ecs/ECS.h"
+#include "script/LuaUtil.h"
+#include "ecs/ECSComponentInfoTable.h"
+#include "ecs/ECSLua.h"
+#include "animation/AnimationGraphLua.h"
+#include "Log.h"
 
 AnimationGraph::AnimationGraph(
 	size_t rootNodeIndex,
@@ -10,13 +15,13 @@ AnimationGraph::AnimationGraph(
 	const AnimationGraphParameter *parameters, 
 	size_t animationClipCount,
 	const Asset<AnimationClipAssetData> *animationClips,
-	AnimationGraphLogicCallback logicCallback
+	const Asset<ScriptAssetData> &controllerScript
 ) noexcept
 	:m_rootNodeIndex(rootNodeIndex),
 	m_nodeCount(nodeCount),
 	m_parameterCount(parameterCount),
 	m_animationClipCount(animationClipCount),
-	m_logicCallback(logicCallback)
+	m_controllerScript(controllerScript)
 {
 	m_nodes = new AnimationGraphNode[m_nodeCount];
 	memcpy(m_nodes, nodes, sizeof(m_nodes[0]) * m_nodeCount);
@@ -30,6 +35,8 @@ AnimationGraph::AnimationGraph(
 		m_animationClipAssets[i] = animationClips[i];
 	}
 
+	reloadScript();
+
 	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 }
 
@@ -38,7 +45,7 @@ AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
 	m_nodeCount(other.m_nodeCount),
 	m_parameterCount(other.m_parameterCount),
 	m_animationClipCount(other.m_animationClipCount),
-	m_logicCallback(other.m_logicCallback)
+	m_controllerScript(other.m_controllerScript)
 {
 	m_nodes = new AnimationGraphNode[m_nodeCount];
 	memcpy(m_nodes, other.m_nodes, sizeof(m_nodes[0]) * m_nodeCount);
@@ -52,6 +59,8 @@ AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
 		m_animationClipAssets[i] = other.m_animationClipAssets[i];
 	}
 
+	reloadScript();
+
 	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 }
 
@@ -60,7 +69,7 @@ AnimationGraph::AnimationGraph(AnimationGraph &&other) noexcept
 	m_nodeCount(other.m_nodeCount),
 	m_parameterCount(other.m_parameterCount),
 	m_animationClipCount(other.m_animationClipCount),
-	m_logicCallback(other.m_logicCallback)
+	m_controllerScript(other.m_controllerScript)
 {
 	m_nodes = other.m_nodes;
 	other.m_nodes = nullptr;
@@ -70,6 +79,8 @@ AnimationGraph::AnimationGraph(AnimationGraph &&other) noexcept
 
 	m_animationClipAssets = other.m_animationClipAssets;
 	other.m_animationClipAssets = nullptr;
+
+	reloadScript();
 
 	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 }
@@ -87,7 +98,7 @@ AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
 		m_parameterCount = other.m_parameterCount;
 		m_animationClipCount = other.m_animationClipCount;
 
-		m_logicCallback = other.m_logicCallback;
+		m_controllerScript = other.m_controllerScript;
 
 		m_nodes = new AnimationGraphNode[m_nodeCount];
 		memcpy(m_nodes, other.m_nodes, sizeof(m_nodes[0]) * m_nodeCount);
@@ -99,6 +110,8 @@ AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
 		{
 			m_animationClipAssets[i] = other.m_animationClipAssets[i];
 		}
+
+		reloadScript();
 
 		m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 	}
@@ -119,7 +132,7 @@ AnimationGraph &AnimationGraph::operator=(AnimationGraph &&other) noexcept
 		m_parameterCount = other.m_parameterCount;
 		m_animationClipCount = other.m_animationClipCount;
 
-		m_logicCallback = other.m_logicCallback;
+		m_controllerScript = other.m_controllerScript;
 
 		m_nodes = other.m_nodes;
 		other.m_nodes = nullptr;
@@ -127,6 +140,8 @@ AnimationGraph &AnimationGraph::operator=(AnimationGraph &&other) noexcept
 		other.m_parameters = nullptr;
 		m_animationClipAssets = other.m_animationClipAssets;
 		other.m_animationClipAssets = nullptr;
+
+		reloadScript();
 
 		m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
 	}
@@ -139,11 +154,52 @@ AnimationGraph::~AnimationGraph() noexcept
 	delete[] m_nodes;
 	delete[] m_parameters;
 	delete[] m_animationClipAssets;
+	if (m_scriptLuaState)
+	{
+		lua_close(m_scriptLuaState);
+	}
 }
 
 void AnimationGraph::preEvaluate(ECS *ecs, EntityID entity, float deltaTime) noexcept
 {
-	m_logicCallback(this, ecs, entity, deltaTime);
+	if (!m_scriptLuaState)
+	{
+		return;
+	}
+	auto &L = m_scriptLuaState;
+
+	// the script has returned a table with the script functions
+	// get the update() function
+	lua_getfield(L, -1, "update");
+
+	// create arguments (self, graph, ecs, entity, deltaTime)
+	{
+		// self
+		lua_pushvalue(L, -2);
+
+		// graph
+		AnimationGraphLua::createInstance(L, this);
+
+		// ecs
+		ECSLua::createInstance(L, ecs);
+
+		// entity
+		lua_pushinteger(L, (lua_Integer)entity);
+
+		// delta time
+		lua_pushnumber(L, (lua_Number)deltaTime);
+	}
+
+	// call update() function
+	if (lua_pcall(L, 5, 0, 0) != LUA_OK)
+	{
+		Log::err("AnimationGraph: Failed to execute controller script \"%s\" with error: %s", m_controllerScript->getAssetID().m_string, lua_tostring(L, lua_gettop(L)));
+	}
+
+	//m_logicCallback(this, ecs, entity, deltaTime);
+
+	//const auto &mc = ecs->getComponent<CharacterMovementComponent>(entity);
+	//graph->setFloatParam(SID("speed"), glm::length(glm::vec2(mc->m_velocityX, mc->m_velocityZ)));
 }
 
 JointPose AnimationGraph::evaluate(size_t jointIdx) const noexcept
@@ -310,9 +366,9 @@ const Asset<AnimationClipAssetData> *AnimationGraph::getAnimationClipAssets() co
 	return m_animationClipAssets;
 }
 
-AnimationGraphLogicCallback AnimationGraph::getLogicCallback() const noexcept
+Asset<ScriptAssetData> AnimationGraph::getControllerScript() const noexcept
 {
-	return m_logicCallback;
+	return m_controllerScript;
 }
 
 size_t AnimationGraph::getRootNodeIndex() const noexcept
@@ -557,4 +613,31 @@ bool AnimationGraph::validate(AnimationGraphNodeData::NodeIndex idx) const noexc
 		break;
 	}
 	return false;
+}
+
+void AnimationGraph::reloadScript() noexcept
+{
+	auto &L = m_scriptLuaState;
+	if (L)
+	{
+		lua_close(L);
+		L = nullptr;
+	}
+
+	L = luaL_newstate();
+	luaL_openlibs(L);
+	ECSLua::open(L);
+	AnimationGraphLua::open(L);
+
+	if (luaL_dostring(L, m_controllerScript->getScriptString()) != LUA_OK)
+	{
+		Log::err("AnimationGraph: Failed to load controller script \"%s\" with error: %s", m_controllerScript->getAssetID().m_string, lua_tostring(L, lua_gettop(L)));
+
+		lua_close(L);
+		L = nullptr;
+
+		return;
+	}
+
+	// the script has returned a table with the script functions which we can call later
 }

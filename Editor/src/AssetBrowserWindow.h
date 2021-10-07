@@ -29,6 +29,8 @@ private:
 	bool m_visible = true;
 	ImportAssetTask m_importAssetTask;
 	eastl::atomic_flag m_currentlyImporting = false;
+	size_t m_addAssetPopupSelectedAssetType = 0;
+	char m_addAssetPopupAssetName[256];
 
 	void importButton() noexcept;
 };

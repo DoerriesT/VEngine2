@@ -11,6 +11,8 @@
 #include <filesystem/VirtualFileSystem.h>
 #include <asset/Asset.h>
 #include <asset/AssetMetaDataRegistry.h>
+#include <asset/ScriptAsset.h>
+#include <asset/AssetManager.h>
 
 static std::future<void> s_future;
 
@@ -44,10 +46,10 @@ static void dragDropSourcePayloadCallback(const FileFindData &ffd, void *userDat
 AssetBrowserWindow::AssetBrowserWindow(Engine *engine) noexcept
 	:m_engine(engine),
 	m_fileBrowser(
-		&VirtualFileSystem::get(), 
-		"/assets", 
-		thumbnailCallback, 
-		fileFilterCallback, 
+		&VirtualFileSystem::get(),
+		"/assets",
+		thumbnailCallback,
+		fileFilterCallback,
 		isDragDropSourceCallback,
 		dragDropSourcePayloadCallback,
 		engine)
@@ -84,92 +86,196 @@ bool AssetBrowserWindow::isVisible() const noexcept
 
 void AssetBrowserWindow::importButton() noexcept
 {
-	if (ImGui::Button("Import"))
+	const bool importButtonClicked = ImGui::Button("Import");
+	ImGui::SameLine();
+	const bool addButtonClicked = ImGui::Button("Add");
+
+	// import button
 	{
-		FileDialog::FileExtension extensions[]
+		if (importButtonClicked)
 		{
-			{ "Wavefront OBJ", "*.obj" },
-			{ "glTF", "*.gltf" }
-		};
-
-		FileDialog::FileDialogParams dialogParams{};
-		dialogParams.m_fileExtensionCount = std::size(extensions);
-		dialogParams.m_fileExtensions = extensions;
-		dialogParams.m_multiSelection = false;
-		dialogParams.m_fileSelection = true;
-		dialogParams.m_save = false;
-
-		eastl::vector<std::filesystem::path> selectedFiles;
-		uint32_t fileExtensionIndex;
-		if (FileDialog::showFileDialog(dialogParams, selectedFiles, fileExtensionIndex))
-		{
-			eastl::string srcPath = std::filesystem::relative(selectedFiles[0], std::filesystem::current_path()).generic_u8string().c_str();
-			Log::info("Importing File: \"%s\"", srcPath.c_str());
-
-			m_importAssetTask = {};
-			m_importAssetTask.m_srcPath = srcPath;
-			m_importAssetTask.m_dstPath = m_fileBrowser.getCurrentPath() + "/" + selectedFiles[0].filename().replace_extension().generic_u8string().c_str();
-
-			switch (fileExtensionIndex)
+			FileDialog::FileExtension extensions[]
 			{
-			case 0:
-				m_importAssetTask.m_importOptions.m_fileType = AssetImporter::FileType::WAVEFRONT_OBJ; break;
-			case 1:
-				m_importAssetTask.m_importOptions.m_fileType = AssetImporter::FileType::GLTF; break;
-			default:
-				assert(false);
-				break;
+				{ "Wavefront OBJ", "*.obj" },
+				{ "glTF", "*.gltf" }
+			};
+
+			FileDialog::FileDialogParams dialogParams{};
+			dialogParams.m_fileExtensionCount = std::size(extensions);
+			dialogParams.m_fileExtensions = extensions;
+			dialogParams.m_multiSelection = false;
+			dialogParams.m_fileSelection = true;
+			dialogParams.m_save = false;
+
+			eastl::vector<std::filesystem::path> selectedFiles;
+			uint32_t fileExtensionIndex;
+			if (FileDialog::showFileDialog(dialogParams, selectedFiles, fileExtensionIndex))
+			{
+				eastl::string srcPath = std::filesystem::relative(selectedFiles[0], std::filesystem::current_path()).generic_u8string().c_str();
+				Log::info("Importing File: \"%s\"", srcPath.c_str());
+
+				m_importAssetTask = {};
+				m_importAssetTask.m_srcPath = srcPath;
+				m_importAssetTask.m_dstPath = m_fileBrowser.getCurrentPath() + "/" + selectedFiles[0].filename().replace_extension().generic_u8string().c_str();
+
+				switch (fileExtensionIndex)
+				{
+				case 0:
+					m_importAssetTask.m_importOptions.m_fileType = AssetImporter::FileType::WAVEFRONT_OBJ; break;
+				case 1:
+					m_importAssetTask.m_importOptions.m_fileType = AssetImporter::FileType::GLTF; break;
+				default:
+					assert(false);
+					break;
+				}
+
+				ImGui::OpenPopup("Import Asset");
+			}
+		}
+
+		bool startedImport = false;
+
+		if (ImGui::BeginPopupModal("Import Asset", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Checkbox("Merge by Material", &m_importAssetTask.m_importOptions.m_mergeByMaterial);
+			ImGui::Checkbox("Invert UV Y-Component", &m_importAssetTask.m_importOptions.m_invertTexCoordY);
+			ImGui::Checkbox("Import Meshes", &m_importAssetTask.m_importOptions.m_importMeshes);
+			ImGui::Checkbox("Import Skeletons", &m_importAssetTask.m_importOptions.m_importSkeletons);
+			ImGui::Checkbox("Import Animations", &m_importAssetTask.m_importOptions.m_importAnimations);
+
+			if (ImGui::Button("OK", ImVec2(120, 0)))
+			{
+				startedImport = true;
+				m_currentlyImporting.test_and_set();
+				s_future = std::async(std::launch::async, [this]()
+					{
+						AssetImporter::importAsset(m_importAssetTask.m_importOptions, m_engine->getPhysics(), m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
+						m_currentlyImporting.clear();
+					});
+
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SetItemDefaultFocus();
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel", ImVec2(120, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+
+		if (startedImport)
+		{
+			ImGui::OpenPopup("importing_asset_progess_indicator");
+		}
+
+		if (ImGui::BeginPopupModal("importing_asset_progess_indicator", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove))
+		{
+			//ImGui::LoadingIndicatorCircle("Importing Asset", 30.0f, ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGui::GetStyleColorVec4(ImGuiCol_WindowBg), 8, 1.0f);
+
+			if (!m_currentlyImporting.test())
+			{
+				ImGui::CloseCurrentPopup();
 			}
 
-			ImGui::OpenPopup("Import Asset");
+			ImGui::EndPopup();
 		}
 	}
 
-	bool startedImport = false;
-
-	if (ImGui::BeginPopupModal("Import Asset", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	// add button
 	{
-		ImGui::Checkbox("Merge by Material", &m_importAssetTask.m_importOptions.m_mergeByMaterial);
-		ImGui::Checkbox("Invert UV Y-Component", &m_importAssetTask.m_importOptions.m_invertTexCoordY);
-		ImGui::Checkbox("Import Meshes", &m_importAssetTask.m_importOptions.m_importMeshes);
-		ImGui::Checkbox("Import Skeletons", &m_importAssetTask.m_importOptions.m_importSkeletons);
-		ImGui::Checkbox("Import Animations", &m_importAssetTask.m_importOptions.m_importAnimations);
-
-		if (ImGui::Button("OK", ImVec2(120, 0)))
+		if (addButtonClicked)
 		{
-			startedImport = true;
-			m_currentlyImporting.test_and_set();
-			s_future = std::async(std::launch::async, [this]()
+			ImGui::OpenPopup("Add Asset");
+			m_addAssetPopupAssetName[0] = '\0';
+		}
+
+		if (ImGui::BeginPopupModal("Add Asset"))
+		{
+			const char *assetTypeNames[]
+			{
+				"Script"
+			};
+
+			AssetType assetTypes[]
+			{
+				ScriptAssetData::k_assetType
+			};
+
+			assert(m_addAssetPopupSelectedAssetType < eastl::size(assetTypeNames));
+			if (ImGui::BeginCombo("Type", assetTypeNames[m_addAssetPopupSelectedAssetType]))
+			{
+				size_t selectedAssetType = m_addAssetPopupSelectedAssetType;
+
+				for (size_t i = 0; i < eastl::size(assetTypeNames); ++i)
 				{
-					AssetImporter::importAsset(m_importAssetTask.m_importOptions, m_engine->getPhysics(), m_importAssetTask.m_srcPath.c_str(), m_importAssetTask.m_dstPath.c_str());
-					m_currentlyImporting.clear();
-				});
+					bool selected = i == m_addAssetPopupSelectedAssetType;
+					if (ImGui::Selectable(assetTypeNames[i], selected))
+					{
+						selectedAssetType = i;
+					}
+				}
+				ImGui::EndCombo();
 
-			ImGui::CloseCurrentPopup();
+				m_addAssetPopupSelectedAssetType = selectedAssetType;
+			}
+
+			ImGui::InputText("Name", m_addAssetPopupAssetName, sizeof(m_addAssetPopupAssetName));
+
+			ImGui::Separator();
+
+			auto proposedAssetPath = m_fileBrowser.getCurrentPath();
+			proposedAssetPath += "/";
+			proposedAssetPath += m_addAssetPopupAssetName;
+
+			bool canCreateAsset = m_addAssetPopupAssetName[0] != '\0' && !VirtualFileSystem::get().exists(proposedAssetPath.c_str());
+			for (size_t i = 0; m_addAssetPopupAssetName[i] != '\0'; ++i)
+			{
+				switch (m_addAssetPopupAssetName[i])
+				{
+				case '\\':
+				case '/':
+				case ':':
+				case '*':
+				case '?':
+				case '"':
+				case '<':
+				case '>':
+				case '|':
+					canCreateAsset = false;
+					break;
+				default:
+					break;
+				}
+			}
+
+			if (!canCreateAsset)
+			{
+				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+				ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+			}
+			bool buttonOKPressed = ImGui::Button("OK", ImVec2(120, 0));
+			if (!canCreateAsset)
+			{
+				ImGui::PopItemFlag();
+				ImGui::PopStyleVar();
+			}
+
+
+			if (buttonOKPressed && canCreateAsset)
+			{
+				VirtualFileSystem::get().writeFile(proposedAssetPath.c_str(), 0, nullptr, true);
+				AssetManager::get()->createAsset(assetTypes[m_addAssetPopupSelectedAssetType], proposedAssetPath.c_str(), proposedAssetPath.c_str());
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SetItemDefaultFocus();
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel", ImVec2(120, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
 		}
-		ImGui::SetItemDefaultFocus();
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel", ImVec2(120, 0)))
-		{
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-
-	if (startedImport)
-	{
-		ImGui::OpenPopup("importing_asset_progess_indicator");
-	}
-
-	if (ImGui::BeginPopupModal("importing_asset_progess_indicator", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove))
-	{
-		//ImGui::LoadingIndicatorCircle("Importing Asset", 30.0f, ImGui::GetStyleColorVec4(ImGuiCol_Header), ImGui::GetStyleColorVec4(ImGuiCol_WindowBg), 8, 1.0f);
-
-		if (!m_currentlyImporting.test())
-		{
-			ImGui::CloseCurrentPopup();
-		}
-
-		ImGui::EndPopup();
 	}
 }

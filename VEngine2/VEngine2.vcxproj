@@ -234,9 +234,11 @@
     <ClInclude Include="src\asset\handler\AssetHandler.h" />
     <ClInclude Include="src\asset\handler\AssetHandlerRegistration.h" />
     <ClInclude Include="src\asset\handler\MeshAssetHandler.h" />
+    <ClInclude Include="src\asset\handler\ScriptAssetHandler.h" />
     <ClInclude Include="src\asset\handler\SkeletonAssetHandler.h" />
     <ClInclude Include="src\asset\handler\TextureAssetHandler.h" />
     <ClInclude Include="src\asset\MeshAsset.h" />
+    <ClInclude Include="src\asset\ScriptAsset.h" />
     <ClInclude Include="src\asset\SkeletonAsset.h" />
     <ClInclude Include="src\asset\TextureAsset.h" />
     <ClInclude Include="src\CharacterMovementSystem.h" />
@@ -400,6 +402,7 @@
     <ClCompile Include="src\asset\handler\AssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\AssetHandlerRegistration.cpp" />
     <ClCompile Include="src\asset\handler\MeshAssetHandler.cpp" />
+    <ClCompile Include="src\asset\handler\ScriptAssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\SkeletonAssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\TextureAssetHandler.cpp" />
     <ClCompile Include="src\CharacterMovementSystem.cpp" />

@@ -369,7 +369,7 @@ void AnimationGraphWindow::exportGraph(AnimationGraph *graph) noexcept
 		}
 
 
-		*graph = AnimationGraph(rootNodeIdx, nodes.size(), nodes.data(), params.size(), params.data(), clips.size(), clips.data(), graph->getLogicCallback());
+		*graph = AnimationGraph(rootNodeIdx, nodes.size(), nodes.data(), params.size(), params.data(), clips.size(), clips.data(), graph->getControllerScript());
 	}
 }
 

@@ -3,6 +3,7 @@
 #include "MeshAssetHandler.h"
 #include "SkeletonAssetHandler.h"
 #include "TextureAssetHandler.h"
+#include "ScriptAssetHandler.h"
 #include "asset/AssetManager.h"
 
 void AssetHandlerRegistration::registerHandlers(Renderer *renderer, Physics *physics, AnimationSystem *animation) noexcept
@@ -11,6 +12,7 @@ void AssetHandlerRegistration::registerHandlers(Renderer *renderer, Physics *phy
 	MeshAssetHandler::init(AssetManager::get(), renderer, physics);
 	SkeletonAssetHandler::init(AssetManager::get(), animation);
 	TextureAssetHandler::init(AssetManager::get(), renderer);
+	ScriptAssetHandler::init(AssetManager::get());
 }
 
 void AssetHandlerRegistration::unregisterHandlers() noexcept
@@ -19,4 +21,5 @@ void AssetHandlerRegistration::unregisterHandlers() noexcept
 	MeshAssetHandler::shutdown();
 	SkeletonAssetHandler::shutdown();
 	TextureAssetHandler::shutdown();
+	ScriptAssetHandler::shutdown();
 }
