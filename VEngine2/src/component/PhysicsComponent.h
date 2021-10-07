@@ -38,6 +38,13 @@ struct PhysicsComponent
 	PhysicsMaterialHandle m_materialHandle = {};
 	void *m_internalPhysicsActorHandle = nullptr;
 
+	PhysicsComponent() = default;
+	PhysicsComponent(const PhysicsComponent & other) noexcept;
+	PhysicsComponent(PhysicsComponent && other) noexcept;
+	PhysicsComponent &operator=(const PhysicsComponent & other) noexcept;
+	PhysicsComponent &operator=(PhysicsComponent && other) noexcept;
+	~PhysicsComponent() noexcept;
+
 	static void onGUI(void *instance) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;

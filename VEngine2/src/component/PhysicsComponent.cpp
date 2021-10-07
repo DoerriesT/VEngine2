@@ -3,6 +3,121 @@
 #include <glm/glm.hpp>
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
+#include <PxPhysicsAPI.h>
+
+PhysicsComponent::PhysicsComponent(const PhysicsComponent &other) noexcept
+	:m_mobility(other.m_mobility),
+	m_physicsShapeType(other.m_physicsShapeType),
+	m_sphereRadius(other.m_sphereRadius),
+	m_planeNx(other.m_planeNx),
+	m_planeNy(other.m_planeNy),
+	m_planeNz(other.m_planeNz),
+	m_planeDistance(other.m_planeDistance),
+	m_convexMeshHandle(other.m_convexMeshHandle),
+	m_triangleMeshHandle(other.m_triangleMeshHandle),
+	m_linearDamping(other.m_linearDamping),
+	m_angularDamping(other.m_angularDamping),
+	m_density(other.m_density),
+	m_initialVelocityX(other.m_initialVelocityX),
+	m_initialVelocityY(other.m_initialVelocityY),
+	m_initialVelocityZ(other.m_initialVelocityZ),
+	m_materialHandle(other.m_materialHandle)
+{
+}
+
+PhysicsComponent::PhysicsComponent(PhysicsComponent &&other) noexcept
+	:m_mobility(other.m_mobility),
+	m_physicsShapeType(other.m_physicsShapeType),
+	m_sphereRadius(other.m_sphereRadius),
+	m_planeNx(other.m_planeNx),
+	m_planeNy(other.m_planeNy),
+	m_planeNz(other.m_planeNz),
+	m_planeDistance(other.m_planeDistance),
+	m_convexMeshHandle(other.m_convexMeshHandle),
+	m_triangleMeshHandle(other.m_triangleMeshHandle),
+	m_linearDamping(other.m_linearDamping),
+	m_angularDamping(other.m_angularDamping),
+	m_density(other.m_density),
+	m_initialVelocityX(other.m_initialVelocityX),
+	m_initialVelocityY(other.m_initialVelocityY),
+	m_initialVelocityZ(other.m_initialVelocityZ),
+	m_materialHandle(other.m_materialHandle),
+	m_internalPhysicsActorHandle(other.m_internalPhysicsActorHandle)
+{
+	other.m_internalPhysicsActorHandle = nullptr;
+}
+
+PhysicsComponent &PhysicsComponent::operator=(const PhysicsComponent &other) noexcept
+{
+	if (this != &other)
+	{
+		m_mobility = other.m_mobility;
+		m_physicsShapeType = other.m_physicsShapeType;
+		m_sphereRadius = other.m_sphereRadius;
+		m_planeNx = other.m_planeNx;
+		m_planeNy = other.m_planeNy;
+		m_planeNz = other.m_planeNz;
+		m_planeDistance = other.m_planeDistance;
+		m_convexMeshHandle = other.m_convexMeshHandle;
+		m_triangleMeshHandle = other.m_triangleMeshHandle;
+		m_linearDamping = other.m_linearDamping;
+		m_angularDamping = other.m_angularDamping;
+		m_density = other.m_density;
+		m_initialVelocityX = other.m_initialVelocityX;
+		m_initialVelocityY = other.m_initialVelocityY;
+		m_initialVelocityZ = other.m_initialVelocityZ;
+		m_materialHandle = other.m_materialHandle;
+
+		if (m_internalPhysicsActorHandle)
+		{
+			((physx::PxRigidDynamic *)m_internalPhysicsActorHandle)->release();
+			m_internalPhysicsActorHandle = nullptr;
+		}
+	}
+	return *this;
+}
+
+PhysicsComponent &PhysicsComponent::operator=(PhysicsComponent &&other) noexcept
+{
+	if (this != &other)
+	{
+		m_mobility = other.m_mobility;
+		m_physicsShapeType = other.m_physicsShapeType;
+		m_sphereRadius = other.m_sphereRadius;
+		m_planeNx = other.m_planeNx;
+		m_planeNy = other.m_planeNy;
+		m_planeNz = other.m_planeNz;
+		m_planeDistance = other.m_planeDistance;
+		m_convexMeshHandle = other.m_convexMeshHandle;
+		m_triangleMeshHandle = other.m_triangleMeshHandle;
+		m_linearDamping = other.m_linearDamping;
+		m_angularDamping = other.m_angularDamping;
+		m_density = other.m_density;
+		m_initialVelocityX = other.m_initialVelocityX;
+		m_initialVelocityY = other.m_initialVelocityY;
+		m_initialVelocityZ = other.m_initialVelocityZ;
+		m_materialHandle = other.m_materialHandle;
+
+		if (m_internalPhysicsActorHandle)
+		{
+			((physx::PxRigidDynamic *)m_internalPhysicsActorHandle)->release();
+			m_internalPhysicsActorHandle = nullptr;
+		}
+
+		m_internalPhysicsActorHandle = other.m_internalPhysicsActorHandle;
+		other.m_internalPhysicsActorHandle = nullptr;
+	}
+	return *this;
+}
+
+PhysicsComponent::~PhysicsComponent() noexcept
+{
+	if (m_internalPhysicsActorHandle)
+	{
+		((physx::PxRigidDynamic *)m_internalPhysicsActorHandle)->release();
+		m_internalPhysicsActorHandle = nullptr;
+	}
+}
 
 void PhysicsComponent::onGUI(void *instance) noexcept
 {
@@ -36,7 +151,7 @@ void PhysicsComponent::onGUI(void *instance) noexcept
 		ImGui::DragFloat("Plane Distance", &c.m_planeDistance, 0.1f);
 		ImGuiHelpers::Tooltip("The distance of the plane from the origin along the normal.");
 	}
-		break;
+	break;
 	case PhysicsShapeType::CONVEX_MESH:
 		break;
 	case PhysicsShapeType::TRIANGLE_MESH:
@@ -47,7 +162,7 @@ void PhysicsComponent::onGUI(void *instance) noexcept
 	}
 
 	ImGui::DragFloat("Linear Dampening", &c.m_linearDamping, 0.01f, 0.0f, FLT_MAX);
-	
+
 	ImGui::DragFloat("Angular Dampening", &c.m_angularDamping, 0.01f, 0.0f, FLT_MAX);
 
 	ImGui::DragFloat("Density", &c.m_density, 0.01f, 0.01f, FLT_MAX);

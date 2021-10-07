@@ -22,7 +22,8 @@ struct CharacterControllerComponent
 	float m_density = 10.0f;
 	float m_capsuleRadius = 0.2f;
 	float m_capsuleHeight = 1.8f;
-	float m_translationHeightOffset = 1.7f; // offset to apply to the y-component of the resulting "feet" position of the capsule when setting the translation
+	float m_translationHeightOffset = 0.0f; // offset to apply to the y-component of the resulting "feet" position of the capsule when setting the translation
+	bool m_active = true;
 
 	// per frame input
 	float m_movementDeltaX = 0.0f;
@@ -34,6 +35,13 @@ struct CharacterControllerComponent
 
 	// internal
 	void *m_internalControllerHandle = nullptr;
+
+	CharacterControllerComponent() = default;
+	CharacterControllerComponent(const CharacterControllerComponent & other) noexcept;
+	CharacterControllerComponent(CharacterControllerComponent && other) noexcept;
+	CharacterControllerComponent &operator=(const CharacterControllerComponent & other) noexcept;
+	CharacterControllerComponent &operator=(CharacterControllerComponent && other) noexcept;
+	~CharacterControllerComponent() noexcept;
 
 	static void onGUI(void *instance) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;

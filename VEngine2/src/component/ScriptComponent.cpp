@@ -91,6 +91,8 @@ void ScriptComponent::onGUI(void *instance) noexcept
 				{
 					const char *key = lua_tostring(L, -2);
 
+					ImGui::PushID((void *)key);
+
 					if (lua_isboolean(L, -1))
 					{
 						bool value = lua_toboolean(L, -1);
@@ -118,6 +120,8 @@ void ScriptComponent::onGUI(void *instance) noexcept
 							lua_setfield(L, -4, key);
 						}
 					}
+
+					ImGui::PopID();
 				}
 
 				// removes value, keeps key for the next iteration

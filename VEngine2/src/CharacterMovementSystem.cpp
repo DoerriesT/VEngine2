@@ -25,6 +25,11 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 				auto &mc = movementComps[i];
 				auto &cc = controllerComps[i];
 
+				if (!mc.m_active || !cc.m_active)
+				{
+					continue;
+				}
+
 				// rotation
 				{
 					glm::quat turnQuat = glm::quat(glm::angleAxis(-mc.m_turnRightInputAxis, glm::vec3(0.0f, 1.0f, 0.0f)));

@@ -277,23 +277,29 @@ void Physics::update(float deltaTime) noexcept
 
 				controller->resize(adjustedHeight - 2.0f * adjustedRadius);
 
-				auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.00001f, deltaTime, PxControllerFilters());
-
 				cc.m_collisionFlags = CharacterControllerCollisionFlags::NONE;
-				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_SIDES) ? CharacterControllerCollisionFlags::SIDES : CharacterControllerCollisionFlags::NONE;
-				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_UP) ? CharacterControllerCollisionFlags::UP : CharacterControllerCollisionFlags::NONE;
-				cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN) ? CharacterControllerCollisionFlags::DOWN : CharacterControllerCollisionFlags::NONE;
 
+				if (cc.m_active)
+				{
+					auto collisionFlags = controller->move(PxVec3(cc.m_movementDeltaX, cc.m_movementDeltaY, cc.m_movementDeltaZ), 0.00001f, deltaTime, PxControllerFilters());
+					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_SIDES) ? CharacterControllerCollisionFlags::SIDES : CharacterControllerCollisionFlags::NONE;
+					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_UP) ? CharacterControllerCollisionFlags::UP : CharacterControllerCollisionFlags::NONE;
+					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN) ? CharacterControllerCollisionFlags::DOWN : CharacterControllerCollisionFlags::NONE;
+				
+					auto centerPos = controller->getPosition();
+					tc.m_translation.x = (float)centerPos.x;
+					tc.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
+					tc.m_translation.z = (float)centerPos.z;
+				}
+				else
+				{
+					controller->setPosition(PxExtendedVec3(tc.m_translation.x, tc.m_translation.y - centerToTranslationCompHeight, tc.m_translation.z));
+				}
+				
 				// movement has been consumed
 				cc.m_movementDeltaX = 0.0f;
 				cc.m_movementDeltaY = 0.0f;
 				cc.m_movementDeltaZ = 0.0f;
-
-				auto centerPos = controller->getPosition();
-
-				tc.m_translation.x = (float)centerPos.x;
-				tc.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
-				tc.m_translation.z = (float)centerPos.z;
 			}
 		});
 

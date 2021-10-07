@@ -16,6 +16,10 @@ ThirdPersonCameraController::ThirdPersonCameraController(ECS *ecs) noexcept
 
 void ThirdPersonCameraController::update(float timeDelta, Camera &camera, TransformComponent *characterTc, CharacterMovementComponent *movc, Physics *physics)
 {
+	if (!characterTc || !movc)
+	{
+		return;
+	}
 	const auto *inputState = m_ecs->getSingletonComponent<InputStateComponent>();
 
 	auto sphericalToCartesian = [](float pitch, float yaw, float dist)

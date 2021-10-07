@@ -2,6 +2,103 @@
 #include <glm/trigonometric.hpp>
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
+#include <PxPhysicsAPI.h>
+
+CharacterControllerComponent::CharacterControllerComponent(const CharacterControllerComponent &other) noexcept
+	:m_slopeLimit(other.m_slopeLimit),
+	m_contactOffset(other.m_contactOffset),
+	m_stepOffset(other.m_stepOffset),
+	m_density(other.m_density),
+	m_capsuleRadius(other.m_capsuleRadius),
+	m_capsuleHeight(other.m_capsuleHeight),
+	m_translationHeightOffset(other.m_translationHeightOffset),
+	m_active(other.m_active)
+{
+}
+
+CharacterControllerComponent::CharacterControllerComponent(CharacterControllerComponent &&other) noexcept
+	:m_slopeLimit(other.m_slopeLimit),
+	m_contactOffset(other.m_contactOffset),
+	m_stepOffset(other.m_stepOffset),
+	m_density(other.m_density),
+	m_capsuleRadius(other.m_capsuleRadius),
+	m_capsuleHeight(other.m_capsuleHeight),
+	m_translationHeightOffset(other.m_translationHeightOffset),
+	m_active(other.m_active),
+	m_movementDeltaX(other.m_movementDeltaX),
+	m_movementDeltaY(other.m_movementDeltaY),
+	m_movementDeltaZ(other.m_movementDeltaZ),
+	m_collisionFlags(other.m_collisionFlags),
+	m_internalControllerHandle(other.m_internalControllerHandle)
+{
+	other.m_internalControllerHandle = nullptr;
+}
+
+CharacterControllerComponent &CharacterControllerComponent::operator=(const CharacterControllerComponent &other) noexcept
+{
+	if (this != &other)
+	{
+		m_slopeLimit = other.m_slopeLimit;
+		m_contactOffset = other.m_contactOffset;
+		m_stepOffset = other.m_stepOffset;
+		m_density = other.m_density;
+		m_capsuleRadius = other.m_capsuleRadius;
+		m_capsuleHeight = other.m_capsuleHeight;
+		m_translationHeightOffset = other.m_translationHeightOffset;
+		m_active = other.m_active;
+
+		m_movementDeltaX = 0.0f;
+		m_movementDeltaY = 0.0f;
+		m_movementDeltaZ = 0.0f;
+		m_collisionFlags = CharacterControllerCollisionFlags::NONE;
+
+		if (m_internalControllerHandle)
+		{
+			((physx::PxController *)m_internalControllerHandle)->release();
+			m_internalControllerHandle = nullptr;
+		}
+	}
+	return *this;
+}
+
+CharacterControllerComponent &CharacterControllerComponent::operator=(CharacterControllerComponent &&other) noexcept
+{
+	if (this != &other)
+	{
+		m_slopeLimit = other.m_slopeLimit;
+		m_contactOffset = other.m_contactOffset;
+		m_stepOffset = other.m_stepOffset;
+		m_density = other.m_density;
+		m_capsuleRadius = other.m_capsuleRadius;
+		m_capsuleHeight = other.m_capsuleHeight;
+		m_translationHeightOffset = other.m_translationHeightOffset;
+		m_active = other.m_active;
+
+		m_movementDeltaX = other.m_movementDeltaX;
+		m_movementDeltaY = other.m_movementDeltaY;
+		m_movementDeltaZ = other.m_movementDeltaZ;
+		m_collisionFlags = other.m_collisionFlags;
+
+		if (m_internalControllerHandle)
+		{
+			((physx::PxController *)m_internalControllerHandle)->release();
+			m_internalControllerHandle = nullptr;
+		}
+
+		m_internalControllerHandle = other.m_internalControllerHandle;
+		other.m_internalControllerHandle = nullptr;
+	}
+	return *this;
+}
+
+CharacterControllerComponent::~CharacterControllerComponent() noexcept
+{
+	if (m_internalControllerHandle)
+	{
+		((physx::PxController *)m_internalControllerHandle)->release();
+		m_internalControllerHandle = nullptr;
+	}
+}
 
 void CharacterControllerComponent::onGUI(void *instance) noexcept
 {
@@ -29,6 +126,9 @@ void CharacterControllerComponent::onGUI(void *instance) noexcept
 
 	ImGui::DragFloat("Translation Height Offset", &c.m_translationHeightOffset, 0.05f, -10.0f, 10.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 	ImGuiHelpers::Tooltip("The offset to apply to the y-component of the resulting \"feet\" position of the capsule when setting the translation of the attached TransformComponent.");
+
+	ImGui::Checkbox("Active", &c.m_active);
+	ImGuiHelpers::Tooltip("If the controller is not active, the controllers position in the physics world is driven by the Transform Component. Otherwise the controller will drive the Transform Component.");
 
 	ImGui::Separator();
 
