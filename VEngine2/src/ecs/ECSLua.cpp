@@ -244,6 +244,7 @@ void ECSLua::open(lua_State *L)
 	lua_pushvalue(L, -1); // duplicate the meta table
 	lua_setfield(L, -2, "__index"); // metatable.__index = metatable
 	luaL_setfuncs(L, metamethods, 0); // register metamethods
+	lua_pop(L, 1);
 }
 
 void ECSLua::createInstance(lua_State *L, ECS *ecs)
