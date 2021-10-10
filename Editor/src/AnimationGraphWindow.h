@@ -1,6 +1,7 @@
 #pragma once
 #include <EASTL/vector.h>
 #include <asset/AnimationClipAsset.h>
+#include <asset/ScriptAsset.h>
 #include <animation/AnimationGraph.h>
 
 class AnimationGraph;
@@ -12,6 +13,10 @@ struct AnimationGraphEditorParam;
 
 class AnimationGraphWindow
 {
+	friend struct AnimationGraphAnimClipEditorNode;
+	friend struct AnimationGraphLerpEditorNode;
+	friend struct AnimationGraphLerp1DArrayEditorNode;
+	friend struct AnimationGraphLerp2DEditorNode;
 public:
 	explicit AnimationGraphWindow(Engine *engine) noexcept;
 	~AnimationGraphWindow() noexcept;
@@ -38,6 +43,7 @@ private:
 	eastl::vector<AnimationGraphEditorParam *> m_params;
 	eastl::vector<Asset<AnimationClipAssetData> *> m_animClips;
 	eastl::vector<Link> m_links;
+	Asset<ScriptAssetData> m_controllerScriptAsset;
 	int m_nextID = k_firstID;
 	bool m_linkNewNode = false;
 	int m_startedLinkAtNodeID = 0;
@@ -52,13 +58,7 @@ private:
 	void drawNodeEditor() noexcept;
 	void drawParams() noexcept;
 	void drawAnimationClips() noexcept;
-	void drawAnimClipNode(AnimationGraphEditorNode *node) noexcept;
-	void drawLerpNode(AnimationGraphEditorNode *node) noexcept;
-	void drawLerp1DArrayNode(AnimationGraphEditorNode *node) noexcept;
-	void drawLerp2DNode(AnimationGraphEditorNode *node) noexcept;
-	void drawParamComboBox(const char *name, size_t &aliasedCurParamPtr, AnimationGraphParameter::Type type) noexcept;
-
-	void computeNodePosition(AnimationGraphEditorNode *node, int treeDepth, int siblingIndex) noexcept;
+	void drawParamComboBox(const char *name, AnimationGraphEditorParam *&paramPtr, AnimationGraphParameter::Type type) noexcept;
 
 	size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) noexcept;
 	void deleteParameter(const AnimationGraphEditorParam *param) noexcept;
@@ -67,7 +67,6 @@ private:
 
 	void destroyLink(int linkID, bool removeFromLinkList = true) noexcept;
 	void createLink(int srcNodeID, int srcPinID, int dstNodeID, int dstPinID = 0) noexcept;
+	void createVisualLink(AnimationGraphEditorNode *fromNode, int toPinID, int toNodeID) noexcept;
 	void destroyNode(int nodeID) noexcept;
-
-	bool findLoop(const AnimationGraphEditorNode *searchNode, const AnimationGraphEditorNode *node, bool isFirstIteration = true) noexcept;
 };

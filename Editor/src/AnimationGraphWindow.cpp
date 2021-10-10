@@ -7,13 +7,612 @@
 #include <Log.h>
 #include <graphics/imgui/gui_helpers.h>
 
+template<typename T>
+static T convertIdxToPtr(size_t idx, const eastl::vector<T> &v)
+{
+	if (idx == -1 || idx >= v.size())
+	{
+		return nullptr;
+	}
+	else
+	{
+		return v[idx];
+	}
+};
+
+template<typename T>
+static size_t convertPtrToIdx(T ptr, const eastl::vector<T> &v)
+{
+	if (!ptr)
+	{
+		return -1;
+	}
+	else
+	{
+		auto it = eastl::find(v.begin(), v.end(), ptr);
+		return it != v.end() ? (it - v.begin()) : -1;
+	}
+};
+
+static const char *k_nodeTypeNames[]{ "Animation Clip", "Lerp", "Lerp 1D Array", "Lerp 2D" };
+
 struct AnimationGraphEditorNode
 {
 	int m_nodeID;
 	int m_outputPinID;
 	int m_inputPinIDs[8];
-	AnimationGraphNodeType m_nodeType;
-	AnimationGraphNodeData m_nodeData;
+
+	virtual void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept = 0;
+	virtual AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept = 0;
+	virtual void draw(AnimationGraphWindow *window) noexcept = 0;
+	virtual void computeNodePosition(int treeDepth, int siblingIndex) const noexcept = 0;
+	virtual size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) const noexcept = 0;
+	virtual void deleteParameter(const AnimationGraphEditorParam *param) noexcept = 0;
+	virtual size_t getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) const noexcept { return 0; }
+	virtual void deleteAnimationClip(const Asset<AnimationClipAssetData> *animClip) noexcept {}
+	virtual void clearInputPin(size_t pinIndex) noexcept = 0;
+	virtual void setInputPin(size_t pinIndex, AnimationGraphEditorNode *inputNode) noexcept = 0;
+	virtual bool findLoop(const AnimationGraphEditorNode *searchNode) const noexcept = 0;
+};
+
+struct AnimationGraphAnimClipEditorNode : AnimationGraphEditorNode
+{
+	Asset<AnimationClipAssetData> *m_animClip;
+	AnimationGraphEditorParam *m_loopParam;
+
+	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
+	{
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::ANIM_CLIP);
+		m_animClip = convertIdxToPtr(runtimeNode.m_nodeData.m_clipNodeData.m_animClip, window->m_animClips);
+		m_loopParam = convertIdxToPtr(runtimeNode.m_nodeData.m_clipNodeData.m_loop, window->m_params);
+	}
+
+	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
+	{
+		AnimationGraphNode result{};
+		result.m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
+		result.m_nodeData.m_clipNodeData.m_animClip = convertPtrToIdx(m_animClip, window->m_animClips);
+		result.m_nodeData.m_clipNodeData.m_loop = convertPtrToIdx(m_loopParam, window->m_params);
+		return result;
+	}
+
+	void draw(AnimationGraphWindow *window) noexcept override
+	{
+		ImNodes::BeginNode(m_nodeID);
+		{
+			// title bar
+			ImNodes::BeginNodeTitleBar();
+			ImGui::TextUnformatted("Animation Clip");
+			ImNodes::EndNodeTitleBar();
+
+			// pins
+			ImNodes::BeginOutputAttribute(m_outputPinID);
+			ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
+			ImGui::TextUnformatted("Out");
+			ImNodes::EndOutputAttribute();
+
+			auto *curClip = m_animClip;
+			auto *newClip = curClip;
+
+			const char *curClipName = curClip ? (curClip->get() ? curClip->get()->getAssetID().m_string : "<No Asset>") : "<Empty>";
+
+			ImGui::PushItemWidth(200.0f);
+			if (ImGui::BeginCombo("Clip", curClipName))
+			{
+				for (size_t i = 0; i < window->m_animClips.size(); ++i)
+				{
+					bool selected = window->m_animClips[i] == curClip;
+					if (ImGui::Selectable(window->m_animClips[i]->get() ? (*window->m_animClips[i])->getAssetID().m_string : "<No Asset>", selected))
+					{
+						newClip = window->m_animClips[i];
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::PopItemWidth();
+
+			m_animClip = newClip;
+
+			window->drawParamComboBox("Loop", m_loopParam, AnimationGraphParameter::Type::BOOL);
+		}
+		ImNodes::EndNode();
+	}
+
+	void computeNodePosition(int treeDepth, int siblingIndex) const noexcept override
+	{
+		ImVec2 origin = ImNodes::GetNodeGridSpacePos(AnimationGraphWindow::k_rootNodeID);
+		ImNodes::SetNodeGridSpacePos(m_nodeID, ImVec2(-treeDepth * 450.0f + origin.x, siblingIndex * 150.0f + origin.y));
+	}
+
+	size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) const noexcept override
+	{
+		return (param == m_loopParam) ? 1 : 0;
+	}
+
+	void deleteParameter(const AnimationGraphEditorParam *param) noexcept override
+	{
+		if (param == m_loopParam)
+		{
+			m_loopParam = nullptr;
+		}
+	}
+
+	size_t getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) const noexcept override
+	{
+		return (animClip == m_animClip) ? 1 : 0;
+	}
+
+	void deleteAnimationClip(const Asset<AnimationClipAssetData> *animClip) noexcept override
+	{
+		if (animClip == m_animClip)
+		{
+			m_animClip = nullptr;
+		}
+	}
+
+	void clearInputPin(size_t pinIndex) noexcept override
+	{
+		// this node has no inputs
+		assert(false);
+	}
+
+	void setInputPin(size_t pinIndex, AnimationGraphEditorNode *inputNode) noexcept override
+	{
+		// this node has no inputs
+		assert(false);
+	}
+
+	bool findLoop(const AnimationGraphEditorNode *searchNode) const noexcept override
+	{
+		return false;
+	}
+};
+
+struct AnimationGraphLerpEditorNode : AnimationGraphEditorNode
+{
+	AnimationGraphEditorNode *m_inputA;
+	AnimationGraphEditorNode *m_inputB;
+	AnimationGraphEditorParam *m_alphaParam;
+
+	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
+	{
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::LERP);
+		m_inputA = convertIdxToPtr(runtimeNode.m_nodeData.m_lerpNodeData.m_inputA, window->m_nodes);
+		m_inputB = convertIdxToPtr(runtimeNode.m_nodeData.m_lerpNodeData.m_inputB, window->m_nodes);
+		m_alphaParam = convertIdxToPtr(runtimeNode.m_nodeData.m_lerpNodeData.m_alpha, window->m_params);
+
+		window->createVisualLink(m_inputA, m_inputPinIDs[0], m_nodeID);
+		window->createVisualLink(m_inputB, m_inputPinIDs[1], m_nodeID);
+	}
+
+	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
+	{
+		AnimationGraphNode result{};
+		result.m_nodeType = AnimationGraphNodeType::LERP;
+		result.m_nodeData.m_lerpNodeData.m_inputA = convertPtrToIdx(m_inputA, window->m_nodes);
+		result.m_nodeData.m_lerpNodeData.m_inputB = convertPtrToIdx(m_inputB, window->m_nodes);
+		result.m_nodeData.m_lerpNodeData.m_alpha = convertPtrToIdx(m_alphaParam, window->m_params);
+		return result;
+	}
+
+	void draw(AnimationGraphWindow *window) noexcept override
+	{
+		ImNodes::BeginNode(m_nodeID);
+		{
+			// title bar
+			ImNodes::BeginNodeTitleBar();
+			ImGui::TextUnformatted("Lerp");
+			ImNodes::EndNodeTitleBar();
+
+			// pins
+			ImNodes::BeginOutputAttribute(m_outputPinID);
+			ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
+			ImGui::TextUnformatted("Out");
+			ImNodes::EndOutputAttribute();
+
+			ImNodes::BeginInputAttribute(m_inputPinIDs[0]);
+			ImGui::TextUnformatted("X");
+			ImNodes::EndInputAttribute();
+			ImNodes::BeginInputAttribute(m_inputPinIDs[1]);
+			ImGui::TextUnformatted("Y");
+			ImNodes::EndInputAttribute();
+
+			window->drawParamComboBox("Alpha", m_alphaParam, AnimationGraphParameter::Type::FLOAT);
+		}
+		ImNodes::EndNode();
+	}
+
+	void computeNodePosition(int treeDepth, int siblingIndex) const noexcept override
+	{
+		ImVec2 origin = ImNodes::GetNodeGridSpacePos(AnimationGraphWindow::k_rootNodeID);
+		ImNodes::SetNodeGridSpacePos(m_nodeID, ImVec2(-treeDepth * 450.0f + origin.x, siblingIndex * 150.0f + origin.y));
+
+		assert(m_inputA && m_inputB);
+		m_inputA->computeNodePosition(treeDepth + 1, siblingIndex);
+		m_inputB->computeNodePosition(treeDepth + 1, siblingIndex + 1);
+	}
+
+	size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) const noexcept override
+	{
+		return (param == m_alphaParam) ? 1 : 0;
+	}
+
+	void deleteParameter(const AnimationGraphEditorParam *param) noexcept override
+	{
+		if (param == m_alphaParam)
+		{
+			m_alphaParam = nullptr;
+		}
+	}
+
+	void clearInputPin(size_t pinIndex) noexcept override
+	{
+		assert(pinIndex < 2);
+		if (pinIndex == 0)
+		{
+			m_inputA = nullptr;
+		}
+		else
+		{
+			m_inputB = nullptr;
+		}
+	}
+
+	void setInputPin(size_t pinIndex, AnimationGraphEditorNode *inputNode) noexcept override
+	{
+		assert(pinIndex < 2);
+		if (pinIndex == 0)
+		{
+			m_inputA = inputNode;
+		}
+		else
+		{
+			m_inputB = inputNode;
+		}
+	}
+
+	bool findLoop(const AnimationGraphEditorNode *searchNode) const noexcept override
+	{
+		assert(searchNode);
+		if (searchNode == m_inputA || searchNode == m_inputB)
+		{
+			return true;
+		}
+
+		return (m_inputA && m_inputA->findLoop(searchNode)) || (m_inputB && m_inputB->findLoop(searchNode));
+	}
+};
+
+struct AnimationGraphLerp1DArrayEditorNode : AnimationGraphEditorNode
+{
+	static constexpr size_t k_maxInputs = AnimationGraphNodeData::Lerp1DArrayNodeData::k_maxInputs;
+	AnimationGraphEditorNode *m_inputs[k_maxInputs];
+	float m_inputKeys[k_maxInputs];
+	size_t m_inputCount;
+	AnimationGraphEditorParam *m_alphaParam;
+
+	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
+	{
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::LERP_1D_ARRAY);
+		m_inputCount = runtimeNode.m_nodeData.m_lerp1DArrayNodeData.m_inputCount;
+
+		for (size_t i = 0; i < k_maxInputs; ++i)
+		{
+			if (i < m_inputCount)
+			{
+				m_inputs[i] = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp1DArrayNodeData.m_inputs[i], window->m_nodes);
+				m_inputKeys[i] = runtimeNode.m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i];
+				window->createVisualLink(m_inputs[i], m_inputPinIDs[i], m_nodeID);
+			}
+		}
+		m_alphaParam = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp1DArrayNodeData.m_alpha, window->m_params);
+	}
+
+	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
+	{
+		AnimationGraphNode result{};
+		result.m_nodeType = AnimationGraphNodeType::LERP_1D_ARRAY;
+
+		for (size_t i = 0; i < m_inputCount; ++i)
+		{
+			result.m_nodeData.m_lerp1DArrayNodeData.m_inputs[i] = convertPtrToIdx(m_inputs[i], window->m_nodes);
+			result.m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i] = m_inputKeys[i];
+		}
+
+		result.m_nodeData.m_lerp1DArrayNodeData.m_inputCount = m_inputCount;
+		result.m_nodeData.m_lerp1DArrayNodeData.m_alpha = convertPtrToIdx(m_alphaParam, window->m_params);
+
+		return result;
+	}
+
+	void draw(AnimationGraphWindow *window) noexcept override
+	{
+		ImNodes::BeginNode(m_nodeID);
+		{
+			// title bar
+			ImNodes::BeginNodeTitleBar();
+			ImGui::TextUnformatted("Lerp 1D Array");
+			ImNodes::EndNodeTitleBar();
+
+			// pins
+			ImNodes::BeginOutputAttribute(m_outputPinID);
+			ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
+			ImGui::TextUnformatted("Out");
+			ImNodes::EndOutputAttribute();
+
+			const auto inputCount = m_inputCount;
+
+			float prevMaxKey = -FLT_MAX;
+
+			for (size_t i = 0; i < AnimationGraphNodeData::Lerp1DArrayNodeData::k_maxInputs; ++i)
+			{
+				if (i < inputCount)
+				{
+					ImNodes::BeginInputAttribute(m_inputPinIDs[i]);
+					ImGui::Text("%i", (int)i);
+					ImNodes::EndInputAttribute();
+				}
+				else
+				{
+					ImGui::Text("%i", (int)i);
+				}
+
+				ImGui::SameLine();
+
+				ImGui::PushID(&m_inputKeys[i]);
+				ImGui::PushItemWidth(200.0f);
+				if (ImGui::InputFloat("", &m_inputKeys[i]))
+				{
+					m_inputKeys[i] = fmaxf(m_inputKeys[i], prevMaxKey);
+				}
+				ImGui::PopItemWidth();
+				ImGui::PopID();
+
+				prevMaxKey = m_inputKeys[i];
+			}
+
+			window->drawParamComboBox("Alpha", m_alphaParam, AnimationGraphParameter::Type::FLOAT);
+
+			int newInputCount = (int)inputCount;
+			ImGui::PushItemWidth(200.0f);
+			ImGui::InputInt("Input Count", &newInputCount);
+			ImGui::PopItemWidth();
+			newInputCount = newInputCount < 0 ? 0 : newInputCount;
+			newInputCount = newInputCount > k_maxInputs ? k_maxInputs : newInputCount;
+
+			if (newInputCount > inputCount)
+			{
+				const float newKeyVal = inputCount == 0 ? 0.0f : m_inputKeys[inputCount - 1];
+				for (size_t i = inputCount; i < newInputCount; ++i)
+				{
+					m_inputKeys[i] = newKeyVal;
+				}
+			}
+			else if (newInputCount < inputCount)
+			{
+				for (size_t i = newInputCount; i < inputCount; ++i)
+				{
+					const int sourceOutPinID = m_inputs[i]->m_outputPinID;
+					window->m_links.erase(eastl::remove_if(window->m_links.begin(), window->m_links.end(), [&](const auto &link)
+						{
+							return link.m_fromPinID == sourceOutPinID && link.m_toPinID == m_inputPinIDs[i];
+						}), window->m_links.end());
+					m_inputs[i] = nullptr;
+				}
+			}
+
+			m_inputCount = (size_t)newInputCount;
+		}
+		ImNodes::EndNode();
+	}
+
+	void computeNodePosition(int treeDepth, int siblingIndex) const noexcept override
+	{
+		ImVec2 origin = ImNodes::GetNodeGridSpacePos(AnimationGraphWindow::k_rootNodeID);
+		ImNodes::SetNodeGridSpacePos(m_nodeID, ImVec2(-treeDepth * 450.0f + origin.x, siblingIndex * 150.0f + origin.y));
+
+		for (size_t i = 0; i < m_inputCount; ++i)
+		{
+			assert(m_inputs[i]);
+			m_inputs[i]->computeNodePosition(treeDepth + 1, siblingIndex + (int)i);
+		}
+	}
+
+	size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) const noexcept override
+	{
+		return (param == m_alphaParam) ? 1 : 0;
+	}
+
+	void deleteParameter(const AnimationGraphEditorParam *param) noexcept override
+	{
+		if (param == m_alphaParam)
+		{
+			m_alphaParam = nullptr;
+		}
+	}
+
+	void clearInputPin(size_t pinIndex) noexcept override
+	{
+		assert(pinIndex < m_inputCount);
+		m_inputs[pinIndex] = nullptr;
+	}
+
+	void setInputPin(size_t pinIndex, AnimationGraphEditorNode *inputNode) noexcept override
+	{
+		assert(pinIndex < m_inputCount);
+		m_inputs[pinIndex] = inputNode;
+	}
+
+	bool findLoop(const AnimationGraphEditorNode *searchNode) const noexcept override
+	{
+		assert(searchNode);
+
+		for (size_t i = 0; i < m_inputCount; ++i)
+		{
+			if (searchNode == m_inputs[i])
+			{
+				return true;
+			}
+		}
+
+		for (size_t i = 0; i < m_inputCount; ++i)
+		{
+			if (m_inputs[i] && m_inputs[i]->findLoop(searchNode))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+};
+
+struct AnimationGraphLerp2DEditorNode : AnimationGraphEditorNode
+{
+	AnimationGraphEditorNode *m_inputTL;
+	AnimationGraphEditorNode *m_inputTR;
+	AnimationGraphEditorNode *m_inputBL;
+	AnimationGraphEditorNode *m_inputBR;
+	AnimationGraphEditorParam *m_alphaXParam;
+	AnimationGraphEditorParam *m_alphaYParam;
+
+	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
+	{
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::LERP_2D);
+		m_inputTL = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputTL, window->m_nodes);
+		m_inputTR = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputTR, window->m_nodes);
+		m_inputBL = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputBL, window->m_nodes);
+		m_inputBR = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputBR, window->m_nodes);
+		m_alphaXParam = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_alphaX, window->m_params);
+		m_alphaYParam = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_alphaY, window->m_params);
+
+		window->createVisualLink(m_inputTL, m_inputPinIDs[0], m_nodeID);
+		window->createVisualLink(m_inputTR, m_inputPinIDs[1], m_nodeID);
+		window->createVisualLink(m_inputBL, m_inputPinIDs[2], m_nodeID);
+		window->createVisualLink(m_inputBR, m_inputPinIDs[3], m_nodeID);
+	}
+
+	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
+	{
+		AnimationGraphNode result{};
+		result.m_nodeType = AnimationGraphNodeType::LERP_2D;
+		result.m_nodeData.m_lerp2DNodeData.m_inputTL = convertPtrToIdx(m_inputTL, window->m_nodes);
+		result.m_nodeData.m_lerp2DNodeData.m_inputTR = convertPtrToIdx(m_inputTR, window->m_nodes);
+		result.m_nodeData.m_lerp2DNodeData.m_inputBL = convertPtrToIdx(m_inputBL, window->m_nodes);
+		result.m_nodeData.m_lerp2DNodeData.m_inputBR = convertPtrToIdx(m_inputBR, window->m_nodes);
+		result.m_nodeData.m_lerp2DNodeData.m_alphaX = convertPtrToIdx(m_alphaXParam, window->m_params);
+		result.m_nodeData.m_lerp2DNodeData.m_alphaY = convertPtrToIdx(m_alphaYParam, window->m_params);
+		return result;
+	}
+
+	void draw(AnimationGraphWindow *window) noexcept override
+	{
+		ImNodes::BeginNode(m_nodeID);
+		{
+			// title bar
+			ImNodes::BeginNodeTitleBar();
+			ImGui::TextUnformatted("Lerp 2D");
+			ImNodes::EndNodeTitleBar();
+
+			// pins
+			ImNodes::BeginOutputAttribute(m_outputPinID);
+			ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
+			ImGui::TextUnformatted("Out");
+			ImNodes::EndOutputAttribute();
+
+			ImNodes::BeginInputAttribute(m_inputPinIDs[0]);
+			ImGui::TextUnformatted("TL");
+			ImNodes::EndInputAttribute();
+			ImNodes::BeginInputAttribute(m_inputPinIDs[1]);
+			ImGui::TextUnformatted("TR");
+			ImNodes::EndInputAttribute();
+			ImNodes::BeginInputAttribute(m_inputPinIDs[2]);
+			ImGui::TextUnformatted("BL");
+			ImNodes::EndInputAttribute();
+			ImNodes::BeginInputAttribute(m_inputPinIDs[3]);
+			ImGui::TextUnformatted("BR");
+			ImNodes::EndInputAttribute();
+
+			window->drawParamComboBox("Alpha X", m_alphaXParam, AnimationGraphParameter::Type::FLOAT);
+			window->drawParamComboBox("Alpha Y", m_alphaYParam, AnimationGraphParameter::Type::FLOAT);
+		}
+		ImNodes::EndNode();
+	}
+
+	void computeNodePosition(int treeDepth, int siblingIndex) const noexcept override
+	{
+		ImVec2 origin = ImNodes::GetNodeGridSpacePos(AnimationGraphWindow::k_rootNodeID);
+		ImNodes::SetNodeGridSpacePos(m_nodeID, ImVec2(-treeDepth * 450.0f + origin.x, siblingIndex * 150.0f + origin.y));
+
+		m_inputTL->computeNodePosition(treeDepth + 1, siblingIndex);
+		m_inputTR->computeNodePosition(treeDepth + 1, siblingIndex + 1);
+		m_inputBL->computeNodePosition(treeDepth + 1, siblingIndex + 2);
+		m_inputBR->computeNodePosition(treeDepth + 1, siblingIndex + 3);
+	}
+
+	size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) const noexcept override
+	{
+		size_t count = 0;
+		count = (param == m_alphaXParam) ? (count + 1) : count;
+		count = (param == m_alphaYParam) ? (count + 1) : count;
+		return count;
+	}
+
+	void deleteParameter(const AnimationGraphEditorParam *param) noexcept override
+	{
+		if (param == m_alphaXParam)
+		{
+			m_alphaXParam = nullptr;
+		}
+		if (param == m_alphaYParam)
+		{
+			m_alphaYParam = nullptr;
+		}
+	}
+
+	void clearInputPin(size_t pinIndex) noexcept override
+	{
+		switch (pinIndex)
+		{
+		case 0: m_inputTL = nullptr; break;
+		case 1: m_inputTR = nullptr; break;
+		case 2: m_inputBL = nullptr; break;
+		case 3: m_inputBR = nullptr; break;
+		default:
+			assert(false);
+		}
+	}
+
+	void setInputPin(size_t pinIndex, AnimationGraphEditorNode *inputNode) noexcept override
+	{
+		switch (pinIndex)
+		{
+		case 0: m_inputTL = inputNode; break;
+		case 1: m_inputTR = inputNode; break;
+		case 2: m_inputBL = inputNode; break;
+		case 3: m_inputBR = inputNode; break;
+		default:
+			assert(false);
+		}
+	}
+
+	bool findLoop(const AnimationGraphEditorNode *searchNode) const noexcept override
+	{
+		assert(searchNode);
+		if (searchNode == m_inputTL
+			|| searchNode == m_inputTR
+			|| searchNode == m_inputBL
+			|| searchNode == m_inputBR
+			)
+		{
+			return true;
+		}
+
+		return (m_inputTL && m_inputTL->findLoop(searchNode))
+			|| (m_inputTR && m_inputTR->findLoop(searchNode))
+			|| (m_inputBL && m_inputBL->findLoop(searchNode))
+			|| (m_inputBR && m_inputBR->findLoop(searchNode));
+	}
 };
 
 struct AnimationGraphEditorParam
@@ -80,21 +679,31 @@ void AnimationGraphWindow::draw(AnimationGraph *graph) noexcept
 			{
 				ImGui::TableSetColumnIndex(0);
 				ImGui::BeginChild("##Params");
-				if (ImGui::BeginTabBar("ParamsClipsTabBar", ImGuiTabBarFlags_None))
 				{
-					if (ImGui::BeginTabItem("Parameters"))
+					// controller script
 					{
-						drawParams();
-						ImGui::EndTabItem();
+						AssetData *resultAssetData = nullptr;
+						if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, m_controllerScriptAsset.get(), &resultAssetData))
+						{
+							m_controllerScriptAsset = resultAssetData;
+						}
 					}
-					if (ImGui::BeginTabItem("Animation Clips"))
+
+					if (ImGui::BeginTabBar("ParamsClipsTabBar", ImGuiTabBarFlags_None))
 					{
-						drawAnimationClips();
-						ImGui::EndTabItem();
+						if (ImGui::BeginTabItem("Parameters"))
+						{
+							drawParams();
+							ImGui::EndTabItem();
+						}
+						if (ImGui::BeginTabItem("Animation Clips"))
+						{
+							drawAnimationClips();
+							ImGui::EndTabItem();
+						}
+						ImGui::EndTabBar();
 					}
-					ImGui::EndTabBar();
 				}
-				
 				ImGui::EndChild();
 			}
 
@@ -142,6 +751,7 @@ void AnimationGraphWindow::importGraph(AnimationGraph *graph) noexcept
 	}
 	m_nodes.clear();
 	m_links.clear();
+	m_controllerScriptAsset.release();
 	m_nextID = k_firstID;
 
 	if (graph)
@@ -165,111 +775,56 @@ void AnimationGraphWindow::importGraph(AnimationGraph *graph) noexcept
 			m_animClips.push_back(new Asset<AnimationClipAssetData>(clips[i]));
 		}
 
-		// copy nodes
+		m_controllerScriptAsset = graph->getControllerScript();
+
+		// create editor nodes
 		const auto nodeCount = graph->getNodeCount();
 		const auto *nodes = graph->getNodes();
 		for (size_t i = 0; i < nodeCount; ++i)
 		{
-			AnimationGraphEditorNode editorNode{};
-			editorNode.m_nodeID = m_nextID++;
-			editorNode.m_outputPinID = m_nextID++;
-			for (auto &pid : editorNode.m_inputPinIDs)
-			{
-				pid = m_nextID++;
-			}
-			editorNode.m_nodeType = nodes[i].m_nodeType;
-			editorNode.m_nodeData = nodes[i].m_nodeData;
+			AnimationGraphEditorNode *editorNode = nullptr;
 
-			m_nodes.push_back(new AnimationGraphEditorNode(editorNode));
-		}
-
-		auto createLink = [this](size_t aliasedPtr, int toPinID, int toNodeID)
-		{
-			Link link;
-			link.m_linkID = m_nextID++;
-			link.m_fromNodeID = ((AnimationGraphEditorNode *)aliasedPtr)->m_nodeID;
-			link.m_fromPinID = ((AnimationGraphEditorNode *)aliasedPtr)->m_outputPinID;
-			link.m_toNodeID = toNodeID;
-			link.m_toPinID = toPinID;
-			m_links.push_back(link);
-		};
-
-		if (graph->getRootNodeIndex() != -1)
-		{
-			createLink((size_t)m_nodes[graph->getRootNodeIndex()], k_rootNodeInputPinID, k_rootNodeID);
-		}
-
-		// translate indices in nodes to pointers and set up links
-		for (auto *n : m_nodes)
-		{
-			auto convertIdx = [](size_t &aliasedIdx, const auto &v)
-			{
-				if (aliasedIdx == -1 || aliasedIdx >= v.size())
-				{
-					aliasedIdx = 0;
-				}
-				else
-				{
-					aliasedIdx = (size_t)v[aliasedIdx];
-				}
-			};
-
-			switch (n->m_nodeType)
+			switch (nodes[i].m_nodeType)
 			{
 			case AnimationGraphNodeType::ANIM_CLIP:
-			{
-				convertIdx(n->m_nodeData.m_clipNodeData.m_animClip, m_animClips);
-				convertIdx(n->m_nodeData.m_clipNodeData.m_loop, m_params);
-				break;
-			}
+				editorNode = new AnimationGraphAnimClipEditorNode(); break;
 			case AnimationGraphNodeType::LERP:
-			{
-				convertIdx(n->m_nodeData.m_lerpNodeData.m_inputA, m_nodes);
-				convertIdx(n->m_nodeData.m_lerpNodeData.m_inputB, m_nodes);
-				convertIdx(n->m_nodeData.m_lerpNodeData.m_alpha, m_params);
-
-				createLink(n->m_nodeData.m_lerpNodeData.m_inputA, n->m_inputPinIDs[0], n->m_nodeID);
-				createLink(n->m_nodeData.m_lerpNodeData.m_inputB, n->m_inputPinIDs[1], n->m_nodeID);
-
-				break;
-			}
+				editorNode = new AnimationGraphLerpEditorNode(); break;
 			case AnimationGraphNodeType::LERP_1D_ARRAY:
-			{
-				for (size_t j = 0; j < n->m_nodeData.m_lerp1DArrayNodeData.m_inputCount; ++j)
-				{
-					convertIdx(n->m_nodeData.m_lerp1DArrayNodeData.m_inputs[j], m_nodes);
-
-					createLink(n->m_nodeData.m_lerp1DArrayNodeData.m_inputs[j], n->m_inputPinIDs[j], n->m_nodeID);
-				}
-				convertIdx(n->m_nodeData.m_lerp1DArrayNodeData.m_alpha, m_params);
-				break;
-			}
+				editorNode = new AnimationGraphLerp1DArrayEditorNode(); break;
 			case AnimationGraphNodeType::LERP_2D:
-			{
-				convertIdx(n->m_nodeData.m_lerp2DNodeData.m_inputTL, m_nodes);
-				convertIdx(n->m_nodeData.m_lerp2DNodeData.m_inputTR, m_nodes);
-				convertIdx(n->m_nodeData.m_lerp2DNodeData.m_inputBL, m_nodes);
-				convertIdx(n->m_nodeData.m_lerp2DNodeData.m_inputBR, m_nodes);
-				convertIdx(n->m_nodeData.m_lerp2DNodeData.m_alphaX, m_params);
-				convertIdx(n->m_nodeData.m_lerp2DNodeData.m_alphaY, m_params);
-
-				createLink(n->m_nodeData.m_lerp2DNodeData.m_inputTL, n->m_inputPinIDs[0], n->m_nodeID);
-				createLink(n->m_nodeData.m_lerp2DNodeData.m_inputTR, n->m_inputPinIDs[1], n->m_nodeID);
-				createLink(n->m_nodeData.m_lerp2DNodeData.m_inputBL, n->m_inputPinIDs[2], n->m_nodeID);
-				createLink(n->m_nodeData.m_lerp2DNodeData.m_inputBR, n->m_inputPinIDs[3], n->m_nodeID);
-				break;
-			}
+				editorNode = new AnimationGraphLerp2DEditorNode(); break;
 			default:
 				assert(false);
 				break;
 			}
+
+			editorNode->m_nodeID = m_nextID++;
+			editorNode->m_outputPinID = m_nextID++;
+			for (auto &pid : editorNode->m_inputPinIDs)
+			{
+				pid = m_nextID++;
+			}
+
+			m_nodes.push_back(editorNode);
+		}
+
+		if (graph->getRootNodeIndex() != -1)
+		{
+			createVisualLink(m_nodes[graph->getRootNodeIndex()], k_rootNodeInputPinID, k_rootNodeID);
+		}
+
+		// translate indices in nodes to pointers and set up links
+		for (size_t i = 0; i < nodeCount; ++i)
+		{
+			m_nodes[i]->setFromRuntimeData(this, nodes[i]);
 		}
 
 		ImNodes::SetNodeEditorSpacePos(k_rootNodeID, ImVec2(ImGui::GetContentRegionAvail().x * 0.75f, ImGui::GetContentRegionAvail().y * 0.5f));
 		ImNodes::SetNodeDraggable(k_rootNodeID, false);
 		if (!m_nodes.empty())
 		{
-			computeNodePosition(m_nodes[graph->getRootNodeIndex()], 1, 0);
+			m_nodes[graph->getRootNodeIndex()]->computeNodePosition(1, 0);
 		}
 	}
 }
@@ -296,64 +851,7 @@ void AnimationGraphWindow::exportGraph(AnimationGraph *graph) noexcept
 		nodes.reserve(m_nodes.size());
 		for (size_t i = 0; i < m_nodes.size(); ++i)
 		{
-			AnimationGraphNode node;
-			node.m_nodeType = m_nodes[i]->m_nodeType;
-			node.m_nodeData = m_nodes[i]->m_nodeData;
-
-			auto convertPtr = [](size_t &aliasedPtr, const auto &v)
-			{
-				if (aliasedPtr == 0)
-				{
-					aliasedPtr = -1;
-				}
-				else
-				{
-					auto it = eastl::find(v.begin(), v.end(), (decltype(v[0]))aliasedPtr);
-					aliasedPtr = it != v.end() ? (it - v.begin()) : -1;
-				}
-			};
-
-			// convert pointers to indices
-			switch (node.m_nodeType)
-			{
-			case AnimationGraphNodeType::ANIM_CLIP:
-			{
-				convertPtr(node.m_nodeData.m_clipNodeData.m_animClip, m_animClips);
-				convertPtr(node.m_nodeData.m_clipNodeData.m_loop, m_params);
-				break;
-			}
-			case AnimationGraphNodeType::LERP:
-			{
-				convertPtr(node.m_nodeData.m_lerpNodeData.m_inputA, m_nodes);
-				convertPtr(node.m_nodeData.m_lerpNodeData.m_inputB, m_nodes);
-				convertPtr(node.m_nodeData.m_lerpNodeData.m_alpha, m_params);
-				break;
-			}
-			case AnimationGraphNodeType::LERP_1D_ARRAY:
-			{
-				for (size_t j = 0; j < node.m_nodeData.m_lerp1DArrayNodeData.m_inputCount; ++j)
-				{
-					convertPtr(node.m_nodeData.m_lerp1DArrayNodeData.m_inputs[j], m_nodes);
-				}
-				convertPtr(node.m_nodeData.m_lerp1DArrayNodeData.m_alpha, m_params);
-				break;
-			}
-			case AnimationGraphNodeType::LERP_2D:
-			{
-				convertPtr(node.m_nodeData.m_lerp2DNodeData.m_inputTL, m_nodes);
-				convertPtr(node.m_nodeData.m_lerp2DNodeData.m_inputTR, m_nodes);
-				convertPtr(node.m_nodeData.m_lerp2DNodeData.m_inputBL, m_nodes);
-				convertPtr(node.m_nodeData.m_lerp2DNodeData.m_inputBR, m_nodes);
-				convertPtr(node.m_nodeData.m_lerp2DNodeData.m_alphaX, m_params);
-				convertPtr(node.m_nodeData.m_lerp2DNodeData.m_alphaY, m_params);
-				break;
-			}
-			default:
-				assert(false);
-				break;
-			}
-
-			nodes.push_back(node);
+			nodes.push_back(m_nodes[i]->createRuntimeData(this));
 		}
 
 		size_t rootNodeIdx = -1;
@@ -368,8 +866,7 @@ void AnimationGraphWindow::exportGraph(AnimationGraph *graph) noexcept
 			}
 		}
 
-
-		*graph = AnimationGraph(rootNodeIdx, nodes.size(), nodes.data(), params.size(), params.data(), clips.size(), clips.data(), graph->getControllerScript());
+		*graph = AnimationGraph(rootNodeIdx, nodes.size(), nodes.data(), params.size(), params.data(), clips.size(), clips.data(), m_controllerScriptAsset);
 	}
 }
 
@@ -396,20 +893,7 @@ void AnimationGraphWindow::drawNodeEditor() noexcept
 
 		for (auto *n : m_nodes)
 		{
-			switch (n->m_nodeType)
-			{
-			case AnimationGraphNodeType::ANIM_CLIP:
-				drawAnimClipNode(n); break;
-			case AnimationGraphNodeType::LERP:
-				drawLerpNode(n); break;
-			case AnimationGraphNodeType::LERP_1D_ARRAY:
-				drawLerp1DArrayNode(n); break;
-			case AnimationGraphNodeType::LERP_2D:
-				drawLerp2DNode(n); break;
-			default:
-				assert(false);
-				break;
-			}
+			n->draw(this);
 		}
 
 		for (const auto &l : m_links)
@@ -530,48 +1014,41 @@ void AnimationGraphWindow::drawNodeEditor() noexcept
 			ImGui::Text("Node to add:");
 			ImGui::Separator();
 
-			const char *nodeNames[]{ "Animation Clip", "Lerp", "Lerp 1D Array", "Lerp 2D" };
-
-			for (size_t i = 0; i < eastl::size(nodeNames); ++i)
+			for (size_t i = 0; i < eastl::size(k_nodeTypeNames); ++i)
 			{
-				if (ImGui::Selectable(nodeNames[i]))
+				if (ImGui::Selectable(k_nodeTypeNames[i]))
 				{
-					AnimationGraphEditorNode editorNode;
-					editorNode.m_nodeID = m_nextID++;
-					editorNode.m_outputPinID = m_nextID++;
-					for (auto &pid : editorNode.m_inputPinIDs)
-					{
-						pid = m_nextID++;
-					}
-					editorNode.m_nodeType = static_cast<AnimationGraphNodeType>(i);
+					AnimationGraphEditorNode *editorNode = nullptr;
 
-					switch (editorNode.m_nodeType)
+					switch (static_cast<AnimationGraphNodeType>(i))
 					{
 					case AnimationGraphNodeType::ANIM_CLIP:
-						editorNode.m_nodeData.m_clipNodeData = {};
-						editorNode.m_nodeData.m_clipNodeData.m_animClip = (size_t)m_animClips[0]; // TODO
-						break;
+						editorNode = new AnimationGraphAnimClipEditorNode(); break;
 					case AnimationGraphNodeType::LERP:
-						editorNode.m_nodeData.m_lerpNodeData = {};
-						break;
+						editorNode = new AnimationGraphLerpEditorNode(); break;
 					case AnimationGraphNodeType::LERP_1D_ARRAY:
-						editorNode.m_nodeData.m_lerp1DArrayNodeData = {};
-						break;
+						editorNode = new AnimationGraphLerp1DArrayEditorNode(); break;
 					case AnimationGraphNodeType::LERP_2D:
-						editorNode.m_nodeData.m_lerp2DNodeData = {};
-						break;
+						editorNode = new AnimationGraphLerp2DEditorNode(); break;
 					default:
 						assert(false);
 						break;
 					}
 
-					ImNodes::SetNodeScreenSpacePos(editorNode.m_nodeID, ImVec2(m_newNodePosX, m_newNodePosY));
+					editorNode->m_nodeID = m_nextID++;
+					editorNode->m_outputPinID = m_nextID++;
+					for (auto &pid : editorNode->m_inputPinIDs)
+					{
+						pid = m_nextID++;
+					}
 
-					m_nodes.push_back(new AnimationGraphEditorNode(editorNode));
+					ImNodes::SetNodeScreenSpacePos(editorNode->m_nodeID, ImVec2(m_newNodePosX, m_newNodePosY));
+
+					m_nodes.push_back(editorNode);
 
 					if (m_linkNewNode)
 					{
-						createLink(editorNode.m_nodeID, editorNode.m_outputPinID, m_startedLinkAtNodeID, m_startedLinkAtPinID);
+						createLink(editorNode->m_nodeID, editorNode->m_outputPinID, m_startedLinkAtNodeID, m_startedLinkAtPinID);
 						m_linkNewNode = false;
 					}
 				}
@@ -746,7 +1223,7 @@ void AnimationGraphWindow::drawAnimationClips() noexcept
 			{
 				ImGui::OpenPopup("Delete Animation Clip Reference?");
 			}
-			
+
 			if (ImGui::BeginPopupModal("Delete Animation Clip Reference?", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 			{
 				size_t refCount = getAnimationClipReferenceCount(clip);
@@ -759,7 +1236,7 @@ void AnimationGraphWindow::drawAnimationClips() noexcept
 					ImGui::Text("Delete Animation Clip Reference \"%s\". It still has %u references!\n", clipName, (unsigned)refCount);
 				}
 				ImGui::Separator();
-			
+
 				if (ImGui::Button("OK", ImVec2(120, 0)))
 				{
 					assert(!clipToDelete);
@@ -775,11 +1252,11 @@ void AnimationGraphWindow::drawAnimationClips() noexcept
 				}
 				ImGui::EndPopup();
 			}
-			
+
 			if (displayClip)
 			{
 				AssetData *resultAssetData = nullptr;
-			
+
 				if (ImGuiHelpers::AssetPicker("Animation Clip Asset", AnimationClipAssetData::k_assetType, clip->get(), &resultAssetData))
 				{
 					*clip = resultAssetData;
@@ -796,193 +1273,9 @@ void AnimationGraphWindow::drawAnimationClips() noexcept
 	}
 }
 
-void AnimationGraphWindow::drawAnimClipNode(AnimationGraphEditorNode *node) noexcept
+void AnimationGraphWindow::drawParamComboBox(const char *name, AnimationGraphEditorParam *&paramPtr, AnimationGraphParameter::Type type) noexcept
 {
-	ImNodes::BeginNode(node->m_nodeID);
-	{
-		// title bar
-		ImNodes::BeginNodeTitleBar();
-		ImGui::TextUnformatted("Animation Clip");
-		ImNodes::EndNodeTitleBar();
-
-		// pins
-		ImNodes::BeginOutputAttribute(node->m_outputPinID);
-		ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
-		ImGui::TextUnformatted("Out");
-		ImNodes::EndOutputAttribute();
-
-		auto *curClip = (Asset<AnimationClipAssetData> *)node->m_nodeData.m_clipNodeData.m_animClip;
-		auto *newClip = curClip;
-
-		const char *curClipName = curClip ? (curClip->get() ? curClip->get()->getAssetID().m_string : "<No Asset>") : "<Empty>";
-
-		ImGui::PushItemWidth(200.0f);
-		if (ImGui::BeginCombo("Clip", curClipName))
-		{
-			for (size_t i = 0; i < m_animClips.size(); ++i)
-			{
-				bool selected = m_animClips[i] == curClip;
-				if (ImGui::Selectable(m_animClips[i]->get() ? (*m_animClips[i])->getAssetID().m_string : "<No Asset>", selected))
-				{
-					newClip = m_animClips[i];
-				}
-			}
-			ImGui::EndCombo();
-		}
-		ImGui::PopItemWidth();
-
-		node->m_nodeData.m_clipNodeData.m_animClip = (size_t)newClip;
-
-		drawParamComboBox("Loop", node->m_nodeData.m_clipNodeData.m_loop, AnimationGraphParameter::Type::BOOL);
-	}
-	ImNodes::EndNode();
-}
-
-void AnimationGraphWindow::drawLerpNode(AnimationGraphEditorNode *node) noexcept
-{
-	ImNodes::BeginNode(node->m_nodeID);
-	{
-		// title bar
-		ImNodes::BeginNodeTitleBar();
-		ImGui::TextUnformatted("Lerp");
-		ImNodes::EndNodeTitleBar();
-
-		// pins
-		ImNodes::BeginOutputAttribute(node->m_outputPinID);
-		ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
-		ImGui::TextUnformatted("Out");
-		ImNodes::EndOutputAttribute();
-
-		ImNodes::BeginInputAttribute(node->m_inputPinIDs[0]);
-		ImGui::TextUnformatted("X");
-		ImNodes::EndInputAttribute();
-		ImNodes::BeginInputAttribute(node->m_inputPinIDs[1]);
-		ImGui::TextUnformatted("Y");
-		ImNodes::EndInputAttribute();
-
-		drawParamComboBox("Alpha", node->m_nodeData.m_lerpNodeData.m_alpha, AnimationGraphParameter::Type::FLOAT);
-	}
-	ImNodes::EndNode();
-}
-
-void AnimationGraphWindow::drawLerp1DArrayNode(AnimationGraphEditorNode *node) noexcept
-{
-	ImNodes::BeginNode(node->m_nodeID);
-	{
-		// title bar
-		ImNodes::BeginNodeTitleBar();
-		ImGui::TextUnformatted("Lerp 1D Array");
-		ImNodes::EndNodeTitleBar();
-
-		// pins
-		ImNodes::BeginOutputAttribute(node->m_outputPinID);
-		ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
-		ImGui::TextUnformatted("Out");
-		ImNodes::EndOutputAttribute();
-
-		const auto inputCount = node->m_nodeData.m_lerp1DArrayNodeData.m_inputCount;
-
-		float prevMaxKey = -FLT_MAX;
-
-		for (size_t i = 0; i < AnimationGraphNodeData::Lerp1DArrayNodeData::k_maxInputs; ++i)
-		{
-			if (i < inputCount)
-			{
-				ImNodes::BeginInputAttribute(node->m_inputPinIDs[i]);
-				ImGui::Text("%i", (int)i);
-				ImNodes::EndInputAttribute();
-			}
-			else
-			{
-				ImGui::Text("%i", (int)i);
-			}
-
-			ImGui::SameLine();
-
-			ImGui::PushID(&node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i]);
-			ImGui::PushItemWidth(200.0f);
-			if (ImGui::InputFloat("", &node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i]))
-			{
-				node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i] = fmaxf(node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i], prevMaxKey);
-			}
-			ImGui::PopItemWidth();
-			ImGui::PopID();
-
-			prevMaxKey = node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i];
-		}
-
-		drawParamComboBox("Alpha", node->m_nodeData.m_lerp1DArrayNodeData.m_alpha, AnimationGraphParameter::Type::FLOAT);
-
-		int newInputCount = (int)inputCount;
-		ImGui::PushItemWidth(200.0f);
-		ImGui::InputInt("Input Count", &newInputCount);
-		ImGui::PopItemWidth();
-		newInputCount = newInputCount < 0 ? 0 : newInputCount;
-		newInputCount = newInputCount > AnimationGraphNodeData::Lerp1DArrayNodeData::k_maxInputs ? AnimationGraphNodeData::Lerp1DArrayNodeData::k_maxInputs : newInputCount;
-
-		if (newInputCount > inputCount)
-		{
-			const float newKeyVal = inputCount == 0 ? 0.0f : node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[inputCount - 1];
-			for (size_t i = inputCount; i < newInputCount; ++i)
-			{
-				node->m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[i] = newKeyVal;
-			}
-		}
-		else if (newInputCount < inputCount)
-		{
-			for (size_t i = newInputCount; i < inputCount; ++i)
-			{
-				int sourceOutPinID = ((AnimationGraphEditorNode *)node->m_nodeData.m_lerp1DArrayNodeData.m_inputs[i])->m_outputPinID;
-				m_links.erase(eastl::remove_if(m_links.begin(), m_links.end(), [&](const auto &link)
-					{
-						return link.m_fromPinID == sourceOutPinID && link.m_toPinID == node->m_inputPinIDs[i];
-					}), m_links.end());
-				node->m_nodeData.m_lerp1DArrayNodeData.m_inputs[i] = 0;
-			}
-		}
-
-		node->m_nodeData.m_lerp1DArrayNodeData.m_inputCount = (size_t)newInputCount;
-	}
-	ImNodes::EndNode();
-}
-
-void AnimationGraphWindow::drawLerp2DNode(AnimationGraphEditorNode *node) noexcept
-{
-	ImNodes::BeginNode(node->m_nodeID);
-	{
-		// title bar
-		ImNodes::BeginNodeTitleBar();
-		ImGui::TextUnformatted("Lerp 2D");
-		ImNodes::EndNodeTitleBar();
-
-		// pins
-		ImNodes::BeginOutputAttribute(node->m_outputPinID);
-		ImGui::Indent(100.f - ImGui::CalcTextSize("Out").x);
-		ImGui::TextUnformatted("Out");
-		ImNodes::EndOutputAttribute();
-
-		ImNodes::BeginInputAttribute(node->m_inputPinIDs[0]);
-		ImGui::TextUnformatted("TL");
-		ImNodes::EndInputAttribute();
-		ImNodes::BeginInputAttribute(node->m_inputPinIDs[1]);
-		ImGui::TextUnformatted("TR");
-		ImNodes::EndInputAttribute();
-		ImNodes::BeginInputAttribute(node->m_inputPinIDs[2]);
-		ImGui::TextUnformatted("BL");
-		ImNodes::EndInputAttribute();
-		ImNodes::BeginInputAttribute(node->m_inputPinIDs[3]);
-		ImGui::TextUnformatted("BR");
-		ImNodes::EndInputAttribute();
-
-		drawParamComboBox("Alpha X", node->m_nodeData.m_lerp2DNodeData.m_alphaX, AnimationGraphParameter::Type::FLOAT);
-		drawParamComboBox("Alpha Y", node->m_nodeData.m_lerp2DNodeData.m_alphaY, AnimationGraphParameter::Type::FLOAT);
-	}
-	ImNodes::EndNode();
-}
-
-void AnimationGraphWindow::drawParamComboBox(const char *name, size_t &aliasedCurParamPtr, AnimationGraphParameter::Type type) noexcept
-{
-	AnimationGraphEditorParam *curParam = (AnimationGraphEditorParam *)aliasedCurParamPtr;
+	AnimationGraphEditorParam *curParam = paramPtr;
 	AnimationGraphEditorParam *newParam = curParam;
 	ImGui::PushItemWidth(200.0f);
 	if (ImGui::BeginCombo(name, curParam ? curParam->m_param.m_name.m_string : "<Empty>"))
@@ -1001,69 +1294,16 @@ void AnimationGraphWindow::drawParamComboBox(const char *name, size_t &aliasedCu
 		ImGui::EndCombo();
 	}
 	ImGui::PopItemWidth();
-	aliasedCurParamPtr = (size_t)newParam;
-}
-
-void AnimationGraphWindow::computeNodePosition(AnimationGraphEditorNode *node, int treeDepth, int siblingIndex) noexcept
-{
-	ImVec2 origin = ImNodes::GetNodeGridSpacePos(k_rootNodeID);
-	ImNodes::SetNodeGridSpacePos(node->m_nodeID, ImVec2(-treeDepth * 450.0f + origin.x, siblingIndex * 150.0f + origin.y));
-
-	switch (node->m_nodeType)
-	{
-	case AnimationGraphNodeType::ANIM_CLIP:
-		return;
-	case AnimationGraphNodeType::LERP:
-		computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerpNodeData.m_inputA, treeDepth + 1, siblingIndex);
-		computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerpNodeData.m_inputB, treeDepth + 1, siblingIndex + 1);
-		return;
-
-	case AnimationGraphNodeType::LERP_1D_ARRAY:
-		for (size_t i = 0; i < node->m_nodeData.m_lerp1DArrayNodeData.m_inputCount; ++i)
-		{
-			computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerp1DArrayNodeData.m_inputs[i], treeDepth + 1, siblingIndex + (int)i);
-		}
-		return;
-	case AnimationGraphNodeType::LERP_2D:
-		computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputTL, treeDepth + 1, siblingIndex);
-		computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputTR, treeDepth + 1, siblingIndex + 1);
-		computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputBL, treeDepth + 1, siblingIndex + 2);
-		computeNodePosition((AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputBR, treeDepth + 1, siblingIndex + 3);
-		return;
-	default:
-		assert(false);
-		break;
-	}
+	paramPtr = newParam;
 }
 
 size_t AnimationGraphWindow::getParameterReferenceCount(const AnimationGraphEditorParam *param) noexcept
 {
 	size_t refCount = 0;
-
 	for (const auto *n : m_nodes)
 	{
-		switch (n->m_nodeType)
-		{
-		case AnimationGraphNodeType::ANIM_CLIP:
-			refCount += ((AnimationGraphEditorParam *)n->m_nodeData.m_clipNodeData.m_loop == param) ? 1 : 0;
-			break;
-		case AnimationGraphNodeType::LERP:
-			refCount += ((AnimationGraphEditorParam *)n->m_nodeData.m_lerpNodeData.m_alpha == param) ? 1 : 0;
-			break;
-
-		case AnimationGraphNodeType::LERP_1D_ARRAY:
-			refCount += ((AnimationGraphEditorParam *)n->m_nodeData.m_lerp1DArrayNodeData.m_alpha == param) ? 1 : 0;
-			break;
-		case AnimationGraphNodeType::LERP_2D:
-			refCount += ((AnimationGraphEditorParam *)n->m_nodeData.m_lerp2DNodeData.m_alphaX == param) ? 1 : 0;
-			refCount += ((AnimationGraphEditorParam *)n->m_nodeData.m_lerp2DNodeData.m_alphaY == param) ? 1 : 0;
-			break;
-		default:
-			assert(false);
-			break;
-		}
+		refCount += n->getParameterReferenceCount(param);
 	}
-
 	return refCount;
 }
 
@@ -1071,57 +1311,18 @@ void AnimationGraphWindow::deleteParameter(const AnimationGraphEditorParam *para
 {
 	for (auto *n : m_nodes)
 	{
-		switch (n->m_nodeType)
-		{
-		case AnimationGraphNodeType::ANIM_CLIP:
-			if ((AnimationGraphEditorParam *)n->m_nodeData.m_clipNodeData.m_loop == param)
-			{
-				n->m_nodeData.m_clipNodeData.m_loop = 0; // nullptr
-			}
-			break;
-		case AnimationGraphNodeType::LERP:
-			if ((AnimationGraphEditorParam *)n->m_nodeData.m_lerpNodeData.m_alpha == param)
-			{
-				n->m_nodeData.m_lerpNodeData.m_alpha = 0; // nullptr
-			}
-			break;
-		case AnimationGraphNodeType::LERP_1D_ARRAY:
-			if ((AnimationGraphEditorParam *)n->m_nodeData.m_lerp1DArrayNodeData.m_alpha == param)
-			{
-				n->m_nodeData.m_lerp1DArrayNodeData.m_alpha = 0; // nullptr
-			}
-			break;
-		case AnimationGraphNodeType::LERP_2D:
-			if ((AnimationGraphEditorParam *)n->m_nodeData.m_lerp2DNodeData.m_alphaX == param)
-			{
-				n->m_nodeData.m_lerp2DNodeData.m_alphaX = 0; // nullptr
-			}
-			if ((AnimationGraphEditorParam *)n->m_nodeData.m_lerp2DNodeData.m_alphaY == param)
-			{
-				n->m_nodeData.m_lerp2DNodeData.m_alphaY = 0; // nullptr
-			}
-			break;
-		default:
-			assert(false);
-			break;
-		}
+		n->deleteParameter(param);
 	}
-
 	m_params.erase(eastl::remove(m_params.begin(), m_params.end(), param), m_params.end());
 }
 
 size_t AnimationGraphWindow::getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) noexcept
 {
 	size_t refCount = 0;
-
 	for (const auto *n : m_nodes)
 	{
-		if (n->m_nodeType == AnimationGraphNodeType::ANIM_CLIP && ((Asset<AnimationClipAssetData> *)n->m_nodeData.m_clipNodeData.m_animClip == animClip))
-		{
-			++refCount;
-		}
+		refCount += n->getAnimationClipReferenceCount(animClip);
 	}
-
 	return refCount;
 }
 
@@ -1129,12 +1330,8 @@ void AnimationGraphWindow::deleteAnimationClip(const Asset<AnimationClipAssetDat
 {
 	for (auto *n : m_nodes)
 	{
-		if (n->m_nodeType == AnimationGraphNodeType::ANIM_CLIP && ((Asset<AnimationClipAssetData> *)n->m_nodeData.m_clipNodeData.m_animClip == animClip))
-		{
-			n->m_nodeData.m_clipNodeData.m_animClip = 0; // nullptr
-		}
+		n->deleteAnimationClip(animClip);
 	}
-
 	m_animClips.erase(eastl::remove(m_animClips.begin(), m_animClips.end(), animClip), m_animClips.end());
 }
 
@@ -1156,52 +1353,8 @@ void AnimationGraphWindow::destroyLink(int linkID, bool removeFromLinkList) noex
 			{
 				if (n->m_inputPinIDs[i] == link.m_toPinID)
 				{
-					switch (n->m_nodeType)
-					{
-					case AnimationGraphNodeType::ANIM_CLIP:
-					{
-						assert(false);
-						break;
-					}
-					case AnimationGraphNodeType::LERP:
-					{
-						assert(i < 2);
-						if (i == 0)
-						{
-							n->m_nodeData.m_lerpNodeData.m_inputA = 0;
-						}
-						else
-						{
-							n->m_nodeData.m_lerpNodeData.m_inputB = 0;
-						}
-						break;
-					}
-					case AnimationGraphNodeType::LERP_1D_ARRAY:
-					{
-						n->m_nodeData.m_lerp1DArrayNodeData.m_inputs[i] = 0;
-						break;
-					}
-					case AnimationGraphNodeType::LERP_2D:
-					{
-						switch (i)
-						{
-						case 0: n->m_nodeData.m_lerp2DNodeData.m_inputTL = 0; break;
-						case 1: n->m_nodeData.m_lerp2DNodeData.m_inputTR = 0; break;
-						case 2: n->m_nodeData.m_lerp2DNodeData.m_inputBL = 0; break;
-						case 3: n->m_nodeData.m_lerp2DNodeData.m_inputBR = 0; break;
-						default:
-							assert(false);
-							break;
-						}
-						break;
-					}
-					default:
-						assert(false);
-						break;
-					}
-
-					// early out of search loop
-					break;
+					n->clearInputPin(i);
+					break; // early out of search loop
 				}
 			}
 		}
@@ -1246,7 +1399,7 @@ void AnimationGraphWindow::createLink(int srcNodeID, int srcPinID, int dstNodeID
 		assert(dstNode);
 
 		// disallow creating loops
-		if (findLoop(dstNode, dstNode))
+		if (dstNode->findLoop(dstNode))
 		{
 			return;
 		}
@@ -1257,49 +1410,7 @@ void AnimationGraphWindow::createLink(int srcNodeID, int srcPinID, int dstNodeID
 		{
 			if (dstNode->m_inputPinIDs[i] == dstPinID)
 			{
-				switch (dstNode->m_nodeType)
-				{
-				case AnimationGraphNodeType::ANIM_CLIP:
-				{
-					assert(false);
-					break;
-				}
-				case AnimationGraphNodeType::LERP:
-				{
-					assert(i < 2);
-					if (i == 0)
-					{
-						dstNode->m_nodeData.m_lerpNodeData.m_inputA = (size_t)srcNode;
-					}
-					else
-					{
-						dstNode->m_nodeData.m_lerpNodeData.m_inputB = (size_t)srcNode;
-					}
-					break;
-				}
-				case AnimationGraphNodeType::LERP_1D_ARRAY:
-				{
-					dstNode->m_nodeData.m_lerp1DArrayNodeData.m_inputs[i] = (size_t)srcNode;
-					break;
-				}
-				case AnimationGraphNodeType::LERP_2D:
-				{
-					switch (i)
-					{
-					case 0: dstNode->m_nodeData.m_lerp2DNodeData.m_inputTL = (size_t)srcNode; break;
-					case 1: dstNode->m_nodeData.m_lerp2DNodeData.m_inputTR = (size_t)srcNode; break;
-					case 2: dstNode->m_nodeData.m_lerp2DNodeData.m_inputBL = (size_t)srcNode; break;
-					case 3: dstNode->m_nodeData.m_lerp2DNodeData.m_inputBR = (size_t)srcNode; break;
-					default:
-						assert(false);
-						break;
-					}
-					break;
-				}
-				default:
-					assert(false);
-					break;
-				}
+				dstNode->setInputPin(i, srcNode);
 				foundPin = true;
 				break;
 			}
@@ -1321,6 +1432,20 @@ void AnimationGraphWindow::createLink(int srcNodeID, int srcPinID, int dstNodeID
 	link.m_toNodeID = dstNodeID;
 	link.m_toPinID = dstPinID;
 	m_links.push_back(link);
+}
+
+void AnimationGraphWindow::createVisualLink(AnimationGraphEditorNode *fromNode, int toPinID, int toNodeID) noexcept
+{
+	if (fromNode)
+	{
+		Link link;
+		link.m_linkID = m_nextID++;
+		link.m_fromNodeID = fromNode->m_nodeID;
+		link.m_fromPinID = fromNode->m_outputPinID;
+		link.m_toNodeID = toNodeID;
+		link.m_toPinID = toPinID;
+		m_links.push_back(link);
+	}
 }
 
 void AnimationGraphWindow::destroyNode(int nodeID) noexcept
@@ -1366,57 +1491,4 @@ void AnimationGraphWindow::destroyNode(int nodeID) noexcept
 	{
 		ImNodes::ClearNodeSelection(nodeID);
 	}
-}
-
-bool AnimationGraphWindow::findLoop(const AnimationGraphEditorNode *searchNode, const AnimationGraphEditorNode *node, bool isFirstIteration) noexcept
-{
-	if (!isFirstIteration)
-	{
-		// missing inputs can result in nullptr nodes
-		if (!node)
-		{
-			return false;
-		}
-
-		if (searchNode == node)
-		{
-			return true;
-		}
-	}
-
-	switch (node->m_nodeType)
-	{
-	case AnimationGraphNodeType::ANIM_CLIP:
-	{
-		return false;
-	}
-	case AnimationGraphNodeType::LERP:
-	{
-		return findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerpNodeData.m_inputA, false)
-			|| findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerpNodeData.m_inputB, false);
-	}
-	case AnimationGraphNodeType::LERP_1D_ARRAY:
-	{
-		for (size_t i = 0; i < node->m_nodeData.m_lerp1DArrayNodeData.m_inputCount; ++i)
-		{
-			if (findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerp1DArrayNodeData.m_inputs[i], false))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-	case AnimationGraphNodeType::LERP_2D:
-	{
-		return findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputTL, false)
-			|| findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputTR, false)
-			|| findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputBL, false)
-			|| findLoop(searchNode, (const AnimationGraphEditorNode *)node->m_nodeData.m_lerp2DNodeData.m_inputBR, false);
-	}
-	default:
-		assert(false);
-		break;
-	}
-
-	return false;
 }
