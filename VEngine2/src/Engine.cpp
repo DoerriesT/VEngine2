@@ -108,9 +108,9 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	UserInput userInput(*m_window, m_ecs);
 	m_userInput = &userInput;
 
-	AssetManager::init();
+	AssetManager::init(true);
 
-	AssetHandlerRegistration::registerHandlers(m_renderer, m_physics, m_animationSystem);
+	AssetHandlerRegistration::createAndRegisterHandlers(m_renderer, m_physics, m_animationSystem);
 
 	ImGuiInputAdapter imguiInputAdapter(ImGui::GetCurrentContext(), *m_userInput, *m_window);
 	imguiInputAdapter.resize(m_window->getWidth(), m_window->getHeight(), m_window->getWindowWidth(), m_window->getWindowHeight());
@@ -182,8 +182,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	delete m_level;
 
-	AssetHandlerRegistration::unregisterHandlers();
 	AssetManager::shutdown();
+	AssetHandlerRegistration::shutdownHandlers();
 
 	ImNodes::DestroyContext();
 	ImGui::DestroyContext();

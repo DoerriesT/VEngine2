@@ -2,6 +2,7 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
+#include "asset/AssetManager.h"
 
 ScriptComponent::ScriptComponent(const ScriptComponent &other) noexcept
 	:m_script(other.m_script)
@@ -60,11 +61,11 @@ void ScriptComponent::onGUI(void *instance) noexcept
 {
 	ScriptComponent &c = *reinterpret_cast<ScriptComponent *>(instance);
 
-	AssetData *resultAssetData = nullptr;
+	AssetID resultAssetID;
 
-	if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, c.m_script.get(), &resultAssetData))
+	if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, c.m_script.get(), &resultAssetID))
 	{
-		c.m_script = resultAssetData;
+		c.m_script = AssetManager::get()->getAsset<ScriptAssetData>(resultAssetID);
 
 		if (c.m_L)
 		{

@@ -6,19 +6,66 @@
 #include <string>
 #include "filesystem/VirtualFileSystem.h"
 #include "filesystem/Path.h"
+#include "AssetMetaDataRegistry.h" // for getAssetIDAndType()
 
 AssetManager *AssetManager::s_instance = nullptr;
+FileSystemWatcherHandle s_filesystemWatcherHandle = NULL_FILE_SYSTEM_WATCHER_HANDLE;
 
-bool AssetManager::init()
+static void fileSystemWatcherCallback(const char *path, FileChangeType changeType, void *userData)
+{
+	if (changeType == FileChangeType::MODIFIED)
+	{
+		VirtualFileSystem &vfs = VirtualFileSystem::get();
+		
+		char metaFileName[VirtualFileSystem::k_maxPathLength];
+		metaFileName[0] = '\0';
+		strcat_s(metaFileName, path);
+		strcat_s(metaFileName, ".meta");
+
+		if (vfs.exists(metaFileName))
+		{
+			AssetID assetID;
+			AssetType assetType;
+			if (AssetMetaDataRegistry::getAssetIDAndType(metaFileName, &assetID, &assetType))
+			{
+				reinterpret_cast<AssetManager *>(userData)->reloadAsset(assetID, assetType);
+			}
+		}
+	}
+}
+
+bool AssetManager::init(bool enableAutoReload)
 {
 	assert(!s_instance);
 	s_instance = new AssetManager();
+
+	if (enableAutoReload)
+	{
+		s_filesystemWatcherHandle = VirtualFileSystem::get().openFileSystemWatcher("/assets", fileSystemWatcherCallback, s_instance);
+	}
+
 	return true;
 }
 
 void AssetManager::shutdown()
 {
 	assert(s_instance);
+
+	Log::info("Shutting down AssetManager");
+
+	if (s_filesystemWatcherHandle != NULL_FILE_SYSTEM_WATCHER_HANDLE)
+	{
+		VirtualFileSystem::get().closeFileSystemWatcher(s_filesystemWatcherHandle);
+		s_filesystemWatcherHandle = NULL_FILE_SYSTEM_WATCHER_HANDLE;
+	}
+
+	// unload reloaded assets
+	if (!s_instance->m_reloadedAssetMap.empty())
+	{
+		Log::info("Unloading %u reloaded assets with internal references", (unsigned int)s_instance->m_reloadedAssetMap.size());
+
+		s_instance->m_reloadedAssetMap.clear();
+	}
 
 	if (!s_instance->m_assetMap.empty())
 	{
@@ -178,16 +225,126 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 	bool erased = false;
 	{
 		LOCK_HOLDER(m_assetMutex);
-		erased = m_assetMap.erase(assetID) >= 1;
+		auto it = m_assetMap.find(assetID);
+
+		// guard against deleting new asset data when unloading old asset data after a reload
+		if (it != m_assetMap.end() && it->second == assetData)
+		{
+			erased = m_assetMap.erase(assetID) >= 1;
+		}
 	}
 
-	// destroy asset data
-	if (erased)
-	{
-		handler->destroyAsset(assetID, assetType, assetData);
-	}
+	// destroy asset data 
+	// (doesn't matter if the asset was not in the map, which might happen with old versions of reloaded assets)
+	handler->destroyAsset(assetID, assetType, assetData);
 
 	Log::info("Successfully unloaded asset \"%s\".", assetIDCopy.m_string);
+}
+
+void AssetManager::reloadAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+{
+	AssetData *newAssetData = nullptr;
+	AssetData *oldAssetData = nullptr;
+	Asset<AssetData> prevReloadedAsset;
+	{
+		LOCK_HOLDER(m_assetMutex);
+
+		auto assetIt = m_assetMap.find(assetID);
+
+		// only allow reloading already loaded assets
+		if (assetIt == m_assetMap.end())
+		{
+			return;
+		}
+
+		if (assetIt->second->getAssetType() != assetType)
+		{
+			// get string representations of AssetTypes
+			char assetTypeStrArg[AssetType::k_uuidStringSize];
+			assetType.toString(assetTypeStrArg);
+
+			char assetTypeStrActual[AssetType::k_uuidStringSize];
+			assetIt->second->getAssetType().toString(assetTypeStrActual);
+
+			Log::warn("Tried to call AssetManager::reloadAsset() with  AssetID \"%s\" and AssetType \"%s\" but the asset has an AssetType of \"%s\"!", assetID.m_string, assetTypeStrArg, assetTypeStrActual);
+			return;
+		}
+
+		// is this asset already queued for reload?
+		auto reloadedAssetIt = m_reloadedAssetMap.find(assetID);
+		if (reloadedAssetIt != m_reloadedAssetMap.end())
+		{
+			auto status = reloadedAssetIt->second->getAssetStatus();
+
+			// no need to reload if the asset is still queued and has not yet begun loading
+			if (status == AssetStatus::QUEUED_FOR_LOADING)
+			{
+				return;
+			}
+
+			// TODO: check and handle other possible states?
+
+			// get the previous entry so that we can manually release it later without running into problems with (the lack of) reentrant locks
+			prevReloadedAsset = reloadedAssetIt->second;
+			m_reloadedAssetMap.erase(reloadedAssetIt);
+		}
+
+		// load from disk
+		Log::info("Reloading asset \"%s\".", assetID.m_string);
+
+		AssetHandler *handler = nullptr;
+
+		// try to find asset handler
+		{
+			LOCK_HOLDER(m_assetHandlerMutex);
+
+			auto handlerIt = m_assetHandlerMap.find(assetType);
+
+			// failed to find handler
+			if (handlerIt == m_assetHandlerMap.end())
+			{
+				Log::warn("Could not find asset handler for asset \"%s\"!", assetID.m_string);
+				return;
+			}
+
+			handler = handlerIt->second;
+		}
+
+		// load asset
+		newAssetData = handler->createAsset(assetID, assetType);
+		{
+			if (!newAssetData)
+			{
+				Log::warn("Failed to create asset \"%s\"!", assetID.m_string);
+				return;
+			}
+
+			if (!handler->loadAssetData(newAssetData, (eastl::string("/assets/") + assetID.m_string).c_str()))
+			{
+				handler->destroyAsset(assetID, assetType, newAssetData);
+				Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
+				return;
+			}
+		}
+
+		// replace old asset in map with reloaded one
+		oldAssetData = assetIt->second;
+		assetIt->second = newAssetData;
+	}
+
+	prevReloadedAsset.release();
+	
+	// hold an internal reference to the reloaded asset
+	{
+		LOCK_HOLDER(m_assetMutex);
+		m_reloadedAssetMap[assetID] = newAssetData;
+		m_assetMap[assetID] = newAssetData;
+	}
+
+	// flag old asset as having a newer version available
+	oldAssetData->setIsReloadedAssetAvailable(true);
+
+	Log::info("Successfully reloaded asset \"%s\".", assetID.m_string);
 }
 
 void AssetManager::registerAssetHandler(const AssetType &assetType, AssetHandler *handler) noexcept

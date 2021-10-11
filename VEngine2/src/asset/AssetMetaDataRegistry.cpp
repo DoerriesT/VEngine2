@@ -2,39 +2,6 @@
 #include <assert.h>
 #include "filesystem/VirtualFileSystem.h"
 
-static bool getAssetIDAndType(const char *metaFilePath, AssetID *assetID, AssetType *assetType) noexcept
-{
-	VirtualFileSystem &vfs = VirtualFileSystem::get();
-
-	if (FileHandle fh = vfs.open(metaFilePath, FileMode::READ, false))
-	{
-		char buffer[512]; // first line is the AssetID, which is currently a path (max of 260). second line is AssetType, which is 37 bytes
-		const auto bytesRead = vfs.read(fh, sizeof(buffer), buffer);
-
-		if (bytesRead == 0 || buffer[bytesRead - 1] != '\n')
-		{
-			vfs.close(fh);
-			return false;
-		}
-
-		for (size_t i = 0; i < bytesRead; ++i)
-		{
-			if (buffer[i] == '\n')
-			{
-				buffer[i] = '\0';
-			}
-		}
-
-		*assetID = AssetID(buffer);
-		*assetType = AssetType(buffer + strlen(buffer) + 1);
-
-		vfs.close(fh);
-
-		return true;
-	}
-	return false;
-}
-
 static void fileSystemWatcherCallback(const char *path, FileChangeType changeType, void *userData)
 {
 	AssetMetaDataRegistry *reg = (AssetMetaDataRegistry *)userData;
@@ -46,12 +13,16 @@ static void fileSystemWatcherCallback(const char *path, FileChangeType changeTyp
 	case FileChangeType::RENAMED_NEW_NAME:
 	case FileChangeType::MODIFIED:
 	{
-		auto metaFileName = eastl::string(path) + ".meta";
-		if (vfs.exists(metaFileName.c_str()))
+		char metaFileName[VirtualFileSystem::k_maxPathLength];
+		metaFileName[0] = '\0';
+		strcat_s(metaFileName, path);
+		strcat_s(metaFileName, ".meta");
+
+		if (vfs.exists(metaFileName))
 		{
 			AssetID assetID;
 			AssetType assetType;
-			if (getAssetIDAndType(metaFileName.c_str(), &assetID, &assetType))
+			if (AssetMetaDataRegistry::getAssetIDAndType(metaFileName, &assetID, &assetType))
 			{
 				LOCK_HOLDER(reg->m_typeToIDsMutex);
 				LOCK_HOLDER(reg->m_idToTypeMutex);
@@ -100,6 +71,39 @@ AssetMetaDataRegistry *AssetMetaDataRegistry::get()
 {
 	static AssetMetaDataRegistry reg;
 	return &reg;
+}
+
+bool AssetMetaDataRegistry::getAssetIDAndType(const char *metaFilePath, AssetID *assetID, AssetType *assetType) noexcept
+{
+	VirtualFileSystem &vfs = VirtualFileSystem::get();
+
+	if (FileHandle fh = vfs.open(metaFilePath, FileMode::READ, false))
+	{
+		char buffer[512]; // first line is the AssetID, which is currently a path (max of 260). second line is AssetType, which is 37 bytes
+		const auto bytesRead = vfs.read(fh, sizeof(buffer), buffer);
+
+		if (bytesRead == 0 || buffer[bytesRead - 1] != '\n')
+		{
+			vfs.close(fh);
+			return false;
+		}
+
+		for (size_t i = 0; i < bytesRead; ++i)
+		{
+			if (buffer[i] == '\n')
+			{
+				buffer[i] = '\0';
+			}
+		}
+
+		*assetID = AssetID(buffer);
+		*assetType = AssetType(buffer + strlen(buffer) + 1);
+
+		vfs.close(fh);
+
+		return true;
+	}
+	return false;
 }
 
 bool AssetMetaDataRegistry::init() noexcept

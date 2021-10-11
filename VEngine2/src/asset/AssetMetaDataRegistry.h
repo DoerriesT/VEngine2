@@ -11,6 +11,7 @@ class AssetMetaDataRegistry
 	friend void fileSystemWatcherCallback(const char *path, FileChangeType changeType, void *userData);
 public:
 	static AssetMetaDataRegistry *get();
+	static bool getAssetIDAndType(const char *metaFilePath, AssetID *assetID, AssetType *assetType) noexcept;
 
 	bool init() noexcept;
 	void shutdown() noexcept;

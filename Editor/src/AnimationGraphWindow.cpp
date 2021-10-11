@@ -6,6 +6,7 @@
 #include <input/InputTokens.h>
 #include <Log.h>
 #include <graphics/imgui/gui_helpers.h>
+#include <asset/AssetManager.h>
 
 template<typename T>
 static T convertIdxToPtr(size_t idx, const eastl::vector<T> &v)
@@ -682,10 +683,10 @@ void AnimationGraphWindow::draw(AnimationGraph *graph) noexcept
 				{
 					// controller script
 					{
-						AssetData *resultAssetData = nullptr;
-						if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, m_controllerScriptAsset.get(), &resultAssetData))
+						AssetID resultAssetID;
+						if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, m_controllerScriptAsset.get(), &resultAssetID))
 						{
-							m_controllerScriptAsset = resultAssetData;
+							m_controllerScriptAsset = AssetManager::get()->getAsset<ScriptAssetData>(resultAssetID);
 						}
 					}
 
@@ -1255,11 +1256,11 @@ void AnimationGraphWindow::drawAnimationClips() noexcept
 
 			if (displayClip)
 			{
-				AssetData *resultAssetData = nullptr;
+				AssetID resultAssetID;
 
-				if (ImGuiHelpers::AssetPicker("Animation Clip Asset", AnimationClipAssetData::k_assetType, clip->get(), &resultAssetData))
+				if (ImGuiHelpers::AssetPicker("Animation Clip Asset", AnimationClipAssetData::k_assetType, clip->get(), &resultAssetID))
 				{
-					*clip = resultAssetData;
+					*clip = AssetManager::get()->getAsset<AnimationClipAssetData>(resultAssetID);
 				}
 			}
 			ImGui::PopID();

@@ -22,12 +22,8 @@ void TextureAssetHandler::init(AssetManager *assetManager, Renderer *renderer) n
 
 void TextureAssetHandler::shutdown() noexcept
 {
-	if (s_assetManager != nullptr)
-	{
-		s_assetManager->unregisterAssetHandler(TextureAssetData::k_assetType);
-		s_textureAssetHandler = {};
-		s_assetManager = nullptr;
-	}
+	s_textureAssetHandler = {};
+	s_assetManager = nullptr;
 }
 
 AssetData *TextureAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept

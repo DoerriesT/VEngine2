@@ -23,12 +23,8 @@ void SkeletonAssetHandler::init(AssetManager *assetManager, AnimationSystem *ani
 
 void SkeletonAssetHandler::shutdown() noexcept
 {
-	if (s_assetManager != nullptr)
-	{
-		s_assetManager->unregisterAssetHandler(SkeletonAssetData::k_assetType);
-		s_skeletonAssetHandler = {};
-		s_assetManager = nullptr;
-	}
+	s_skeletonAssetHandler = {};
+	s_assetManager = nullptr;
 }
 
 AssetData *SkeletonAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept

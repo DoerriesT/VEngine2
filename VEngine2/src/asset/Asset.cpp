@@ -42,7 +42,24 @@ const AssetType &AssetData::getAssetType() const noexcept
 	return m_assetType;
 }
 
+bool AssetData::isReloadedAssetAvailable() const noexcept
+{
+	return m_reloadedAssetAvailable.test();
+}
+
 void AssetData::setAssetStatus(AssetStatus status) noexcept
 {
 	m_assetStatus = static_cast<uint32_t>(status);
+}
+
+void AssetData::setIsReloadedAssetAvailable(bool reloadedAssetAvailable) noexcept
+{
+	if (reloadedAssetAvailable)
+	{
+		m_reloadedAssetAvailable.test_and_set();
+	}
+	else
+	{
+		m_reloadedAssetAvailable.clear();
+	}
 }

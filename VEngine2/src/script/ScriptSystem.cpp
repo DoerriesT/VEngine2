@@ -5,6 +5,7 @@
 #include "profiling/Profiling.h"
 #include "component/ScriptComponent.h"
 #include "Log.h"
+#include "asset/AssetManager.h"
 
 ScriptSystem::ScriptSystem(ECS *ecs) noexcept
 	:m_ecs(ecs)
@@ -25,7 +26,22 @@ void ScriptSystem::update(float deltaTime) noexcept
 			{
 				auto &sc = scriptC[i];
 
-				if (!sc.m_script.get())
+				if (!sc.m_script)
+				{
+					continue;
+				}
+
+				if (sc.m_script->isReloadedAssetAvailable())
+				{
+					if (sc.m_L)
+					{
+						lua_close(sc.m_L);
+						sc.m_L = nullptr;
+					}
+					sc.m_script = AssetManager::get()->getAsset<ScriptAssetData>(sc.m_script->getAssetID());
+				}
+
+				if (!sc.m_script.isLoaded())
 				{
 					continue;
 				}

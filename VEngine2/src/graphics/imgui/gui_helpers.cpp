@@ -56,7 +56,7 @@ void ImGuiHelpers::ColorEdit4(const char *label, uint32_t *color, ImGuiColorEdit
 static char s_searchText[255];
 static char s_searchTextLower[255];
 
-bool ImGuiHelpers::AssetPicker(const char *label, const AssetType &assetType, const AssetData *inAssetData, AssetData **resultAssetData) noexcept
+bool ImGuiHelpers::AssetPicker(const char *label, const AssetType &assetType, const AssetData *inAssetData, AssetID *resultAssetID) noexcept
 {
 	bool assignedNewAssetData = false;
 
@@ -98,7 +98,7 @@ bool ImGuiHelpers::AssetPicker(const char *label, const AssetType &assetType, co
 				// formally accept the payload and load the asset
 				if (ImGui::AcceptDragDropPayload("ASSET_ID"))
 				{
-					*resultAssetData = AssetManager::get()->getAssetData(assetID, assetType);
+					*resultAssetID = assetID;
 					assignedNewAssetData = true;
 				}
 			}
@@ -146,7 +146,7 @@ bool ImGuiHelpers::AssetPicker(const char *label, const AssetType &assetType, co
 
 				if (ImGui::Selectable(assetID.m_string))
 				{
-					*resultAssetData = AssetManager::get()->getAssetData(assetID, assetType);
+					*resultAssetID = assetID;
 					assignedNewAssetData = true;
 				}
 			}

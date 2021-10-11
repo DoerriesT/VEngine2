@@ -6,6 +6,6 @@ class AnimationSystem;
 
 namespace AssetHandlerRegistration
 {
-	void registerHandlers(Renderer *renderer, Physics *physics, AnimationSystem *animation) noexcept;
-	void unregisterHandlers() noexcept;
+	void createAndRegisterHandlers(Renderer *renderer, Physics *physics, AnimationSystem *animation) noexcept;
+	void shutdownHandlers() noexcept;
 }

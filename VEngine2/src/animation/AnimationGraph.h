@@ -147,6 +147,7 @@ public:
 	Asset<ScriptAssetData> getControllerScript() const noexcept;
 	size_t getRootNodeIndex() const noexcept;
 	bool isValid() const noexcept;
+	bool isLoaded() noexcept;
 
 private:
 	size_t m_rootNodeIndex = -1;
@@ -160,6 +161,7 @@ private:
 	lua_State *m_scriptLuaState = nullptr;
 	float m_phase = 0.0f;
 	bool m_isValid = false;
+	bool m_allAssetsLoaded = false;
 
 	JointPose evaluate(size_t jointIdx, const AnimationGraphNode &node) const noexcept;
 	float evaluateDuration(const AnimationGraphNode &node) const noexcept;
@@ -169,5 +171,6 @@ private:
 	int32_t getIntParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
 	bool getBoolParam(AnimationGraphNodeData::ParameterIndex idx) const noexcept;
 	bool validate(AnimationGraphNodeData::NodeIndex idx) const noexcept;
+	bool checkAllAssetsLoaded() const noexcept;
 	void reloadScript() noexcept;
 };

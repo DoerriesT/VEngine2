@@ -6,6 +6,7 @@
 #include "ecs/ECSLua.h"
 #include "animation/AnimationGraphLua.h"
 #include "Log.h"
+#include "asset/AssetManager.h"
 
 AnimationGraph::AnimationGraph(
 	size_t rootNodeIndex,
@@ -38,6 +39,7 @@ AnimationGraph::AnimationGraph(
 	reloadScript();
 
 	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
+	m_allAssetsLoaded = checkAllAssetsLoaded();
 }
 
 AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
@@ -62,6 +64,7 @@ AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
 	reloadScript();
 
 	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
+	m_allAssetsLoaded = checkAllAssetsLoaded();
 }
 
 AnimationGraph::AnimationGraph(AnimationGraph &&other) noexcept
@@ -83,6 +86,7 @@ AnimationGraph::AnimationGraph(AnimationGraph &&other) noexcept
 	reloadScript();
 
 	m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
+	m_allAssetsLoaded = checkAllAssetsLoaded();
 }
 
 AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
@@ -114,6 +118,7 @@ AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
 		reloadScript();
 
 		m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
+		m_allAssetsLoaded = checkAllAssetsLoaded();
 	}
 
 	return *this;
@@ -144,6 +149,7 @@ AnimationGraph &AnimationGraph::operator=(AnimationGraph &&other) noexcept
 		reloadScript();
 
 		m_isValid = m_rootNodeIndex != -1 && validate(m_rootNodeIndex);
+		m_allAssetsLoaded = checkAllAssetsLoaded();
 	}
 
 	return *this;
@@ -162,9 +168,25 @@ AnimationGraph::~AnimationGraph() noexcept
 
 void AnimationGraph::preEvaluate(ECS *ecs, EntityID entity, float deltaTime) noexcept
 {
+	// check if we can get a reloaded version if this asset
+	if (m_controllerScript->isReloadedAssetAvailable())
+	{
+		if (m_scriptLuaState)
+		{
+			lua_close(m_scriptLuaState);
+			m_scriptLuaState = nullptr;
+		}
+		m_controllerScript = AssetManager::get()->getAsset<ScriptAssetData>(m_controllerScript->getAssetID());
+		m_allAssetsLoaded = !m_controllerScript.isLoaded() ? false : m_allAssetsLoaded;
+	}
+
 	if (!m_scriptLuaState)
 	{
-		return;
+		reloadScript();
+		if (!m_scriptLuaState)
+		{
+			return;
+		}
 	}
 	auto &L = m_scriptLuaState;
 
@@ -381,6 +403,15 @@ size_t AnimationGraph::getRootNodeIndex() const noexcept
 bool AnimationGraph::isValid() const noexcept
 {
 	return m_rootNodeIndex != -1 && m_isValid;
+}
+
+bool AnimationGraph::isLoaded() noexcept
+{
+	if (!m_allAssetsLoaded)
+	{
+		m_allAssetsLoaded = checkAllAssetsLoaded();
+	}
+	return m_allAssetsLoaded;
 }
 
 JointPose AnimationGraph::evaluate(size_t jointIdx, const AnimationGraphNode &node) const noexcept
@@ -617,8 +648,33 @@ bool AnimationGraph::validate(AnimationGraphNodeData::NodeIndex idx) const noexc
 	return false;
 }
 
+bool AnimationGraph::checkAllAssetsLoaded() const noexcept
+{
+	assert(m_controllerScript);
+	if (!m_controllerScript.isLoaded())
+	{
+		return false;
+	}
+
+	for (size_t i = 0; i < m_animationClipCount; ++i)
+	{
+		assert(m_animationClipAssets[i]);
+		if (!m_animationClipAssets[i].isLoaded())
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 void AnimationGraph::reloadScript() noexcept
 {
+	if (!m_controllerScript || !m_controllerScript.isLoaded())
+	{
+		return;
+	}
+
 	auto &L = m_scriptLuaState;
 	if (L)
 	{

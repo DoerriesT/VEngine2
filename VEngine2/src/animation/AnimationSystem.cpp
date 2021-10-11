@@ -44,7 +44,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 					}
 
 					// early out if the graph is invalid
-					if (!smc.m_animationGraph->isValid())
+					if (!smc.m_animationGraph->isValid() || !smc.m_animationGraph->isLoaded())
 					{
 						for (size_t j = 0; j < jointCount; ++j)
 						{

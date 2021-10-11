@@ -18,12 +18,8 @@ void ScriptAssetHandler::init(AssetManager *assetManager) noexcept
 
 void ScriptAssetHandler::shutdown() noexcept
 {
-	if (s_assetManager != nullptr)
-	{
-		s_assetManager->unregisterAssetHandler(ScriptAssetData::k_assetType);
-		s_scriptAssetHandler = {};
-		s_assetManager = nullptr;
-	}
+	s_scriptAssetHandler = {};
+	s_assetManager = nullptr;
 }
 
 AssetData *ScriptAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept

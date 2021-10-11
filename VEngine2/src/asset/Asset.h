@@ -31,11 +31,14 @@ public:
 	AssetStatus getAssetStatus() const noexcept;
 	const AssetID &getAssetID() const noexcept;
 	const AssetType &getAssetType() const noexcept;
+	bool isReloadedAssetAvailable() const noexcept;
 	void setAssetStatus(AssetStatus status) noexcept;
+	void setIsReloadedAssetAvailable(bool reloadedAssetAvailable) noexcept;
 
 private:
 	eastl::atomic<int32_t> m_referenceCount = 0;
 	eastl::atomic<uint32_t> m_assetStatus = static_cast<uint32_t>(AssetStatus::UNLOADED);
+	eastl::atomic_flag m_reloadedAssetAvailable = false;
 	AssetID m_assetID;
 	AssetType m_assetType;
 };
@@ -51,9 +54,11 @@ public:
 	Asset &operator=(Asset<T> &&other) noexcept;
 	~Asset() noexcept;
 	bool release() noexcept;
+	bool isLoaded() const noexcept;
 	T *get() const noexcept;
 	T &operator*() const noexcept;
 	T *operator->() const noexcept;
+	operator bool() const noexcept;
 
 private:
 	T *m_assetData = nullptr;
@@ -64,7 +69,7 @@ inline Asset<T>::Asset(AssetData *assetData) noexcept
 	:m_assetData((T *)assetData)
 {
 	// compile time check to ensure we only use this class with class derived from AssetData
-	static_assert(eastl::is_base_of<AssetData, T>::value && !eastl::is_same<AssetData, T>::value, "Template type T in Asset<T> is not derived from AssetData!");
+	static_assert(eastl::is_base_of<AssetData, T>::value /* && !eastl::is_same<AssetData, T>::value*/, "Template type T in Asset<T> is not derived from AssetData!");
 
 	// run-time check to ensure that the cast from AssetData to T was valid. Note that this test is not 100% bullet proof.
 	//assert(assetData->getAssetType() == T::k_assetType);
@@ -153,6 +158,12 @@ inline bool Asset<T>::release() noexcept
 }
 
 template<typename T>
+inline bool Asset<T>::isLoaded() const noexcept
+{
+	return m_assetData && m_assetData->getAssetStatus() == AssetStatus::READY;
+}
+
+template<typename T>
 inline T *Asset<T>::get() const noexcept
 {
 	return m_assetData;
@@ -170,4 +181,10 @@ inline T *Asset<T>::operator->() const noexcept
 {
 	assert(m_assetData);
 	return get();
+}
+
+template<typename T>
+inline Asset<T>::operator bool() const noexcept
+{
+	return m_assetData != nullptr;
 }

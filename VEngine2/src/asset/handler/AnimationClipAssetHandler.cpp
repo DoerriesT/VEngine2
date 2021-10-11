@@ -22,12 +22,8 @@ void AnimationClipAssetHandler::init(AssetManager *assetManager, AnimationSystem
 
 void AnimationClipAssetHandler::shutdown() noexcept
 {
-	if (s_assetManager != nullptr)
-	{
-		s_assetManager->unregisterAssetHandler(AnimationClipAssetData::k_assetType);
-		s_animationClipAssetHandler = {};
-		s_assetManager = nullptr;
-	}
+	s_animationClipAssetHandler = {};
+	s_assetManager = nullptr;
 }
 
 AssetData *AnimationClipAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept

@@ -24,12 +24,8 @@ void MeshAssetHandler::init(AssetManager *assetManager, Renderer *renderer, Phys
 
 void MeshAssetHandler::shutdown() noexcept
 {
-	if (s_assetManager != nullptr)
-	{
-		s_assetManager->unregisterAssetHandler(MeshAssetData::k_assetType);
-		s_meshAssetHandler = {};
-		s_assetManager = nullptr;
-	}
+	s_meshAssetHandler = {};
+	s_assetManager = nullptr;
 }
 
 AssetData *MeshAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
