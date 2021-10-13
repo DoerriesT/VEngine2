@@ -78,6 +78,27 @@ void *LuaUtil::getTableLightUserDataField(lua_State *L, const char *key) noexcep
 	return val;
 }
 
+void LuaUtil::getTableNumberArrayField(lua_State *L, const char *key, size_t arraySize, float *result) noexcept
+{
+	// get table with array
+	int type = lua_getfield(L, -1, key);
+	assert(type == LUA_TTABLE);
+
+	// iterate over array elements in table
+	for (size_t i = 0; i < arraySize; ++i)
+	{
+		// push array element to stack
+		type = lua_rawgeti(L, -1, (lua_Integer)i);
+		assert(type == LUA_TNUMBER);
+		result[i] = (float)lua_tonumber(L, -1);
+		// pop array element
+		lua_pop(L, 1);
+	}
+	
+	// pop table
+	lua_pop(L, 1);
+}
+
 void LuaUtil::setTableNilField(lua_State *L, const char *key) noexcept
 {
 	lua_pushnil(L);
@@ -140,6 +161,17 @@ void LuaUtil::setTableBoolField(lua_State *L, const char *key, bool value) noexc
 void LuaUtil::setTableLightUserDataField(lua_State *L, const char *key, void *value) noexcept
 {
 	lua_pushlightuserdata(L, value);
+	lua_setfield(L, -2, key);
+}
+
+void LuaUtil::setTableNumberArrayField(lua_State *L, const char *key, const float *value, size_t arraySize) noexcept
+{
+	lua_createtable(L, arraySize, 0);
+	for (size_t i = 0; i < arraySize; ++i)
+	{
+		lua_pushnumber(L, (lua_Number)value[i]);
+		lua_rawseti(L, -2, (lua_Integer)i);
+	}
 	lua_setfield(L, -2, key);
 }
 

@@ -39,6 +39,7 @@ namespace LuaUtil
 	const char *getTableStringField(lua_State *L, const char *key) noexcept;
 	bool getTableBoolField(lua_State *L, const char *key) noexcept;
 	void *getTableLightUserDataField(lua_State *L, const char *key) noexcept;
+	void getTableNumberArrayField(lua_State *L, const char *key, size_t arraySize, float *result) noexcept;
 
 	/// <summary>
 	/// Sets the requested field of the table to nil.
@@ -103,4 +104,14 @@ namespace LuaUtil
 	/// <param name="key">The key to index into the table.</param>
 	/// <param name="value">The value to set the field to.</param>
 	void setTableLightUserDataField(lua_State *L, const char *key, void *value) noexcept;
+
+	/// <summary>
+	/// Sets the requested field of the table to the given value.
+	/// Assumes that the table is at the top of the stack.
+	/// </summary>
+	/// <param name="L">The lua state.</param>
+	/// <param name="key">The key to index into the table.</param>
+	/// <param name="value">The value to set the field to.</param>
+	/// <param name="arraySize">The length of the array.</param>
+	void setTableNumberArrayField(lua_State *L, const char *key, const float *value, size_t arraySize) noexcept;
 }

@@ -45,6 +45,8 @@ void TransformComponent::toLua(lua_State *L, void *instance) noexcept
 	LuaUtil::setTableNumberField(L, "m_scaleX", (lua_Number)c.m_scale.x);
 	LuaUtil::setTableNumberField(L, "m_scaleY", (lua_Number)c.m_scale.y);
 	LuaUtil::setTableNumberField(L, "m_scaleZ", (lua_Number)c.m_scale.z);
+	LuaUtil::setTableNumberArrayField(L, "m_transformation", &c.m_transformation[0][0], 16);
+	LuaUtil::setTableNumberArrayField(L, "m_previousTransformation", &c.m_previousTransformation[0][0], 16);
 }
 
 void TransformComponent::fromLua(lua_State *L, void *instance) noexcept
@@ -62,4 +64,6 @@ void TransformComponent::fromLua(lua_State *L, void *instance) noexcept
 	c.m_scale.x = (float)LuaUtil::getTableNumberField(L, "m_scaleX");
 	c.m_scale.y = (float)LuaUtil::getTableNumberField(L, "m_scaleY");
 	c.m_scale.z = (float)LuaUtil::getTableNumberField(L, "m_scaleZ");
+	LuaUtil::getTableNumberArrayField(L, "m_transformation", 16, &c.m_transformation[0][0]);
+	LuaUtil::getTableNumberArrayField(L, "m_previousTransformation", 16, &c.m_previousTransformation[0][0]);
 }
