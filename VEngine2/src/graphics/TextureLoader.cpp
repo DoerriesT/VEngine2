@@ -34,7 +34,7 @@ bool TextureLoader::load(size_t fileSize, const char *fileData, const char *text
 
 	if (gliTex.empty())
 	{
-		Log::warn(("Failed to load texture: " + std::string(textureName)).c_str());
+		Log::warn("Failed to load texture: \"%s\"", textureName);
 		return false;
 	}
 
@@ -151,7 +151,7 @@ bool TextureLoader::loadRawRGBA8(size_t fileSize, const char *fileData, const ch
 {
 	if (width == 0 || height == 0)
 	{
-		Log::warn(("Failed to load texture: " + std::string(textureName)).c_str());
+		Log::warn("Failed to load texture: \"%s\"", textureName);
 		return false;
 	}
 

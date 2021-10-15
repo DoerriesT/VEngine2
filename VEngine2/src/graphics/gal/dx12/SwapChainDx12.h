@@ -31,18 +31,18 @@ namespace gal
 	private:
 		static constexpr uint32_t s_maxImageCount = 3;
 
-		GraphicsDeviceDx12 *m_graphicsDeviceDx12;
-		ID3D12Device *m_device;
-		void *m_windowHandle;
-		Queue *m_presentQueue;
-		IDXGISwapChain4 *m_swapChain;
-		uint32_t m_imageCount;
-		ImageDx12 *m_images[s_maxImageCount];
+		GraphicsDeviceDx12 *m_graphicsDeviceDx12 = nullptr;
+		ID3D12Device *m_device = nullptr;
+		void *m_windowHandle = nullptr;
+		Queue *m_presentQueue = nullptr;
+		IDXGISwapChain4 *m_swapChain = nullptr;
+		uint32_t m_imageCount = 0;
+		ImageDx12 *m_images[s_maxImageCount] = {};
 		StaticObjectMemoryPool<ImageDx12, s_maxImageCount> m_imageMemoryPool;
-		Format m_imageFormat;
-		Extent2D m_extent;
-		uint32_t m_currentImageIndex;
-		bool m_fullscreen;
-		PresentMode m_presentMode;
+		Format m_imageFormat = {};
+		Extent2D m_extent = {};
+		uint32_t m_currentImageIndex = 0;
+		bool m_fullscreen = false;
+		PresentMode m_presentMode = {};
 	};
 }

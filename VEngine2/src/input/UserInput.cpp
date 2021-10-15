@@ -1,5 +1,4 @@
 #include "UserInput.h"
-#include "Utility/ContainerUtility.h"
 #include "Window/Window.h"
 #include "ecs/ECS.h"
 #include "component/RawInputStateComponent.h"
@@ -159,7 +158,7 @@ void UserInput::addKeyListener(IKeyListener *listener)
 
 void UserInput::removeKeyListener(IKeyListener *listener)
 {
-	m_keyListeners.erase(std::remove(m_keyListeners.begin(), m_keyListeners.end(), listener), m_keyListeners.end());
+	m_keyListeners.erase(eastl::remove(m_keyListeners.begin(), m_keyListeners.end(), listener), m_keyListeners.end());
 }
 
 void UserInput::addCharListener(ICharListener *listener)
@@ -169,7 +168,7 @@ void UserInput::addCharListener(ICharListener *listener)
 
 void UserInput::removeCharListener(ICharListener *listener)
 {
-	m_charListeners.erase(std::remove(m_charListeners.begin(), m_charListeners.end(), listener), m_charListeners.end());
+	m_charListeners.erase(eastl::remove(m_charListeners.begin(), m_charListeners.end(), listener), m_charListeners.end());
 }
 
 void UserInput::addScrollListener(IScrollListener *listener)
@@ -179,7 +178,7 @@ void UserInput::addScrollListener(IScrollListener *listener)
 
 void UserInput::removeScrollListener(IScrollListener *listener)
 {
-	m_scrollListeners.erase(std::remove(m_scrollListeners.begin(), m_scrollListeners.end(), listener), m_scrollListeners.end());
+	m_scrollListeners.erase(eastl::remove(m_scrollListeners.begin(), m_scrollListeners.end(), listener), m_scrollListeners.end());
 }
 
 void UserInput::addMouseButtonListener(IMouseButtonListener *listener)
@@ -189,7 +188,7 @@ void UserInput::addMouseButtonListener(IMouseButtonListener *listener)
 
 void UserInput::removeMouseButtonListener(IMouseButtonListener *listener)
 {
-	m_mouseButtonlisteners.erase(std::remove(m_mouseButtonlisteners.begin(), m_mouseButtonlisteners.end(), listener), m_mouseButtonlisteners.end());
+	m_mouseButtonlisteners.erase(eastl::remove(m_mouseButtonlisteners.begin(), m_mouseButtonlisteners.end(), listener), m_mouseButtonlisteners.end());
 }
 
 void UserInput::onKey(InputKey key, InputAction action)

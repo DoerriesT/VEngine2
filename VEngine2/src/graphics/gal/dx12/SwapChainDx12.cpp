@@ -10,13 +10,6 @@ gal::SwapChainDx12::SwapChainDx12(GraphicsDeviceDx12 *graphicsDevice, ID3D12Devi
 	m_device(device),
 	m_windowHandle(windowHandle),
 	m_presentQueue(presentQueue),
-	m_swapChain(),
-	m_imageCount(),
-	m_images(),
-	m_imageMemoryPool(),
-	m_imageFormat(),
-	m_extent(),
-	m_currentImageIndex(),
 	m_fullscreen(fullscreen),
 	m_presentMode(presentMode)
 {
@@ -42,7 +35,7 @@ gal::SwapChainDx12::SwapChainDx12(GraphicsDeviceDx12 *graphicsDevice, ID3D12Devi
 	UtilityDx12::checkResult(factory->CreateSwapChainForHwnd((ID3D12CommandQueue *)m_presentQueue->getNativeHandle(), glfwGetWin32Window((GLFWwindow *)m_windowHandle), &swapChainDesc, nullptr, nullptr, &swapChain), "Failed to create swapchain!");
 	UtilityDx12::checkResult(swapChain->QueryInterface(__uuidof(IDXGISwapChain4), (void **)&m_swapChain), "Failed to create swapchain!");
 
-	swapChain->Release();
+	D3D12_SAFE_RELEASE(swapChain);
 
 	UtilityDx12::checkResult(factory->MakeWindowAssociation((HWND)m_windowHandle, DXGI_MWA_NO_ALT_ENTER), "Failed to create swapchain!");
 
@@ -98,7 +91,7 @@ gal::SwapChainDx12::~SwapChainDx12()
 		m_images[i]->~ImageDx12();
 		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageDx12> *>(m_images[i]));
 	}
-	m_swapChain->Release();
+	D3D12_SAFE_RELEASE(m_swapChain);
 }
 
 void *gal::SwapChainDx12::getNativeHandle() const

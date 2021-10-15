@@ -1,8 +1,9 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include <d3d12.h>
-#include "Utility/ObjectPool.h"
+#include "utility/allocator/PoolAllocator.h"
 #include "CommandListDx12.h"
+#include <EASTL/fixed_vector.h>
 
 namespace gal
 {
@@ -25,7 +26,7 @@ namespace gal
 		ID3D12Device *m_device;
 		D3D12_COMMAND_LIST_TYPE m_cmdListType;
 		const CommandListRecordContextDx12 *m_recordContext;
-		std::vector<CommandListDx12 *> m_liveCmdLists;
-		DynamicObjectMemoryPool<CommandListDx12> m_commandListMemoryPool;
+		eastl::fixed_vector<CommandListDx12 *, 32> m_liveCmdLists;
+		DynamicPoolAllocator m_commandListMemoryPool;
 	};
 }

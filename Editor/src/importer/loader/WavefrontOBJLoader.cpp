@@ -1,11 +1,11 @@
 #include "WavefrontOBJLoader.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
-#include <algorithm>
-#include <set>
-#include <unordered_map>
-#include <unordered_set>
-#include <glm\geometric.hpp>
+#include <EASTL/sort.h>
+#include <EASTL/set.h>
+#include <EASTL/hash_map.h>
+#include <EASTL/hash_set.h>
+#include <glm/geometric.hpp>
 #include <filesystem>
 #include <Log.h>
 
@@ -26,7 +26,7 @@
 //	template <class T>
 //	inline void hashCombine(size_t &s, const T &v)
 //	{
-//		std::hash<T> h;
+//		eastl::hash<T> h;
 //		s ^= h(v) + 0x9e3779b9 + (s << 6) + (s >> 2);
 //	}
 //
@@ -114,7 +114,7 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 		tinyobj::index_t m_vertexIndices[3];
 	};
 
-	std::vector<Index> unifiedIndices;
+	eastl::vector<Index> unifiedIndices;
 
 	for (size_t shapeIndex = 0; shapeIndex < objShapes.size(); ++shapeIndex)
 	{
@@ -135,22 +135,22 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 	if (mergeByMaterial)
 	{
 		// sort all by material
-		std::stable_sort(unifiedIndices.begin(), unifiedIndices.end(), [](const auto &lhs, const auto &rhs) { return lhs.m_materialIndex < rhs.m_materialIndex; });
+		eastl::stable_sort(unifiedIndices.begin(), unifiedIndices.end(), [](const auto &lhs, const auto &rhs) { return lhs.m_materialIndex < rhs.m_materialIndex; });
 	}
 	else
 	{
 		// sort only inside same shape by material
-		std::stable_sort(unifiedIndices.begin(), unifiedIndices.end(),
+		eastl::stable_sort(unifiedIndices.begin(), unifiedIndices.end(),
 			[](const auto &lhs, const auto &rhs)
 			{
 				return lhs.m_shapeIndex < rhs.m_shapeIndex || (lhs.m_shapeIndex == rhs.m_shapeIndex && lhs.m_materialIndex < rhs.m_materialIndex);
 			});
 	}
 
-	model.m_aabbMin = glm::vec3(std::numeric_limits<float>::max());
-	model.m_aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
+	model.m_aabbMin = glm::vec3(FLT_MAX);
+	model.m_aabbMax = glm::vec3(-FLT_MAX);
 
-	std::set<uint32_t> shapeIndices;
+	eastl::set<uint32_t> shapeIndices;
 
 	LoadedModel::Mesh mesh = {};
 
@@ -238,7 +238,7 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 			model.m_aabbMin = glm::min(mesh.m_aabbMin, model.m_aabbMin);
 			model.m_aabbMax = glm::max(mesh.m_aabbMax, model.m_aabbMax);
 
-			model.m_meshes.push_back(std::move(mesh));
+			model.m_meshes.push_back(eastl::move(mesh));
 
 			// reset temp data
 			mesh = {};

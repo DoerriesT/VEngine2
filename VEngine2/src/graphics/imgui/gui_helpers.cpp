@@ -3,7 +3,7 @@
 #include "asset/Asset.h"
 #include "asset/AssetMetaDataRegistry.h"
 #include "asset/AssetManager.h"
-#include <cctype>
+#include <ctype.h>
 
 void ImGuiHelpers::Tooltip(const char *text) noexcept
 {
@@ -119,7 +119,7 @@ bool ImGuiHelpers::AssetPicker(const char *label, const AssetType &assetType, co
 					s_searchTextLower[i] = '\0';
 					break;
 				}
-				s_searchTextLower[i] = std::tolower(s_searchText[i]);
+				s_searchTextLower[i] = tolower(s_searchText[i]);
 			}
 		}
 		eastl::string_view searchTextView = eastl::string_view(s_searchTextLower);

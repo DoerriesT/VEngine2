@@ -1,7 +1,8 @@
 #include "PipelineDx12.h"
 #include "utility/Utility.h"
 #include "UtilityDx12.h"
-#include <vector>
+#include "utility/Memory.h"
+//#include <vector>
 
 
 using namespace gal;
@@ -222,8 +223,8 @@ gal::GraphicsPipelineDx12::GraphicsPipelineDx12(ID3D12Device *device, const Grap
 
 gal::GraphicsPipelineDx12::~GraphicsPipelineDx12()
 {
-	m_pipeline->Release();
-	m_rootSignature->Release();
+	D3D12_SAFE_RELEASE(m_pipeline);
+	D3D12_SAFE_RELEASE(m_rootSignature);
 }
 
 void *gal::GraphicsPipelineDx12::getNativeHandle() const
@@ -297,8 +298,8 @@ gal::ComputePipelineDx12::ComputePipelineDx12(ID3D12Device *device, const Comput
 
 gal::ComputePipelineDx12::~ComputePipelineDx12()
 {
-	m_pipeline->Release();
-	m_rootSignature->Release();
+	D3D12_SAFE_RELEASE(m_pipeline);
+	D3D12_SAFE_RELEASE(m_rootSignature);
 }
 
 void *gal::ComputePipelineDx12::getNativeHandle() const
@@ -398,13 +399,13 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 	}
 
 	UINT rootParamCount = 0;
-	D3D12_ROOT_PARAMETER1 rootParams1_1[5 + 32]; // 1 root constant and 4 descriptor tables maximum and 32 root descriptors maximum
-	D3D12_ROOT_PARAMETER rootParams1_0[std::size(rootParams1_1)];
-	std::vector<D3D12_DESCRIPTOR_RANGE1> descriptorRanges1_1;
-	std::vector<D3D12_DESCRIPTOR_RANGE> descriptorRanges1_0;
-	descriptorRanges1_1.reserve(totalDescriptorRangeCount); // reserve space to guarantee pointer stability 
-	std::vector<D3D12_STATIC_SAMPLER_DESC> staticSamplerDescs;
-	staticSamplerDescs.reserve(layoutCreateInfo.m_staticSamplerCount);
+	constexpr size_t rootParamsWorstCaseCount = 5 + 32; // 1 root constant and 4 descriptor tables maximum and 32 root descriptors maximum
+	D3D12_ROOT_PARAMETER1 rootParams1_1[rootParamsWorstCaseCount];
+	D3D12_ROOT_PARAMETER rootParams1_0[rootParamsWorstCaseCount];
+	D3D12_DESCRIPTOR_RANGE1 *descriptorRanges1_1 = ALLOC_A_T(D3D12_DESCRIPTOR_RANGE1, totalDescriptorRangeCount);
+	D3D12_DESCRIPTOR_RANGE *descriptorRanges1_0 = nullptr;
+	size_t descriptorRangesCount = 0;
+	D3D12_STATIC_SAMPLER_DESC *staticSamplerDescs = ALLOC_A_T(D3D12_STATIC_SAMPLER_DESC, layoutCreateInfo.m_staticSamplerCount);
 
 	D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSig{ rootSigFeatureData.HighestVersion };
 
@@ -492,7 +493,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		{
 			if (!rootDescriptorSets[i])
 			{
-				const size_t rangeOffset = descriptorRanges1_1.size();
+				const size_t rangeOffset = descriptorRangesCount;
 				ShaderStageFlags tableStageMask = (ShaderStageFlags)0;
 
 				const uint32_t bindingCount = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindingCount;
@@ -550,15 +551,16 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 						range.Flags |= D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
 					}
 
-					descriptorRanges1_1.push_back(range);
+					assert(descriptorRangesCount < totalDescriptorRangeCount);
+					descriptorRanges1_1[descriptorRangesCount++] = range;
 					tableStageMask |= bindings[j].m_stageFlags;
 				}
 
 				auto &param = rootParams1_1[rootParamCount++];
 				param = {};
 				param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-				param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(descriptorRanges1_1.size() - rangeOffset);
-				param.DescriptorTable.pDescriptorRanges = descriptorRanges1_1.data() + rangeOffset;
+				param.DescriptorTable.NumDescriptorRanges = static_cast<UINT>(descriptorRangesCount - rangeOffset);
+				param.DescriptorTable.pDescriptorRanges = descriptorRanges1_1 + rangeOffset;
 				param.ShaderVisibility = determineShaderVisibility(tableStageMask);
 
 				mergedStageMask |= tableStageMask;
@@ -595,7 +597,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 			samplerDescDx.RegisterSpace = samplerDesc.m_space;
 			samplerDescDx.ShaderVisibility = UtilityDx12::translate(samplerDesc.m_stageFlags);
 
-			staticSamplerDescs.push_back(samplerDescDx);
+			staticSamplerDescs[i] = samplerDescDx;
 		}
 
 		D3D12_ROOT_SIGNATURE_FLAGS rootSigFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
@@ -629,9 +631,11 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		if (rootSig.Version == D3D_ROOT_SIGNATURE_VERSION_1_0)
 		{
 			// translate ranges
-			descriptorRanges1_0.reserve(descriptorRanges1_1.size());
-			for (const auto &range1_1 : descriptorRanges1_1)
+			descriptorRanges1_0 = ALLOC_A_T(D3D12_DESCRIPTOR_RANGE, descriptorRangesCount);
+			for (size_t i = 0; i < descriptorRangesCount; ++i)
 			{
+				const auto &range1_1 = descriptorRanges1_1[i];
+
 				D3D12_DESCRIPTOR_RANGE range1_0{};
 				range1_0.RangeType = range1_1.RangeType;
 				range1_0.NumDescriptors = range1_1.NumDescriptors;
@@ -639,7 +643,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 				range1_0.RegisterSpace = range1_1.RegisterSpace;
 				range1_0.OffsetInDescriptorsFromTableStart = range1_1.OffsetInDescriptorsFromTableStart;
 
-				descriptorRanges1_0.push_back(range1_0);
+				descriptorRanges1_0[i] = range1_0;
 			}
 
 			// translate params
@@ -655,7 +659,7 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 				{
 				case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
 					param1_0.DescriptorTable.NumDescriptorRanges = param1_1.DescriptorTable.NumDescriptorRanges;
-					param1_0.DescriptorTable.pDescriptorRanges = descriptorRanges1_0.data() + (param1_1.DescriptorTable.pDescriptorRanges - descriptorRanges1_1.data());
+					param1_0.DescriptorTable.pDescriptorRanges = descriptorRanges1_0 + (param1_1.DescriptorTable.pDescriptorRanges - descriptorRanges1_1);
 					break;
 				case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
 					param1_0.Constants = param1_1.Constants;
@@ -674,8 +678,8 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 
 			rootSig.Desc_1_0.NumParameters = rootParamCount;
 			rootSig.Desc_1_0.pParameters = rootParams1_0;
-			rootSig.Desc_1_0.NumStaticSamplers = (UINT)staticSamplerDescs.size();
-			rootSig.Desc_1_0.pStaticSamplers = staticSamplerDescs.data();
+			rootSig.Desc_1_0.NumStaticSamplers = (UINT)layoutCreateInfo.m_staticSamplerCount;
+			rootSig.Desc_1_0.pStaticSamplers = staticSamplerDescs;
 			rootSig.Desc_1_0.Flags = useIA ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
 			rootSig.Desc_1_0.Flags |= rootSigFlags;
 		}
@@ -683,8 +687,8 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 		{
 			rootSig.Desc_1_1.NumParameters = rootParamCount;
 			rootSig.Desc_1_1.pParameters = rootParams1_1;
-			rootSig.Desc_1_1.NumStaticSamplers = (UINT)staticSamplerDescs.size();
-			rootSig.Desc_1_1.pStaticSamplers = staticSamplerDescs.data();
+			rootSig.Desc_1_1.NumStaticSamplers = (UINT)layoutCreateInfo.m_staticSamplerCount;
+			rootSig.Desc_1_1.pStaticSamplers = staticSamplerDescs;
 			rootSig.Desc_1_1.Flags = useIA ? D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT : D3D12_ROOT_SIGNATURE_FLAG_NONE;
 			rootSig.Desc_1_1.Flags |= rootSigFlags;
 		}

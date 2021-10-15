@@ -1,7 +1,8 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include <d3d12.h>
-#include <vector>
+#include <EASTL/vector.h>
+#include "utility/allocator/LinearAllocator.h"
 
 class TLSFAllocator;
 namespace gal
@@ -80,13 +81,16 @@ namespace gal
 
 
 	private:
-		ID3D12GraphicsCommandList5 *m_commandList;
-		ID3D12CommandAllocator *m_commandAllocator;
-		const CommandListRecordContextDx12 *m_recordContext;
-		const GraphicsPipeline *m_currentGraphicsPipeline;
-		std::vector<void *> m_cpuDescriptorHandleAllocs;
-		std::vector<void *> m_dsvDescriptorHandleAllocs;
-		std::vector<void *> m_gpuDescriptorHandleAllocs;
+		static constexpr size_t k_scratchMemorySize = 1024 * 16;
+		ID3D12GraphicsCommandList5 *m_commandList = nullptr;
+		ID3D12CommandAllocator *m_commandAllocator = nullptr;
+		const CommandListRecordContextDx12 *m_recordContext = nullptr;
+		const GraphicsPipeline *m_currentGraphicsPipeline = nullptr;
+		eastl::vector<void *> m_cpuDescriptorHandleAllocs;
+		eastl::vector<void *> m_dsvDescriptorHandleAllocs;
+		eastl::vector<void *> m_gpuDescriptorHandleAllocs;
+		ScopedAllocation m_scratchMemoryAllocation;
+		LinearAllocator m_linearAllocator;
 
 		void createClearDescriptors(const D3D12_UNORDERED_ACCESS_VIEW_DESC &viewDesc, ID3D12Resource *resource, D3D12_GPU_DESCRIPTOR_HANDLE &gpuDescriptor, D3D12_CPU_DESCRIPTOR_HANDLE &cpuDescriptor);
 	};

@@ -1,5 +1,4 @@
 #include "..\Level.h"
-#include <algorithm>
 
 Level::Level() noexcept
 	:m_sceneGraphNodeMemoryPool(32)
@@ -17,7 +16,7 @@ void Level::addEntity(EntityID entity, const char *name) noexcept
 
 void Level::removeEntity(EntityID entity) noexcept
 {
-	m_sceneGraphNodes.erase(std::remove_if(m_sceneGraphNodes.begin(), m_sceneGraphNodes.end(), [&](const auto *e)
+	m_sceneGraphNodes.erase(eastl::remove_if(m_sceneGraphNodes.begin(), m_sceneGraphNodes.end(), [&](const auto *e)
 		{
 			return e->m_entity == entity;
 		}), m_sceneGraphNodes.end());

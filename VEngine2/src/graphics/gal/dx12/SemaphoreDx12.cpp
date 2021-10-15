@@ -15,7 +15,7 @@ gal::SemaphoreDx12::SemaphoreDx12(ID3D12Device *device, uint64_t initialValue)
 
 gal::SemaphoreDx12::~SemaphoreDx12()
 {
-	m_fence->Release();
+	D3D12_SAFE_RELEASE(m_fence);
 	CloseHandle(m_fenceEvent);
 }
 

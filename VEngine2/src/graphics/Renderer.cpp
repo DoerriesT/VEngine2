@@ -26,7 +26,7 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 	m_width = width;
 	m_height = height;
 
-	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::VULKAN);
+	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::D3D12);
 	m_graphicsQueue = m_device->getGraphicsQueue();
 	m_device->createSwapChain(m_graphicsQueue, m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::V_SYNC, &m_swapChain);
 	m_device->createSemaphore(0, &m_semaphore);

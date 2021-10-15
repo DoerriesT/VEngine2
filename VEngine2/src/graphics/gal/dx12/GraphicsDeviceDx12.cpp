@@ -1,11 +1,13 @@
 #define NOMINMAX
 #include "GraphicsDeviceDx12.h"
-#include "assert.h"
+#include <assert.h>
 #include "SwapChainDx12.h"
 #include "UtilityDx12.h"
 #include "utility/Utility.h"
 #include "D3D12MemAlloc.h"
 #include "./../Initializers.h"
+#include "utility/WideNarrowStringConversion.h"
+#include "Log.h"
 #include <tracy/TracyD3D12.hpp>
 
 #define GPU_DESCRIPTOR_HEAP_SIZE (1000000)
@@ -18,43 +20,36 @@
 using namespace gal;
 
 gal::GraphicsDeviceDx12::GraphicsDeviceDx12(void *windowHandle, bool debugLayer)
-	:m_device(),
-	m_graphicsQueue(),
-	m_computeQueue(),
-	m_transferQueue(),
-	m_windowHandle(windowHandle),
-	//m_gpuMemoryAllocator(),
-	m_swapChain(),
-	m_cmdListRecordContext(),
-	m_graphicsPipelineMemoryPool(64),
-	m_computePipelineMemoryPool(64),
-	m_commandListPoolMemoryPool(32),
+	:m_windowHandle(windowHandle),
 	m_gpuDescriptorAllocator(GPU_DESCRIPTOR_HEAP_SIZE, 1),
 	m_gpuSamplerDescriptorAllocator(GPU_SAMPLER_DESCRIPTOR_HEAP_SIZE, 1),
 	m_cpuDescriptorAllocator(CPU_DESCRIPTOR_HEAP_SIZE, 1),
 	m_cpuSamplerDescriptorAllocator(CPU_SAMPLER_DESCRIPTOR_HEAP_SIZE, 1),
 	m_cpuRTVDescriptorAllocator(CPU_RTV_DESCRIPTOR_HEAP_SIZE, 1),
 	m_cpuDSVDescriptorAllocator(CPU_DSV_DESCRIPTOR_HEAP_SIZE, 1),
-	m_imageMemoryPool(256),
-	m_bufferMemoryPool(256),
-	m_imageViewMemoryPool(512),
-	m_bufferViewMemoryPool(32),
-	m_samplerMemoryPool(16),
-	m_semaphoreMemoryPool(16),
-	m_queryPoolMemoryPool(16),
-	m_descriptorSetPoolMemoryPool(16),
-	m_descriptorSetLayoutMemoryPool(8),
+	m_graphicsPipelineMemoryPool(sizeof(GraphicsPipelineDx12), 64, "GraphicsPipelineDx12 Pool Allocator"),
+	m_computePipelineMemoryPool(sizeof(ComputePipelineDx12), 64, "ComputePipelineDx12 Pool Allocator"),
+	m_commandListPoolMemoryPool(sizeof(CommandListPoolDx12), 32, "CommandListPoolDx12 Pool Allocator"),
+	m_imageMemoryPool(sizeof(ImageDx12), 256, "ImageDx12 Pool Allocator"),
+	m_bufferMemoryPool(sizeof(BufferDx12), 256, "BufferDx12 Pool Allocator"),
+	m_imageViewMemoryPool(sizeof(ImageViewDx12), 512, "ImageViewDx12 Pool Allocator"),
+	m_bufferViewMemoryPool(sizeof(BufferViewDx12), 32, "BufferViewDx12 Pool Allocator"),
+	m_samplerMemoryPool(sizeof(SamplerDx12), 16, "SamplerDx12 Pool Allocator"),
+	m_semaphoreMemoryPool(sizeof(SemaphoreDx12), 16, "SemaphoreDx12 Pool Allocator"),
+	m_queryPoolMemoryPool(sizeof(QueryPoolDx12), 16, "QueryPoolDx12 Pool Allocator"),
+	m_descriptorSetPoolMemoryPool(sizeof(DescriptorSetDx12), 16, "DescriptorSetDx12 Pool Allocator"),
+	m_descriptorSetLayoutMemoryPool(sizeof(DescriptorSetLayoutDx12), 8, "DescriptorSetLayoutDx12 Pool Allocator"),
 	m_debugLayers(debugLayer)
 {
 	// Enable the D3D12 debug layer.
 	if (m_debugLayers)
 	{
-		ID3D12Debug *debugController;
+		ID3D12Debug *debugController = nullptr;
 		if (SUCCEEDED(D3D12GetDebugInterface(__uuidof(ID3D12Debug), (void **)&debugController)))
 		{
 			debugController->EnableDebugLayer();
 		}
-		debugController->Release();
+		D3D12_SAFE_RELEASE(debugController);
 	}
 
 	// get adapter
@@ -85,9 +80,20 @@ gal::GraphicsDeviceDx12::GraphicsDeviceDx12(void *windowHandle, bool debugLayer)
 				dxgiAdapterDesc1.DedicatedVideoMemory > maxDedicatedVideoMemory)
 			{
 				maxDedicatedVideoMemory = dxgiAdapterDesc1.DedicatedVideoMemory;
+
+				D3D12_SAFE_RELEASE(dxgiAdapter4);
 				UtilityDx12::checkResult(dxgiAdapter1->QueryInterface(__uuidof(IDXGIAdapter4), (void **)&dxgiAdapter4), "Failed to create DXGIAdapter4!");
 			}
+
+			D3D12_SAFE_RELEASE(dxgiAdapter1);
 		}
+
+		D3D12_SAFE_RELEASE(dxgiFactory);
+	}
+
+	if (!dxgiAdapter4)
+	{
+		util::fatalExit("Failed to find suitable D3D12 adapter!", EXIT_FAILURE);
 	}
 
 	// create device
@@ -130,8 +136,8 @@ gal::GraphicsDeviceDx12::GraphicsDeviceDx12(void *windowHandle, bool debugLayer)
 				NewFilter.DenyList.pIDList = DenyIds;
 
 				//UtilityDx12::checkResult(pInfoQueue->PushStorageFilter(&NewFilter), "Failed to set info queue filter!");
-				pInfoQueue->Release();
 			}
+			D3D12_SAFE_RELEASE(pInfoQueue);
 		}
 
 		m_device = d3d12Device2;
@@ -147,7 +153,7 @@ gal::GraphicsDeviceDx12::GraphicsDeviceDx12(void *windowHandle, bool debugLayer)
 		UtilityDx12::checkResult(D3D12MA::CreateAllocator(&allocatorDesc, &m_gpuMemoryAllocator), "Failed to create GPU memory allocator!");
 	}
 
-	dxgiAdapter4->Release();
+	D3D12_SAFE_RELEASE(dxgiAdapter4);
 
 	// create queues
 	{
@@ -316,44 +322,44 @@ gal::GraphicsDeviceDx12::~GraphicsDeviceDx12()
 
 	TracyD3D12Destroy((TracyD3D12Ctx)m_profilingContext);
 
-	//m_gpuMemoryAllocator->destroy();
-	//delete m_gpuMemoryAllocator;
 	if (m_swapChain)
 	{
 		delete m_swapChain;
+		m_swapChain = nullptr;
 	}
 
 	destroySemaphore(m_graphicsQueue.getWaitIdleSemaphore());
 	destroySemaphore(m_computeQueue.getWaitIdleSemaphore());
 	destroySemaphore(m_transferQueue.getWaitIdleSemaphore());
 
-	m_cmdListRecordContext.m_drawIndirectSignature->Release();
-	m_cmdListRecordContext.m_drawIndexedIndirectSignature->Release();
-	m_cmdListRecordContext.m_dispatchIndirectSignature->Release();
+	D3D12_SAFE_RELEASE(m_cmdListRecordContext.m_drawIndirectSignature);
+	D3D12_SAFE_RELEASE(m_cmdListRecordContext.m_drawIndexedIndirectSignature);
+	D3D12_SAFE_RELEASE(m_cmdListRecordContext.m_dispatchIndirectSignature);
 
-	m_cmdListRecordContext.m_gpuDescriptorHeap->Release();
-	m_cmdListRecordContext.m_gpuSamplerDescriptorHeap->Release();
-	m_cpuDescriptorHeap->Release();
-	m_cpuSamplerDescriptorHeap->Release();
-	m_cpuRTVDescriptorHeap->Release();
-	m_cpuDSVDescriptorHeap->Release();
+	D3D12_SAFE_RELEASE(m_cmdListRecordContext.m_gpuDescriptorHeap);
+	D3D12_SAFE_RELEASE(m_cmdListRecordContext.m_gpuSamplerDescriptorHeap);
+	D3D12_SAFE_RELEASE(m_cpuDescriptorHeap);
+	D3D12_SAFE_RELEASE(m_cpuSamplerDescriptorHeap);
+	D3D12_SAFE_RELEASE(m_cpuRTVDescriptorHeap);
+	D3D12_SAFE_RELEASE(m_cpuDSVDescriptorHeap);
 
-	((ID3D12CommandQueue *)m_graphicsQueue.getNativeHandle())->Release();
-	((ID3D12CommandQueue *)m_computeQueue.getNativeHandle())->Release();
-	((ID3D12CommandQueue *)m_transferQueue.getNativeHandle())->Release();
+	auto graphicsQueueHandle = (ID3D12CommandQueue *)m_graphicsQueue.getNativeHandle();
+	auto computeQueueHandle = (ID3D12CommandQueue *)m_computeQueue.getNativeHandle();
+	auto transferQueueHandle = (ID3D12CommandQueue *)m_transferQueue.getNativeHandle();
+	D3D12_SAFE_RELEASE(graphicsQueueHandle);
+	D3D12_SAFE_RELEASE(computeQueueHandle);
+	D3D12_SAFE_RELEASE(transferQueueHandle);
 
-	m_gpuMemoryAllocator->Release();
+	D3D12_SAFE_RELEASE(m_gpuMemoryAllocator);
 
-	m_device->Release();
+	D3D12_SAFE_RELEASE(m_device);
 }
 
 void gal::GraphicsDeviceDx12::createGraphicsPipelines(uint32_t count, const GraphicsPipelineCreateInfo *createInfo, GraphicsPipeline **pipelines)
 {
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		auto *memory = m_graphicsPipelineMemoryPool.alloc();
-		assert(memory);
-		pipelines[i] = new(memory) GraphicsPipelineDx12(m_device, createInfo[i]);
+		pipelines[i] = ALLOC_NEW(&m_graphicsPipelineMemoryPool, GraphicsPipelineDx12) (m_device, createInfo[i]);
 	}
 }
 
@@ -361,9 +367,7 @@ void gal::GraphicsDeviceDx12::createComputePipelines(uint32_t count, const Compu
 {
 	for (uint32_t i = 0; i < count; ++i)
 	{
-		auto *memory = m_computePipelineMemoryPool.alloc();
-		assert(memory);
-		pipelines[i] = new(memory) ComputePipelineDx12(m_device, createInfo[i]);
+		pipelines[i] = ALLOC_NEW(&m_computePipelineMemoryPool, ComputePipelineDx12) (m_device, createInfo[i]);
 	}
 }
 
@@ -374,9 +378,7 @@ void gal::GraphicsDeviceDx12::destroyGraphicsPipeline(GraphicsPipeline *pipeline
 		auto *pipelineDx = dynamic_cast<GraphicsPipelineDx12 *>(pipeline);
 		assert(pipelineDx);
 
-		// call destructor and free backing memory
-		pipelineDx->~GraphicsPipelineDx12();
-		m_graphicsPipelineMemoryPool.free(reinterpret_cast<RawView<GraphicsPipelineDx12> *>(pipelineDx));
+		ALLOC_DELETE(&m_graphicsPipelineMemoryPool, pipelineDx);
 	}
 }
 
@@ -387,24 +389,20 @@ void gal::GraphicsDeviceDx12::destroyComputePipeline(ComputePipeline *pipeline)
 		auto *pipelineDx = dynamic_cast<ComputePipelineDx12 *>(pipeline);
 		assert(pipelineDx);
 
-		// call destructor and free backing memory
-		pipelineDx->~ComputePipelineDx12();
-		m_computePipelineMemoryPool.free(reinterpret_cast<RawView<ComputePipelineDx12> *>(pipelineDx));
+		ALLOC_DELETE(&m_computePipelineMemoryPool, pipelineDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createCommandListPool(const Queue *queue, CommandListPool **commandListPool)
 {
-	auto *memory = m_commandListPoolMemoryPool.alloc();
-	assert(memory);
 	auto *queueDx = dynamic_cast<const QueueDx12 *>(queue);
 	assert(queueDx);
 
+	D3D12_COMMAND_LIST_TYPE cmdListTypes[]{ D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_LIST_TYPE_COMPUTE, D3D12_COMMAND_LIST_TYPE_COPY };
 	const uint32_t queueTypeIdx = static_cast<uint32_t>(queueDx->getQueueType());
 	assert(queueTypeIdx < 3);
 
-	D3D12_COMMAND_LIST_TYPE cmdListTypes[]{ D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_LIST_TYPE_COMPUTE, D3D12_COMMAND_LIST_TYPE_COPY };
-	*commandListPool = new(memory) CommandListPoolDx12(m_device, cmdListTypes[queueTypeIdx], &m_cmdListRecordContext);
+	*commandListPool = ALLOC_NEW(&m_commandListPoolMemoryPool, CommandListPoolDx12) (m_device, cmdListTypes[queueTypeIdx], &m_cmdListRecordContext);
 }
 
 void gal::GraphicsDeviceDx12::destroyCommandListPool(CommandListPool *commandListPool)
@@ -414,17 +412,13 @@ void gal::GraphicsDeviceDx12::destroyCommandListPool(CommandListPool *commandLis
 		auto *poolDx = dynamic_cast<CommandListPoolDx12 *>(commandListPool);
 		assert(poolDx);
 
-		// call destructor and free backing memory
-		poolDx->~CommandListPoolDx12();
-		m_commandListPoolMemoryPool.free(reinterpret_cast<RawView<CommandListPoolDx12> *>(poolDx));
+		ALLOC_DELETE(&m_commandListPoolMemoryPool, poolDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createQueryPool(QueryType queryType, uint32_t queryCount, QueryPool **queryPool)
 {
-	auto *memory = m_queryPoolMemoryPool.alloc();
-	assert(memory);
-	*queryPool = new(memory) QueryPoolDx12(m_device, queryType, queryCount, (QueryPipelineStatisticFlags)0);
+	*queryPool = ALLOC_NEW(&m_queryPoolMemoryPool, QueryPoolDx12) (m_device, queryType, queryCount, (QueryPipelineStatisticFlags)0);
 }
 
 void gal::GraphicsDeviceDx12::destroyQueryPool(QueryPool *queryPool)
@@ -434,9 +428,7 @@ void gal::GraphicsDeviceDx12::destroyQueryPool(QueryPool *queryPool)
 		auto *poolDx = dynamic_cast<QueryPoolDx12 *>(queryPool);
 		assert(poolDx);
 
-		// call destructor and free backing memory
-		poolDx->~QueryPoolDx12();
-		m_queryPoolMemoryPool.free(reinterpret_cast<RawView<QueryPoolDx12> *>(poolDx));
+		ALLOC_DELETE(&m_queryPoolMemoryPool, poolDx);
 	}
 }
 
@@ -474,9 +466,6 @@ static D3D12_HEAP_PROPERTIES getHeapProperties(MemoryPropertyFlags memoryPropert
 
 void gal::GraphicsDeviceDx12::createImage(const ImageCreateInfo &imageCreateInfo, MemoryPropertyFlags requiredMemoryPropertyFlags, MemoryPropertyFlags preferredMemoryPropertyFlags, bool dedicated, Image **image)
 {
-	auto *memory = m_imageMemoryPool.alloc();
-	assert(memory);
-
 	D3D12_RESOURCE_DESC resourceDesc{};
 	{
 		switch (imageCreateInfo.m_imageType)
@@ -552,14 +541,11 @@ void gal::GraphicsDeviceDx12::createImage(const ImageCreateInfo &imageCreateInfo
 
 	UtilityDx12::checkResult(m_gpuMemoryAllocator->CreateResource(&allocationDesc, &resourceDesc, initialState, useClearValue ? &optimizedClearValue : nullptr, &allocHandle, __uuidof(ID3D12Resource), (void **)&nativeHandle), "Failed to create resource!");
 
-	*image = new(memory) ImageDx12(nativeHandle, allocHandle, imageCreateInfo, allocationDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD, allocationDesc.HeapType == D3D12_HEAP_TYPE_READBACK, dedicated);
+	*image = ALLOC_NEW(&m_imageMemoryPool, ImageDx12) (nativeHandle, allocHandle, imageCreateInfo, allocationDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD, allocationDesc.HeapType == D3D12_HEAP_TYPE_READBACK, dedicated);
 }
 
 void gal::GraphicsDeviceDx12::createBuffer(const BufferCreateInfo &bufferCreateInfo, MemoryPropertyFlags requiredMemoryPropertyFlags, MemoryPropertyFlags preferredMemoryPropertyFlags, bool dedicated, Buffer **buffer)
 {
-	auto *memory = m_bufferMemoryPool.alloc();
-	assert(memory);
-
 	D3D12_RESOURCE_DESC resourceDesc{};
 	{
 		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -594,7 +580,7 @@ void gal::GraphicsDeviceDx12::createBuffer(const BufferCreateInfo &bufferCreateI
 
 	UtilityDx12::checkResult(m_gpuMemoryAllocator->CreateResource(&allocationDesc, &resourceDesc, initialState, nullptr, &allocHandle, __uuidof(ID3D12Resource), (void **)&nativeHandle), "Failed to create resource!");
 
-	*buffer = new(memory) BufferDx12(nativeHandle, allocHandle, bufferCreateInfo, allocationDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD, allocationDesc.HeapType == D3D12_HEAP_TYPE_READBACK);
+	*buffer = ALLOC_NEW(&m_bufferMemoryPool, BufferDx12) (nativeHandle, allocHandle, bufferCreateInfo, allocationDesc.HeapType == D3D12_HEAP_TYPE_UPLOAD, allocationDesc.HeapType == D3D12_HEAP_TYPE_READBACK);
 }
 
 void gal::GraphicsDeviceDx12::destroyImage(Image *image)
@@ -607,9 +593,7 @@ void gal::GraphicsDeviceDx12::destroyImage(Image *image)
 		((D3D12MA::Allocation *)imageDx->getAllocationHandle())->Release();
 		((ID3D12Resource *)imageDx->getNativeHandle())->Release();
 
-		// call destructor and free backing memory
-		imageDx->~ImageDx12();
-		m_imageMemoryPool.free(reinterpret_cast<RawView<ImageDx12> *>(imageDx));
+		ALLOC_DELETE(&m_imageMemoryPool, imageDx);
 	}
 }
 
@@ -623,18 +607,13 @@ void gal::GraphicsDeviceDx12::destroyBuffer(Buffer *buffer)
 		((D3D12MA::Allocation *)bufferDx->getAllocationHandle())->Release();
 		((ID3D12Resource *)bufferDx->getNativeHandle())->Release();
 
-		// call destructor and free backing memory
-		bufferDx->~BufferDx12();
-		m_bufferMemoryPool.free(reinterpret_cast<RawView<BufferDx12> *>(bufferDx));
+		ALLOC_DELETE(&m_bufferMemoryPool, bufferDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createImageView(const ImageViewCreateInfo &imageViewCreateInfo, ImageView **imageView)
 {
-	auto *memory = m_imageViewMemoryPool.alloc();
-	assert(memory);
-
-	*imageView = new(memory) ImageViewDx12(m_device, imageViewCreateInfo,
+	*imageView = ALLOC_NEW(&m_imageViewMemoryPool, ImageViewDx12) (m_device, imageViewCreateInfo,
 		m_cpuDescriptorAllocator, m_cpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[0],
 		m_cpuRTVDescriptorAllocator, m_cpuRTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[2],
 		m_cpuDSVDescriptorAllocator, m_cpuDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[3]);
@@ -659,10 +638,7 @@ void gal::GraphicsDeviceDx12::createImageView(Image *image, ImageView **imageVie
 
 void gal::GraphicsDeviceDx12::createBufferView(const BufferViewCreateInfo &bufferViewCreateInfo, BufferView **bufferView)
 {
-	auto *memory = m_bufferViewMemoryPool.alloc();
-	assert(memory);
-
-	*bufferView = new(memory) BufferViewDx12(m_device, bufferViewCreateInfo, m_cpuDescriptorAllocator, m_cpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[0]);
+	*bufferView = ALLOC_NEW(&m_bufferViewMemoryPool, BufferViewDx12) (m_device, bufferViewCreateInfo, m_cpuDescriptorAllocator, m_cpuDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[0]);
 }
 
 void gal::GraphicsDeviceDx12::destroyImageView(ImageView *imageView)
@@ -672,9 +648,7 @@ void gal::GraphicsDeviceDx12::destroyImageView(ImageView *imageView)
 		auto *viewDx = dynamic_cast<ImageViewDx12 *>(imageView);
 		assert(viewDx);
 
-		// call destructor and free backing memory
-		viewDx->~ImageViewDx12();
-		m_imageViewMemoryPool.free(reinterpret_cast<RawView<ImageViewDx12> *>(viewDx));
+		ALLOC_DELETE(&m_imageViewMemoryPool, viewDx);
 	}
 }
 
@@ -685,18 +659,13 @@ void gal::GraphicsDeviceDx12::destroyBufferView(BufferView *bufferView)
 		auto *viewDx = dynamic_cast<BufferViewDx12 *>(bufferView);
 		assert(viewDx);
 
-		// call destructor and free backing memory
-		viewDx->~BufferViewDx12();
-		m_bufferViewMemoryPool.free(reinterpret_cast<RawView<BufferViewDx12> *>(viewDx));
+		ALLOC_DELETE(&m_bufferViewMemoryPool, viewDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createSampler(const SamplerCreateInfo &samplerCreateInfo, Sampler **sampler)
 {
-	auto *memory = m_samplerMemoryPool.alloc();
-	assert(memory);
-
-	*sampler = new(memory) SamplerDx12(m_device, samplerCreateInfo, m_cpuSamplerDescriptorAllocator, m_cpuSamplerDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[1]);
+	*sampler = ALLOC_NEW(&m_samplerMemoryPool, SamplerDx12) (m_device, samplerCreateInfo, m_cpuSamplerDescriptorAllocator, m_cpuSamplerDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), m_descriptorIncrementSizes[1]);
 }
 
 void gal::GraphicsDeviceDx12::destroySampler(Sampler *sampler)
@@ -706,18 +675,13 @@ void gal::GraphicsDeviceDx12::destroySampler(Sampler *sampler)
 		auto *samplerDx = dynamic_cast<SamplerDx12 *>(sampler);
 		assert(samplerDx);
 
-		// call destructor and free backing memory
-		samplerDx->~SamplerDx12();
-		m_samplerMemoryPool.free(reinterpret_cast<RawView<SamplerDx12> *>(samplerDx));
+		ALLOC_DELETE(&m_samplerMemoryPool, samplerDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createSemaphore(uint64_t initialValue, Semaphore **semaphore)
 {
-	auto *memory = m_semaphoreMemoryPool.alloc();
-	assert(memory);
-
-	*semaphore = new(memory) SemaphoreDx12(m_device, initialValue);
+	*semaphore = ALLOC_NEW(&m_semaphoreMemoryPool, SemaphoreDx12) (m_device, initialValue);
 }
 
 void gal::GraphicsDeviceDx12::destroySemaphore(Semaphore *semaphore)
@@ -727,17 +691,12 @@ void gal::GraphicsDeviceDx12::destroySemaphore(Semaphore *semaphore)
 		auto *semaphoreDx = dynamic_cast<SemaphoreDx12 *>(semaphore);
 		assert(semaphoreDx);
 
-		// call destructor and free backing memory
-		semaphoreDx->~SemaphoreDx12();
-		m_semaphoreMemoryPool.free(reinterpret_cast<RawView<SemaphoreDx12> *>(semaphoreDx));
+		ALLOC_DELETE(&m_semaphoreMemoryPool, semaphoreDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createDescriptorSetPool(uint32_t maxSets, const DescriptorSetLayout *descriptorSetLayout, DescriptorSetPool **descriptorSetPool)
 {
-	auto *memory = m_descriptorSetPoolMemoryPool.alloc();
-	assert(memory);
-
 	const DescriptorSetLayoutDx12 *layoutDx = dynamic_cast<const DescriptorSetLayoutDx12 *>(descriptorSetLayout);
 	assert(layoutDx);
 
@@ -747,7 +706,7 @@ void gal::GraphicsDeviceDx12::createDescriptorSetPool(uint32_t maxSets, const De
 	ID3D12DescriptorHeap *heap = samplerPool ? m_cmdListRecordContext.m_gpuSamplerDescriptorHeap : m_cmdListRecordContext.m_gpuDescriptorHeap;
 	UINT incSize = samplerPool ? m_descriptorIncrementSizes[1] : m_descriptorIncrementSizes[0];
 
-	*descriptorSetPool = new(memory) DescriptorSetPoolDx12(m_device, heapAllocator, heap->GetCPUDescriptorHandleForHeapStart(), heap->GetGPUDescriptorHandleForHeapStart(), incSize, layoutDx, maxSets);
+	*descriptorSetPool = ALLOC_NEW(&m_descriptorSetPoolMemoryPool, DescriptorSetPoolDx12) (m_device, heapAllocator, heap->GetCPUDescriptorHandleForHeapStart(), heap->GetGPUDescriptorHandleForHeapStart(), incSize, layoutDx, maxSets);
 }
 
 void gal::GraphicsDeviceDx12::destroyDescriptorSetPool(DescriptorSetPool *descriptorSetPool)
@@ -757,18 +716,13 @@ void gal::GraphicsDeviceDx12::destroyDescriptorSetPool(DescriptorSetPool *descri
 		auto *poolDx = dynamic_cast<DescriptorSetPoolDx12 *>(descriptorSetPool);
 		assert(poolDx);
 
-		// call destructor and free backing memory
-		poolDx->~DescriptorSetPoolDx12();
-		m_descriptorSetPoolMemoryPool.free(reinterpret_cast<RawView<DescriptorSetPoolDx12> *>(poolDx));
+		ALLOC_DELETE(&m_descriptorSetPoolMemoryPool, poolDx);
 	}
 }
 
 void gal::GraphicsDeviceDx12::createDescriptorSetLayout(uint32_t bindingCount, const DescriptorSetLayoutBinding *bindings, DescriptorSetLayout **descriptorSetLayout)
 {
-	auto *memory = m_descriptorSetLayoutMemoryPool.alloc();
-	assert(memory);
-
-	*descriptorSetLayout = new(memory) DescriptorSetLayoutDx12(bindingCount, bindings);
+	*descriptorSetLayout = ALLOC_NEW(&m_descriptorSetLayoutMemoryPool, DescriptorSetLayoutDx12) (bindingCount, bindings);
 }
 
 void gal::GraphicsDeviceDx12::destroyDescriptorSetLayout(DescriptorSetLayout *descriptorSetLayout)
@@ -778,9 +732,7 @@ void gal::GraphicsDeviceDx12::destroyDescriptorSetLayout(DescriptorSetLayout *de
 		auto *layoutDx = dynamic_cast<DescriptorSetLayoutDx12 *>(descriptorSetLayout);
 		assert(layoutDx);
 
-		// call destructor and free backing memory
-		layoutDx->~DescriptorSetLayoutDx12();
-		m_descriptorSetLayoutMemoryPool.free(reinterpret_cast<RawView<DescriptorSetLayoutDx12> *>(layoutDx));
+		ALLOC_DELETE(&m_descriptorSetLayoutMemoryPool, layoutDx);
 	}
 }
 
@@ -811,11 +763,14 @@ void gal::GraphicsDeviceDx12::waitIdle()
 
 void gal::GraphicsDeviceDx12::setDebugObjectName(ObjectType objectType, void *object, const char *name)
 {
-	constexpr size_t wStrLen = 1024;
-	wchar_t wName[wStrLen];
-
-	size_t ret;
-	mbstowcs_s(&ret, wName, name, wStrLen - 1);
+	// widen name string
+	const size_t nameLen = strlen(name);
+	wchar_t *wName = ALLOC_A_T(wchar_t, nameLen + 1);
+	if (!widen(name, nameLen + 1, wName))
+	{
+		Log::err("gal::GraphicsDeviceDx12::setDebugObjectName(): Failed to widen() name!");
+		return;
+	}
 
 	switch (objectType)
 	{

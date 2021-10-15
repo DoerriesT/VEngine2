@@ -1,5 +1,5 @@
 #include "QueueDx12.h"
-#include <vector>
+#include "utility/Memory.h"
 
 void gal::QueueDx12::init(ID3D12CommandQueue *queue, QueueType queueType, uint32_t timestampBits, bool presentable, Semaphore *waitIdleSemaphore)
 {
@@ -42,17 +42,25 @@ bool gal::QueueDx12::canPresent() const
 
 void gal::QueueDx12::submit(uint32_t count, const SubmitInfo *submitInfo)
 {
-	std::vector<ID3D12CommandList *> commandLists;
+	// find worst case command list count
+	uint32_t worstCaseCommandListCount = 0;
+	for (size_t i = 0; i < count; ++i)
+	{
+		worstCaseCommandListCount += submitInfo[i].m_commandListCount;
+	}
+
+	ID3D12CommandList **commandLists = ALLOC_A_T(ID3D12CommandList *, worstCaseCommandListCount);
+	size_t commandListCount = 0;
 
 	for (size_t i = 0; i < count; ++i)
 	{
 		const auto &submit = submitInfo[i];
 
 		// flush pending command lists if this submission needs to wait
-		if (submit.m_waitSemaphoreCount && !commandLists.empty())
+		if (submit.m_waitSemaphoreCount && (commandListCount > 0))
 		{
-			m_queue->ExecuteCommandLists((UINT)commandLists.size(), commandLists.data());
-			commandLists.clear();
+			m_queue->ExecuteCommandLists((UINT)commandListCount, commandLists);
+			commandListCount = 0;
 		}
 
 		// wait on fences
@@ -64,19 +72,17 @@ void gal::QueueDx12::submit(uint32_t count, const SubmitInfo *submitInfo)
 		// add command lists of this submission
 		if (submit.m_commandListCount > 0)
 		{
-			commandLists.reserve(commandLists.size() + submit.m_commandListCount);
-
 			for (size_t j = 0; j < submit.m_commandListCount; ++j)
 			{
-				commandLists.push_back((ID3D12CommandList *)submit.m_commandLists[j]->getNativeHandle());
+				commandLists[commandListCount++] = (ID3D12CommandList *)submit.m_commandLists[j]->getNativeHandle();
 			}
 		}
 
 		// flush pending command lists if this submission needs to signal
-		if (submit.m_signalSemaphoreCount && !commandLists.empty())
+		if (submit.m_signalSemaphoreCount && (commandListCount > 0))
 		{
-			m_queue->ExecuteCommandLists((UINT)commandLists.size(), commandLists.data());
-			commandLists.clear();
+			m_queue->ExecuteCommandLists((UINT)commandListCount, commandLists);
+			commandListCount = 0;
 		}
 		
 		// signal fences
@@ -87,9 +93,9 @@ void gal::QueueDx12::submit(uint32_t count, const SubmitInfo *submitInfo)
 	}
 
 	// flush remaining command lists
-	if (!commandLists.empty())
+	if (commandListCount > 0)
 	{
-		m_queue->ExecuteCommandLists((UINT)commandLists.size(), commandLists.data());
+		m_queue->ExecuteCommandLists((UINT)commandListCount, commandLists);
 	}
 }
 

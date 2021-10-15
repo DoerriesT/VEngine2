@@ -1,6 +1,6 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
-#include "utility/ObjectPool.h"
+#include "utility/allocator/PoolAllocator.h"
 #include "utility/TLSFAllocator.h"
 #include <d3d12.h>
 #include "QueueDx12.h"
@@ -70,38 +70,38 @@ namespace gal
 		void *getProfilingContext() const override;
 
 	private:
-		ID3D12Device *m_device;
-		QueueDx12 m_graphicsQueue;
-		QueueDx12 m_computeQueue;
-		QueueDx12 m_transferQueue;
-		void *m_windowHandle;
-		D3D12MA::Allocator *m_gpuMemoryAllocator;
-		SwapChainDx12 *m_swapChain;
-		CommandListRecordContextDx12 m_cmdListRecordContext;
-		ID3D12DescriptorHeap *m_cpuDescriptorHeap;
-		ID3D12DescriptorHeap *m_cpuSamplerDescriptorHeap;
-		ID3D12DescriptorHeap *m_cpuRTVDescriptorHeap;
-		ID3D12DescriptorHeap *m_cpuDSVDescriptorHeap;
+		ID3D12Device *m_device = nullptr;
+		QueueDx12 m_graphicsQueue = {};
+		QueueDx12 m_computeQueue = {};
+		QueueDx12 m_transferQueue = {};
+		void *m_windowHandle = nullptr;
+		D3D12MA::Allocator *m_gpuMemoryAllocator = nullptr;
+		SwapChainDx12 *m_swapChain = nullptr;
+		CommandListRecordContextDx12 m_cmdListRecordContext = {};
+		ID3D12DescriptorHeap *m_cpuDescriptorHeap = nullptr;
+		ID3D12DescriptorHeap *m_cpuSamplerDescriptorHeap = nullptr;
+		ID3D12DescriptorHeap *m_cpuRTVDescriptorHeap = nullptr;
+		ID3D12DescriptorHeap *m_cpuDSVDescriptorHeap = nullptr;
 		TLSFAllocator m_gpuDescriptorAllocator;
 		TLSFAllocator m_gpuSamplerDescriptorAllocator;
 		TLSFAllocator m_cpuDescriptorAllocator;
 		TLSFAllocator m_cpuSamplerDescriptorAllocator;
 		TLSFAllocator m_cpuRTVDescriptorAllocator;
 		TLSFAllocator m_cpuDSVDescriptorAllocator;
-		UINT m_descriptorIncrementSizes[4];
-		DynamicObjectMemoryPool<GraphicsPipelineDx12> m_graphicsPipelineMemoryPool;
-		DynamicObjectMemoryPool<ComputePipelineDx12> m_computePipelineMemoryPool;
-		DynamicObjectMemoryPool<CommandListPoolDx12> m_commandListPoolMemoryPool;
-		DynamicObjectMemoryPool<ImageDx12> m_imageMemoryPool;
-		DynamicObjectMemoryPool<BufferDx12> m_bufferMemoryPool;
-		DynamicObjectMemoryPool<ImageViewDx12> m_imageViewMemoryPool;
-		DynamicObjectMemoryPool<BufferViewDx12> m_bufferViewMemoryPool;
-		DynamicObjectMemoryPool<SamplerDx12> m_samplerMemoryPool;
-		DynamicObjectMemoryPool<SemaphoreDx12> m_semaphoreMemoryPool;
-		DynamicObjectMemoryPool<QueryPoolDx12> m_queryPoolMemoryPool;
-		DynamicObjectMemoryPool<DescriptorSetPoolDx12> m_descriptorSetPoolMemoryPool;
-		DynamicObjectMemoryPool<DescriptorSetLayoutDx12> m_descriptorSetLayoutMemoryPool;
-		bool m_debugLayers;
+		UINT m_descriptorIncrementSizes[4] = {};
+		DynamicPoolAllocator m_graphicsPipelineMemoryPool;
+		DynamicPoolAllocator m_computePipelineMemoryPool;
+		DynamicPoolAllocator m_commandListPoolMemoryPool;
+		DynamicPoolAllocator m_imageMemoryPool;
+		DynamicPoolAllocator m_bufferMemoryPool;
+		DynamicPoolAllocator m_imageViewMemoryPool;
+		DynamicPoolAllocator m_bufferViewMemoryPool;
+		DynamicPoolAllocator m_samplerMemoryPool;
+		DynamicPoolAllocator m_semaphoreMemoryPool;
+		DynamicPoolAllocator m_queryPoolMemoryPool;
+		DynamicPoolAllocator m_descriptorSetPoolMemoryPool;
+		DynamicPoolAllocator m_descriptorSetLayoutMemoryPool;
+		bool m_debugLayers = false;
 		void *m_profilingContext = nullptr;
 	};
 }

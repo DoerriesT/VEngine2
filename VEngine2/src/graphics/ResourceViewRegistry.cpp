@@ -28,7 +28,7 @@ ResourceViewRegistry::ResourceViewRegistry(gal::GraphicsDevice *device) noexcept
 		{gal::DescriptorType::BYTE_BUFFER, s_byteBufferBinding, 0, 65536, stages, bindingFlags },
 		{gal::DescriptorType::RW_BYTE_BUFFER, s_rwByteBufferBinding, 0, 65536, stages, bindingFlags },
 	};
-	m_device->createDescriptorSetLayout((uint32_t)std::size(bindings), bindings, &m_descriptorSetLayout);
+	m_device->createDescriptorSetLayout((uint32_t)eastl::size(bindings), bindings, &m_descriptorSetLayout);
 	m_device->createDescriptorSetPool(2, m_descriptorSetLayout, &m_descriptorSetPool);
 	m_descriptorSetPool->allocateDescriptorSets(2, m_descriptorSets);
 }

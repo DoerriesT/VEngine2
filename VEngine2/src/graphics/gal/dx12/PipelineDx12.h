@@ -1,7 +1,6 @@
 #pragma once
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include <d3d12.h>
-#include "Utility/ObjectPool.h"
 #include "DescriptorSetDx12.h"
 
 namespace gal

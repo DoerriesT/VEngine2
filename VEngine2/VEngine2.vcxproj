@@ -374,7 +374,6 @@
     <ClInclude Include="src\utility\allocator\IAllocator.h" />
     <ClInclude Include="src\utility\allocator\LinearAllocator.h" />
     <ClInclude Include="src\utility\allocator\PoolAllocator.h" />
-    <ClInclude Include="src\utility\ContainerUtility.h" />
     <ClInclude Include="src\utility\Enum.h" />
     <ClInclude Include="src\utility\ErasedType.h" />
     <ClInclude Include="src\utility\HandleManager.h" />

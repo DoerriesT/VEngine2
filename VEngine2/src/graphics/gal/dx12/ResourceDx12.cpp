@@ -1,6 +1,6 @@
 #include "ResourceDx12.h"
 #include "UtilityDx12.h"
-#include "assert.h"
+#include <assert.h>
 #include "utility/TLSFAllocator.h"
 #include "utility/Utility.h"
 #include "./../Initializers.h"

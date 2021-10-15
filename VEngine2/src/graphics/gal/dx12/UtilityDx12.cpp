@@ -1,6 +1,6 @@
 #include "UtilityDx12.h"
-#include "assert.h"
-#include "Utility/Utility.h"
+#include <assert.h>
+#include "utility/Utility.h"
 
 HRESULT gal::UtilityDx12::checkResult(HRESULT result, const char *errorMsg, bool exitOnError)
 {

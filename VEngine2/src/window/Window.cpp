@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include "utility/Utility.h"
-#include "utility/ContainerUtility.h"
 #include "input/IInputListener.h"
 
 void windowSizeCallback(GLFWwindow *window, int width, int height);

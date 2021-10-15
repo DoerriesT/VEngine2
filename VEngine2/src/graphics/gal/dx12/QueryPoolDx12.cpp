@@ -1,6 +1,6 @@
 #include "QueryPoolDx12.h"
 #include "UtilityDx12.h"
-#include "assert.h"
+#include <assert.h>
 
 gal::QueryPoolDx12::QueryPoolDx12(ID3D12Device *device, QueryType queryType, uint32_t queryCount, QueryPipelineStatisticFlags pipelineStatistics)
 	:m_queryHeap(),
@@ -29,7 +29,7 @@ gal::QueryPoolDx12::QueryPoolDx12(ID3D12Device *device, QueryType queryType, uin
 
 gal::QueryPoolDx12::~QueryPoolDx12()
 {
-	m_queryHeap->Release();
+	D3D12_SAFE_RELEASE(m_queryHeap);
 }
 
 void *gal::QueryPoolDx12::getNativeHandle() const

@@ -1,8 +1,8 @@
 #include "Utility.h"
 #include <Windows.h>
 #include <fstream>
-#include <cassert>
-#include <cmath>
+#include <assert.h>
+#include <math.h>
 
 char *util::readBinaryFile(const char *filepath, size_t *fileSize)
 {
@@ -36,7 +36,7 @@ void util::fatalExit(const char *message, int exitCode)
 	exit(exitCode);
 }
 
-std::string util::getFileExtension(const std::string &filepath)
+eastl::string util::getFileExtension(const eastl::string &filepath)
 {
 	return filepath.substr(filepath.find_last_of('.') + 1);
 }

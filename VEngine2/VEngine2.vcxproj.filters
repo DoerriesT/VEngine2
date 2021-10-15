@@ -186,9 +186,6 @@
     <ClInclude Include="src\graphics\gal\vulkan\PipelineVk.h">
       <Filter>src\graphics\gal\vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="src\utility\ContainerUtility.h">
-      <Filter>src\utility</Filter>
-    </ClInclude>
     <ClInclude Include="src\input\IInputListener.h">
       <Filter>src\input</Filter>
     </ClInclude>

@@ -37,6 +37,11 @@ eastl::wstring widen(const char *s) noexcept
 
 bool narrow(const wchar_t *s, size_t resultBufferSize, char *resultBuffer) noexcept
 {
+	if (!s || !resultBuffer)
+	{
+		return false;
+	}
+
 	int requiredSize = ::WideCharToMultiByte(CP_UTF8, 0, s, -1, nullptr, 0, nullptr, nullptr);
 
 	assert(requiredSize > 0);
@@ -55,6 +60,11 @@ bool narrow(const wchar_t *s, size_t resultBufferSize, char *resultBuffer) noexc
 
 bool widen(const char *s, size_t resultBufferSize, wchar_t *resultBuffer) noexcept
 {
+	if (!s || !resultBuffer)
+	{
+		return false;
+	}
+
 	int requiredSize = ::MultiByteToWideChar(CP_UTF8, 0, s, -1, nullptr, 0);
 
 	assert(requiredSize > 0);

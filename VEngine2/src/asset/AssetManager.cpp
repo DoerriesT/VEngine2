@@ -2,8 +2,6 @@
 #include "handler/AssetHandler.h"
 #include "Log.h"
 #include "UUID.h"
-#include <sstream>
-#include <string>
 #include "filesystem/VirtualFileSystem.h"
 #include "filesystem/Path.h"
 #include "AssetMetaDataRegistry.h" // for getAssetIDAndType()
@@ -108,6 +106,8 @@ AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, 
 
 	constexpr size_t assetsDirPathOffset = 8; // length of "/assets/" string without null terminator
 
+	auto &vfs = VirtualFileSystem::get();
+
 	// create AssetID
 	AssetID resultAssetID = AssetID(path + assetsDirPathOffset);
 
@@ -116,19 +116,27 @@ AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, 
 	char parentPath[IFileSystem::k_maxPathLength];
 	memcpy(parentPath, path, parentPathOffset);
 	parentPath[parentPathOffset] = '\0';
-	VirtualFileSystem::get().createDirectoryHierarchy(parentPath);
+	vfs.createDirectoryHierarchy(parentPath);
 
 	char assetTypeStr[AssetType::k_uuidStringSize];
 	assetType.toString(assetTypeStr);
 
 	// create meta file
-	std::stringstream metaFileData;
-	metaFileData << resultAssetID.m_string << '\n';
-	metaFileData << assetTypeStr << '\n';
-	metaFileData << sourcePath << '\n';
-	std::string str = metaFileData.str();
+	char metaFilePath[VirtualFileSystem::k_maxPathLength] = "\0";
+	strcat_s(metaFilePath, path);
+	strcat_s(metaFilePath, ".meta");
+	if (auto fh = vfs.open(metaFilePath, FileMode::WRITE, true))
+	{
+		vfs.write(fh, strlen(resultAssetID.m_string), resultAssetID.m_string);
+		vfs.write(fh, 1, "\n");
 
-	VirtualFileSystem::get().writeFile((path + std::string(".meta")).c_str(), str.length(), str.data(), true);
+		vfs.write(fh, strlen(assetTypeStr), assetTypeStr);
+		vfs.write(fh, 1, "\n");
+
+		vfs.write(fh, strlen(sourcePath), sourcePath);
+
+		vfs.close(fh);
+	}
 
 	return resultAssetID;
 }

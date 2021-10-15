@@ -43,7 +43,12 @@ void gal::CommandListPoolVk::allocate(uint32_t count, CommandList **commandLists
 
 		for (uint32_t j = 0; j < countVk; ++j)
 		{
-			commandLists[j + i * batchSize] = ALLOC_NEW(&m_commandListMemoryPool, CommandListVk) (commandBuffers[j], m_device);
+			auto *cmdListVk = ALLOC_NEW(&m_commandListMemoryPool, CommandListVk) (commandBuffers[j], m_device);
+			commandLists[j + i * batchSize] = cmdListVk;
+
+			// add to vector of live command lists, so we can call the destructor of every live command list
+			// when this CommandListPoolVk instance is destroyed
+			m_liveCommandLists.push_back(cmdListVk);
 		}
 	}
 }
@@ -66,6 +71,15 @@ void gal::CommandListPoolVk::free(uint32_t count, CommandList **commandLists)
 			commandBuffers[j] = (VkCommandBuffer)commandListVk->getNativeHandle();
 
 			ALLOC_DELETE(&m_commandListMemoryPool, commandListVk);
+
+			// remove from m_liveCommandLists
+			auto &v = m_liveCommandLists;
+			auto it = eastl::find(v.begin(), v.end(), commandListVk);
+			if (it != v.end())
+			{
+				eastl::swap(v.back(), *it);
+				v.erase(v.end() - 1);
+			}
 		}
 
 		vkFreeCommandBuffers(deviceVk, m_commandPool, countVk, commandBuffers);

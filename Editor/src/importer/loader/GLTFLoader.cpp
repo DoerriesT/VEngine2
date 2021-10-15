@@ -21,28 +21,28 @@ namespace
 {
 	struct SkeletonInfo
 	{
-		std::vector<int> jointMap; // maps from node index to actual joint index
-		std::vector<bool> isJoint;
+		eastl::vector<int> jointMap; // maps from node index to actual joint index
+		eastl::vector<bool> isJoint;
 	};
 
 	struct PerNodeData
 	{
-		std::string m_name;
-		std::vector<bool> m_isJoint; // one per skeleton
-		std::vector<glm::mat4> m_invBindMatrices; // one per skeleton
-		std::vector<LoadedAnimationClip::JointAnimationClip> m_animClips;
+		eastl::string m_name;
+		eastl::vector<bool> m_isJoint; // one per skeleton
+		eastl::vector<glm::mat4> m_invBindMatrices; // one per skeleton
+		eastl::vector<LoadedAnimationClip::JointAnimationClip> m_animClips;
 	};
 
 	struct ImportContext
 	{
-		std::vector<PerNodeData> m_perNodeData;
-		std::vector<std::vector<int>> m_jointMap; // one per skeleton
+		eastl::vector<PerNodeData> m_perNodeData;
+		eastl::vector<eastl::vector<int>> m_jointMap; // one per skeleton
 	};
 }
 
 static float byteToFloat(int8_t b)
 {
-	return std::max<float>(b / 127.0f, -1.0f);
+	return fmaxf(b / 127.0f, -1.0f);
 };
 
 static float ubyteToFloat(uint8_t b)
@@ -52,7 +52,7 @@ static float ubyteToFloat(uint8_t b)
 
 static float shortToFloat(int16_t b)
 {
-	return std::max<float>(b / 32767.0f, -1.0f);
+	return fmaxf(b / 32767.0f, -1.0f);
 };
 
 static float ushortToFloat(uint16_t b)
@@ -62,7 +62,7 @@ static float ushortToFloat(uint16_t b)
 
 static float intToFloat(int32_t b)
 {
-	return std::max<float>(b / (float)INT32_MAX, -1.0f);
+	return fmaxf(b / (float)INT32_MAX, -1.0f);
 };
 
 static float uintToFloat(uint32_t b)
@@ -118,7 +118,7 @@ static bool getFloatBufferData(const tinygltf::Model &gltfModel, int accessorIdx
 		return false;
 	}
 
-	for (size_t i = 0; i < std::min(resultSize, componentCount); ++i)
+	for (size_t i = 0; i < eastl::min(resultSize, componentCount); ++i)
 	{
 		switch (accessor.componentType)
 		{
@@ -210,7 +210,7 @@ static bool getIntBufferData(const tinygltf::Model &gltfModel, int accessorIdx, 
 		return false;
 	}
 
-	for (size_t i = 0; i < std::min(resultSize, componentCount); ++i)
+	for (size_t i = 0; i < eastl::min(resultSize, componentCount); ++i)
 	{
 		switch (accessor.componentType)
 		{
@@ -290,7 +290,7 @@ static glm::mat4 getLocalNodeTransform(const tinygltf::Model &gltfModel, int nod
 	return localTransform;
 }
 
-static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const std::vector<std::vector<int>> &jointMaps, std::vector<bool> &visitedNodes, bool invertTexcoordY, LoadedModel &resultModel)
+static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const eastl::vector<eastl::vector<int>> &jointMaps, eastl::vector<bool> &visitedNodes, bool invertTexcoordY, LoadedModel &resultModel)
 {
 	const auto &node = gltfModel.nodes[nodeIdx];
 
@@ -496,7 +496,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 
 static void listBoneNames(const tinygltf::Model &gltfModel, int currentNode = 0)
 {
-	if (std::find(gltfModel.skins[0].joints.cbegin(), gltfModel.skins[0].joints.cend(), currentNode) != gltfModel.skins[0].joints.end())
+	if (eastl::find(gltfModel.skins[0].joints.cbegin(), gltfModel.skins[0].joints.cend(), currentNode) != gltfModel.skins[0].joints.end())
 	{
 		Log::info(gltfModel.nodes[currentNode].name.c_str());
 	}
@@ -509,7 +509,7 @@ static void listBoneNames(const tinygltf::Model &gltfModel, int currentNode = 0)
 
 static int findSkeletonRootNodeIndexAndTransform(const tinygltf::Model &model, glm::mat4 *rootTransform)
 {
-	std::vector<int> parentIndices(model.nodes.size(), -1);
+	eastl::vector<int> parentIndices(model.nodes.size(), -1);
 
 	for (int i = 0; i < model.nodes.size(); ++i)
 	{
@@ -527,8 +527,8 @@ static int findSkeletonRootNodeIndexAndTransform(const tinygltf::Model &model, g
 	}
 	else
 	{
-		std::vector<bool> skeletonNodes(model.nodes.size());
-		std::vector<bool> hasParent(model.nodes.size());
+		eastl::vector<bool> skeletonNodes(model.nodes.size());
+		eastl::vector<bool> hasParent(model.nodes.size());
 
 		// tag all nodes that are skeleton joints/nodes
 		for (auto j : model.skins[0].joints)
@@ -583,9 +583,9 @@ static void loadSkeletonNodesRecursive(
 	int nodeIdx,
 	const glm::mat4 &parentTransform,
 	uint32_t parentIdx,
-	const std::vector<PerNodeData> &perNodeData,
-	std::vector<int> &jointMap,
-	std::vector<LoadedAnimationClip> &animClips,
+	const eastl::vector<PerNodeData> &perNodeData,
+	eastl::vector<int> &jointMap,
+	eastl::vector<LoadedAnimationClip> &animClips,
 	LoadedModel &resultModel)
 {
 	const tinygltf::Node &node = gltfModel.nodes[nodeIdx];
@@ -597,7 +597,7 @@ static void loadSkeletonNodesRecursive(
 	const auto gltfJointsArray = gltfModel.skins[skeletonIndex].joints;
 
 	// is the current node part of the current skeleton?
-	if (auto it = std::find(gltfJointsArray.cbegin(), gltfJointsArray.cend(), (int)nodeIdx); it != gltfJointsArray.cend())
+	if (auto it = eastl::find(gltfJointsArray.cbegin(), gltfJointsArray.cend(), (int)nodeIdx); it != gltfJointsArray.cend())
 	{
 		LoadedSkeleton::Joint joint{};
 		joint.m_name = node.name.c_str();
@@ -621,7 +621,7 @@ static void loadSkeletonNodesRecursive(
 	}
 }
 
-static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel, const std::vector<PerNodeData> &perNodeData, bool importSkeletons, bool importAnimations, std::vector<std::vector<int>> &jointMaps, LoadedModel &resultModel)
+static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel, const eastl::vector<PerNodeData> &perNodeData, bool importSkeletons, bool importAnimations, eastl::vector<eastl::vector<int>> &jointMaps, LoadedModel &resultModel)
 {
 	jointMaps = {};
 	jointMaps.resize(gltfModel.skins.size());
@@ -630,11 +630,11 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 	for (size_t i = 0; i < gltfModel.skins.size(); ++i)
 	{
 		const auto &skin = gltfModel.skins[i];
-		jointMaps[i] = skin.joints;
+		jointMaps[i] = skin.joints.empty() ? eastl::vector<int>{} : eastl::vector<int>(skin.joints.data(), skin.joints.data() + skin.joints.size());
 		glm::mat4 rootTransform = glm::identity<glm::mat4>();
 		int skeletonRoot = findSkeletonRootNodeIndexAndTransform(gltfModel, &rootTransform);
 
-		std::vector<LoadedAnimationClip> animClips(gltfModel.animations.size());
+		eastl::vector<LoadedAnimationClip> animClips(gltfModel.animations.size());
 
 		// assign anim clip names
 		for (size_t j = 0; j < gltfModel.animations.size(); ++j)
@@ -648,7 +648,7 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 		if (importAnimations)
 		{
 			// remove animation clips that dont affect this skeleton
-			animClips.erase(std::remove_if(animClips.begin(), animClips.end(), [&](const auto &elem)
+			animClips.erase(eastl::remove_if(animClips.begin(), animClips.end(), [&](const auto &elem)
 				{
 					// iterate over all joints and check if they have any anim data
 					for (auto &jointClip : elem.m_jointAnimations)
@@ -672,21 +672,21 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 				{
 					for (auto t : jointClip.m_translationChannel.m_timeKeys)
 					{
-						clip.m_duration = std::max(clip.m_duration, t);
+						clip.m_duration = fmaxf(clip.m_duration, t);
 					}
 
 					for (auto t : jointClip.m_rotationChannel.m_timeKeys)
 					{
-						clip.m_duration = std::max(clip.m_duration, t);
+						clip.m_duration = fmaxf(clip.m_duration, t);
 					}
 
 					for (auto t : jointClip.m_scaleChannel.m_timeKeys)
 					{
-						clip.m_duration = std::max(clip.m_duration, t);
+						clip.m_duration = fmaxf(clip.m_duration, t);
 					}
 				}
 
-				resultModel.m_animationClips.push_back(std::move(clip));
+				resultModel.m_animationClips.push_back(eastl::move(clip));
 			}
 		}
 
@@ -697,9 +697,9 @@ static void loadSkeletonNodesAndAnimationClips(const tinygltf::Model &gltfModel,
 	}
 }
 
-static std::vector<PerNodeData> generatePerNodeData(const tinygltf::Model &gltfModel)
+static eastl::vector<PerNodeData> generatePerNodeData(const tinygltf::Model &gltfModel)
 {
-	std::vector<PerNodeData> perNodeData(gltfModel.nodes.size());
+	eastl::vector<PerNodeData> perNodeData(gltfModel.nodes.size());
 
 	// reserve space
 	for (auto &pnd : perNodeData)
@@ -925,12 +925,12 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 	}
 
 	auto perNodeData = generatePerNodeData(gltfModel);
-	std::vector<std::vector<int>> jointMaps;
+	eastl::vector<eastl::vector<int>> jointMaps;
 	loadSkeletonNodesAndAnimationClips(gltfModel, perNodeData, importSkeletons, importAnimations, jointMaps, model);
 
 	if (importMeshes)
 	{
-		std::vector<bool> visitedNodes(gltfModel.nodes.size());
+		eastl::vector<bool> visitedNodes(gltfModel.nodes.size());
 
 		for (size_t i = 0; i < visitedNodes.size(); ++i)
 		{

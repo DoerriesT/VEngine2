@@ -85,8 +85,8 @@ struct LoadedModel
 	{
 		eastl::string m_name;
 		size_t m_materialIndex;
-		glm::vec3 m_aabbMin = glm::vec3(std::numeric_limits<float>::max());
-		glm::vec3 m_aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
+		glm::vec3 m_aabbMin = glm::vec3(FLT_MAX);
+		glm::vec3 m_aabbMax = glm::vec3(-FLT_MAX);
 		eastl::vector<glm::vec3> m_positions;
 		eastl::vector<glm::vec3> m_normals;
 		eastl::vector<glm::vec4> m_tangents;
@@ -95,8 +95,8 @@ struct LoadedModel
 		eastl::vector<glm::uvec4> m_joints;
 	};
 
-	glm::vec3 m_aabbMin = glm::vec3(std::numeric_limits<float>::max());
-	glm::vec3 m_aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
+	glm::vec3 m_aabbMin = glm::vec3(FLT_MAX);
+	glm::vec3 m_aabbMax = glm::vec3(-FLT_MAX);
 	eastl::vector<Mesh> m_meshes;
 	eastl::vector<LoadedMaterial> m_materials;
 	eastl::vector<LoadedSkeleton> m_skeletons;

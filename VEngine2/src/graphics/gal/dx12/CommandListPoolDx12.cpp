@@ -1,25 +1,24 @@
 #include "CommandListPoolDx12.h"
 #include "QueueDx12.h"
 #include "UtilityDx12.h"
-#include "utility/ContainerUtility.h"
 
 gal::CommandListPoolDx12::CommandListPoolDx12(ID3D12Device *device, D3D12_COMMAND_LIST_TYPE cmdListType, const CommandListRecordContextDx12 *recordContext)
 	:m_device(device),
 	m_cmdListType(cmdListType),
 	m_recordContext(recordContext),
 	m_liveCmdLists(),
-	m_commandListMemoryPool(16)
+	m_commandListMemoryPool(sizeof(CommandListDx12), 16, "CommandListDx12 Pool Allocator")
 {
-	m_liveCmdLists.reserve(16);
 }
 
 gal::CommandListPoolDx12::~CommandListPoolDx12()
 {
+	// delete all remaining live command lists
 	for (auto &cmdList : m_liveCmdLists)
 	{
-		// call destructor
-		cmdList->~CommandListDx12();
+		ALLOC_DELETE(&m_commandListMemoryPool, cmdList);
 	}
+	m_liveCmdLists.clear();
 }
 
 void *gal::CommandListPoolDx12::getNativeHandle() const
@@ -32,10 +31,7 @@ void gal::CommandListPoolDx12::allocate(uint32_t count, CommandList **commandLis
 {
 	for (size_t i = 0; i < count; ++i)
 	{
-		auto *memory = m_commandListMemoryPool.alloc();
-		assert(memory);
-
-		CommandListDx12 *cmdListDx = new (memory) CommandListDx12(m_device, m_cmdListType, m_recordContext);
+		CommandListDx12 *cmdListDx = ALLOC_NEW(&m_commandListMemoryPool, CommandListDx12) (m_device, m_cmdListType, m_recordContext);
 		commandLists[i] = cmdListDx;
 
 		// add to vector of live command lists, so we can call the destructor of every live command list
@@ -51,11 +47,16 @@ void gal::CommandListPoolDx12::free(uint32_t count, CommandList **commandLists)
 		auto *cmdListDx = dynamic_cast<CommandListDx12 *>(commandLists[i]);
 		assert(cmdListDx);
 
-		// call destructor and free backing memory
-		cmdListDx->~CommandListDx12();
-		m_commandListMemoryPool.free(reinterpret_cast<RawView<CommandListDx12> *>(cmdListDx));
+		ALLOC_DELETE(&m_commandListMemoryPool, cmdListDx);
 
-		ContainerUtility::quickRemove(m_liveCmdLists, cmdListDx);
+		// remove from m_liveCmdLists
+		auto &v = m_liveCmdLists;
+		auto it = eastl::find(v.begin(), v.end(), cmdListDx);
+		if (it != v.end())
+		{
+			eastl::swap(v.back(), *it);
+			v.erase(v.end() - 1);
+		}
 	}
 }
 

@@ -56,13 +56,13 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 				// any downwards velocity is cancelled by touching the ground
 				if (touchesGround)
 				{
-					mc.m_velocityY = std::max(mc.m_velocityY, 0.0f);
+					mc.m_velocityY = fmaxf(mc.m_velocityY, 0.0f);
 				}
 				
 				// any upwards velocity is cancelled by hitting our head
 				if (touchesCeiling)
 				{
-					mc.m_velocityY = std::min(mc.m_velocityY, 0.0f);
+					mc.m_velocityY = fminf(mc.m_velocityY, 0.0f);
 				}
 
 				// apply gravity
@@ -109,7 +109,7 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 						break;
 					case CrouchState::ENTERING_CROUCH:
 						mc.m_crouchPercentage += timeDelta * crouchEnterExitSpeed;
-						mc.m_crouchPercentage = std::min(mc.m_crouchPercentage, 1.0f);
+						mc.m_crouchPercentage = fminf(mc.m_crouchPercentage, 1.0f);
 						if (mc.m_crouchPercentage == 1.0f)
 						{
 							mc.m_crouchState = CrouchState::CROUCHING;
@@ -124,7 +124,7 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 						break;
 					case CrouchState::EXITING_CROUCH:
 						mc.m_crouchPercentage -= timeDelta * crouchEnterExitSpeed;
-						mc.m_crouchPercentage = std::max(mc.m_crouchPercentage, 0.0f);
+						mc.m_crouchPercentage = fmaxf(mc.m_crouchPercentage, 0.0f);
 						if (mc.m_crouchPercentage == 0.0f)
 						{
 							mc.m_crouchState = CrouchState::STANDING;

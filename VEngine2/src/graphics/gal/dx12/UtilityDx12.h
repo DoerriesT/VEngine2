@@ -2,6 +2,10 @@
 #include "Graphics/gal/GraphicsAbstractionLayer.h"
 #include <d3d12.h>
 
+#ifndef D3D12_SAFE_RELEASE
+#define D3D12_SAFE_RELEASE(x) { if (x) { x->Release(); x = nullptr; } }
+#endif
+
 namespace gal
 {
 	namespace UtilityDx12

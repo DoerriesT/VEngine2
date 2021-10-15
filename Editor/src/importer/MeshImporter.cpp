@@ -42,7 +42,7 @@ namespace
 	template <class T>
 	inline void hashCombine(size_t &s, const T &v)
 	{
-		std::hash<T> h;
+		eastl::hash<T> h;
 		s ^= h(v) + 0x9e3779b9 + (s << 6) + (s >> 2);
 	}
 
@@ -319,19 +319,19 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 			{
 				for (const auto &wi : indexedMesh32.joints)
 				{
-					header.m_matrixPaletteSize = std::max(header.m_matrixPaletteSize, wi[0] + 1);
-					header.m_matrixPaletteSize = std::max(header.m_matrixPaletteSize, wi[1] + 1);
-					header.m_matrixPaletteSize = std::max(header.m_matrixPaletteSize, wi[2] + 1);
-					header.m_matrixPaletteSize = std::max(header.m_matrixPaletteSize, wi[3] + 1);
+					header.m_matrixPaletteSize = eastl::max(header.m_matrixPaletteSize, wi[0] + 1);
+					header.m_matrixPaletteSize = eastl::max(header.m_matrixPaletteSize, wi[1] + 1);
+					header.m_matrixPaletteSize = eastl::max(header.m_matrixPaletteSize, wi[2] + 1);
+					header.m_matrixPaletteSize = eastl::max(header.m_matrixPaletteSize, wi[3] + 1);
 				}
 			}
 
 			// generate smaller 64k meshes
 			{
-				glm::vec3 aabbMin = glm::vec3(std::numeric_limits<float>::max());
-				glm::vec3 aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
-				glm::vec2 uvAabbMin = glm::vec2(std::numeric_limits<float>::max());
-				glm::vec2 uvAabbMax = glm::vec2(std::numeric_limits<float>::lowest());
+				glm::vec3 aabbMin = glm::vec3(FLT_MAX);
+				glm::vec3 aabbMax = glm::vec3(-FLT_MAX);
+				glm::vec2 uvAabbMin = glm::vec2(FLT_MAX);
+				glm::vec2 uvAabbMax = glm::vec2(-FLT_MAX);
 
 				eastl::vector<glm::vec3> positions;
 				eastl::vector<glm::vec3> normals;
@@ -527,10 +527,10 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 						assert(indexedMesh16.indices.size() % 3 == 0);
 
 						// reset vars
-						aabbMin = glm::vec3(std::numeric_limits<float>::max());
-						aabbMax = glm::vec3(std::numeric_limits<float>::lowest());
-						uvAabbMin = glm::vec2(std::numeric_limits<float>::max());
-						uvAabbMax = glm::vec2(std::numeric_limits<float>::lowest());
+						aabbMin = glm::vec3(FLT_MAX);
+						aabbMax = glm::vec3(-FLT_MAX);
+						uvAabbMin = glm::vec2(FLT_MAX);
+						uvAabbMax = glm::vec2(-FLT_MAX);
 						positions.clear();
 						normals.clear();
 						tangents.clear();
