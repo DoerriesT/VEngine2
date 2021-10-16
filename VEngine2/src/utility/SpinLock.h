@@ -21,7 +21,7 @@ public:
 	void unlock() noexcept;
 
 private:
-	alignas(64) eastl::atomic_flag m_state = false;
+	alignas(128) eastl::atomic_flag m_state = false;
 };
 
 class SpinLockHolder
