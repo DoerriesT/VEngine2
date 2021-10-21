@@ -116,10 +116,10 @@ static void animateEntitiesTask(void *arg)
 
 			{
 				PROFILING_ZONE_SCOPED_N("Kick and Wait");
-				auto *wg = task::allocWaitGroup("computeLocalPosesTasks");
-				task::schedule(taskCount, localPoseTasks.data(), wg, task::Priority::NORMAL);
-				task::waitFor(wg);
-				task::freeWaitGroup(wg);
+				task::Counter *counter = nullptr;
+				task::run(taskCount, localPoseTasks.data(), &counter);
+				task::waitForCounter(counter);
+				task::freeCounter(counter);
 			}
 
 
@@ -159,8 +159,6 @@ void AnimationSystem::update(float deltaTime) noexcept
 {
 	PROFILING_ZONE_SCOPED;
 
-	static size_t c = 0;
-
 	m_ecs->iterate<SkinnedMeshComponent>([this, deltaTime](size_t count, const EntityID *entities, SkinnedMeshComponent *skinnedMeshC)
 		{
 			const size_t numWorkers = task::getThreadCount();
@@ -188,10 +186,10 @@ void AnimationSystem::update(float deltaTime) noexcept
 
 			{
 				PROFILING_ZONE_SCOPED_N("Kick and Wait");
-				auto *wg = task::allocWaitGroup("animateEntitiesTasks");
-				task::schedule(taskCount, animTasks.data(), wg, task::Priority::NORMAL);
-				task::waitFor(wg);
-				task::freeWaitGroup(wg);
+				task::Counter *counter = nullptr;
+				task::run(taskCount, animTasks.data(), &counter);
+				task::waitForCounter(counter);
+				task::freeCounter(counter);
 			}
 		});
 }

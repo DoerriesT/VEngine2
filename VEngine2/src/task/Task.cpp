@@ -10,16 +10,6 @@
 #include "Log.h"
 #include "profiling/Profiling.h"
 
-namespace
-{
-	struct PerThreadData;
-	struct PerFiberData;
-	struct TaskSchedulerData;
-}
-
-static TaskSchedulerData *s_taskSchedulerData = nullptr;
-static thread_local size_t s_threadIndex = -1;
-
 //template<typename T>
 //class ConcurrentQueue
 //{
@@ -60,15 +50,22 @@ static thread_local size_t s_threadIndex = -1;
 //	eastl::queue<T> m_queue;
 //};
 
+namespace
+{
+	struct TaskSchedulerData;
+}
+
+static TaskSchedulerData *s_taskSchedulerData = nullptr;
+static thread_local size_t s_threadIndex = -1;
+
 namespace task
 {
-	struct WaitGroup
+	struct Counter
 	{
 		std::mutex m_mutex;
 		uint32_t m_counter = 0;
 		eastl::vector<task::Fiber *> m_waitingFibers;
 		eastl::vector<eastl::vector<task::Fiber *>> m_threadPinnedFibers;
-		const char *m_name = nullptr;
 	};
 }
 
@@ -97,13 +94,127 @@ namespace
 		moodycamel::ConcurrentQueue<task::Task> m_taskQueue;
 		moodycamel::ConcurrentQueue<task::Fiber *> m_resumableTasksQueue;
 		moodycamel::ConcurrentQueue<task::Fiber *> m_freeFibersQueue;
-		moodycamel::ConcurrentQueue<task::WaitGroup *> m_freeWaitGroups;
+		moodycamel::ConcurrentQueue<task::Counter *> m_freeWaitGroups;
 		eastl::atomic<uint32_t> m_stoppedThreadCount = 0;
 		eastl::atomic_flag m_stopped = false;
 		size_t m_threadCount = 0;
 		std::mutex m_liveWaitGroupsMutex;
-		eastl::vector<task::WaitGroup *> m_liveWaitGroups;
+		eastl::vector<task::Counter *> m_liveWaitGroups;
 	};
+
+	static void workerThreadMainFunction(void *arg) noexcept
+	{
+		const size_t threadIdx = (size_t)arg;
+		s_threadIndex = threadIdx;
+
+		Log::info("Starting Worker Thread %u.", (unsigned int)threadIdx);
+
+		auto &threadData = s_taskSchedulerData->m_perThreadData[threadIdx];
+
+		// convert thread to fiber to be able to run other fibers
+		task::Fiber threadFiber = task::Fiber::convertThreadToFiber((void *)(50 + threadIdx));
+		threadData.m_threadFiber = &threadFiber;
+
+		// fetch a free fiber...
+		task::Fiber *fiber = nullptr;
+		while (!s_taskSchedulerData->m_freeFibersQueue.try_dequeue(fiber))
+		{
+		}
+
+		// ... and switch to it: the fiber has its own loop
+		s_taskSchedulerData->m_perThreadData[threadIdx].m_currentFiber = fiber;
+		threadFiber.switchToFiber(*fiber);
+
+		Log::info("Shutting down Worker Thread %u.", (unsigned int)threadIdx);
+	}
+
+	static void __stdcall mainFiberFunction(void *arg) noexcept
+	{
+		TaskSchedulerData &schedulerData = *s_taskSchedulerData;
+		size_t fiberIndex = (size_t)arg;
+		task::Fiber *self = &schedulerData.m_fibers[fiberIndex];
+
+		while (!schedulerData.m_stopped.test())
+		{
+			// try to resume another task
+			{
+				task::Fiber *resumeFiber = nullptr;
+
+				// try to get a fiber pinned to the current thread first
+				while (schedulerData.m_perThreadData[task::getThreadIndex()].m_resumablePinnedTasksQueue.try_dequeue(resumeFiber))
+				{
+					// mark current fiber to be freed
+					schedulerData.m_perFiberData[(size_t)resumeFiber->getFiberData()].m_oldFiberToPutOnFreeList = self;
+
+					// switch to new fiber
+					schedulerData.m_perThreadData[task::getThreadIndex()].m_currentFiber = resumeFiber;
+					self->switchToFiber(*resumeFiber);
+				}
+
+				// then try to get a fiber from the shared queue
+				while (schedulerData.m_resumableTasksQueue.try_dequeue(resumeFiber))
+				{
+					// mark current fiber to be freed
+					schedulerData.m_perFiberData[(size_t)resumeFiber->getFiberData()].m_oldFiberToPutOnFreeList = self;
+
+					// switch to new fiber
+					schedulerData.m_perThreadData[task::getThreadIndex()].m_currentFiber = resumeFiber;
+					self->switchToFiber(*resumeFiber);
+				}
+			}
+
+			// no other tasks to resume -> fetch a fresh one
+			task::Task curTask;
+
+			// try to get a task from the queue
+			if (schedulerData.m_taskQueue.try_dequeue(curTask))
+			{
+				// execute task
+				curTask.m_entryPoint(curTask.m_param);
+
+				// lock counter, decrement and enqueue resumable tasks if counter hit 0
+				if (curTask.m_counter)
+				{
+					std::lock_guard<std::mutex> lock(curTask.m_counter->m_mutex);
+
+					// decrement
+					--curTask.m_counter->m_counter;
+
+					// put all waiting fibers on resumable list
+					if (curTask.m_counter->m_counter == 0)
+					{
+						// non-pinned fibers
+						if (!curTask.m_counter->m_waitingFibers.empty())
+						{
+							schedulerData.m_resumableTasksQueue.enqueue_bulk(curTask.m_counter->m_waitingFibers.data(), curTask.m_counter->m_waitingFibers.size());
+							curTask.m_counter->m_waitingFibers.clear();
+						}
+
+						// thread pinned fibers
+						for (size_t j = 0; j < curTask.m_counter->m_threadPinnedFibers.size(); ++j)
+						{
+							auto &fibers = curTask.m_counter->m_threadPinnedFibers[j];
+							if (!fibers.empty())
+							{
+								schedulerData.m_perThreadData[j].m_resumablePinnedTasksQueue.enqueue_bulk(fibers.data(), fibers.size());
+								fibers.clear();
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				Thread::yield();
+				//eastl::cpu_pause();
+			}
+		}
+
+		// switch to shutdown fiber
+		self->switchToFiber(schedulerData.m_perThreadData[task::getThreadIndex()].m_shutdownFiber);
+
+		assert(false);
+	}
 
 	static void __stdcall shutdownFiberFunction(void *) noexcept
 	{
@@ -123,7 +234,7 @@ namespace
 	}
 }
 
-void task::init()
+void task::init() noexcept
 {
 	constexpr bool k_pinToCore = false;
 
@@ -140,98 +251,9 @@ void task::init()
 	// create fibers (starting from 1 because fiber 0 is our main fiber)
 	for (size_t i = 1; i < TaskSchedulerData::s_numFibers; ++i)
 	{
-		auto fiberFunc = [](void *fiberParam)
-		{
-			TaskSchedulerData &schedulerData = *s_taskSchedulerData;
-			size_t fiberIndex = (size_t)fiberParam;
-			Fiber *self = &schedulerData.m_fibers[fiberIndex];
-
-			while (!schedulerData.m_stopped.test())
-			{
-				// try to resume another task
-				{
-					Fiber *resumeFiber = nullptr;
-
-					// try to get a fiber pinned to the current thread first
-					while (schedulerData.m_perThreadData[task::getThreadIndex()].m_resumablePinnedTasksQueue.try_dequeue(resumeFiber))
-					{
-						// mark current fiber to be freed
-						schedulerData.m_perFiberData[(size_t)resumeFiber->getFiberData()].m_oldFiberToPutOnFreeList = self;
-
-						// switch to new fiber
-						schedulerData.m_perThreadData[task::getThreadIndex()].m_currentFiber = resumeFiber;
-						self->switchToFiber(*resumeFiber);
-					}
-
-					// then try to get a fiber from the shared queue
-					while (schedulerData.m_resumableTasksQueue.try_dequeue(resumeFiber))
-					{
-						// mark current fiber to be freed
-						schedulerData.m_perFiberData[(size_t)resumeFiber->getFiberData()].m_oldFiberToPutOnFreeList = self;
-
-						// switch to new fiber
-						schedulerData.m_perThreadData[task::getThreadIndex()].m_currentFiber = resumeFiber;
-						self->switchToFiber(*resumeFiber);
-					}
-				}
-
-				// no other tasks to resume -> fetch a fresh one
-				Task curTask;
-
-				// try to get a task from the queue
-				if (schedulerData.m_taskQueue.try_dequeue(curTask))
-				{
-					// execute task
-					curTask.m_entryPoint(curTask.m_param);
-
-					// lock wait group, decrement and enqueue resumable tasks if counter hit 0
-					if (curTask.m_waitGroup)
-					{
-						std::lock_guard<std::mutex> lock(curTask.m_waitGroup->m_mutex);
-
-						// decrement
-						--curTask.m_waitGroup->m_counter;
-
-						// put all waiting fibers on resumable list
-						if (curTask.m_waitGroup->m_counter == 0)
-						{
-							// non-pinned fibers
-							if (!curTask.m_waitGroup->m_waitingFibers.empty())
-							{
-								schedulerData.m_resumableTasksQueue.enqueue_bulk(curTask.m_waitGroup->m_waitingFibers.data(), curTask.m_waitGroup->m_waitingFibers.size());
-								curTask.m_waitGroup->m_waitingFibers.clear();
-							}
-
-							// thread pinned fibers
-							for (size_t j = 0; j < curTask.m_waitGroup->m_threadPinnedFibers.size(); ++j)
-							{
-								auto &fibers = curTask.m_waitGroup->m_threadPinnedFibers[j];
-								if (!fibers.empty())
-								{
-									schedulerData.m_perThreadData[j].m_resumablePinnedTasksQueue.enqueue_bulk(fibers.data(), fibers.size());
-									fibers.clear();
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					Thread::yield();
-					//eastl::cpu_pause();
-				}
-			}
-
-			// switch to shutdown fiber
-			self->switchToFiber(schedulerData.m_perThreadData[task::getThreadIndex()].m_shutdownFiber);
-
-			assert(false);
-		};
-
-		s_taskSchedulerData->m_fibers[i] = Fiber(fiberFunc, (void *)i /*fiber index*/);
+		s_taskSchedulerData->m_fibers[i] = Fiber(mainFiberFunction, (void *)i /*fiber index*/);
 		s_taskSchedulerData->m_freeFibersQueue.enqueue(&s_taskSchedulerData->m_fibers[i]);
 	}
-
 
 	// set up per-thread data of main thread
 	{
@@ -241,7 +263,6 @@ void task::init()
 		threadData.m_shutdownFiber = task::Fiber(shutdownFiberFunction, nullptr);
 		threadData.m_threadFiber = &s_taskSchedulerData->m_fibers[0];
 		threadData.m_currentFiber = threadData.m_threadFiber;
-
 
 		// pin main thread to first core
 		if (k_pinToCore)
@@ -254,32 +275,6 @@ void task::init()
 	// create worker threads (again, starting from 1)
 	for (size_t i = 1; i < s_taskSchedulerData->m_threadCount; ++i)
 	{
-		auto threadFunc = [](void *arg)
-		{
-			const size_t threadIdx = (size_t)arg;
-			s_threadIndex = threadIdx;
-
-			Log::info("Starting Worker Thread %u.", (unsigned int)threadIdx);
-
-			auto &threadData = s_taskSchedulerData->m_perThreadData[threadIdx];
-
-			// convert thread to fiber to be able to run other fibers
-			Fiber threadFiber = Fiber::convertThreadToFiber((void *)(50 + threadIdx));
-			threadData.m_threadFiber = &threadFiber;
-
-			// fetch a free fiber...
-			Fiber *fiber = nullptr;
-			while (!s_taskSchedulerData->m_freeFibersQueue.try_dequeue(fiber))
-			{
-			}
-
-			// ... and switch to it: the fiber has its own loop
-			s_taskSchedulerData->m_perThreadData[threadIdx].m_currentFiber = fiber;
-			threadFiber.switchToFiber(*fiber);
-
-			Log::info("Shutting down Worker Thread %u.", (unsigned int)threadIdx);
-		};
-
 		auto &threadData = s_taskSchedulerData->m_perThreadData[i];
 
 		// create shutdown fiber for this worker thread
@@ -290,7 +285,7 @@ void task::init()
 		sprintf_s(threadName, "Worker Thread %u", (unsigned int)i);
 
 		// create thread
-		threadData.m_thread = Thread(threadFunc, (void *)i, 0, threadName);
+		threadData.m_thread = Thread(workerThreadMainFunction, (void *)i, 0, threadName);
 
 		// pin to core
 		if (k_pinToCore)
@@ -301,7 +296,7 @@ void task::init()
 	}
 }
 
-void task::shutdown()
+void task::shutdown() noexcept
 {
 	assert(s_taskSchedulerData);
 
@@ -326,7 +321,7 @@ void task::shutdown()
 	}
 
 	// delete all wait groups
-	WaitGroup *waitGroup = nullptr;
+	Counter *waitGroup = nullptr;
 	while (s_taskSchedulerData->m_freeWaitGroups.try_dequeue(waitGroup))
 	{
 		delete waitGroup;
@@ -338,90 +333,37 @@ void task::shutdown()
 	Log::info("Successfully shut down task system.");
 }
 
-task::WaitGroup *task::allocWaitGroup(const char *name)
+void task::run(size_t count, Task *tasks, Counter **counter, Priority priority) noexcept
 {
-	WaitGroup *waitGroup = nullptr;
-	if (!s_taskSchedulerData->m_freeWaitGroups.try_dequeue(waitGroup))
+	// allocate counter
+	if (counter)
 	{
-		waitGroup = new WaitGroup();
-		waitGroup->m_threadPinnedFibers.resize(s_taskSchedulerData->m_threadCount);
-	}
-
-	waitGroup->m_name = name;
-
-	std::lock_guard<std::mutex> lg(s_taskSchedulerData->m_liveWaitGroupsMutex);
-	s_taskSchedulerData->m_liveWaitGroups.push_back(waitGroup);
-
-	return waitGroup;
-}
-
-void task::freeWaitGroup(WaitGroup *waitGroup)
-{
-	{
-		std::lock_guard<std::mutex> lock(waitGroup->m_mutex);
-
-		assert(waitGroup->m_counter == 0);
-		bool isEmpty0 = waitGroup->m_waitingFibers.empty();
-		assert(isEmpty0);
-		for (auto &pinnedFibers : waitGroup->m_threadPinnedFibers)
+		if (!s_taskSchedulerData->m_freeWaitGroups.try_dequeue(*counter))
 		{
-			bool isEmpty = pinnedFibers.empty();
-			assert(isEmpty);
+			*counter = new Counter();
+			(*counter)->m_threadPinnedFibers.resize(s_taskSchedulerData->m_threadCount);
 		}
 
-		waitGroup->m_name = nullptr;
-	}
-
-	{
-		std::lock_guard<std::mutex> lg(s_taskSchedulerData->m_liveWaitGroupsMutex);
-		auto &v = s_taskSchedulerData->m_liveWaitGroups;
-		v.erase(eastl::remove(v.begin(), v.end(), waitGroup), v.end());
-	}
-
-	s_taskSchedulerData->m_freeWaitGroups.enqueue(waitGroup);
-}
-
-void task::schedule(const Task &task, WaitGroup *waitGroup, Priority priority)
-{
-	//std::lock_guard<std::mutex> lock(waitGroup->m_mutex);
-
-	if (waitGroup)
-	{
-		waitGroup->m_counter = 1;
-	}
-
-	Task taskCopy = task;
-	taskCopy.m_waitGroup = waitGroup;
-
-	s_taskSchedulerData->m_taskQueue.enqueue(taskCopy);
-}
-
-void task::schedule(uint32_t count, Task *tasks, WaitGroup *waitGroup, Priority priority)
-{
-	//std::lock_guard<std::mutex> lock(waitGroup->m_mutex);
-
-	if (waitGroup)
-	{
-		waitGroup->m_counter = count;
+		(*counter)->m_counter = static_cast<uint32_t>(count);
 	}
 
 	for (size_t i = 0; i < count; ++i)
 	{
-		tasks[i].m_waitGroup = waitGroup;
+		tasks[i].m_counter = counter ? *counter : nullptr;
 	}
 
 	s_taskSchedulerData->m_taskQueue.enqueue_bulk(tasks, count);
 }
 
-void task::waitFor(WaitGroup *waitGroup, bool stayOnThread)
+void task::waitForCounter(Counter *counter, bool stayOnThread) noexcept
 {
 	Fiber *self = s_taskSchedulerData->m_perThreadData[task::getThreadIndex()].m_currentFiber;
 
 	{
-		std::lock_guard<std::mutex> lock(waitGroup->m_mutex);
+		std::lock_guard<std::mutex> lock(counter->m_mutex);
 
 		// early out
-		if (waitGroup->m_counter == 0)
+		if (counter->m_counter == 0)
 		{
 			return;
 		}
@@ -429,11 +371,11 @@ void task::waitFor(WaitGroup *waitGroup, bool stayOnThread)
 		// put self on waiting list...
 		if (stayOnThread)
 		{
-			waitGroup->m_threadPinnedFibers[task::getThreadIndex()].push_back(self);
+			counter->m_threadPinnedFibers[task::getThreadIndex()].push_back(self);
 		}
 		else
 		{
-			waitGroup->m_waitingFibers.push_back(self);
+			counter->m_waitingFibers.push_back(self);
 		}
 	}
 
@@ -462,23 +404,41 @@ void task::waitFor(WaitGroup *waitGroup, bool stayOnThread)
 	}
 }
 
-size_t task::getThreadIndex()
+void task::freeCounter(Counter *counter) noexcept
+{
+	{
+		std::lock_guard<std::mutex> lock(counter->m_mutex);
+
+		assert(counter->m_counter == 0);
+		bool isEmpty0 = counter->m_waitingFibers.empty();
+		assert(isEmpty0);
+		for (auto &pinnedFibers : counter->m_threadPinnedFibers)
+		{
+			bool isEmpty = pinnedFibers.empty();
+			assert(isEmpty);
+		}
+	}
+
+	s_taskSchedulerData->m_freeWaitGroups.enqueue(counter);
+}
+
+size_t task::getThreadIndex() noexcept
 {
 	return s_threadIndex;
 }
 
-size_t task::getFiberIndex()
+size_t task::getFiberIndex() noexcept
 {
 	Fiber *self = s_taskSchedulerData->m_perThreadData[task::getThreadIndex()].m_currentFiber;
 	return (size_t)self->getFiberData();
 }
 
-size_t task::getThreadCount()
+size_t task::getThreadCount() noexcept
 {
 	return s_taskSchedulerData->m_threadCount;
 }
 
-bool task::isManagedThread()
+bool task::isManagedThread() noexcept
 {
 	return task::getThreadIndex() != -1;
 }
