@@ -1,4 +1,5 @@
 #pragma once
+#include "utility/DeletedCopyMove.h"
 
 namespace task
 {
@@ -10,8 +11,7 @@ namespace task
 		static Fiber convertThreadToFiber(void *fiberParameter) noexcept;
 		explicit Fiber(FiberFunction fiberFunction, void *fiberParameter) noexcept;
 		explicit Fiber(void *fiberHandle = nullptr, void *fiberParameter = nullptr, bool createdFromThread = false) noexcept;
-		Fiber(const Fiber &) = delete;
-		Fiber &operator= (const Fiber &) = delete;
+		DELETED_COPY(Fiber);
 		Fiber(Fiber &&fiber) noexcept;
 		Fiber &operator=(Fiber &&fiber) noexcept;
 		~Fiber();

@@ -24,6 +24,7 @@
 #include "profiling/Profiling.h"
 #include "utility/allocator/DefaultAllocator.h"
 #include "script/ScriptSystem.h"
+#include "task/Task.h"
 
 // these are needed for EASTL
 
@@ -62,6 +63,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		VirtualFileSystem::get().mount(currentPath, "assets");
 	}
 
+	task::init();
 
 	m_gameLogic = gameLogic;
 	Window window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
@@ -194,6 +196,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	m_renderer = nullptr;
 	delete m_ecs;
 	m_window = nullptr;
+
+	task::shutdown();
 
 	return 0;
 }

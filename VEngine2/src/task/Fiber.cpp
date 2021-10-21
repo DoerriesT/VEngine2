@@ -21,7 +21,8 @@ task::Fiber::Fiber(void *fiberHandle, void *fiberParameter, bool createdFromThre
 
 task::Fiber::Fiber(Fiber &&fiber) noexcept
 	:m_fiberHandle(fiber.m_fiberHandle),
-	m_fiberParameter(fiber.m_fiberParameter)
+	m_fiberParameter(fiber.m_fiberParameter),
+	m_createdFromThread(fiber.m_createdFromThread)
 {
 	fiber.m_fiberHandle = nullptr;
 	fiber.m_fiberParameter = nullptr;
@@ -37,6 +38,7 @@ task::Fiber &task::Fiber::operator=(Fiber &&fiber) noexcept
 		}
 		m_fiberHandle = fiber.m_fiberHandle;
 		m_fiberParameter = fiber.m_fiberParameter;
+		m_createdFromThread = fiber.m_createdFromThread;
 		fiber.m_fiberHandle = nullptr;
 		fiber.m_fiberParameter = nullptr;
 	}

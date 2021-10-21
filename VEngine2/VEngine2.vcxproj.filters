@@ -576,6 +576,9 @@
     <ClInclude Include="src\script\ScriptSystem.h">
       <Filter>src\script</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\Thread.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1018,6 +1021,9 @@
     </ClCompile>
     <ClCompile Include="src\script\ScriptSystem.cpp">
       <Filter>src\script</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Thread.cpp">
+      <Filter>src\utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
