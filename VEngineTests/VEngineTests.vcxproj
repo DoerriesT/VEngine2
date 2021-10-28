@@ -54,6 +54,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="src\ECSTest.cpp" />
+    <ClCompile Include="src\TaskTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VEngine2\VEngine2.vcxproj">

@@ -68,7 +68,12 @@ void SpinLock::lock() noexcept
 
 bool SpinLock::try_lock() noexcept
 {
-	return m_state.test_and_set(eastl::memory_order_acquire);
+	return !m_state.test_and_set(eastl::memory_order_acquire);
+}
+
+bool SpinLock::status() noexcept
+{
+	return m_state.test(eastl::memory_order_acquire);
 }
 
 void SpinLock::unlock() noexcept

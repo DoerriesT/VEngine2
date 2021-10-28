@@ -18,6 +18,7 @@ class SpinLock
 public:
 	void lock() noexcept;
 	bool try_lock() noexcept;
+	bool status() noexcept;
 	void unlock() noexcept;
 
 private:
