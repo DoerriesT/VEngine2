@@ -7,8 +7,9 @@
 #include "component/TransformComponent.h"
 #include "component/CharacterControllerComponent.h"
 #include "profiling/Profiling.h"
+#include "job/JobSystem.h"
 
-#define PX_RELEASE(x)	if(x)	{ x->release(); x = NULL;	}
+#define PX_RELEASE(x) if(x) { x->release(); x = NULL;	}
 
 using namespace physx;
 
@@ -71,6 +72,26 @@ namespace
 			}
 		}
 	};
+
+	class UserCpuDispatcher : public PxCpuDispatcher
+	{
+		void submitTask(PxBaseTask &task) noexcept override
+		{
+			job::Job j([](void *arg)
+				{
+					PxBaseTask *task = reinterpret_cast<PxBaseTask *>(arg);
+					task->run();
+					task->release();
+				}, &task);
+
+			job::run(1, &j, nullptr);
+		}
+
+		uint32_t getWorkerCount() const noexcept override
+		{
+			return static_cast<uint32_t>(job::getThreadCount());
+		}
+	};
 }
 
 static UserAllocatorCallback s_physxAllocatorCallback;
@@ -99,7 +120,7 @@ Physics::Physics(ECS *ecs) noexcept
 
 	PxSceneDesc sceneDesc(m_pxPhysics->getTolerancesScale());
 	sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-	m_pxCpuDispatcher = PxDefaultCpuDispatcherCreate(2);
+	m_pxCpuDispatcher = new UserCpuDispatcher();
 	sceneDesc.cpuDispatcher = m_pxCpuDispatcher;
 	sceneDesc.filterShader = PxDefaultSimulationFilterShader;
 	m_pxScene = m_pxPhysics->createScene(sceneDesc);
@@ -127,6 +148,9 @@ Physics::~Physics() noexcept
 	PX_RELEASE(m_pxPhysics);
 	PX_RELEASE(m_pxPvd);
 	PX_RELEASE(m_pxFoundation);
+
+	delete m_pxCpuDispatcher;
+	m_pxCpuDispatcher = nullptr;
 }
 
 void Physics::update(float deltaTime) noexcept
