@@ -8,6 +8,7 @@
 #include "component/CharacterControllerComponent.h"
 #include "profiling/Profiling.h"
 #include "job/JobSystem.h"
+#include "job/ParallelFor.h"
 
 #define PX_RELEASE(x) if(x) { x->release(); x = NULL;	}
 
@@ -343,23 +344,27 @@ void Physics::update(float deltaTime) noexcept
 	// sync entities with physics state
 	m_ecs->iterate<TransformComponent, PhysicsComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, PhysicsComponent *physicsC)
 		{
-			for (size_t i = 0; i < count; ++i)
-			{
-				auto &tc = transC[i];
-				auto &pc = physicsC[i];
-
-				if (pc.m_mobility == PhysicsMobility::DYNAMIC)
+			job::parallelFor(count, 1,
+				[&](size_t startIdx, size_t endIdx)
 				{
-					auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
-					tc.m_translation.x = pxTc.p.x;
-					tc.m_translation.y = pxTc.p.y;
-					tc.m_translation.z = pxTc.p.z;
-					tc.m_rotation.x = pxTc.q.x;
-					tc.m_rotation.y = pxTc.q.y;
-					tc.m_rotation.z = pxTc.q.z;
-					tc.m_rotation.w = pxTc.q.w;
-				}
-			}
+					for (size_t i = startIdx; i < endIdx; ++i)
+					{
+						auto &tc = transC[i];
+						auto &pc = physicsC[i];
+
+						if (pc.m_mobility == PhysicsMobility::DYNAMIC)
+						{
+							auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
+							tc.m_translation.x = pxTc.p.x;
+							tc.m_translation.y = pxTc.p.y;
+							tc.m_translation.z = pxTc.p.z;
+							tc.m_rotation.x = pxTc.q.x;
+							tc.m_rotation.y = pxTc.q.y;
+							tc.m_rotation.z = pxTc.q.z;
+							tc.m_rotation.w = pxTc.q.w;
+						}
+					}
+				});
 		});
 }
 
