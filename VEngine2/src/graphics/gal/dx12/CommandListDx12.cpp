@@ -17,100 +17,94 @@ namespace
 	{
 		using namespace gal;
 
-		// determine if resource is used in pixel shader or non-pixel shader
 		D3D12_RESOURCE_STATES shaderResourceState = D3D12_RESOURCE_STATE_COMMON;
-		if ((stageFlags & PipelineStageFlags::PIXEL_SHADER_BIT) != 0)
+
+		if ((state & ResourceState::READ_RESOURCE) != 0)
 		{
-			shaderResourceState |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			if ((stageFlags & PipelineStageFlags::PIXEL_SHADER_BIT) != 0)
+			{
+				shaderResourceState |= D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			}
+			if ((stageFlags
+				& (PipelineStageFlags::VERTEX_SHADER_BIT
+					| PipelineStageFlags::HULL_SHADER_BIT
+					| PipelineStageFlags::DOMAIN_SHADER_BIT
+					| PipelineStageFlags::GEOMETRY_SHADER_BIT
+					| PipelineStageFlags::COMPUTE_SHADER_BIT)) != 0)
+			{
+				shaderResourceState |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			}
 		}
-		if ((stageFlags
-			& (PipelineStageFlags::VERTEX_SHADER_BIT
-				| PipelineStageFlags::HULL_SHADER_BIT
-				| PipelineStageFlags::DOMAIN_SHADER_BIT
-				| PipelineStageFlags::GEOMETRY_SHADER_BIT
-				| PipelineStageFlags::COMPUTE_SHADER_BIT)) != 0)
+
+		if ((state & ResourceState::READ_DEPTH_STENCIL) != 0)
 		{
-			shaderResourceState |= D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			shaderResourceState |= D3D12_RESOURCE_STATE_DEPTH_READ;
 		}
 
-		if (shaderResourceState == D3D12_RESOURCE_STATE_COMMON)
+		if ((state & (ResourceState::READ_CONSTANT_BUFFER | ResourceState::READ_VERTEX_BUFFER)) != 0)
 		{
-			shaderResourceState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			shaderResourceState |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 		}
 
-		switch (state)
+		if ((state & ResourceState::READ_INDEX_BUFFER) != 0)
 		{
-		case ResourceState::UNDEFINED:
-			return D3D12_RESOURCE_STATE_COMMON;
+			shaderResourceState |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
+		}
 
-		case ResourceState::READ_HOST:
-			return D3D12_RESOURCE_STATE_COMMON;
+		if ((state & ResourceState::READ_INDIRECT_BUFFER) != 0)
+		{
+			shaderResourceState |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+		}
 
-		case ResourceState::READ_DEPTH_STENCIL:
-			return D3D12_RESOURCE_STATE_DEPTH_READ;
+		if ((state & ResourceState::READ_TRANSFER) != 0)
+		{
+			shaderResourceState |= D3D12_RESOURCE_STATE_COPY_SOURCE;
+		}
 
-		case ResourceState::READ_DEPTH_STENCIL_SHADER:
-			return shaderResourceState | D3D12_RESOURCE_STATE_DEPTH_READ;
+		if ((state & ResourceState::WRITE_DEPTH_STENCIL) != 0)
+		{
+			assert(state == ResourceState::WRITE_DEPTH_STENCIL);
+			shaderResourceState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+		}
 
-		case ResourceState::READ_RESOURCE:
-			return shaderResourceState;
+		if ((state & ResourceState::WRITE_COLOR_ATTACHMENT) != 0)
+		{
+			assert(state == ResourceState::WRITE_COLOR_ATTACHMENT);
+			shaderResourceState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		}
 
-		case ResourceState::READ_RW_RESOURCE:
-			return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		if ((state & ResourceState::WRITE_TRANSFER) != 0)
+		{
+			assert(state == ResourceState::WRITE_TRANSFER);
+			shaderResourceState = D3D12_RESOURCE_STATE_COPY_DEST;
+		}
 
-		case ResourceState::READ_CONSTANT_BUFFER:
-			return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-
-		case ResourceState::READ_VERTEX_BUFFER:
-			return D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-
-		case ResourceState::READ_INDEX_BUFFER:
-			return D3D12_RESOURCE_STATE_INDEX_BUFFER;
-
-		case ResourceState::READ_INDIRECT_BUFFER:
-			return D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-
-		case ResourceState::READ_TRANSFER:
-			return D3D12_RESOURCE_STATE_COPY_SOURCE;
-
-		case ResourceState::READ_WRITE_HOST:
-			return D3D12_RESOURCE_STATE_COMMON;
-
-		case ResourceState::READ_WRITE_RW_RESOURCE:
-			return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-
-		case ResourceState::READ_WRITE_DEPTH_STENCIL:
-			return D3D12_RESOURCE_STATE_DEPTH_WRITE;
-
-		case ResourceState::WRITE_HOST:
-			return D3D12_RESOURCE_STATE_COMMON;
-
-		case ResourceState::WRITE_COLOR_ATTACHMENT:
-			return D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-		case ResourceState::WRITE_RW_RESOURCE:
-			return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-
-		case ResourceState::WRITE_TRANSFER:
-			return D3D12_RESOURCE_STATE_COPY_DEST;
-
-		case ResourceState::CLEAR_RESOURCE:
+		if ((state & ResourceState::CLEAR_RESOURCE) != 0)
+		{
+			assert(state == ResourceState::CLEAR_RESOURCE);
 			if (isImage)
 			{
-				return Initializers::isDepthFormat(format) ? D3D12_RESOURCE_STATE_DEPTH_WRITE : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				shaderResourceState = Initializers::isDepthFormat(format) ? D3D12_RESOURCE_STATE_DEPTH_WRITE : D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
 			else
 			{
-				return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				shaderResourceState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 			}
-		case ResourceState::PRESENT:
-			return D3D12_RESOURCE_STATE_PRESENT;
-
-		default:
-			assert(false);
-			break;
 		}
-		return {};
+
+		if ((state & (ResourceState::RW_RESOURCE | ResourceState::RW_RESOURCE_READ_ONLY | ResourceState::RW_RESOURCE_WRITE_ONLY)) != 0)
+		{
+			assert((state == ResourceState::CLEAR_RESOURCE) || (state == ResourceState::RW_RESOURCE_READ_ONLY) || (state == ResourceState::RW_RESOURCE_WRITE_ONLY));
+			shaderResourceState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		}
+
+		if ((state & ResourceState::PRESENT) != 0)
+		{
+			assert(state == ResourceState::PRESENT);
+			shaderResourceState = D3D12_RESOURCE_STATE_PRESENT;
+		}
+
+		return shaderResourceState;
 	};
 
 	static void discardResource(ID3D12GraphicsCommandList *cmdList, const gal::Barrier &barrier)
@@ -465,7 +459,7 @@ void gal::CommandListDx12::copyBuffer(const Buffer *srcBuffer, const Buffer *dst
 	}
 }
 
-void gal::CommandListDx12::copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions)
+void gal::CommandListDx12::copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions, ResourceState srcImageState, ResourceState dstImageState)
 {
 	for (size_t i = 0; i < regionCount; ++i)
 	{
@@ -487,7 +481,7 @@ void gal::CommandListDx12::copyImage(const Image *srcImage, const Image *dstImag
 	}
 }
 
-void gal::CommandListDx12::copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions)
+void gal::CommandListDx12::copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions, ResourceState dstImageState)
 {
 	Format format = dstImage->getDescription().m_format;
 	DXGI_FORMAT formatDx = UtilityDx12::translate(format);
@@ -514,7 +508,7 @@ void gal::CommandListDx12::copyBufferToImage(const Buffer *srcBuffer, const Imag
 	}
 }
 
-void gal::CommandListDx12::copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions)
+void gal::CommandListDx12::copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions, ResourceState srcImageState)
 {
 	Format format = srcImage->getDescription().m_format;
 	DXGI_FORMAT formatDx = UtilityDx12::translate(format);
@@ -587,7 +581,7 @@ void gal::CommandListDx12::fillBuffer(const Buffer *dstBuffer, uint64_t dstOffse
 	m_commandList->ClearUnorderedAccessViewUint(gpuDescriptorHandle, cpuDescriptorHandle, resource, values, 0, nullptr);
 }
 
-void gal::CommandListDx12::clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges)
+void gal::CommandListDx12::clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState)
 {
 	for (size_t i = 0; i < rangeCount; ++i)
 	{
@@ -654,7 +648,7 @@ void gal::CommandListDx12::clearColorImage(const Image *image, const ClearColorV
 	}
 }
 
-void gal::CommandListDx12::clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges)
+void gal::CommandListDx12::clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState)
 {
 	for (size_t i = 0; i < rangeCount; ++i)
 	{
@@ -1167,7 +1161,7 @@ void gal::CommandListDx12::beginRenderPass(uint32_t colorAttachmentCount, ColorA
 		const ImageViewDx12 *imageViewDx = dynamic_cast<const ImageViewDx12 *>(attachment.m_imageView);
 		assert(imageViewDx);
 
-		depthStencilDesc.cpuDescriptor = attachment.m_readOnly ? imageViewDx->getDSVDepthReadOnly() : imageViewDx->getDSV();
+		depthStencilDesc.cpuDescriptor = attachment.m_imageState == ResourceState::WRITE_DEPTH_STENCIL ? imageViewDx->getDSV() : imageViewDx->getDSVDepthReadOnly();
 		depthStencilDesc.DepthBeginningAccess.Type = translateLoadOp(attachment.m_loadOp);
 		depthStencilDesc.DepthBeginningAccess.Clear.ClearValue.Format = UtilityDx12::translate(imageViewDx->getDescription().m_format);
 		depthStencilDesc.DepthBeginningAccess.Clear.ClearValue.DepthStencil = { attachment.m_clearValue.m_depth, static_cast<UINT8>(attachment.m_clearValue.m_stencil) };
@@ -1181,7 +1175,7 @@ void gal::CommandListDx12::beginRenderPass(uint32_t colorAttachmentCount, ColorA
 
 		// TODO FIXME workaround for being able to use D3D12_RESOURCE_STATE_DEPTH_READ.
 		// need to implement support for arbitrary read/write combinations of depth/stencil planes
-		if (attachment.m_readOnly)
+		if (attachment.m_imageState != ResourceState::WRITE_DEPTH_STENCIL)
 		{
 			depthStencilDesc.StencilBeginningAccess.Type = D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS;
 			depthStencilDesc.StencilEndingAccess.Type = D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS;

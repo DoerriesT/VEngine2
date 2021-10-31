@@ -54,7 +54,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 				m_renderViewResources->m_depthBufferImagePipelineStages,
 				gal::PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | gal::PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT,
 				m_renderViewResources->m_depthBufferImageResourceState,
-				gal::ResourceState::READ_WRITE_DEPTH_STENCIL)
+				gal::ResourceState::WRITE_DEPTH_STENCIL)
 		};
 
 		cmdList->barrier(2, barriers);
@@ -62,7 +62,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 		m_renderViewResources->m_resultImagePipelineStages = gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT;
 		m_renderViewResources->m_resultImageResourceState = gal::ResourceState::WRITE_COLOR_ATTACHMENT;
 		m_renderViewResources->m_depthBufferImagePipelineStages = gal::PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | gal::PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT;
-		m_renderViewResources->m_depthBufferImageResourceState = gal::ResourceState::READ_WRITE_DEPTH_STENCIL;
+		m_renderViewResources->m_depthBufferImageResourceState = gal::ResourceState::WRITE_DEPTH_STENCIL;
 	}
 
 	eastl::vector<glm::mat4> modelMatrices;

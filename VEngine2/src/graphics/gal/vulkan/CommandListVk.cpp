@@ -24,73 +24,154 @@ namespace
 	{
 		using namespace gal;
 
-		switch (state)
+		ResourceStateInfo result{};
+
+		if (state == ResourceState::UNDEFINED)
 		{
-		case ResourceState::UNDEFINED:
-			return { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED, false, false };
-
-		case ResourceState::READ_HOST:
-			return { VK_PIPELINE_STAGE_HOST_BIT, VK_ACCESS_HOST_READ_BIT, isImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_DEPTH_STENCIL:
-			return { VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true, false };
-
-		case ResourceState::READ_DEPTH_STENCIL_SHADER:
-			return { VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, true, false };
-
-		case ResourceState::READ_RESOURCE:
-			return { stageFlags, VK_ACCESS_SHADER_READ_BIT, isImage ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_RW_RESOURCE:
-			return { stageFlags, VK_ACCESS_SHADER_READ_BIT, isImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_CONSTANT_BUFFER:
-			return { stageFlags, VK_ACCESS_UNIFORM_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_VERTEX_BUFFER:
-			return { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_INDEX_BUFFER:
-			return { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_ACCESS_INDEX_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_INDIRECT_BUFFER:
-			return { VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_TRANSFER:
-			return { VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT, isImage ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED, true, false };
-
-		case ResourceState::READ_WRITE_HOST:
-			return { VK_PIPELINE_STAGE_HOST_BIT, VK_ACCESS_HOST_WRITE_BIT, isImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED, false, true };
-
-		case ResourceState::READ_WRITE_RW_RESOURCE:
-			return { stageFlags, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, isImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED, true, true };
-
-		case ResourceState::READ_WRITE_DEPTH_STENCIL:
-			return { VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, true };
-
-		case ResourceState::WRITE_HOST:
-			return { VK_PIPELINE_STAGE_HOST_BIT, VK_ACCESS_HOST_READ_BIT | VK_ACCESS_HOST_WRITE_BIT, isImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED, true, true };
-
-		case ResourceState::WRITE_COLOR_ATTACHMENT:
-			return { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, true };
-
-		case ResourceState::WRITE_RW_RESOURCE:
-			return { stageFlags, VK_ACCESS_SHADER_WRITE_BIT, isImage ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_UNDEFINED, false, true };
-
-		case ResourceState::WRITE_TRANSFER:
-			return { VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, isImage ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED, false, true };
-
-		case ResourceState::CLEAR_RESOURCE:
-			return { VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, isImage ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED, false, true };
-
-		case ResourceState::PRESENT:
-			return { VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, true, false };
-
-		default:
-			assert(false);
-			break;
+			result = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED, false, false };
+			return result;
 		}
-		return {};
+
+		if ((state & ResourceState::READ_RESOURCE) != 0)
+		{
+			result.m_stageMask |= stageFlags;
+			result.m_accessMask |= VK_ACCESS_SHADER_READ_BIT;
+			result.m_layout = (result.m_layout == VK_IMAGE_LAYOUT_UNDEFINED) ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::READ_DEPTH_STENCIL) != 0)
+		{
+			assert(isImage);
+			result.m_stageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			result.m_accessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			result.m_layout = (result.m_layout == VK_IMAGE_LAYOUT_UNDEFINED || result.m_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+				? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::READ_CONSTANT_BUFFER) != 0)
+		{
+			assert(!isImage);
+			result.m_stageMask |= stageFlags;
+			result.m_accessMask |= VK_ACCESS_UNIFORM_READ_BIT;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::READ_VERTEX_BUFFER) != 0)
+		{
+			assert(!isImage);
+			result.m_stageMask |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+			result.m_accessMask |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::READ_INDEX_BUFFER) != 0)
+		{
+			assert(!isImage);
+			result.m_stageMask |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+			result.m_accessMask |= VK_ACCESS_INDEX_READ_BIT;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::READ_INDIRECT_BUFFER) != 0)
+		{
+			assert(!isImage);
+			result.m_stageMask |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+			result.m_accessMask |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::READ_TRANSFER) != 0)
+		{
+			result.m_stageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			result.m_accessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+			result.m_layout = (result.m_layout == VK_IMAGE_LAYOUT_UNDEFINED) ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			result.m_readAccess = true;
+		}
+
+		if ((state & ResourceState::WRITE_DEPTH_STENCIL) != 0)
+		{
+			assert(isImage);
+			assert(state == ResourceState::WRITE_DEPTH_STENCIL);
+			result.m_stageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			result.m_accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			result.m_writeAccess = true;
+		}
+
+		if ((state & ResourceState::WRITE_COLOR_ATTACHMENT) != 0)
+		{
+			assert(isImage);
+			assert(state == ResourceState::WRITE_COLOR_ATTACHMENT);
+			result.m_stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			result.m_accessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			result.m_writeAccess = true;
+		}
+
+		if ((state & ResourceState::WRITE_TRANSFER) != 0)
+		{
+			assert(state == ResourceState::WRITE_TRANSFER);
+			result.m_stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			result.m_accessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			result.m_writeAccess = true;
+		}
+
+		if ((state & ResourceState::CLEAR_RESOURCE) != 0)
+		{
+			assert(state == ResourceState::CLEAR_RESOURCE);
+			result.m_stageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			result.m_accessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			result.m_writeAccess = true;
+		}
+
+		if ((state & ResourceState::RW_RESOURCE) != 0)
+		{
+			assert(state == ResourceState::RW_RESOURCE);
+			result.m_stageMask = stageFlags;
+			result.m_accessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_GENERAL;
+			result.m_readAccess = true;
+			result.m_writeAccess = true;
+		}
+
+		if ((state & ResourceState::RW_RESOURCE_READ_ONLY) != 0)
+		{
+			assert(state == ResourceState::RW_RESOURCE_READ_ONLY);
+			result.m_stageMask = stageFlags;
+			result.m_accessMask = VK_ACCESS_SHADER_READ_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_GENERAL;
+			result.m_readAccess = true;
+			result.m_writeAccess = false;
+		}
+
+		if ((state & ResourceState::RW_RESOURCE_WRITE_ONLY) != 0)
+		{
+			assert(state == ResourceState::RW_RESOURCE_WRITE_ONLY);
+			result.m_stageMask = stageFlags;
+			result.m_accessMask = VK_ACCESS_SHADER_WRITE_BIT;
+			result.m_layout = VK_IMAGE_LAYOUT_GENERAL;
+			result.m_readAccess = false;
+			result.m_writeAccess = true;
+		}
+
+		if ((state & ResourceState::PRESENT) != 0)
+		{
+			assert(isImage);
+			assert(state == ResourceState::PRESENT);
+			result.m_stageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			result.m_accessMask = 0;
+			result.m_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			result.m_readAccess = true;
+			result.m_writeAccess = false;
+		}
+
+		result.m_layout = isImage ? result.m_layout : VK_IMAGE_LAYOUT_UNDEFINED;
+
+		return result;
 	};
 
 }
@@ -278,7 +359,7 @@ void gal::CommandListVk::copyBuffer(const Buffer *srcBuffer, const Buffer *dstBu
 	vkCmdCopyBuffer(m_commandBuffer, (VkBuffer)srcBuffer->getNativeHandle(), (VkBuffer)dstBuffer->getNativeHandle(), regionCount, reinterpret_cast<const VkBufferCopy *>(regions));
 }
 
-void gal::CommandListVk::copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions)
+void gal::CommandListVk::copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions, ResourceState srcImageState, ResourceState dstImageState)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -302,10 +383,12 @@ void gal::CommandListVk::copyImage(const Image *srcImage, const Image *dstImage,
 		};
 	}
 
-	vkCmdCopyImage(m_commandBuffer, srcImageVk, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regionCount, regionsVk);
+	auto srcLayout = getResourceStateInfo(srcImageState, 0, true).m_layout;
+	auto dstLayout = getResourceStateInfo(dstImageState, 0, true).m_layout;
+	vkCmdCopyImage(m_commandBuffer, srcImageVk, srcLayout, dstImageVk, dstLayout, regionCount, regionsVk);
 }
 
-void gal::CommandListVk::copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions)
+void gal::CommandListVk::copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions, ResourceState dstImageState)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -329,10 +412,10 @@ void gal::CommandListVk::copyBufferToImage(const Buffer *srcBuffer, const Image 
 		};
 	}
 
-	vkCmdCopyBufferToImage(m_commandBuffer, srcBufferVk, dstImageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regionCount, regionsVk);
+	vkCmdCopyBufferToImage(m_commandBuffer, srcBufferVk, dstImageVk, getResourceStateInfo(dstImageState, 0, true).m_layout, regionCount, regionsVk);
 }
 
-void gal::CommandListVk::copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions)
+void gal::CommandListVk::copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions, ResourceState srcImageState)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -356,7 +439,7 @@ void gal::CommandListVk::copyImageToBuffer(const Image *srcImage, const Buffer *
 		};
 	}
 
-	vkCmdCopyImageToBuffer(m_commandBuffer, srcImageVk, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstBufferVk, regionCount, regionsVk);
+	vkCmdCopyImageToBuffer(m_commandBuffer, srcImageVk, getResourceStateInfo(srcImageState, 0, true).m_layout, dstBufferVk, regionCount, regionsVk);
 }
 
 void gal::CommandListVk::updateBuffer(const Buffer *dstBuffer, uint64_t dstOffset, uint64_t dataSize, const void *data)
@@ -369,7 +452,7 @@ void gal::CommandListVk::fillBuffer(const Buffer *dstBuffer, uint64_t dstOffset,
 	vkCmdFillBuffer(m_commandBuffer, (VkBuffer)dstBuffer->getNativeHandle(), dstOffset, size, data);
 }
 
-void gal::CommandListVk::clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges)
+void gal::CommandListVk::clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -382,10 +465,10 @@ void gal::CommandListVk::clearColorImage(const Image *image, const ClearColorVal
 		rangesVk[i] = { VK_IMAGE_ASPECT_COLOR_BIT, range.m_baseMipLevel, range.m_levelCount, range.m_baseArrayLayer, range.m_layerCount };
 	}
 
-	vkCmdClearColorImage(m_commandBuffer, imageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, reinterpret_cast<const VkClearColorValue *>(color), rangeCount, rangesVk);
+	vkCmdClearColorImage(m_commandBuffer, imageVk, getResourceStateInfo(imageState, 0, true).m_layout, reinterpret_cast<const VkClearColorValue *>(color), rangeCount, rangesVk);
 }
 
-void gal::CommandListVk::clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges)
+void gal::CommandListVk::clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -399,7 +482,7 @@ void gal::CommandListVk::clearDepthStencilImage(const Image *image, const ClearD
 		rangesVk[i] = { imageAspectMask, range.m_baseMipLevel, range.m_levelCount, range.m_baseArrayLayer, range.m_layerCount };
 	}
 
-	vkCmdClearDepthStencilImage(m_commandBuffer, imageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, reinterpret_cast<const VkClearDepthStencilValue *>(depthStencil), rangeCount, rangesVk);
+	vkCmdClearDepthStencilImage(m_commandBuffer, imageVk, getResourceStateInfo(imageState, 0, true).m_layout, reinterpret_cast<const VkClearDepthStencilValue *>(depthStencil), rangeCount, rangesVk);
 }
 
 void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
@@ -601,7 +684,7 @@ void gal::CommandListVk::beginRenderPass(uint32_t colorAttachmentCount, ColorAtt
 		attachmentDesc.m_storeOp = UtilityVk::translate(attachment.m_storeOp);
 		attachmentDesc.m_stencilLoadOp = UtilityVk::translate(attachment.m_stencilLoadOp);
 		attachmentDesc.m_stencilStoreOp = UtilityVk::translate(attachment.m_stencilStoreOp);
-		attachmentDesc.m_layout = attachment.m_readOnly ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachmentDesc.m_layout = getResourceStateInfo(attachment.m_imageState, 0, true).m_layout;
 
 		const auto &viewDesc = attachment.m_imageView->getDescription();
 

@@ -36,12 +36,12 @@ struct ENUM_FLAG_SIZED_INTEGER
 };
 
 #define DEF_ENUM_FLAG_OPERATORS(ENUMTYPE) \
-inline constexpr ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) throw() { return ENUMTYPE(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) | ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) throw() { return (ENUMTYPE &)(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) |= ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline constexpr ENUMTYPE operator & (ENUMTYPE a, ENUMTYPE b) throw() { return ENUMTYPE(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) & ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) throw() { return (ENUMTYPE &)(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) &= ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline constexpr ENUMTYPE operator ~ (ENUMTYPE a) throw() { return ENUMTYPE(~((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a)); } \
-inline constexpr ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) throw() { return ENUMTYPE(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) ^ ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) throw() { return (ENUMTYPE &)(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) ^= ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline constexpr bool operator == (ENUMTYPE a, ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type b) throw() { return (ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a == b; } \
-inline constexpr bool operator != (ENUMTYPE a, ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type b) throw() { return (ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a != b; }
+inline constexpr ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) noexcept { return ENUMTYPE(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) | ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) noexcept { return (ENUMTYPE &)(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) |= ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline constexpr ENUMTYPE operator & (ENUMTYPE a, ENUMTYPE b) noexcept { return ENUMTYPE(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) & ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) noexcept { return (ENUMTYPE &)(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) &= ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline constexpr ENUMTYPE operator ~ (ENUMTYPE a) noexcept { return ENUMTYPE(~((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a)); } \
+inline constexpr ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) noexcept { return ENUMTYPE(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) ^ ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) noexcept { return (ENUMTYPE &)(((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) ^= ((ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
+inline constexpr bool operator == (ENUMTYPE a, ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type b) noexcept { return (ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a == b; } \
+inline constexpr bool operator != (ENUMTYPE a, ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type b) noexcept { return (ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a != b; }

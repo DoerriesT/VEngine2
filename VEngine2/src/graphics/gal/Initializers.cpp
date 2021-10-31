@@ -28,19 +28,16 @@ bool Initializers::isReadAccess(ResourceState state)
 {
 	switch (state)
 	{
-	case ResourceState::READ_HOST:
-	case ResourceState::READ_DEPTH_STENCIL:
-	case ResourceState::READ_DEPTH_STENCIL_SHADER:
 	case ResourceState::READ_RESOURCE:
-	case ResourceState::READ_RW_RESOURCE:
+	case ResourceState::READ_DEPTH_STENCIL:
 	case ResourceState::READ_CONSTANT_BUFFER:
 	case ResourceState::READ_VERTEX_BUFFER:
 	case ResourceState::READ_INDEX_BUFFER:
 	case ResourceState::READ_INDIRECT_BUFFER:
 	case ResourceState::READ_TRANSFER:
-	case ResourceState::READ_WRITE_HOST:
-	case ResourceState::READ_WRITE_RW_RESOURCE:
-	case ResourceState::READ_WRITE_DEPTH_STENCIL:
+	case ResourceState::WRITE_DEPTH_STENCIL:
+	case ResourceState::RW_RESOURCE:
+	case ResourceState::RW_RESOURCE_READ_ONLY:
 	case ResourceState::PRESENT:
 		return true;
 	default:
@@ -53,13 +50,12 @@ bool Initializers::isWriteAccess(ResourceState state)
 {
 	switch (state)
 	{
-	case ResourceState::READ_WRITE_HOST:
-	case ResourceState::READ_WRITE_RW_RESOURCE:
-	case ResourceState::READ_WRITE_DEPTH_STENCIL:
-	case ResourceState::WRITE_HOST:
+	case ResourceState::WRITE_DEPTH_STENCIL:
 	case ResourceState::WRITE_COLOR_ATTACHMENT:
-	case ResourceState::WRITE_RW_RESOURCE:
 	case ResourceState::WRITE_TRANSFER:
+	case ResourceState::CLEAR_RESOURCE:
+	case ResourceState::RW_RESOURCE:
+	case ResourceState::RW_RESOURCE_WRITE_ONLY:
 		return true;
 	default:
 		break;
@@ -69,72 +65,92 @@ bool Initializers::isWriteAccess(ResourceState state)
 
 uint32_t Initializers::getUsageFlags(ResourceState state, bool isImage)
 {
-	switch (state)
+	uint32_t flags = 0;
+
+	if ((state & ResourceState::READ_RESOURCE) != 0)
 	{
-	case ResourceState::UNDEFINED:
-		return 0;
-
-	case ResourceState::READ_HOST:
-		return 0;
-
-	case ResourceState::READ_DEPTH_STENCIL:
-		return (uint32_t)ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT;
-
-	case ResourceState::READ_DEPTH_STENCIL_SHADER:
-		return (uint32_t)(ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT);
-
-	case ResourceState::READ_RESOURCE:
-		return isImage ? (uint32_t)ImageUsageFlags::TEXTURE_BIT : (uint32_t)(BufferUsageFlags::TYPED_BUFFER_BIT | BufferUsageFlags::BYTE_BUFFER_BIT | BufferUsageFlags::STRUCTURED_BUFFER_BIT);
-
-	case ResourceState::READ_RW_RESOURCE:
-		return isImage ? (uint32_t)ImageUsageFlags::RW_TEXTURE_BIT : (uint32_t)(BufferUsageFlags::RW_TYPED_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT);
-
-	case ResourceState::READ_CONSTANT_BUFFER:
-		return (uint32_t)BufferUsageFlags::CONSTANT_BUFFER_BIT;
-
-	case ResourceState::READ_VERTEX_BUFFER:
-		return (uint32_t)BufferUsageFlags::VERTEX_BUFFER_BIT;
-
-	case ResourceState::READ_INDEX_BUFFER:
-		return (uint32_t)BufferUsageFlags::INDEX_BUFFER_BIT;
-
-	case ResourceState::READ_INDIRECT_BUFFER:
-		return (uint32_t)BufferUsageFlags::INDIRECT_BUFFER_BIT;
-
-	case ResourceState::READ_TRANSFER:
-		return isImage ? (uint32_t)ImageUsageFlags::TRANSFER_SRC_BIT : (uint32_t)BufferUsageFlags::TRANSFER_SRC_BIT;
-
-	case ResourceState::READ_WRITE_HOST:
-		return 0;
-
-	case ResourceState::READ_WRITE_RW_RESOURCE:
-		return isImage ? (uint32_t)ImageUsageFlags::RW_TEXTURE_BIT : (uint32_t)(BufferUsageFlags::RW_TYPED_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT);
-
-	case ResourceState::READ_WRITE_DEPTH_STENCIL:
-		return (uint32_t)ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT;
-
-	case ResourceState::WRITE_HOST:
-		return 0;
-
-	case ResourceState::WRITE_COLOR_ATTACHMENT:
-		return (uint32_t)ImageUsageFlags::COLOR_ATTACHMENT_BIT;
-
-	case ResourceState::WRITE_RW_RESOURCE:
-		return isImage ? (uint32_t)ImageUsageFlags::RW_TEXTURE_BIT : (uint32_t)(BufferUsageFlags::RW_TYPED_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT);
-
-	case ResourceState::WRITE_TRANSFER:
-		return isImage ? (uint32_t)ImageUsageFlags::TRANSFER_DST_BIT : (uint32_t)BufferUsageFlags::TRANSFER_DST_BIT;
-
-	case ResourceState::CLEAR_RESOURCE:
-		return isImage ? (uint32_t)ImageUsageFlags::CLEAR_BIT :(uint32_t)BufferUsageFlags::CLEAR_BIT;
-
-	case ResourceState::PRESENT:
-		return 0;
-
-	default:
-		assert(false);
+		flags |= isImage ? (uint32_t)ImageUsageFlags::TEXTURE_BIT : (uint32_t)(BufferUsageFlags::TYPED_BUFFER_BIT | BufferUsageFlags::BYTE_BUFFER_BIT | BufferUsageFlags::STRUCTURED_BUFFER_BIT);
 	}
-	return 0;
+
+	if ((state & ResourceState::READ_DEPTH_STENCIL) != 0)
+	{
+		assert(isImage);
+		flags |= (uint32_t)ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT;
+	}
+
+	if ((state & ResourceState::READ_CONSTANT_BUFFER) != 0)
+	{
+		assert(!isImage);
+		flags |= (uint32_t)BufferUsageFlags::CONSTANT_BUFFER_BIT;
+	}
+
+	if ((state & ResourceState::READ_VERTEX_BUFFER) != 0)
+	{
+		assert(!isImage);
+		flags |= (uint32_t)BufferUsageFlags::VERTEX_BUFFER_BIT;
+	}
+
+	if ((state & ResourceState::READ_INDEX_BUFFER) != 0)
+	{
+		assert(!isImage);
+		flags |= (uint32_t)BufferUsageFlags::INDEX_BUFFER_BIT;
+	}
+
+	if ((state & ResourceState::READ_INDIRECT_BUFFER) != 0)
+	{
+		assert(!isImage);
+		flags |= (uint32_t)BufferUsageFlags::INDIRECT_BUFFER_BIT;
+	}
+
+	if ((state & ResourceState::READ_TRANSFER) != 0)
+	{
+		flags |= isImage ? (uint32_t)ImageUsageFlags::TRANSFER_SRC_BIT : (uint32_t)BufferUsageFlags::TRANSFER_SRC_BIT;
+	}
+
+	if ((state & ResourceState::WRITE_DEPTH_STENCIL) != 0)
+	{
+		assert(isImage);
+		flags |= (uint32_t)ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT;
+	}
+
+	if ((state & ResourceState::WRITE_COLOR_ATTACHMENT) != 0)
+	{
+		assert(isImage);
+		flags |= (uint32_t)ImageUsageFlags::COLOR_ATTACHMENT_BIT;
+	}
+
+	if ((state & ResourceState::WRITE_TRANSFER) != 0)
+	{
+		flags |= isImage ? (uint32_t)ImageUsageFlags::TRANSFER_DST_BIT : (uint32_t)BufferUsageFlags::TRANSFER_DST_BIT;
+	}
+
+	if ((state & ResourceState::CLEAR_RESOURCE) != 0)
+	{
+		flags |= isImage ? (uint32_t)ImageUsageFlags::CLEAR_BIT : (uint32_t)BufferUsageFlags::CLEAR_BIT;
+	}
+
+	if ((state & ResourceState::RW_RESOURCE) != 0)
+	{
+		flags |= isImage ? (uint32_t)ImageUsageFlags::RW_TEXTURE_BIT : (uint32_t)(BufferUsageFlags::RW_TYPED_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT);
+	}
+
+	if ((state & ResourceState::RW_RESOURCE_READ_ONLY) != 0)
+	{
+		flags |= isImage ? (uint32_t)ImageUsageFlags::RW_TEXTURE_BIT : (uint32_t)(BufferUsageFlags::RW_TYPED_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT);
+	}
+
+	if ((state & ResourceState::RW_RESOURCE_WRITE_ONLY) != 0)
+	{
+		flags |= isImage ? (uint32_t)ImageUsageFlags::RW_TEXTURE_BIT : (uint32_t)(BufferUsageFlags::RW_TYPED_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT);
+	}
+
+	if ((state & ResourceState::PRESENT) != 0)
+	{
+		assert(isImage);
+		flags |= 0;
+	}
+
+	return flags;
 }
 
 bool Initializers::isDepthFormat(Format format)

@@ -121,7 +121,8 @@ void Renderer::render() noexcept
 					m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], 
 					&viewMatrix[0][0], 
 					&projMatrix[0][0], 
-					&tc->m_translation.x, m_editorMode);
+					&tc->m_translation.x,
+					m_editorMode);
 			}
 		}
 
