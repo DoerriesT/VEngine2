@@ -28,9 +28,6 @@
     <Filter Include="src\graphics\pass">
       <UniqueIdentifier>{e94689cc-c441-4f24-8295-4c70b7600bdc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\task">
-      <UniqueIdentifier>{74268f91-4813-4eed-88b1-57555e76c66f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="src\asset">
       <UniqueIdentifier>{c5b73013-cc3f-41fa-b901-f31b2127a9cf}</UniqueIdentifier>
     </Filter>
@@ -69,6 +66,9 @@
     </Filter>
     <Filter Include="src\script\lua-5.4.3">
       <UniqueIdentifier>{30218036-2526-4c70-8c7b-ed38df0915f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\job">
+      <UniqueIdentifier>{1a7262e6-a4b1-403a-b884-5cffe2b090a3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -212,12 +212,6 @@
     </ClInclude>
     <ClInclude Include="src\graphics\BufferStackAllocator.h">
       <Filter>src\graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="src\task\Fiber.h">
-      <Filter>src\task</Filter>
-    </ClInclude>
-    <ClInclude Include="src\task\Task.h">
-      <Filter>src\task</Filter>
     </ClInclude>
     <ClInclude Include="src\utility\SpinLock.h">
       <Filter>src\utility</Filter>
@@ -579,6 +573,12 @@
     <ClInclude Include="src\utility\Thread.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\Fiber.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\job\JobSystem.h">
+      <Filter>src\job</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -700,12 +700,6 @@
     </ClCompile>
     <ClCompile Include="src\graphics\BufferStackAllocator.cpp">
       <Filter>src\graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="src\task\Fiber.cpp">
-      <Filter>src\task</Filter>
-    </ClCompile>
-    <ClCompile Include="src\task\Task.cpp">
-      <Filter>src\task</Filter>
     </ClCompile>
     <ClCompile Include="src\utility\SpinLock.cpp">
       <Filter>src\utility</Filter>
@@ -1024,6 +1018,12 @@
     </ClCompile>
     <ClCompile Include="src\utility\Thread.cpp">
       <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Fiber.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\job\JobSystem.cpp">
+      <Filter>src\job</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

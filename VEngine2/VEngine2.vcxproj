@@ -334,6 +334,7 @@
     <ClInclude Include="src\input\InputTokens.h" />
     <ClInclude Include="src\input\ThirdPersonCameraController.h" />
     <ClInclude Include="src\input\UserInput.h" />
+    <ClInclude Include="src\job\JobSystem.h" />
     <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\physics\Physics.h" />
@@ -368,14 +369,13 @@
     <ClInclude Include="src\script\lua-5.4.3\lzio.h" />
     <ClInclude Include="src\script\LuaUtil.h" />
     <ClInclude Include="src\script\ScriptSystem.h" />
-    <ClInclude Include="src\task\Fiber.h" />
-    <ClInclude Include="src\task\Task.h" />
     <ClInclude Include="src\utility\allocator\DefaultAllocator.h" />
     <ClInclude Include="src\utility\allocator\IAllocator.h" />
     <ClInclude Include="src\utility\allocator\LinearAllocator.h" />
     <ClInclude Include="src\utility\allocator\PoolAllocator.h" />
     <ClInclude Include="src\utility\Enum.h" />
     <ClInclude Include="src\utility\ErasedType.h" />
+    <ClInclude Include="src\utility\Fiber.h" />
     <ClInclude Include="src\utility\HandleManager.h" />
     <ClInclude Include="src\utility\DeletedCopyMove.h" />
     <ClInclude Include="src\utility\Memory.h" />
@@ -484,6 +484,7 @@
     <ClCompile Include="src\input\ImGuiInputAdapter.cpp" />
     <ClCompile Include="src\input\ThirdPersonCameraController.cpp" />
     <ClCompile Include="src\input\UserInput.cpp" />
+    <ClCompile Include="src\job\JobSystem.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\physics\Physics.cpp" />
     <ClCompile Include="src\profiling\TracyClient.cpp" />
@@ -523,12 +524,11 @@
     <ClCompile Include="src\script\lua-5.4.3\lzio.c" />
     <ClCompile Include="src\script\LuaUtil.cpp" />
     <ClCompile Include="src\script\ScriptSystem.cpp" />
-    <ClCompile Include="src\task\Fiber.cpp" />
-    <ClCompile Include="src\task\Task.cpp" />
     <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp" />
     <ClCompile Include="src\utility\allocator\IAllocator.cpp" />
     <ClCompile Include="src\utility\allocator\LinearAllocator.cpp" />
     <ClCompile Include="src\utility\allocator\PoolAllocator.cpp" />
+    <ClCompile Include="src\utility\Fiber.cpp" />
     <ClCompile Include="src\utility\HandleManager.cpp" />
     <ClCompile Include="src\utility\SpinLock.cpp" />
     <ClCompile Include="src\utility\StringID.cpp" />

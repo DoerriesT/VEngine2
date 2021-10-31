@@ -1,25 +1,25 @@
 #include "Fiber.h"
 #include <Windows.h>
 
-task::Fiber task::Fiber::convertThreadToFiber(void *fiberParameter) noexcept
+Fiber Fiber::convertThreadToFiber(void *fiberParameter) noexcept
 {
 	return Fiber(::ConvertThreadToFiber(fiberParameter), fiberParameter, true);
 }
 
-task::Fiber::Fiber(FiberFunction fiberFunction, void *fiberParameter) noexcept
+Fiber::Fiber(FiberFunction fiberFunction, void *fiberParameter) noexcept
 	:m_fiberHandle(::CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, fiberFunction, fiberParameter)),
 	m_fiberParameter(fiberParameter)
 {
 }
 
-task::Fiber::Fiber(void *fiberHandle, void *fiberParameter, bool createdFromThread) noexcept
+Fiber::Fiber(void *fiberHandle, void *fiberParameter, bool createdFromThread) noexcept
 	:m_fiberHandle(fiberHandle),
 	m_fiberParameter(fiberParameter),
 	m_createdFromThread(createdFromThread)
 {
 }
 
-task::Fiber::Fiber(Fiber &&fiber) noexcept
+Fiber::Fiber(Fiber &&fiber) noexcept
 	:m_fiberHandle(fiber.m_fiberHandle),
 	m_fiberParameter(fiber.m_fiberParameter),
 	m_createdFromThread(fiber.m_createdFromThread)
@@ -28,7 +28,7 @@ task::Fiber::Fiber(Fiber &&fiber) noexcept
 	fiber.m_fiberParameter = nullptr;
 }
 
-task::Fiber &task::Fiber::operator=(Fiber &&fiber) noexcept
+Fiber &Fiber::operator=(Fiber &&fiber) noexcept
 {
 	if (fiber.m_fiberHandle != m_fiberHandle)
 	{
@@ -45,7 +45,7 @@ task::Fiber &task::Fiber::operator=(Fiber &&fiber) noexcept
 	return *this;
 }
 
-task::Fiber::~Fiber()
+Fiber::~Fiber()
 {
 	if (m_fiberHandle)
 	{
@@ -60,12 +60,12 @@ task::Fiber::~Fiber()
 	}
 }
 
-void task::Fiber::switchToFiber(const Fiber &fiber) const noexcept
+void Fiber::switchToFiber(const Fiber &fiber) const noexcept
 {
 	::SwitchToFiber(fiber.m_fiberHandle);
 }
 
-void *task::Fiber::getFiberData() const noexcept
+void *Fiber::getFiberData() const noexcept
 {
 	return m_fiberParameter;
 }

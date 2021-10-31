@@ -4,7 +4,7 @@
     <ClCompile Include="src\ECSTest.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\TaskTest.cpp">
+    <ClCompile Include="src\JobSystemTest.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>

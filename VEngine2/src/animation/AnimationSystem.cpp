@@ -10,11 +10,11 @@
 #include "Log.h"
 #include "AnimationGraph.h"
 #include "profiling/Profiling.h"
-#include "task/Task.h"
+#include "job/JobSystem.h"
 
 namespace
 {
-	struct AnimTaskData
+	struct AnimJobData
 	{
 		size_t startIdx;
 		size_t endIdx;
@@ -24,7 +24,7 @@ namespace
 		SkinnedMeshComponent *comps;
 	};
 
-	struct LocalPoseTaskData
+	struct LocalPoseJobData
 	{
 		AnimationGraph *animationGraph;
 		size_t startIdx;
@@ -33,11 +33,11 @@ namespace
 	};
 }
 
-static void computeLocalPosesTask(void *arg)
+static void computeLocalPosesJob(void *arg)
 {
 	PROFILING_ZONE_SCOPED_N("Compute Local Poses");
 
-	LocalPoseTaskData *data = (LocalPoseTaskData *)arg;
+	LocalPoseJobData *data = (LocalPoseJobData *)arg;
 
 	for (size_t j = data->startIdx; j != data->endIdx; ++j)
 	{
@@ -52,11 +52,11 @@ static void computeLocalPosesTask(void *arg)
 	}
 }
 
-static void animateEntitiesTask(void *arg)
+static void animateEntitiesJob(void *arg)
 {
 	PROFILING_ZONE_SCOPED_N("Animate Entities");
 
-	AnimTaskData *data = (AnimTaskData *)arg;
+	AnimJobData *data = (AnimJobData *)arg;
 
 	for (size_t entityIdx = data->startIdx; entityIdx != data->endIdx; ++entityIdx)
 	{
@@ -95,31 +95,31 @@ static void animateEntitiesTask(void *arg)
 			PROFILING_ZONE_END(profilingZoneAnimatePrepare);
 
 			// compute local poses (can be done in parallel)
-			const size_t numWorkers = task::getThreadCount();
-			const size_t taskCount = eastl::min<size_t>(numWorkers, jointCount);// (jointCount + (stepSize - 1)) / stepSize;
+			const size_t numWorkers = job::getThreadCount();
+			const size_t jobCount = eastl::min<size_t>(numWorkers, jointCount);// (jointCount + (stepSize - 1)) / stepSize;
 			const size_t stepSize = (jointCount + (numWorkers - 1)) / numWorkers;
-			eastl::fixed_vector<task::Task, 16> localPoseTasks(taskCount);
-			eastl::fixed_vector<LocalPoseTaskData, 16> localPoseTaskData(taskCount);
-			for (size_t i = 0; i < taskCount; ++i)
+			eastl::fixed_vector<job::Job, 16> localPoseJobs(jobCount);
+			eastl::fixed_vector<LocalPoseJobData, 16> localPoseJobData(jobCount);
+			for (size_t i = 0; i < jobCount; ++i)
 			{
-				localPoseTaskData[i].animationGraph = smc.m_animationGraph;
-				localPoseTaskData[i].startIdx = i * stepSize;
-				localPoseTaskData[i].endIdx = eastl::min<size_t>(localPoseTaskData[i].startIdx + stepSize, jointCount);
-				localPoseTaskData[i].localPoses = smc.m_matrixPalette.data();
+				localPoseJobData[i].animationGraph = smc.m_animationGraph;
+				localPoseJobData[i].startIdx = i * stepSize;
+				localPoseJobData[i].endIdx = eastl::min<size_t>(localPoseJobData[i].startIdx + stepSize, jointCount);
+				localPoseJobData[i].localPoses = smc.m_matrixPalette.data();
 			}
 
-			for (size_t i = 0; i < taskCount; ++i)
+			for (size_t i = 0; i < jobCount; ++i)
 			{
-				//computeLocalPosesTask(&(localPoseTaskData[i]));
-				localPoseTasks[i] = task::Task(computeLocalPosesTask, &(localPoseTaskData[i]), "computeLocalPosesTask");
+				//computeLocalPosesJob(&(localPoseJobData[i]));
+				localPoseJobs[i] = job::Job(computeLocalPosesJob, &(localPoseJobData[i]));
 			}
 
 			{
 				PROFILING_ZONE_SCOPED_N("Kick and Wait");
-				task::Counter *counter = nullptr;
-				task::run(taskCount, localPoseTasks.data(), &counter);
-				task::waitForCounter(counter);
-				task::freeCounter(counter);
+				job::Counter *counter = nullptr;
+				job::run(jobCount, localPoseJobs.data(), &counter);
+				job::waitForCounter(counter);
+				job::freeCounter(counter);
 			}
 
 
@@ -161,35 +161,35 @@ void AnimationSystem::update(float deltaTime) noexcept
 
 	m_ecs->iterate<SkinnedMeshComponent>([this, deltaTime](size_t count, const EntityID *entities, SkinnedMeshComponent *skinnedMeshC)
 		{
-			const size_t numWorkers = task::getThreadCount();
-			const size_t taskCount = eastl::min<size_t>(numWorkers, count);// (jointCount + (stepSize - 1)) / stepSize;
+			const size_t numWorkers = job::getThreadCount();
+			const size_t jobCount = eastl::min<size_t>(numWorkers, count);// (jointCount + (stepSize - 1)) / stepSize;
 			const size_t stepSize = (count + (numWorkers - 1)) / numWorkers;
 
-			eastl::fixed_vector<task::Task, 16> animTasks(taskCount);
-			eastl::fixed_vector<AnimTaskData, 16> animTaskData(taskCount);
+			eastl::fixed_vector<job::Job, 16> animJobs(jobCount);
+			eastl::fixed_vector<AnimJobData, 16> animJobData(jobCount);
 
-			for (size_t i = 0; i < taskCount; ++i)
+			for (size_t i = 0; i < jobCount; ++i)
 			{
-				animTaskData[i].startIdx = i * stepSize;
-				animTaskData[i].endIdx = eastl::min<size_t>(animTaskData[i].startIdx + stepSize, count);
-				animTaskData[i].deltaTime = deltaTime;
-				animTaskData[i].ecs = m_ecs;
-				animTaskData[i].entities = entities;
-				animTaskData[i].comps = skinnedMeshC;
+				animJobData[i].startIdx = i * stepSize;
+				animJobData[i].endIdx = eastl::min<size_t>(animJobData[i].startIdx + stepSize, count);
+				animJobData[i].deltaTime = deltaTime;
+				animJobData[i].ecs = m_ecs;
+				animJobData[i].entities = entities;
+				animJobData[i].comps = skinnedMeshC;
 			}
 
-			for (size_t i = 0; i < taskCount; ++i)
+			for (size_t i = 0; i < jobCount; ++i)
 			{
-				//animateEntitiesTask(&(animTaskData[i]));
-				animTasks[i] = task::Task(animateEntitiesTask, &(animTaskData[i]), "animateEntitiesTask");
+				//animateEntitiesJob(&(animJobData[i]));
+				animJobs[i] = job::Job(animateEntitiesJob, &(animJobData[i]));
 			}
 
 			{
 				PROFILING_ZONE_SCOPED_N("Kick and Wait");
-				task::Counter *counter = nullptr;
-				task::run(taskCount, animTasks.data(), &counter);
-				task::waitForCounter(counter);
-				task::freeCounter(counter);
+				job::Counter *counter = nullptr;
+				job::run(jobCount, animJobs.data(), &counter);
+				job::waitForCounter(counter);
+				job::freeCounter(counter);
 			}
 		});
 }

@@ -1,11 +1,11 @@
 #include "gtest/gtest.h"
-#include "task/Task.h"
+#include "job/JobSystem.h"
 #include <random>
 #include <EASTL/atomic.h>
 
 TEST(Task, testRunAndWait)
 {
-	task::init();
+	job::init();
 
 	std::default_random_engine e;
 	std::uniform_int_distribution<uint64_t> d(1, 100);
@@ -17,7 +17,7 @@ TEST(Task, testRunAndWait)
 		{
 			eastl::atomic<uint64_t> value;
 			int iVal;
-			task::Counter *counter;
+			job::Counter *counter;
 		};
 
 		Data data{};
@@ -26,16 +26,16 @@ TEST(Task, testRunAndWait)
 
 		for (uint32_t i2 = 0; i2 < incrementLoops; i2++)
 		{
-			auto t = task::Task([](void *dataV)
+			auto t = job::Job([](void *dataV)
 				{
 					Data *data = (Data *)dataV;
 					data->value.fetch_add(1);
-				}, &data, "Test");
+				}, &data);
 
-			task::run(1, &t, &data.counter);
+			job::run(1, &t, &data.counter);
 		}
-		task::waitForCounter(data.counter, true);
-		task::freeCounter(data.counter);
+		job::waitForCounter(data.counter, true);
+		job::freeCounter(data.counter);
 
 		auto val = data.value.load();
 		if (val != (initialValue + incrementLoops))
@@ -45,5 +45,5 @@ TEST(Task, testRunAndWait)
 		ASSERT_EQ(val, (initialValue + incrementLoops));
 	}
 
-	task::shutdown();
+	job::shutdown();
 }

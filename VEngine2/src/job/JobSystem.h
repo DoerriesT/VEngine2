@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-namespace task
+namespace job
 {
 	struct Counter;
 	typedef void EntryPoint(void *param);
@@ -13,27 +13,23 @@ namespace task
 		HIGH,
 	};
 
-	struct Task
+	struct Job
 	{
 		EntryPoint *m_entryPoint = nullptr;
 		void *m_param = nullptr;
-		const char *m_name = "Unnamed Task";
 		Counter *m_counter = nullptr;
 
-		Task() = default;
-
-		explicit inline Task(EntryPoint *entryPoint, void *param, const char *name) noexcept
+		Job() = default;
+		explicit inline Job(EntryPoint *entryPoint, void *param) noexcept
 			:m_entryPoint(entryPoint),
-			m_param(param),
-			m_name(name)
+			m_param(param)
 		{
-
 		}
 	};
 
 	void init() noexcept;
 	void shutdown() noexcept;
-	void run(size_t count, Task *tasks, Counter **counter, Priority priority = Priority::NORMAL) noexcept;
+	void run(size_t count, Job *jobs, Counter **counter, Priority priority = Priority::NORMAL) noexcept;
 	void waitForCounter(Counter *counter, bool stayOnThread = true) noexcept;
 	void freeCounter(Counter *counter) noexcept;
 	__declspec(noinline) size_t getThreadIndex() noexcept;
