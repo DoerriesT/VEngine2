@@ -335,6 +335,7 @@
     <ClInclude Include="src\input\ThirdPersonCameraController.h" />
     <ClInclude Include="src\input\UserInput.h" />
     <ClInclude Include="src\job\JobSystem.h" />
+    <ClInclude Include="src\job\ParallelFor.h" />
     <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\physics\Physics.h" />
