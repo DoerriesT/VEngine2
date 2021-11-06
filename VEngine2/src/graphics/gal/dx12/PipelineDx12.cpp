@@ -517,7 +517,6 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 						break;
 					}
 					case DescriptorType::TEXTURE:
-					case DescriptorType::DEPTH_STENCIL_TEXTURE:
 					case DescriptorType::TYPED_BUFFER:
 					case DescriptorType::BYTE_BUFFER:
 					case DescriptorType::STRUCTURED_BUFFER:

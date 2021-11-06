@@ -133,7 +133,7 @@ void MeshPass::record(gal::CommandList *cmdList, const Data &data)
 	clearColor.m_float32[3] = 1.0f;
 
 	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::CLEAR, gal::AttachmentStoreOp::STORE, clearColor };
-	gal::DepthStencilAttachmentDescription depthBufferDesc{ data.m_depthBufferAttachment, gal::AttachmentLoadOp::CLEAR, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE, {}, gal::ResourceState::WRITE_DEPTH_STENCIL };
+	gal::DepthStencilAttachmentDescription depthBufferDesc{ data.m_depthBufferAttachment, gal::AttachmentLoadOp::CLEAR, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE };
 	gal::Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
 	cmdList->beginRenderPass(1, &attachmentDesc, &depthBufferDesc, renderRect, false);

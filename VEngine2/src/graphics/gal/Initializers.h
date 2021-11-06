@@ -16,8 +16,6 @@ namespace gal
 		DescriptorSetUpdate sampler(const Sampler *sampler, uint32_t binding, uint32_t arrayElement = 0);
 		DescriptorSetUpdate texture(const ImageView *const *images, uint32_t binding, uint32_t arrayElement = 0, uint32_t count = 1);
 		DescriptorSetUpdate texture(const ImageView *image, uint32_t binding, uint32_t arrayElement = 0);
-		DescriptorSetUpdate depthStencilTexture(const ImageView *const *images, uint32_t binding, uint32_t arrayElement = 0, uint32_t count = 1);
-		DescriptorSetUpdate depthStencilTexture(const ImageView *image, uint32_t binding, uint32_t arrayElement = 0);
 		DescriptorSetUpdate rwTexture(const ImageView *const *images, uint32_t binding, uint32_t arrayElement = 0, uint32_t count = 1);
 		DescriptorSetUpdate rwTexture(const ImageView *image, uint32_t binding, uint32_t arrayElement = 0);
 		DescriptorSetUpdate typedBuffer(const BufferView *const *buffers, uint32_t binding, uint32_t arrayElement = 0, uint32_t count = 1);

@@ -5,6 +5,7 @@
 #include <EASTL/vector.h>
 #include "utility/Utility.h"
 #include "utility/allocator/DefaultAllocator.h"
+#include "../Initializers.h"
 
 gal::DescriptorSetLayoutVk::DescriptorSetLayoutVk(VkDevice device, uint32_t bindingCount, const VkDescriptorSetLayoutBinding *bindings, const VkDescriptorBindingFlags *bindingFlags)
 	:m_device(device),
@@ -78,7 +79,6 @@ void gal::DescriptorSetVk::update(uint32_t count, const DescriptorSetUpdate *upd
 			{
 			case DescriptorType::SAMPLER:
 			case DescriptorType::TEXTURE:
-			case DescriptorType::DEPTH_STENCIL_TEXTURE:
 			case DescriptorType::RW_TEXTURE:
 				imageInfoReserveCount += update.m_descriptorCount;
 				break;
@@ -147,18 +147,9 @@ void gal::DescriptorSetVk::update(uint32_t count, const DescriptorSetUpdate *upd
 				for (size_t k = 0; k < update.m_descriptorCount; ++k)
 				{
 					const ImageView *view = update.m_imageViews ? update.m_imageViews[k] : update.m_imageView;
-					imageInfos.push_back({ VK_NULL_HANDLE, (VkImageView)view->getNativeHandle(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-				}
-				write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-				write.pImageInfo = imageInfos.data() + imageInfos.size() - update.m_descriptorCount;
-				break;
-			}
-			case DescriptorType::DEPTH_STENCIL_TEXTURE:
-			{
-				for (size_t k = 0; k < update.m_descriptorCount; ++k)
-				{
-					const ImageView *view = update.m_imageViews ? update.m_imageViews[k] : update.m_imageView;
-					imageInfos.push_back({ VK_NULL_HANDLE, (VkImageView)view->getNativeHandle(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL });
+					const auto format = view->getDescription().m_format;
+					const auto layout = Initializers::isDepthFormat(format) || Initializers::isStencilFormat(format) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+					imageInfos.push_back({ VK_NULL_HANDLE, (VkImageView)view->getNativeHandle(), layout });
 				}
 				write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 				write.pImageInfo = imageInfos.data() + imageInfos.size() - update.m_descriptorCount;

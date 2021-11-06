@@ -92,16 +92,15 @@ namespace gal
 	{
 		SAMPLER = 0,
 		TEXTURE = 1,
-		DEPTH_STENCIL_TEXTURE = 2,
-		RW_TEXTURE = 3,
-		TYPED_BUFFER = 4,
-		RW_TYPED_BUFFER = 5,
-		CONSTANT_BUFFER = 6,
-		BYTE_BUFFER = 7,
-		RW_BYTE_BUFFER = 8,
-		STRUCTURED_BUFFER = 9,
-		RW_STRUCTURED_BUFFER = 10,
-		OFFSET_CONSTANT_BUFFER = 11,
+		RW_TEXTURE = 2,
+		TYPED_BUFFER = 3,
+		RW_TYPED_BUFFER = 4,
+		CONSTANT_BUFFER = 5,
+		BYTE_BUFFER = 6,
+		RW_BYTE_BUFFER = 7,
+		STRUCTURED_BUFFER = 8,
+		RW_STRUCTURED_BUFFER = 9,
+		OFFSET_CONSTANT_BUFFER = 10,
 		RANGE_SIZE = OFFSET_CONSTANT_BUFFER + 1
 	};
 
@@ -842,7 +841,7 @@ namespace gal
 		AttachmentLoadOp m_stencilLoadOp;
 		AttachmentStoreOp m_stencilStoreOp;
 		ClearDepthStencilValue m_clearValue;
-		ResourceState m_imageState;
+		bool m_readOnly;
 	};
 
 	struct ShaderStageCreateInfo
@@ -1197,13 +1196,13 @@ namespace gal
 		virtual void dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) = 0;
 		virtual void dispatchIndirect(const Buffer *buffer, uint64_t offset) = 0;
 		virtual void copyBuffer(const Buffer *srcBuffer, const Buffer *dstBuffer, uint32_t regionCount, const BufferCopy *regions) = 0;
-		virtual void copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions, ResourceState srcImageState = ResourceState::READ_TRANSFER, ResourceState dstImageState = ResourceState::WRITE_TRANSFER) = 0;
-		virtual void copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions, ResourceState dstImageState = ResourceState::WRITE_TRANSFER) = 0;
-		virtual void copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions, ResourceState srcImageState = ResourceState::READ_TRANSFER) = 0;
+		virtual void copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions) = 0;
+		virtual void copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions) = 0;
+		virtual void copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions) = 0;
 		virtual void updateBuffer(const Buffer *dstBuffer, uint64_t dstOffset, uint64_t dataSize, const void *data) = 0;
 		virtual void fillBuffer(const Buffer *dstBuffer, uint64_t dstOffset, uint64_t size, uint32_t data) = 0;
-		virtual void clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState = ResourceState::CLEAR_RESOURCE) = 0;
-		virtual void clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState = ResourceState::CLEAR_RESOURCE) = 0;
+		virtual void clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges) = 0;
+		virtual void clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges) = 0;
 		virtual void barrier(uint32_t count, const Barrier *barriers) = 0;
 		virtual void beginQuery(const QueryPool *queryPool, uint32_t query) = 0;
 		virtual void endQuery(const QueryPool *queryPool, uint32_t query) = 0;

@@ -65,7 +65,6 @@ void gal::DescriptorSetDx12::update(uint32_t count, const DescriptorSetUpdate *u
 				break;
 			}
 			case DescriptorType::TEXTURE:
-			case DescriptorType::DEPTH_STENCIL_TEXTURE:
 			{
 				copy = true;
 				const ImageViewDx12 *imageViewDx = dynamic_cast<const ImageViewDx12 *>(update.m_imageViews ? update.m_imageViews[j] : update.m_imageView);

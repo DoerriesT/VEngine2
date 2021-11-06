@@ -925,7 +925,6 @@ void gal::GraphicsDeviceVk::createDescriptorSetLayout(uint32_t bindingCount, con
 			typeVk = VK_DESCRIPTOR_TYPE_SAMPLER;
 			break;
 		case DescriptorType::TEXTURE:
-		case DescriptorType::DEPTH_STENCIL_TEXTURE:
 			typeVk = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 			break;
 		case  DescriptorType::RW_TEXTURE:

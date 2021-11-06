@@ -932,16 +932,6 @@ DescriptorSetUpdate gal::Initializers::texture(const ImageView *image, uint32_t 
 	return { binding, arrayElement, 1, DescriptorType::TEXTURE, nullptr, nullptr, nullptr, nullptr, nullptr, image };
 }
 
-DescriptorSetUpdate Initializers::depthStencilTexture(const ImageView *const *images, uint32_t binding, uint32_t arrayElement, uint32_t count)
-{
-	return { binding, arrayElement, count, DescriptorType::DEPTH_STENCIL_TEXTURE, nullptr, images, nullptr, nullptr };
-}
-
-DescriptorSetUpdate gal::Initializers::depthStencilTexture(const ImageView *image, uint32_t binding, uint32_t arrayElement)
-{
-	return { binding, arrayElement, 1, DescriptorType::DEPTH_STENCIL_TEXTURE, nullptr, nullptr, nullptr, nullptr, nullptr, image };
-}
-
 DescriptorSetUpdate Initializers::rwTexture(const ImageView *const *images, uint32_t binding, uint32_t arrayElement, uint32_t count)
 {
 	return { binding, arrayElement, count, DescriptorType::RW_TEXTURE, nullptr, images, nullptr, nullptr };

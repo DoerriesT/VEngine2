@@ -74,7 +74,7 @@ void GridPass::record(gal::CommandList *cmdList, const Data &data)
 	memcpy(mappedPtr, &consts, sizeof(consts));
 
 	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE };
-	gal::DepthStencilAttachmentDescription depthBufferDesc{ data.m_depthBufferAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE, {}, gal::ResourceState::WRITE_DEPTH_STENCIL };
+	gal::DepthStencilAttachmentDescription depthBufferDesc{ data.m_depthBufferAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE };
 	gal::Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
 	cmdList->beginRenderPass(1, &attachmentDesc, &depthBufferDesc, renderRect, false);

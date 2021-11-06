@@ -8,6 +8,7 @@
 #include "FramebufferDescriptionVk.h"
 #include "UtilityVk.h"
 #include "utility/allocator/DefaultAllocator.h"
+#include "../Initializers.h"
 
 namespace
 {
@@ -20,7 +21,7 @@ namespace
 		bool m_writeAccess;
 	};
 
-	static ResourceStateInfo getResourceStateInfo(gal::ResourceState state, VkPipelineStageFlags stageFlags, bool isImage)
+	static ResourceStateInfo getResourceStateInfo(gal::ResourceState state, VkPipelineStageFlags stageFlags, bool isImage, gal::Format imageFormat)
 	{
 		using namespace gal;
 
@@ -36,7 +37,7 @@ namespace
 		{
 			result.m_stageMask |= stageFlags;
 			result.m_accessMask |= VK_ACCESS_SHADER_READ_BIT;
-			result.m_layout = (result.m_layout == VK_IMAGE_LAYOUT_UNDEFINED) ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			result.m_layout = Initializers::isDepthFormat(imageFormat) || Initializers::isStencilFormat(imageFormat) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			result.m_readAccess = true;
 		}
 
@@ -45,8 +46,7 @@ namespace
 			assert(isImage);
 			result.m_stageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 			result.m_accessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-			result.m_layout = (result.m_layout == VK_IMAGE_LAYOUT_UNDEFINED || result.m_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-				? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			result.m_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 			result.m_readAccess = true;
 		}
 
@@ -84,9 +84,10 @@ namespace
 
 		if ((state & ResourceState::READ_TRANSFER) != 0)
 		{
+			assert(!isImage || state == ResourceState::READ_TRANSFER); // READ_TRANSFER is an exclusive state on image resources
 			result.m_stageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			result.m_accessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-			result.m_layout = (result.m_layout == VK_IMAGE_LAYOUT_UNDEFINED) ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
+			result.m_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 			result.m_readAccess = true;
 		}
 
@@ -359,7 +360,7 @@ void gal::CommandListVk::copyBuffer(const Buffer *srcBuffer, const Buffer *dstBu
 	vkCmdCopyBuffer(m_commandBuffer, (VkBuffer)srcBuffer->getNativeHandle(), (VkBuffer)dstBuffer->getNativeHandle(), regionCount, reinterpret_cast<const VkBufferCopy *>(regions));
 }
 
-void gal::CommandListVk::copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions, ResourceState srcImageState, ResourceState dstImageState)
+void gal::CommandListVk::copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -383,12 +384,10 @@ void gal::CommandListVk::copyImage(const Image *srcImage, const Image *dstImage,
 		};
 	}
 
-	auto srcLayout = getResourceStateInfo(srcImageState, 0, true).m_layout;
-	auto dstLayout = getResourceStateInfo(dstImageState, 0, true).m_layout;
-	vkCmdCopyImage(m_commandBuffer, srcImageVk, srcLayout, dstImageVk, dstLayout, regionCount, regionsVk);
+	vkCmdCopyImage(m_commandBuffer, srcImageVk, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regionCount, regionsVk);
 }
 
-void gal::CommandListVk::copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions, ResourceState dstImageState)
+void gal::CommandListVk::copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -412,10 +411,10 @@ void gal::CommandListVk::copyBufferToImage(const Buffer *srcBuffer, const Image 
 		};
 	}
 
-	vkCmdCopyBufferToImage(m_commandBuffer, srcBufferVk, dstImageVk, getResourceStateInfo(dstImageState, 0, true).m_layout, regionCount, regionsVk);
+	vkCmdCopyBufferToImage(m_commandBuffer, srcBufferVk, dstImageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, regionCount, regionsVk);
 }
 
-void gal::CommandListVk::copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions, ResourceState srcImageState)
+void gal::CommandListVk::copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -439,7 +438,7 @@ void gal::CommandListVk::copyImageToBuffer(const Image *srcImage, const Buffer *
 		};
 	}
 
-	vkCmdCopyImageToBuffer(m_commandBuffer, srcImageVk, getResourceStateInfo(srcImageState, 0, true).m_layout, dstBufferVk, regionCount, regionsVk);
+	vkCmdCopyImageToBuffer(m_commandBuffer, srcImageVk, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstBufferVk, regionCount, regionsVk);
 }
 
 void gal::CommandListVk::updateBuffer(const Buffer *dstBuffer, uint64_t dstOffset, uint64_t dataSize, const void *data)
@@ -452,7 +451,7 @@ void gal::CommandListVk::fillBuffer(const Buffer *dstBuffer, uint64_t dstOffset,
 	vkCmdFillBuffer(m_commandBuffer, (VkBuffer)dstBuffer->getNativeHandle(), dstOffset, size, data);
 }
 
-void gal::CommandListVk::clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState)
+void gal::CommandListVk::clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -465,10 +464,10 @@ void gal::CommandListVk::clearColorImage(const Image *image, const ClearColorVal
 		rangesVk[i] = { VK_IMAGE_ASPECT_COLOR_BIT, range.m_baseMipLevel, range.m_levelCount, range.m_baseArrayLayer, range.m_layerCount };
 	}
 
-	vkCmdClearColorImage(m_commandBuffer, imageVk, getResourceStateInfo(imageState, 0, true).m_layout, reinterpret_cast<const VkClearColorValue *>(color), rangeCount, rangesVk);
+	vkCmdClearColorImage(m_commandBuffer, imageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, reinterpret_cast<const VkClearColorValue *>(color), rangeCount, rangesVk);
 }
 
-void gal::CommandListVk::clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState)
+void gal::CommandListVk::clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges)
 {
 	LinearAllocatorFrame linearAllocatorFrame(&m_linearAllocator);
 
@@ -482,7 +481,7 @@ void gal::CommandListVk::clearDepthStencilImage(const Image *image, const ClearD
 		rangesVk[i] = { imageAspectMask, range.m_baseMipLevel, range.m_levelCount, range.m_baseArrayLayer, range.m_layerCount };
 	}
 
-	vkCmdClearDepthStencilImage(m_commandBuffer, imageVk, getResourceStateInfo(imageState, 0, true).m_layout, reinterpret_cast<const VkClearDepthStencilValue *>(depthStencil), rangeCount, rangesVk);
+	vkCmdClearDepthStencilImage(m_commandBuffer, imageVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, reinterpret_cast<const VkClearDepthStencilValue *>(depthStencil), rangeCount, rangesVk);
 }
 
 void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
@@ -510,8 +509,9 @@ void gal::CommandListVk::barrier(uint32_t count, const Barrier *barriers)
 			continue;
 		}
 
-		const auto beforeStateInfo = getResourceStateInfo(barrier.m_stateBefore, UtilityVk::translatePipelineStageFlags(barrier.m_stagesBefore), bool(barrier.m_image));
-		const auto afterStateInfo = getResourceStateInfo(barrier.m_stateAfter, UtilityVk::translatePipelineStageFlags(barrier.m_stagesAfter), bool(barrier.m_image));
+		const auto imageFormat = barrier.m_image ? barrier.m_image->getDescription().m_format : Format::UNDEFINED;
+		const auto beforeStateInfo = getResourceStateInfo(barrier.m_stateBefore, UtilityVk::translatePipelineStageFlags(barrier.m_stagesBefore), bool(barrier.m_image), imageFormat);
+		const auto afterStateInfo = getResourceStateInfo(barrier.m_stateAfter, UtilityVk::translatePipelineStageFlags(barrier.m_stagesAfter), bool(barrier.m_image), imageFormat);
 
 		const bool queueAcquire = (barrier.m_flags & BarrierFlags::QUEUE_OWNERSHIP_AQUIRE) != 0;
 		const bool queueRelease = (barrier.m_flags & BarrierFlags::QUEUE_OWNERSHIP_RELEASE) != 0;
@@ -684,7 +684,7 @@ void gal::CommandListVk::beginRenderPass(uint32_t colorAttachmentCount, ColorAtt
 		attachmentDesc.m_storeOp = UtilityVk::translate(attachment.m_storeOp);
 		attachmentDesc.m_stencilLoadOp = UtilityVk::translate(attachment.m_stencilLoadOp);
 		attachmentDesc.m_stencilStoreOp = UtilityVk::translate(attachment.m_stencilStoreOp);
-		attachmentDesc.m_layout = getResourceStateInfo(attachment.m_imageState, 0, true).m_layout;
+		attachmentDesc.m_layout = attachment.m_readOnly ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		const auto &viewDesc = attachment.m_imageView->getDescription();
 

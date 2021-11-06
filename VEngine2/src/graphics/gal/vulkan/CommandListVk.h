@@ -36,13 +36,13 @@ namespace gal
 		void dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override;
 		void dispatchIndirect(const Buffer *buffer, uint64_t offset) override;
 		void copyBuffer(const Buffer *srcBuffer, const Buffer *dstBuffer, uint32_t regionCount, const BufferCopy *regions) override;
-		void copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions, ResourceState srcImageState = ResourceState::READ_TRANSFER, ResourceState dstImageState = ResourceState::WRITE_TRANSFER) override;
-		void copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions, ResourceState dstImageState = ResourceState::WRITE_TRANSFER) override;
-		void copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions, ResourceState srcImageState = ResourceState::READ_TRANSFER) override;
+		void copyImage(const Image *srcImage, const Image *dstImage, uint32_t regionCount, const ImageCopy *regions) override;
+		void copyBufferToImage(const Buffer *srcBuffer, const Image *dstImage, uint32_t regionCount, const BufferImageCopy *regions) override;
+		void copyImageToBuffer(const Image *srcImage, const Buffer *dstBuffer, uint32_t regionCount, const BufferImageCopy *regions) override;
 		void updateBuffer(const Buffer *dstBuffer, uint64_t dstOffset, uint64_t dataSize, const void *data) override;
 		void fillBuffer(const Buffer *dstBuffer, uint64_t dstOffset, uint64_t size, uint32_t data) override;
-		void clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState = ResourceState::CLEAR_RESOURCE) override;
-		void clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges, ResourceState imageState = ResourceState::CLEAR_RESOURCE) override;
+		void clearColorImage(const Image *image, const ClearColorValue *color, uint32_t rangeCount, const ImageSubresourceRange *ranges) override;
+		void clearDepthStencilImage(const Image *image, const ClearDepthStencilValue *depthStencil, uint32_t rangeCount, const ImageSubresourceRange *ranges) override;
 		void barrier(uint32_t count, const Barrier *barriers) override;
 		void beginQuery(const QueryPool *queryPool, uint32_t query) override;
 		void endQuery(const QueryPool *queryPool, uint32_t query) override;
