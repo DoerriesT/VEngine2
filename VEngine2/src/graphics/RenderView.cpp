@@ -12,6 +12,9 @@
 #include <glm/gtx/transform.hpp>
 #include "MeshManager.h"
 #include "animation/Skeleton.h"
+#include "RenderGraph.h"
+
+using namespace gal;
 
 RenderView::RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
 	:m_ecs(ecs),
@@ -33,43 +36,30 @@ RenderView::~RenderView()
 	delete m_renderViewResources;
 }
 
-void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferAllocator, gal::DescriptorSet *offsetBufferSet, const float *viewMatrix, const float *projectionMatrix, const float *cameraPosition, bool transitionResultToTexture) noexcept
+void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllocator, gal::DescriptorSet *offsetBufferSet, const float *viewMatrix, const float *projectionMatrix, const float *cameraPosition, bool transitionResultToTexture) noexcept
 {
 	if (m_width == 0 || m_height == 0)
 	{
 		return;
 	}
 
-	{
-		gal::Barrier barriers[] =
-		{
-			gal::Initializers::imageBarrier(
-				m_renderViewResources->m_resultImage,
-				m_renderViewResources->m_resultImagePipelineStages,
-				gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
-				m_renderViewResources->m_resultImageResourceState,
-				gal::ResourceState::WRITE_COLOR_ATTACHMENT),
-			gal::Initializers::imageBarrier(
-				m_renderViewResources->m_depthBufferImage,
-				m_renderViewResources->m_depthBufferImagePipelineStages,
-				gal::PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | gal::PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT,
-				m_renderViewResources->m_depthBufferImageResourceState,
-				gal::ResourceState::WRITE_DEPTH_STENCIL)
-		};
+	// result image
+	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
+	rg::ResourceViewHandle resultImageViewHandle = m_resultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Render View Result", resultImageHandle, graph));
 
-		cmdList->barrier(2, barriers);
+	// depth buffer
+	rg::ResourceHandle depthBufferImageHandle = graph->createImage(
+		rg::ImageDesc::create(
+			"Depth Buffer", Format::D32_SFLOAT,
+			ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT,
+			m_width, m_height)
+	);
+	rg::ResourceViewHandle depthBufferImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Depth Buffer", depthBufferImageHandle, graph));
 
-		m_renderViewResources->m_resultImagePipelineStages = gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT;
-		m_renderViewResources->m_resultImageResourceState = gal::ResourceState::WRITE_COLOR_ATTACHMENT;
-		m_renderViewResources->m_depthBufferImagePipelineStages = gal::PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | gal::PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT;
-		m_renderViewResources->m_depthBufferImageResourceState = gal::ResourceState::WRITE_DEPTH_STENCIL;
-	}
-
-	eastl::vector<glm::mat4> modelMatrices;
-	eastl::vector<SubMeshDrawInfo> meshDrawInfo;
-	eastl::vector<SubMeshBufferHandles> meshBufferHandles;
-	eastl::vector<uint32_t> skinningMatrixOffsets;
-
+	m_modelMatrices.clear();
+	m_meshDrawInfo.clear();
+	m_meshBufferHandles.clear();
+	m_skinningMatrixOffsets.clear();
 
 	m_ecs->iterate<TransformComponent, MeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC)
 		{
@@ -85,15 +75,15 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 				const auto &submeshhandles = mc.m_mesh->getSubMeshhandles();
 				for (auto h : submeshhandles)
 				{
-					modelMatrices.push_back(modelMatrix);
-					meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
-					meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
+					m_modelMatrices.push_back(modelMatrix);
+					m_meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
+					m_meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
 				}
 				
 			}
 		});
 
-	uint32_t meshCount = static_cast<uint32_t>(modelMatrices.size());
+	uint32_t meshCount = static_cast<uint32_t>(m_modelMatrices.size());
 
 	uint32_t curSkinningMatrixOffset = 0;
 
@@ -118,10 +108,10 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 				const auto &submeshhandles = smc.m_mesh->getSubMeshhandles();
 				for (auto h : submeshhandles)
 				{
-					modelMatrices.push_back(modelMatrix);
-					meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
-					meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
-					skinningMatrixOffsets.push_back(curSkinningMatrixOffset);
+					m_modelMatrices.push_back(modelMatrix);
+					m_meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
+					m_meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
+					m_skinningMatrixOffsets.push_back(curSkinningMatrixOffset);
 				}
 
 				assert(curSkinningMatrixOffset + smc.m_matrixPalette.size() <= 1024);
@@ -133,7 +123,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 
 	m_renderViewResources->m_skinningMatricesBuffers[m_frame & 1]->unmap();
 
-	uint32_t skinnedMeshCount = static_cast<uint32_t>(modelMatrices.size()) - meshCount;
+	uint32_t skinnedMeshCount = static_cast<uint32_t>(m_modelMatrices.size()) - meshCount;
 
 	MeshPass::Data meshPassData{};
 	meshPassData.m_profilingCtx = m_device->getProfilingContext();
@@ -144,16 +134,16 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	meshPassData.m_height = m_height;
 	meshPassData.m_meshCount = meshCount;
 	meshPassData.m_skinnedMeshCount = skinnedMeshCount;
-	meshPassData.m_colorAttachment = m_renderViewResources->m_resultImageView;
-	meshPassData.m_depthBufferAttachment = m_renderViewResources->m_depthBufferImageView;
+	meshPassData.m_colorAttachment = resultImageViewHandle;
+	meshPassData.m_depthBufferAttachment = depthBufferImageViewHandle;
 	meshPassData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
 	meshPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
-	meshPassData.m_modelMatrices = modelMatrices.data();
-	meshPassData.m_meshDrawInfo = meshDrawInfo.data();
-	meshPassData.m_meshBufferHandles = meshBufferHandles.data();
-	meshPassData.m_skinningMatrixOffsets = skinningMatrixOffsets.data();
+	meshPassData.m_modelMatrices = m_modelMatrices.data();
+	meshPassData.m_meshDrawInfo = m_meshDrawInfo.data();
+	meshPassData.m_meshBufferHandles = m_meshBufferHandles.data();
+	meshPassData.m_skinningMatrixOffsets = m_skinningMatrixOffsets.data();
 
-	m_meshPass->record(cmdList, meshPassData);
+	m_meshPass->record(graph, meshPassData);
 	
 
 	GridPass::Data gridPassData{};
@@ -162,8 +152,8 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	gridPassData.m_offsetBufferSet = offsetBufferSet;
 	gridPassData.m_width = m_width;
 	gridPassData.m_height = m_height;
-	gridPassData.m_colorAttachment = m_renderViewResources->m_resultImageView;
-	gridPassData.m_depthBufferAttachment = m_renderViewResources->m_depthBufferImageView;
+	gridPassData.m_colorAttachment = resultImageViewHandle;
+	gridPassData.m_depthBufferAttachment = depthBufferImageViewHandle;
 	gridPassData.m_modelMatrix = glm::mat4(1.0f);
 	gridPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
@@ -172,21 +162,7 @@ void RenderView::render(gal::CommandList *cmdList, BufferStackAllocator *bufferA
 	gridPassData.m_cellSize = 1.0f;
 	gridPassData.m_gridSize = 1000.0f;
 
-	m_gridPass->record(cmdList, gridPassData);
-
-	{
-		gal::Barrier b1 = gal::Initializers::imageBarrier(
-			m_renderViewResources->m_resultImage,
-			m_renderViewResources->m_resultImagePipelineStages,
-			transitionResultToTexture ? gal::PipelineStageFlags::PIXEL_SHADER_BIT : gal::PipelineStageFlags::TRANSFER_BIT,
-			m_renderViewResources->m_resultImageResourceState,
-			transitionResultToTexture ? gal::ResourceState::READ_RESOURCE : gal::ResourceState::READ_TRANSFER);
-
-		cmdList->barrier(1, &b1);
-
-		m_renderViewResources->m_resultImagePipelineStages = transitionResultToTexture ? gal::PipelineStageFlags::PIXEL_SHADER_BIT : gal::PipelineStageFlags::TRANSFER_BIT;
-		m_renderViewResources->m_resultImageResourceState = transitionResultToTexture ? gal::ResourceState::READ_RESOURCE : gal::ResourceState::READ_TRANSFER;
-	}
+	m_gridPass->record(graph, gridPassData);
 
 	++m_frame;
 }
@@ -214,4 +190,9 @@ gal::ImageView *RenderView::getResultImageView() const noexcept
 TextureViewHandle RenderView::getResultTextureViewHandle() const noexcept
 {
 	return m_renderViewResources->m_resultImageTextureViewHandle;
+}
+
+rg::ResourceViewHandle RenderView::getResultRGViewHandle() const noexcept
+{
+	return m_resultImageViewHandle;
 }

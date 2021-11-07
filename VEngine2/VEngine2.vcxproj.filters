@@ -582,6 +582,12 @@
     <ClInclude Include="src\job\ParallelFor.h">
       <Filter>src\job</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\RenderGraph.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\CommandListFramePool.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1027,6 +1033,12 @@
     </ClCompile>
     <ClCompile Include="src\job\JobSystem.cpp">
       <Filter>src\job</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\RenderGraph.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\CommandListFramePool.cpp">
+      <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

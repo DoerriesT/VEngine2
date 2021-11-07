@@ -23,6 +23,11 @@ class ImGuiPass;
 
 typedef void *ImTextureID;
 
+namespace rg
+{
+	class RenderGraph;
+}
+
 class Renderer
 {
 public:
@@ -49,19 +54,15 @@ public:
 private:
 	ECS *m_ecs = nullptr;
 	gal::GraphicsDevice *m_device = nullptr;
-	gal::Queue *m_graphicsQueue = nullptr;
 	gal::SwapChain *m_swapChain = nullptr;
-	gal::Semaphore *m_semaphore = nullptr;
-	gal::CommandListPool *m_cmdListPools[2] = {};
-	gal::CommandList *m_cmdLists[2] = {};
-	uint64_t m_semaphoreValue = 0;
-	uint64_t m_waitValues[2] = {};
+	gal::Semaphore *m_semaphores[3] = {};
+	uint64_t m_semaphoreValues[3] = {};
+	rg::RenderGraph *m_renderGraph = nullptr;
 	uint64_t m_frame = 0;
 	uint32_t m_swapchainWidth = 1;
 	uint32_t m_swapchainHeight = 1;
 	uint32_t m_width = 1;
 	uint32_t m_height = 1;
-	gal::ImageView *m_imageViews[3] = {};
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;
 	MeshManager *m_meshManager = nullptr;

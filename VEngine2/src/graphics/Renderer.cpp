@@ -17,6 +17,7 @@
 #include "Camera.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
+#include "RenderGraph.h"
 
 Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height) noexcept
 	:m_ecs(ecs)
@@ -27,13 +28,15 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 	m_height = height;
 
 	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::VULKAN);
-	m_graphicsQueue = m_device->getGraphicsQueue();
-	m_device->createSwapChain(m_graphicsQueue, m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::V_SYNC, &m_swapChain);
-	m_device->createSemaphore(0, &m_semaphore);
-	m_device->createCommandListPool(m_graphicsQueue, &m_cmdListPools[0]);
-	m_device->createCommandListPool(m_graphicsQueue, &m_cmdListPools[1]);
-	m_cmdListPools[0]->allocate(1, &m_cmdLists[0]);
-	m_cmdListPools[1]->allocate(1, &m_cmdLists[1]);
+	m_device->createSwapChain(m_device->getGraphicsQueue(), m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::V_SYNC, &m_swapChain);
+	
+	m_device->createSemaphore(0, &m_semaphores[0]);
+	m_device->createSemaphore(0, &m_semaphores[1]);
+	m_device->createSemaphore(0, &m_semaphores[2]);
+
+	m_device->setDebugObjectName(gal::ObjectType::SEMAPHORE, m_semaphores[0], "Graphics Queue Semaphore");
+	m_device->setDebugObjectName(gal::ObjectType::SEMAPHORE, m_semaphores[1], "Compute Queue Semaphore");
+	m_device->setDebugObjectName(gal::ObjectType::SEMAPHORE, m_semaphores[2], "Transfer Queue Semaphore");
 
 	m_viewRegistry = new ResourceViewRegistry(m_device);
 	m_rendererResources = new RendererResources(m_device, m_viewRegistry);
@@ -43,6 +46,8 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 	m_textureManager = new TextureManager(m_device, m_viewRegistry);
 	m_materialManager = new MaterialManager(m_textureManager);
 
+	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
+
 	m_renderView = new RenderView(m_ecs, m_device, m_viewRegistry, m_meshManager, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
@@ -51,12 +56,8 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 Renderer::~Renderer() noexcept
 {
 	m_device->waitIdle();
-	m_cmdListPools[0]->free(1, &m_cmdLists[0]);
-	m_cmdListPools[1]->free(1, &m_cmdLists[1]);
-	m_device->destroyCommandListPool(m_cmdListPools[0]);
-	m_device->destroyCommandListPool(m_cmdListPools[1]);
-	m_device->destroySemaphore(m_semaphore);
-	m_device->destroySwapChain();
+	delete m_renderGraph;
+	m_renderGraph = nullptr;
 
 	delete m_imguiPass;
 	delete m_renderView;
@@ -67,11 +68,10 @@ Renderer::~Renderer() noexcept
 	delete m_rendererResources;
 	delete m_viewRegistry;
 
-	for (size_t i = 0; i < 3; ++i)
-	{
-		m_device->destroyImageView(m_imageViews[i]);
-		m_imageViews[i] = nullptr;
-	}
+	m_device->destroySemaphore(m_semaphores[0]);
+	m_device->destroySemaphore(m_semaphores[1]);
+	m_device->destroySemaphore(m_semaphores[2]);
+	m_device->destroySwapChain();
 
 	gal::GraphicsDevice::destroy(m_device);
 }
@@ -80,11 +80,10 @@ void Renderer::render() noexcept
 {
 	PROFILING_ZONE_SCOPED;
 
-	m_semaphore->wait(m_waitValues[m_frame & 1]);
+	m_renderGraph->nextFrame();
 
 	PROFILING_GPU_NEW_FRAME(m_device->getProfilingContext());
 
-	m_cmdListPools[m_frame & 1]->reset();
 	m_rendererResources->m_constantBufferStackAllocators[m_frame & 1]->reset();
 	m_rendererResources->m_indexBufferStackAllocators[m_frame & 1]->reset();
 	m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1]->reset();
@@ -93,15 +92,16 @@ void Renderer::render() noexcept
 	m_textureManager->flushDeletionQueue(m_frame);
 	m_meshManager->flushDeletionQueue(m_frame);
 
-	gal::CommandList *cmdList = m_cmdLists[m_frame & 1];
-
-	cmdList->begin();
 	{
 		PROFILING_ZONE_SCOPED_N("Record CommandList");
 
 		// upload textures and meshes
-		m_textureLoader->flushUploadCopies(cmdList, m_frame);
-		m_meshManager->flushUploadCopies(cmdList, m_frame);
+		m_renderGraph->addPass("Flush Uploads", rg::QueueType::GRAPHICS, 0, nullptr, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+			{
+				m_textureLoader->flushUploadCopies(cmdList, m_frame);
+				m_meshManager->flushUploadCopies(cmdList, m_frame);
+			});
+		
 
 		// render views
 		if (m_cameraEntity != k_nullEntity)
@@ -116,7 +116,7 @@ void Renderer::render() noexcept
 				auto projMatrix = camera.getProjectionMatrix();
 
 				m_renderView->render(
-					cmdList, 
+					m_renderGraph,
 					m_rendererResources->m_constantBufferStackAllocators[m_frame & 1],
 					m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], 
 					&viewMatrix[0][0], 
@@ -130,50 +130,30 @@ void Renderer::render() noexcept
 		if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 		{
 			auto swapchainIndex = m_swapChain->getCurrentImageIndex();
-			gal::Image *image = m_swapChain->getImage(swapchainIndex);
-			if (!m_imageViews[swapchainIndex])
-			{
-				m_device->createImageView(image, &m_imageViews[swapchainIndex]);
-			}
+			rg::ResourceHandle swapchainImageHandle = m_renderGraph->importImage(m_swapChain->getImage(swapchainIndex), "Swapchain Image");
+			rg::ResourceViewHandle swapchainViewHandle = m_renderGraph->createImageView(rg::ImageViewDesc::createDefault("Swapchain Image View", swapchainImageHandle, m_renderGraph));
+
+			rg::ResourceViewHandle renderViewResultImageViewHandle = m_renderView->getResultRGViewHandle();
 
 			// copy view to swap chain
 			if (!m_editorMode)
 			{
-				gal::Barrier b0 = gal::Initializers::imageBarrier(
-					image,
-					gal::PipelineStageFlags::TOP_OF_PIPE_BIT,
-					gal::PipelineStageFlags::TRANSFER_BIT,
-					gal::ResourceState::UNDEFINED,
-					gal::ResourceState::WRITE_TRANSFER);
-
-				cmdList->barrier(1, &b0);
-
-				gal::ImageCopy imageCopy{};
-				imageCopy.m_srcLayerCount = 1;
-				imageCopy.m_dstLayerCount = 1;
-				imageCopy.m_extent = { m_swapchainWidth, m_swapchainHeight, 1 };
-				cmdList->copyImage(m_renderView->getResultImage(), image, 1, &imageCopy);
-
-				gal::Barrier b1 = gal::Initializers::imageBarrier(
-					image,
-					gal::PipelineStageFlags::TRANSFER_BIT,
-					gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
-					gal::ResourceState::WRITE_TRANSFER,
-					gal::ResourceState::PRESENT);
-
-				cmdList->barrier(1, &b1);
+				rg::ResourceUsageDesc usageDescs[] =
+				{
+					{renderViewResultImageViewHandle, {gal::ResourceState::READ_TRANSFER}},
+					{swapchainViewHandle, {gal::ResourceState::WRITE_TRANSFER}},
+				};
+				m_renderGraph->addPass("Copy To Swapchain", rg::QueueType::GRAPHICS, eastl::size(usageDescs), usageDescs, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+					{
+						gal::ImageCopy imageCopy{};
+						imageCopy.m_srcLayerCount = 1;
+						imageCopy.m_dstLayerCount = 1;
+						imageCopy.m_extent = { m_swapchainWidth, m_swapchainHeight, 1 };
+						cmdList->copyImage(registry.getImage(renderViewResultImageViewHandle), registry.getImage(swapchainViewHandle), 1, &imageCopy);
+					});
 			}
 			else
 			{
-				gal::Barrier b0 = gal::Initializers::imageBarrier(
-					image,
-					gal::PipelineStageFlags::TOP_OF_PIPE_BIT,
-					gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
-					gal::ResourceState::UNDEFINED,
-					gal::ResourceState::WRITE_COLOR_ATTACHMENT);
-
-				cmdList->barrier(1, &b0);
-
 				// imgui
 				{
 					ImGuiPass::Data imguiPassData{};
@@ -183,46 +163,29 @@ void Renderer::render() noexcept
 					imguiPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 					imguiPassData.m_width = m_swapchainWidth;
 					imguiPassData.m_height = m_swapchainHeight;
-					imguiPassData.m_colorAttachment = m_imageViews[swapchainIndex];
+					imguiPassData.m_renderTargetHandle = swapchainViewHandle;
 					imguiPassData.m_clear = true;
 					imguiPassData.m_imGuiDrawData = ImGui::GetDrawData();
 
-					m_imguiPass->record(cmdList, imguiPassData);
+					m_imguiPass->record(m_renderGraph, imguiPassData);
 				}
-
-				gal::Barrier b2 = gal::Initializers::imageBarrier(
-					image,
-					gal::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT_BIT,
-					gal::PipelineStageFlags::BOTTOM_OF_PIPE_BIT,
-					gal::ResourceState::WRITE_COLOR_ATTACHMENT,
-					gal::ResourceState::PRESENT);
-
-				cmdList->barrier(1, &b2);
 			}
+
+			// have the swapchain image be transitioned to PRESENT
+			rg::ResourceUsageDesc presentTransitionUsageDesc = { swapchainViewHandle, {gal::ResourceState::PRESENT} };
+			m_renderGraph->addPass("Present Transition", rg::QueueType::GRAPHICS, 1, &presentTransitionUsageDesc, [=](gal::CommandList *, const rg::Registry &){});
 		}
 
 		PROFILING_GPU_COLLECT(m_device->getProfilingContext(), cmdList);
 	}
-	cmdList->end();
 
-	++m_semaphoreValue;
-
-	gal::SubmitInfo submitInfo{};
-	submitInfo.m_commandListCount = 1;
-	submitInfo.m_commandLists = &cmdList;
-	submitInfo.m_signalSemaphoreCount = 1;
-	submitInfo.m_signalSemaphores = &m_semaphore;
-	submitInfo.m_signalValues = &m_semaphoreValue;
-
-	m_graphicsQueue->submit(1, &submitInfo);
+	m_renderGraph->execute();
 
 	if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 	{
-		m_swapChain->present(m_semaphore, m_semaphoreValue, m_semaphore, m_semaphoreValue + 1);
-		++m_semaphoreValue;
+		m_swapChain->present(m_semaphores[0], m_semaphoreValues[0], m_semaphores[0], m_semaphoreValues[0] + 1);
+		++m_semaphoreValues[0];
 	}
-	
-	m_waitValues[m_frame & 1] = m_semaphoreValue;
 
 	m_viewRegistry->swapSets();
 
@@ -243,11 +206,6 @@ void Renderer::resize(uint32_t swapchainWidth, uint32_t swapchainHeight, uint32_
 		m_device->waitIdle();
 		isIdle = true;
 		m_swapChain->resize(m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::IMMEDIATE);
-		for (size_t i = 0; i < 3; ++i)
-		{
-			m_device->destroyImageView(m_imageViews[i]);
-			m_imageViews[i] = nullptr;
-		}
 	}
 
 	if (m_width != 0 && m_height != 0)

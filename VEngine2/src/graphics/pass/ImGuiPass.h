@@ -1,6 +1,7 @@
 #pragma once
 #include "graphics/gal/FwdDecl.h"
 #include <stdint.h>
+#include "../RenderGraph.h"
 
 class BufferStackAllocator;
 struct ImDrawData;
@@ -16,14 +17,14 @@ public:
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
 		uint32_t m_height;
-		gal::ImageView *m_colorAttachment;
+		rg::ResourceViewHandle m_renderTargetHandle;
 		bool m_clear;
 		ImDrawData *m_imGuiDrawData;
 	};
 
 	explicit ImGuiPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *bindlessSetLayout);
 	~ImGuiPass();
-	void record(gal::CommandList *cmdList, const Data &data);
+	void record(rg::RenderGraph *graph, const Data &data);
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;

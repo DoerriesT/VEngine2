@@ -39,57 +39,65 @@ GridPass::~GridPass()
 	m_device->destroyGraphicsPipeline(m_pipeline);
 }
 
-void GridPass::record(gal::CommandList *cmdList, const Data &data)
+void GridPass::record(rg::RenderGraph *graph, const Data &data)
 {
-	GAL_SCOPED_GPU_LABEL(cmdList, "Grid");
-	PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GridPass");
-	PROFILING_ZONE_SCOPED;
-
-	struct GridConstants
+	rg::ResourceUsageDesc usageDescs[] =
 	{
-		float modelMatrix[16];
-		float viewProjectionMatrix[16];
-		float thinLineColor[4];
-		float thickLineColor[4];
-		float cameraPos[3];
-		float cellSize;
-		float gridNormal[3];
-		float gridSize;
+		{data.m_colorAttachment, {gal::ResourceState::WRITE_COLOR_ATTACHMENT}},
+		{data.m_depthBufferAttachment, {gal::ResourceState::WRITE_DEPTH_STENCIL}},
 	};
+	graph->addPass("Grid", rg::QueueType::GRAPHICS, eastl::size(usageDescs), usageDescs, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+		{
+			GAL_SCOPED_GPU_LABEL(cmdList, "Grid");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GridPass");
+			PROFILING_ZONE_SCOPED;
 
-	glm::vec3 gridNormal = glm::normalize(glm::vec3(data.m_modelMatrix[1]));
-	GridConstants consts{};
-	memcpy(consts.modelMatrix, &data.m_modelMatrix, sizeof(consts.modelMatrix));
-	memcpy(consts.viewProjectionMatrix, &data.m_viewProjectionMatrix, sizeof(consts.viewProjectionMatrix));
-	memcpy(consts.thinLineColor, &data.m_thinLineColor, sizeof(consts.thinLineColor));
-	memcpy(consts.thickLineColor, &data.m_thickLineColor, sizeof(consts.thickLineColor));
-	memcpy(consts.cameraPos, &data.m_cameraPos, sizeof(consts.cameraPos));
-	consts.cellSize = data.m_cellSize;
-	memcpy(consts.gridNormal, &gridNormal, sizeof(consts.gridNormal));
-	consts.gridSize = data.m_gridSize;
+			struct GridConstants
+			{
+				float modelMatrix[16];
+				float viewProjectionMatrix[16];
+				float thinLineColor[4];
+				float thickLineColor[4];
+				float cameraPos[3];
+				float cellSize;
+				float gridNormal[3];
+				float gridSize;
+			};
 
-	uint64_t allocSize = sizeof(consts);
-	uint64_t allocOffset = 0;
-	auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-	memcpy(mappedPtr, &consts, sizeof(consts));
+			glm::vec3 gridNormal = glm::normalize(glm::vec3(data.m_modelMatrix[1]));
+			GridConstants consts{};
+			memcpy(consts.modelMatrix, &data.m_modelMatrix, sizeof(consts.modelMatrix));
+			memcpy(consts.viewProjectionMatrix, &data.m_viewProjectionMatrix, sizeof(consts.viewProjectionMatrix));
+			memcpy(consts.thinLineColor, &data.m_thinLineColor, sizeof(consts.thinLineColor));
+			memcpy(consts.thickLineColor, &data.m_thickLineColor, sizeof(consts.thickLineColor));
+			memcpy(consts.cameraPos, &data.m_cameraPos, sizeof(consts.cameraPos));
+			consts.cellSize = data.m_cellSize;
+			memcpy(consts.gridNormal, &gridNormal, sizeof(consts.gridNormal));
+			consts.gridSize = data.m_gridSize;
 
-	gal::ColorAttachmentDescription attachmentDesc{ data.m_colorAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE };
-	gal::DepthStencilAttachmentDescription depthBufferDesc{ data.m_depthBufferAttachment, gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE };
-	gal::Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+			uint64_t allocSize = sizeof(consts);
+			uint64_t allocOffset = 0;
+			auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
+			memcpy(mappedPtr, &consts, sizeof(consts));
 
-	cmdList->beginRenderPass(1, &attachmentDesc, &depthBufferDesc, renderRect, false);
-	{
-		cmdList->bindPipeline(m_pipeline);
+			gal::ColorAttachmentDescription attachmentDesc{ registry.getImageView(data.m_colorAttachment), gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE };
+			gal::DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferAttachment), gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE };
+			gal::Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
-		gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
-		cmdList->setViewport(0, 1, &viewport);
-		gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
-		cmdList->setScissor(0, 1, &scissor);
-		
-		uint32_t allocOffset32 = (uint32_t)allocOffset;
-		cmdList->bindDescriptorSets(m_pipeline, 0, 1, &data.m_offsetBufferSet, 1, &allocOffset32);
-		
-		cmdList->draw(6, 1, 0, 0);
-	}
-	cmdList->endRenderPass();
+			cmdList->beginRenderPass(1, &attachmentDesc, &depthBufferDesc, renderRect, false);
+			{
+				cmdList->bindPipeline(m_pipeline);
+
+				gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+				cmdList->setViewport(0, 1, &viewport);
+				gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+				cmdList->setScissor(0, 1, &scissor);
+
+				uint32_t allocOffset32 = (uint32_t)allocOffset;
+				cmdList->bindDescriptorSets(m_pipeline, 0, 1, &data.m_offsetBufferSet, 1, &allocOffset32);
+
+				cmdList->draw(6, 1, 0, 0);
+			}
+			cmdList->endRenderPass();
+		});
 }

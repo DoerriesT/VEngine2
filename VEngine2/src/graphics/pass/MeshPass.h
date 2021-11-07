@@ -1,6 +1,7 @@
 #pragma once
 #include "graphics/gal/FwdDecl.h"
 #include <glm/mat4x4.hpp>
+#include "../RenderGraph.h"
 
 class BufferStackAllocator;
 struct SubMeshDrawInfo;
@@ -19,8 +20,8 @@ public:
 		uint32_t m_height;
 		uint32_t m_meshCount;
 		uint32_t m_skinnedMeshCount;
-		gal::ImageView *m_colorAttachment;
-		gal::ImageView *m_depthBufferAttachment;
+		rg::ResourceViewHandle m_colorAttachment;
+		rg::ResourceViewHandle m_depthBufferAttachment;
 		uint32_t m_skinningMatrixBufferIndex;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::mat4 *m_modelMatrices;
@@ -31,7 +32,7 @@ public:
 
 	explicit MeshPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout);
 	~MeshPass();
-	void record(gal::CommandList *cmdList, const Data &data);
+	void record(rg::RenderGraph *graph, const Data &data);
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;

@@ -9,17 +9,23 @@ HandleManager::HandleManager(uint32_t maxHandle) noexcept
 
 uint32_t HandleManager::allocate(bool transient) noexcept
 {
+	uint32_t resultHandle = 0;
 	if (!m_freeHandles.empty())
 	{
-		uint32_t handle = m_freeHandles.back();
+		resultHandle = m_freeHandles.back();
 		m_freeHandles.pop_back();
-		return handle;
 	}
-	if (m_nextFreeHandle > m_maxHandle)
+	else if (m_nextFreeHandle <= m_maxHandle)
 	{
-		return 0;
+		resultHandle = m_nextFreeHandle++;
 	}
-	return m_nextFreeHandle++;
+
+	if (transient && resultHandle != 0)
+	{
+		m_transientHandles.push_back(resultHandle);
+	}
+
+	return resultHandle;
 }
 
 void HandleManager::free(uint32_t handle) noexcept

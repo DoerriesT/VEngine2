@@ -42,30 +42,9 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 
 		m_resultImageTextureViewHandle = m_viewRegistry->createTextureViewHandle(m_resultImageView);
 
-		m_resultImageResourceState = gal::ResourceState::UNDEFINED;
-		m_resultImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
+		m_resultImageState[0] = {};
 	}
 	
-	// depth buffer
-	{
-		gal::ImageCreateInfo createInfo{};
-		createInfo.m_width = width;
-		createInfo.m_height = height;
-		createInfo.m_format = gal::Format::D32_SFLOAT;
-		createInfo.m_usageFlags = gal::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | gal::ImageUsageFlags::TEXTURE_BIT;
-
-		m_device->createImage(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, true, &m_depthBufferImage);
-		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_depthBufferImage, "Render View Depth Buffer");
-
-		m_device->createImageView(m_depthBufferImage, &m_depthBufferImageView);
-		m_device->setDebugObjectName(gal::ObjectType::IMAGE_VIEW, m_depthBufferImageView, "Render View Depth Buffer View");
-
-		m_depthBufferTextureViewHandle = m_viewRegistry->createTextureViewHandle(m_depthBufferImageView);
-
-		m_depthBufferImageResourceState = gal::ResourceState::UNDEFINED;
-		m_depthBufferImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
-	}
-
 	// skinning matrices buffer
 	for (size_t i = 0; i < 2; ++i)
 	{
@@ -91,14 +70,6 @@ void RenderViewResources::destroy() noexcept
 		m_resultImageTextureViewHandle = {};
 		m_device->destroyImageView(m_resultImageView);
 		m_device->destroyImage(m_resultImage);
-	}
-
-	// depth buffer
-	{
-		m_viewRegistry->destroyHandle(m_depthBufferTextureViewHandle);
-		m_depthBufferTextureViewHandle = {};
-		m_device->destroyImageView(m_depthBufferImageView);
-		m_device->destroyImage(m_depthBufferImage);
 	}
 
 	// skinning matrices buffer

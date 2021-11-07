@@ -267,6 +267,7 @@
     <ClInclude Include="src\file\FileDialog.h" />
     <ClInclude Include="src\graphics\BufferStackAllocator.h" />
     <ClInclude Include="src\graphics\Camera.h" />
+    <ClInclude Include="src\graphics\CommandListFramePool.h" />
     <ClInclude Include="src\graphics\gal\dx12\CommandListDx12.h" />
     <ClInclude Include="src\graphics\gal\dx12\CommandListPoolDx12.h" />
     <ClInclude Include="src\graphics\gal\dx12\D3D12MemAlloc.h" />
@@ -318,6 +319,7 @@
     <ClInclude Include="src\graphics\pass\MeshPass.h" />
     <ClInclude Include="src\graphics\Renderer.h" />
     <ClInclude Include="src\graphics\RendererResources.h" />
+    <ClInclude Include="src\graphics\RenderGraph.h" />
     <ClInclude Include="src\graphics\RenderView.h" />
     <ClInclude Include="src\graphics\RenderViewResources.h" />
     <ClInclude Include="src\graphics\ResourceViewRegistry.h" />
@@ -431,6 +433,7 @@
     <ClCompile Include="src\file\FileDialog.cpp" />
     <ClCompile Include="src\graphics\BufferStackAllocator.cpp" />
     <ClCompile Include="src\graphics\Camera.cpp" />
+    <ClCompile Include="src\graphics\CommandListFramePool.cpp" />
     <ClCompile Include="src\graphics\gal\dx12\CommandListDx12.cpp" />
     <ClCompile Include="src\graphics\gal\dx12\CommandListPoolDx12.cpp" />
     <ClCompile Include="src\graphics\gal\dx12\D3D12MemAlloc.cpp" />
@@ -475,6 +478,7 @@
     <ClCompile Include="src\graphics\pass\MeshPass.cpp" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RendererResources.cpp" />
+    <ClCompile Include="src\graphics\RenderGraph.cpp" />
     <ClCompile Include="src\graphics\RenderView.cpp" />
     <ClCompile Include="src\graphics\RenderViewResources.cpp" />
     <ClCompile Include="src\graphics\ResourceViewRegistry.cpp" />

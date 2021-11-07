@@ -1,6 +1,7 @@
 #pragma once
 #include "gal/GraphicsAbstractionLayer.h"
 #include "ViewHandles.h"
+#include "RenderGraph.h"
 
 class ResourceViewRegistry;
 
@@ -15,14 +16,7 @@ struct RenderViewResources
 	gal::Image *m_resultImage = nullptr;
 	gal::ImageView *m_resultImageView = nullptr;
 	TextureViewHandle m_resultImageTextureViewHandle = {};
-	gal::ResourceState m_resultImageResourceState = gal::ResourceState::UNDEFINED;
-	gal::PipelineStageFlags m_resultImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
-
-	gal::Image *m_depthBufferImage = nullptr;
-	gal::ImageView *m_depthBufferImageView = nullptr;
-	TextureViewHandle m_depthBufferTextureViewHandle = {};
-	gal::ResourceState m_depthBufferImageResourceState = gal::ResourceState::UNDEFINED;
-	gal::PipelineStageFlags m_depthBufferImagePipelineStages = gal::PipelineStageFlags::TOP_OF_PIPE_BIT;
+	rg::ResourceStateData m_resultImageState[1] = {};
 
 	gal::Buffer *m_skinningMatricesBuffers[2] = {};
 	StructuredBufferViewHandle m_skinningMatricesBufferViewHandles[2] = {};
