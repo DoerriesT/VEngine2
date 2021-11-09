@@ -314,9 +314,10 @@
     <ClInclude Include="src\graphics\MaterialManager.h" />
     <ClInclude Include="src\graphics\Mesh.h" />
     <ClInclude Include="src\graphics\MeshManager.h" />
+    <ClInclude Include="src\graphics\pass\ForwardModule.h" />
     <ClInclude Include="src\graphics\pass\GridPass.h" />
     <ClInclude Include="src\graphics\pass\ImGuiPass.h" />
-    <ClInclude Include="src\graphics\pass\MeshPass.h" />
+    <ClInclude Include="src\graphics\pass\PostProcessModule.h" />
     <ClInclude Include="src\graphics\Renderer.h" />
     <ClInclude Include="src\graphics\RendererResources.h" />
     <ClInclude Include="src\graphics\RenderGraph.h" />
@@ -473,9 +474,10 @@
     <ClCompile Include="src\graphics\imgui\imnodes.cpp" />
     <ClCompile Include="src\graphics\MaterialManager.cpp" />
     <ClCompile Include="src\graphics\MeshManager.cpp" />
+    <ClCompile Include="src\graphics\pass\ForwardModule.cpp" />
     <ClCompile Include="src\graphics\pass\GridPass.cpp" />
     <ClCompile Include="src\graphics\pass\ImGuiPass.cpp" />
-    <ClCompile Include="src\graphics\pass\MeshPass.cpp" />
+    <ClCompile Include="src\graphics\pass\PostProcessModule.cpp" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RendererResources.cpp" />
     <ClCompile Include="src\graphics\RenderGraph.cpp" />

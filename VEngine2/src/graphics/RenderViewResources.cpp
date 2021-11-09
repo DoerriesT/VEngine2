@@ -32,7 +32,7 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 		createInfo.m_width = width;
 		createInfo.m_height = height;
 		createInfo.m_format = gal::Format::B8G8R8A8_UNORM;
-		createInfo.m_usageFlags = gal::ImageUsageFlags::COLOR_ATTACHMENT_BIT | gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::TRANSFER_SRC_BIT;
+		createInfo.m_usageFlags = gal::ImageUsageFlags::COLOR_ATTACHMENT_BIT | gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::RW_TEXTURE_BIT | gal::ImageUsageFlags::TRANSFER_SRC_BIT;
 
 		m_device->createImage(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, true, &m_resultImage);
 		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_resultImage, "Render View Result Image");

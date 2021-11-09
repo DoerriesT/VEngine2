@@ -8,7 +8,8 @@
 struct RenderViewResources;
 class ResourceViewRegistry;
 class BufferStackAllocator;
-class MeshPass;
+class ForwardModule;
+class PostProcessModule;
 class GridPass;
 class ECS;
 class MeshManager;
@@ -45,7 +46,8 @@ private:
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle;
 
-	MeshPass *m_meshPass = nullptr;
+	ForwardModule *m_forwardModule = nullptr;
+	PostProcessModule *m_postProcessModule = nullptr;
 	GridPass *m_gridPass = nullptr;
 
 	eastl::vector<glm::mat4> m_modelMatrices;

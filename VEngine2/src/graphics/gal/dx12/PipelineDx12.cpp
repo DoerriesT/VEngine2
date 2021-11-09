@@ -335,9 +335,9 @@ void gal::ComputePipelineDx12::getRootDescriptorInfo(uint32_t &setIndex, uint32_
 
 static char *loadShaderFile(const char *filename, size_t *shaderFileSize)
 {
-	char path[ShaderStageCreateInfo::MAX_PATH_LENGTH + 6];
+	char path[ShaderStageCreateInfo::MAX_PATH_LENGTH + 5];
 	strcpy_s(path, filename);
-	strcat_s(path, ".dxil");
+	strcat_s(path, ".cso");
 	return util::readBinaryFile(path, shaderFileSize);
 }
 

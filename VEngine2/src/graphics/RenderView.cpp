@@ -1,5 +1,6 @@
 #include "RenderView.h"
-#include "pass/MeshPass.h"
+#include "pass/ForwardModule.h"
+#include "pass/PostProcessModule.h"
 #include "pass/GridPass.h"
 #include "RenderViewResources.h"
 #include "ResourceViewRegistry.h"
@@ -25,13 +26,15 @@ RenderView::RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegist
 	m_height(height)
 {
 	m_renderViewResources = new RenderViewResources(m_device, viewRegistry, m_width, m_height);
-	m_meshPass = new MeshPass(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
+	m_forwardModule = new ForwardModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
+	m_postProcessModule = new PostProcessModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_gridPass = new GridPass(m_device, offsetBufferSetLayout);
 }
 
 RenderView::~RenderView()
 {
-	delete m_meshPass;
+	delete m_forwardModule;
+	delete m_postProcessModule;
 	delete m_gridPass;
 	delete m_renderViewResources;
 }
@@ -46,15 +49,6 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
 	rg::ResourceViewHandle resultImageViewHandle = m_resultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Render View Result", resultImageHandle, graph));
-
-	// depth buffer
-	rg::ResourceHandle depthBufferImageHandle = graph->createImage(
-		rg::ImageDesc::create(
-			"Depth Buffer", Format::D32_SFLOAT,
-			ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT,
-			m_width, m_height)
-	);
-	rg::ResourceViewHandle depthBufferImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Depth Buffer", depthBufferImageHandle, graph));
 
 	m_modelMatrices.clear();
 	m_meshDrawInfo.clear();
@@ -125,26 +119,37 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 
 	uint32_t skinnedMeshCount = static_cast<uint32_t>(m_modelMatrices.size()) - meshCount;
 
-	MeshPass::Data meshPassData{};
-	meshPassData.m_profilingCtx = m_device->getProfilingContext();
-	meshPassData.m_bufferAllocator = bufferAllocator;
-	meshPassData.m_offsetBufferSet = offsetBufferSet;
-	meshPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
-	meshPassData.m_width = m_width;
-	meshPassData.m_height = m_height;
-	meshPassData.m_meshCount = meshCount;
-	meshPassData.m_skinnedMeshCount = skinnedMeshCount;
-	meshPassData.m_colorAttachment = resultImageViewHandle;
-	meshPassData.m_depthBufferAttachment = depthBufferImageViewHandle;
-	meshPassData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
-	meshPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
-	meshPassData.m_modelMatrices = m_modelMatrices.data();
-	meshPassData.m_meshDrawInfo = m_meshDrawInfo.data();
-	meshPassData.m_meshBufferHandles = m_meshBufferHandles.data();
-	meshPassData.m_skinningMatrixOffsets = m_skinningMatrixOffsets.data();
+	ForwardModule::Data forwardModuleData{};
+	forwardModuleData.m_profilingCtx = m_device->getProfilingContext();
+	forwardModuleData.m_bufferAllocator = bufferAllocator;
+	forwardModuleData.m_offsetBufferSet = offsetBufferSet;
+	forwardModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+	forwardModuleData.m_width = m_width;
+	forwardModuleData.m_height = m_height;
+	forwardModuleData.m_meshCount = meshCount;
+	forwardModuleData.m_skinnedMeshCount = skinnedMeshCount;
+	forwardModuleData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
+	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
+	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
+	forwardModuleData.m_meshDrawInfo = m_meshDrawInfo.data();
+	forwardModuleData.m_meshBufferHandles = m_meshBufferHandles.data();
+	forwardModuleData.m_skinningMatrixOffsets = m_skinningMatrixOffsets.data();
 
-	m_meshPass->record(graph, meshPassData);
-	
+	ForwardModule::ResultData forwardModuleResultData;
+
+	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
+
+	PostProcessModule::Data postProcessModuleData{};
+	postProcessModuleData.m_profilingCtx = m_device->getProfilingContext();
+	postProcessModuleData.m_bufferAllocator = bufferAllocator;
+	postProcessModuleData.m_offsetBufferSet = offsetBufferSet;
+	postProcessModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+	postProcessModuleData.m_width = m_width;
+	postProcessModuleData.m_height = m_height;
+	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
+	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
+
+	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
 
 	GridPass::Data gridPassData{};
 	gridPassData.m_profilingCtx = m_device->getProfilingContext();
@@ -153,7 +158,7 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	gridPassData.m_width = m_width;
 	gridPassData.m_height = m_height;
 	gridPassData.m_colorAttachment = resultImageViewHandle;
-	gridPassData.m_depthBufferAttachment = depthBufferImageViewHandle;
+	gridPassData.m_depthBufferAttachment = forwardModuleResultData.m_depthBufferImageViewHandle;
 	gridPassData.m_modelMatrix = glm::mat4(1.0f);
 	gridPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);

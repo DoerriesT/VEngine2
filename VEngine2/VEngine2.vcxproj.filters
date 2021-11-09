@@ -321,9 +321,6 @@
     <ClInclude Include="src\graphics\MaterialManager.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
-    <ClInclude Include="src\graphics\pass\MeshPass.h">
-      <Filter>src\graphics\pass</Filter>
-    </ClInclude>
     <ClInclude Include="src\component\MeshComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
@@ -588,6 +585,12 @@
     <ClInclude Include="src\graphics\CommandListFramePool.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\pass\ForwardModule.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\pass\PostProcessModule.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -793,9 +796,6 @@
     </ClCompile>
     <ClCompile Include="src\graphics\MaterialManager.cpp">
       <Filter>src\graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="src\graphics\pass\MeshPass.cpp">
-      <Filter>src\graphics\pass</Filter>
     </ClCompile>
     <ClCompile Include="src\file\FileDialog.cpp">
       <Filter>src\file</Filter>
@@ -1039,6 +1039,12 @@
     </ClCompile>
     <ClCompile Include="src\graphics\CommandListFramePool.cpp">
       <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\ForwardModule.cpp">
+      <Filter>src\graphics\pass</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\PostProcessModule.cpp">
+      <Filter>src\graphics\pass</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
