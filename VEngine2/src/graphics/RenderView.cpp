@@ -146,7 +146,16 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	postProcessModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	postProcessModuleData.m_width = m_width;
 	postProcessModuleData.m_height = m_height;
+	postProcessModuleData.m_meshCount = meshCount;
+	postProcessModuleData.m_skinnedMeshCount = skinnedMeshCount;
+	postProcessModuleData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
+	postProcessModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
+	postProcessModuleData.m_modelMatrices = m_modelMatrices.data();
+	postProcessModuleData.m_meshDrawInfo = m_meshDrawInfo.data();
+	postProcessModuleData.m_meshBufferHandles = m_meshBufferHandles.data();
+	postProcessModuleData.m_skinningMatrixOffsets = m_skinningMatrixOffsets.data();
 	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
+	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);

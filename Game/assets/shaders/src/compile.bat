@@ -6,6 +6,8 @@ dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main forward_ps.hlsl -Fo ./../forward_ps.spv
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main -D SKINNED=1 forward_vs.hlsl -Fo ./../forward_skinned_vs.spv
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main -D SKINNED=1 forward_ps.hlsl -Fo ./../forward_skinned_ps.spv
-dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_2 -E main tonemap_cs.hlsl -Fo ./../tonemap_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main tonemap_cs.hlsl -Fo ./../tonemap_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T gs_6_0 -E main debugNormals_gs.hlsl -Fo ./../debugNormals_gs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main debugNormals_ps.hlsl -Fo ./../debugNormals_ps.spv
 
 pause

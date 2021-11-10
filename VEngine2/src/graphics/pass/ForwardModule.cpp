@@ -58,6 +58,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
 		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
 		builder.setColorAttachmentFormats(renderTargetFormatCount, renderTargetFormats);
+		builder.setPolygonModeCullMode(gal::PolygonMode::FILL, gal::CullModeFlags::BACK_BIT, gal::FrontFace::COUNTER_CLOCKWISE);
 
 		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
@@ -111,6 +112,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
 		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
 		builder.setColorAttachmentFormats(renderTargetFormatCount, renderTargetFormats);
+		//builder.setPolygonModeCullMode(gal::PolygonMode::FILL, gal::CullModeFlags::BACK_BIT, gal::FrontFace::COUNTER_CLOCKWISE);
 
 		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
