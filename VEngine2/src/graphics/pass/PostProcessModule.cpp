@@ -192,125 +192,128 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
 		});
 
-	rg::ResourceUsageDesc debugNormalsUsageDescs[] =
+	if (data.m_debugNormals)
 	{
-		{data.m_resultImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
-		{data.m_depthBufferImageViewHandle, {ResourceState::WRITE_DEPTH_STENCIL}},
-	};
-	graph->addPass("Debug Normals", rg::QueueType::GRAPHICS, eastl::size(debugNormalsUsageDescs), debugNormalsUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		rg::ResourceUsageDesc debugNormalsUsageDescs[] =
 		{
-			GAL_SCOPED_GPU_LABEL(cmdList, "Debug Normals");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Debug Normals");
-			PROFILING_ZONE_SCOPED;
-
-			ColorAttachmentDescription attachmentDescs[]
+			{data.m_resultImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
+			{data.m_depthBufferImageViewHandle, {ResourceState::WRITE_DEPTH_STENCIL}},
+		};
+		graph->addPass("Debug Normals", rg::QueueType::GRAPHICS, eastl::size(debugNormalsUsageDescs), debugNormalsUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
-				 { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
-			};
-			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
-			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+				GAL_SCOPED_GPU_LABEL(cmdList, "Debug Normals");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Debug Normals");
+				PROFILING_ZONE_SCOPED;
 
-			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
-			{
-				Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
-				cmdList->setViewport(0, 1, &viewport);
-				Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
-				cmdList->setScissor(0, 1, &scissor);
-
-				struct PassConstants
+				ColorAttachmentDescription attachmentDescs[]
 				{
-					float viewProjectionMatrix[16];
-					float cameraPosition[3];
-					uint32_t skinningMatricesBufferIndex;
+					 { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
 				};
+				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
+				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
-				PassConstants passConsts;
-				memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
-				memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
-				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferIndex;
-
-				uint64_t allocSize = sizeof(passConsts);
-				uint64_t allocOffset = 0;
-				auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-				memcpy(mappedPtr, &passConsts, sizeof(passConsts));
-				uint32_t passConstsAddress = (uint32_t)allocOffset;
-
-
-				for (size_t skinned = 0; skinned < 2; ++skinned)
+				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
 				{
-					auto *pipeline = skinned ? m_debugNormalsSkinnedPipeline : m_debugNormalsPipeline;
-					cmdList->bindPipeline(pipeline);
+					Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					cmdList->setViewport(0, 1, &viewport);
+					Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					cmdList->setScissor(0, 1, &scissor);
 
-					gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
-					cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
-
-					const size_t meshCount = skinned ? data.m_skinnedMeshCount : data.m_meshCount;
-					for (size_t i = 0; i < meshCount; ++i)
+					struct PassConstants
 					{
-						struct MeshConstants
+						float viewProjectionMatrix[16];
+						float cameraPosition[3];
+						uint32_t skinningMatricesBufferIndex;
+					};
+
+					PassConstants passConsts;
+					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
+					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferIndex;
+
+					uint64_t allocSize = sizeof(passConsts);
+					uint64_t allocOffset = 0;
+					auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
+					memcpy(mappedPtr, &passConsts, sizeof(passConsts));
+					uint32_t passConstsAddress = (uint32_t)allocOffset;
+
+
+					for (size_t skinned = 0; skinned < 2; ++skinned)
+					{
+						auto *pipeline = skinned ? m_debugNormalsSkinnedPipeline : m_debugNormalsPipeline;
+						cmdList->bindPipeline(pipeline);
+
+						gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+
+						const size_t meshCount = skinned ? data.m_skinnedMeshCount : data.m_meshCount;
+						for (size_t i = 0; i < meshCount; ++i)
 						{
-							float modelMatrix[16];
-						};
+							struct MeshConstants
+							{
+								float modelMatrix[16];
+							};
 
-						struct SkinnedMeshConstants
-						{
-							float modelMatrix[16];
-							uint32_t skinningMatricesOffset;
-						};
+							struct SkinnedMeshConstants
+							{
+								float modelMatrix[16];
+								uint32_t skinningMatricesOffset;
+							};
 
-						const size_t curMeshOffset = skinned ? i + data.m_meshCount : i;
+							const size_t curMeshOffset = skinned ? i + data.m_meshCount : i;
 
-						MeshConstants consts{};
-						SkinnedMeshConstants skinnedConsts{};
+							MeshConstants consts{};
+							SkinnedMeshConstants skinnedConsts{};
 
-						if (skinned)
-						{
-							memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
-							skinnedConsts.skinningMatricesOffset = data.m_skinningMatrixOffsets[i];
+							if (skinned)
+							{
+								memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
+								skinnedConsts.skinningMatricesOffset = data.m_skinningMatrixOffsets[i];
+							}
+							else
+							{
+								memcpy(consts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
+							}
+
+							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
+
+
+							Buffer *vertexBuffers[]
+							{
+								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+							};
+
+							const uint32_t vertexCount = data.m_meshDrawInfo[curMeshOffset].m_vertexCount;
+
+							const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+							const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+							const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+							const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+							const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
+							const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
+
+							uint64_t vertexBufferOffsets[]
+							{
+								0, // positions
+								alignedPositionsBufferSize, // normals
+								alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
+								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
+								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize, // joint indices
+								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize, // joint weights
+							};
+
+							cmdList->bindIndexBuffer(data.m_meshBufferHandles[curMeshOffset].m_indexBuffer, 0, IndexType::UINT16);
+							cmdList->bindVertexBuffers(0, skinned ? 6 : 4, vertexBuffers, vertexBufferOffsets);
+							cmdList->drawIndexed(data.m_meshDrawInfo[curMeshOffset].m_indexCount, 1, 0, 0, 0);
 						}
-						else
-						{
-							memcpy(consts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
-						}
-
-						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
-
-
-						Buffer *vertexBuffers[]
-						{
-							data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-							data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-							data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-							data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-							data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-							data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-						};
-
-						const uint32_t vertexCount = data.m_meshDrawInfo[curMeshOffset].m_vertexCount;
-
-						const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-						const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-						const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-						const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
-						const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
-						const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
-
-						uint64_t vertexBufferOffsets[]
-						{
-							0, // positions
-							alignedPositionsBufferSize, // normals
-							alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
-							alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
-							alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize, // joint indices
-							alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize, // joint weights
-						};
-
-						cmdList->bindIndexBuffer(data.m_meshBufferHandles[curMeshOffset].m_indexBuffer, 0, IndexType::UINT16);
-						cmdList->bindVertexBuffers(0, skinned ? 6 : 4, vertexBuffers, vertexBufferOffsets);
-						cmdList->drawIndexed(data.m_meshDrawInfo[curMeshOffset].m_indexCount, 1, 0, 0, 0);
 					}
 				}
-			}
-			cmdList->endRenderPass();
-		});
+				cmdList->endRenderPass();
+			});
+	}
 }

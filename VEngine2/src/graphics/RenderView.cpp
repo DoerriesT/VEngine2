@@ -157,6 +157,7 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
 	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
+	postProcessModuleData.m_debugNormals = false;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
 

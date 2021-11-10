@@ -32,6 +32,7 @@ public:
 		rg::ResourceViewHandle m_lightingImageView;
 		rg::ResourceViewHandle m_depthBufferImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
+		bool m_debugNormals;
 	};
 
 	struct ResultData
