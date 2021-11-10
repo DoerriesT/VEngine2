@@ -134,6 +134,7 @@ AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, 
 		vfs.write(fh, 1, "\n");
 
 		vfs.write(fh, strlen(sourcePath), sourcePath);
+		vfs.write(fh, 1, "\n");
 
 		vfs.close(fh);
 	}

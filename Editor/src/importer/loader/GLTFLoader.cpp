@@ -437,7 +437,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 
 						// weights
 						glm::vec4 weights = glm::vec4();
-						if (weightsAccessor)
+						if (weightsAccessor != -1)
 						{
 							res = getFloatBufferData(gltfModel, weightsAccessor, index, 4, &weights[0]);
 							assert(res);
@@ -446,7 +446,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 
 						// joints
 						glm::uvec4 joints = glm::uvec4();
-						if (jointsAccessor)
+						if (jointsAccessor != -1)
 						{
 							int64_t w[4];
 							res = getIntBufferData(gltfModel, jointsAccessor, index, 4, w);
@@ -469,7 +469,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 						rawMesh.m_normals.push_back(normal);
 						rawMesh.m_texCoords.push_back(uv);
 
-						if (jointsAccessor && weightsAccessor)
+						if (jointsAccessor != -1 && weightsAccessor != -1)
 						{
 							rawMesh.m_weights.push_back(weights);
 							rawMesh.m_joints.push_back(joints);
