@@ -145,7 +145,7 @@ AssetID AssetManager::createAsset(const AssetType &assetType, const char *path, 
 AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	AssetData *assetData = nullptr;
-
+	AssetHandler *handler = nullptr;
 	{
 		// need to hold mutex so other treads dont try to create the same asset if it couldnt be found in the map
 		LOCK_HOLDER(m_assetMutex);
@@ -162,7 +162,7 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 		// couldnt find asset -> try to load from disk
 		Log::info("Loading asset \"%s\".", assetID.m_string);
 
-		AssetHandler *handler = nullptr;
+		
 
 		// try to find asset handler
 		{
@@ -189,15 +189,15 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 			return nullptr;
 		}
 
-		if (!handler->loadAssetData(assetData, (eastl::string("/assets/") + assetID.m_string).c_str()))
-		{
-			handler->destroyAsset(assetID, assetType, assetData);
-			Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
-			return nullptr;
-		}
-
 		// store in map
 		m_assetMap[assetID] = assetData;
+	}
+
+	if (!handler->loadAssetData(assetData, (eastl::string("/assets/") + assetID.m_string).c_str()))
+	{
+		handler->destroyAsset(assetID, assetType, assetData);
+		Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
+		return nullptr;
 	}
 
 	Log::info("Successfully loaded asset \"%s\".", assetID.m_string);

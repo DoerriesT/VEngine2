@@ -3,6 +3,7 @@
 #include <glm/mat4x4.hpp>
 #include "../RenderGraph.h"
 #include "utility/DeletedCopyMove.h"
+#include "Handles.h"
 
 class BufferStackAllocator;
 struct SubMeshDrawInfo;
@@ -25,8 +26,10 @@ public:
 		glm::mat4 m_viewProjectionMatrix;
 		glm::mat4 *m_modelMatrices;
 		glm::vec3 m_cameraPosition;
+		StructuredBufferViewHandle m_materialsBufferHandle;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
+		const MaterialHandle *m_materialHandles;
 		const uint32_t *m_skinningMatrixOffsets;
 	};
 

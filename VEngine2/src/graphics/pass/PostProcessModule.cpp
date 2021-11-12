@@ -45,112 +45,62 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 
 		device->createComputePipelines(1, &pipelineCreateInfo, &m_tonemapPipeline);
 	}
-	
+
 	// debug normals
+	for (size_t skinned = 0; skinned < 2; ++skinned)
 	{
-		// non-skinned
+		VertexInputAttributeDescription attributeDescs[]
 		{
-			VertexInputAttributeDescription attributeDescs[]
-			{
-				{ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 },
-				{ "NORMAL", 1, 1, Format::R32G32B32_SFLOAT, 0 },
-				{ "TANGENT", 2, 2, Format::R32G32B32A32_SFLOAT, 0 },
-				{ "TEXCOORD", 3, 3, Format::R32G32_SFLOAT, 0 },
-			};
+			{ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 },
+			{ "NORMAL", 1, 1, Format::R32G32B32_SFLOAT, 0 },
+			{ "JOINT_INDICES", 2, 2, Format::R16G16B16A16_UINT, 0 },
+			{ "JOINT_WEIGHTS", 3, 3, Format::R8G8B8A8_UNORM, 0 },
+		};
 
-			VertexInputBindingDescription bindingDescs[]
-			{
-				{ 0, sizeof(float) * 3, VertexInputRate::VERTEX },
-				{ 1, sizeof(float) * 3, VertexInputRate::VERTEX },
-				{ 2, sizeof(float) * 4, VertexInputRate::VERTEX },
-				{ 3, sizeof(float) * 2, VertexInputRate::VERTEX },
-			};
-
-			GraphicsPipelineCreateInfo pipelineCreateInfo{};
-			GraphicsPipelineBuilder builder(pipelineCreateInfo);
-			builder.setVertexShader("assets/shaders/forward_vs");
-			builder.setGeometryShader("assets/shaders/debugNormals_gs");
-			builder.setFragmentShader("assets/shaders/debugNormals_ps");
-			builder.setVertexBindingDescriptions(eastl::size(bindingDescs), bindingDescs);
-			builder.setVertexAttributeDescriptions((uint32_t)eastl::size(attributeDescs), attributeDescs);
-			builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
-			builder.setDepthTest(true, false, CompareOp::GREATER_OR_EQUAL);
-			builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
-			builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
-			builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
-
-			DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
-			DescriptorSetLayoutBinding usedBindlessBindings[] =
-			{
-				{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-				{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-			};
-
-
-			DescriptorSetLayoutDeclaration layoutDecls[]
-			{
-				{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-				{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
-			};
-
-			builder.setPipelineLayoutDescription(2, layoutDecls, sizeof(float) * 16, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
-
-			device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_debugNormalsPipeline);
-		}
-
-		// skinned
+		VertexInputBindingDescription bindingDescs[]
 		{
-			VertexInputAttributeDescription attributeDescs[]
-			{
-				{ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 },
-				{ "NORMAL", 1, 1, Format::R32G32B32_SFLOAT, 0 },
-				{ "TANGENT", 2, 2, Format::R32G32B32A32_SFLOAT, 0 },
-				{ "TEXCOORD", 3, 3, Format::R32G32_SFLOAT, 0 },
-				{ "JOINT_INDICES", 4, 4, Format::R16G16B16A16_UINT, 0 },
-				{ "JOINT_WEIGHTS", 5, 5, Format::R8G8B8A8_UNORM, 0 },
-			};
+			{ 0, sizeof(float) * 3, VertexInputRate::VERTEX },
+			{ 1, sizeof(float) * 3, VertexInputRate::VERTEX },
+			{ 2, sizeof(uint32_t) * 2, VertexInputRate::VERTEX },
+			{ 3, sizeof(uint32_t), VertexInputRate::VERTEX },
+		};
 
-			VertexInputBindingDescription bindingDescs[]
-			{
-				{ 0, sizeof(float) * 3, VertexInputRate::VERTEX },
-				{ 1, sizeof(float) * 3, VertexInputRate::VERTEX },
-				{ 2, sizeof(float) * 4, VertexInputRate::VERTEX },
-				{ 3, sizeof(float) * 2, VertexInputRate::VERTEX },
-				{ 4, sizeof(uint32_t) * 2, VertexInputRate::VERTEX },
-				{ 5, sizeof(uint32_t), VertexInputRate::VERTEX },
-			};
+		bool isSkinned = skinned != 0;
+		const size_t bindingDescCount = isSkinned ? eastl::size(bindingDescs) : eastl::size(bindingDescs) - 2;
+		const size_t attributeDescCount = isSkinned ? eastl::size(attributeDescs) : eastl::size(attributeDescs) - 2;
 
-			GraphicsPipelineCreateInfo pipelineCreateInfo{};
-			GraphicsPipelineBuilder builder(pipelineCreateInfo);
-			builder.setVertexShader("assets/shaders/forward_skinned_vs");
-			builder.setGeometryShader("assets/shaders/debugNormals_gs");
-			builder.setFragmentShader("assets/shaders/debugNormals_ps");
-			builder.setVertexBindingDescriptions(eastl::size(bindingDescs), bindingDescs);
-			builder.setVertexAttributeDescriptions((uint32_t)eastl::size(attributeDescs), attributeDescs);
-			builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
-			builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
-			builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
-			builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
-			builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
+		GraphicsPipelineCreateInfo pipelineCreateInfo{};
+		GraphicsPipelineBuilder builder(pipelineCreateInfo);
+		builder.setVertexShader(isSkinned ? "assets/shaders/debugNormals_skinned_vs" : "assets/shaders/debugNormals_vs");
+		builder.setGeometryShader("assets/shaders/debugNormals_gs");
+		builder.setFragmentShader("assets/shaders/debugNormals_ps");
+		builder.setVertexBindingDescriptions(bindingDescCount, bindingDescs);
+		builder.setVertexAttributeDescriptions(attributeDescCount, attributeDescs);
+		builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
+		builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
+		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
+		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
+		builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
+		builder.setPolygonModeCullMode(gal::PolygonMode::FILL, gal::CullModeFlags::BACK_BIT, gal::FrontFace::COUNTER_CLOCKWISE);
 
-			DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
-			DescriptorSetLayoutBinding usedBindlessBindings[] =
-			{
-				{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-				{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-			};
+		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			{ DescriptorType::STRUCTURED_BUFFER, 262144, 0, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // skinning matrices
+		};
 
 
-			DescriptorSetLayoutDeclaration layoutDecls[]
-			{
-				{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-				{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
-			};
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
 
-			builder.setPipelineLayoutDescription(2, layoutDecls, sizeof(float) * 16 + sizeof(uint32_t), ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
+		uint32_t pushConstSize = sizeof(float) * 16;
+		pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
+		builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT, 0, nullptr, -1);
 
-			device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_debugNormalsSkinnedPipeline);
-		}
+		device->createGraphicsPipelines(1, &pipelineCreateInfo, isSkinned ? &m_debugNormalsSkinnedPipeline : &m_debugNormalsPipeline);
 	}
 }
 
@@ -222,14 +172,14 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					struct PassConstants
 					{
 						float viewProjectionMatrix[16];
-						float cameraPosition[3];
 						uint32_t skinningMatricesBufferIndex;
+						float normalsLength;
 					};
 
 					PassConstants passConsts;
 					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
-					memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferIndex;
+					passConsts.normalsLength = 0.1f;
 
 					uint64_t allocSize = sizeof(passConsts);
 					uint64_t allocOffset = 0;
@@ -275,13 +225,11 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 								memcpy(consts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
 							}
 
-							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
+							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
 
 
 							Buffer *vertexBuffers[]
 							{
-								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
 								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
 								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
 								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
@@ -301,14 +249,12 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 							{
 								0, // positions
 								alignedPositionsBufferSize, // normals
-								alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
-								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
 								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize, // joint indices
 								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize, // joint weights
 							};
 
 							cmdList->bindIndexBuffer(data.m_meshBufferHandles[curMeshOffset].m_indexBuffer, 0, IndexType::UINT16);
-							cmdList->bindVertexBuffers(0, skinned ? 6 : 4, vertexBuffers, vertexBufferOffsets);
+							cmdList->bindVertexBuffers(0, skinned ? 4 : 2, vertexBuffers, vertexBufferOffsets);
 							cmdList->drawIndexed(data.m_meshDrawInfo[curMeshOffset].m_indexCount, 1, 0, 0, 0);
 						}
 					}

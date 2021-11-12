@@ -30,11 +30,13 @@ struct PassConstants
 	float4x4 viewProjectionMatrix;
 	float3 cameraPosition;
 	uint skinningMatricesBufferIndex;
+	uint materialBufferIndex;
 };
 
 struct DrawConstants
 {
 	float4x4 modelMatrix;
+	uint materialIndex;
 #if SKINNED
 	uint skinningMatricesOffset;
 #endif

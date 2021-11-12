@@ -91,12 +91,12 @@ TextureHandle TextureManager::add(gal::Image *image, gal::ImageView *view) noexc
 
 	{
 		LOCK_HOLDER(m_texturesMutex);
-		if (handle > m_textures.size())
+		if (handle >= m_textures.size())
 		{
 			m_textures.resize((size_t)(m_textures.size() * 1.5));
 		}
 
-		auto &tex = m_textures[handle - 1];
+		auto &tex = m_textures[handle];
 		tex = {};
 		tex.m_image = image;
 		tex.m_view = view;
@@ -111,14 +111,14 @@ void TextureManager::update(TextureHandle handle, gal::Image *image, gal::ImageV
 	TextureViewHandle viewHandle = {};
 	{
 		LOCK_HOLDER(m_texturesMutex);
-		const bool validHandle = handle != 0 && handle <= m_textures.size();
+		const bool validHandle = handle != 0 && handle < m_textures.size();
 		if (!validHandle)
 		{
 			Log::warn("TextureManager: Tried to update an invalid TextureHandle!");
 			return;
 		}
 
-		auto &tex = m_textures[handle - 1];
+		auto &tex = m_textures[handle];
 		tex = {};
 		tex.m_image = image;
 		tex.m_view = view;
@@ -134,14 +134,14 @@ void TextureManager::free(TextureHandle handle, uint64_t frameIndex) noexcept
 	Texture tex;
 	{
 		LOCK_HOLDER(m_texturesMutex);
-		const bool validHandle = handle != 0 && handle <= m_textures.size();
+		const bool validHandle = handle != 0 && handle < m_textures.size();
 		if (!validHandle)
 		{
 			return;
 		}
 
-		tex = m_textures[handle - 1];
-		m_textures[handle - 1] = {};
+		tex = m_textures[handle];
+		m_textures[handle] = {};
 	}
 	
 	m_viewRegistry->destroyHandle(tex.m_viewHandle);
@@ -164,10 +164,10 @@ void TextureManager::free(TextureHandle handle, uint64_t frameIndex) noexcept
 TextureViewHandle TextureManager::getViewHandle(TextureHandle handle) const noexcept
 {
 	LOCK_HOLDER(m_texturesMutex);
-	const bool validHandle = handle != 0 && handle <= m_textures.size();
+	const bool validHandle = handle != 0 && handle < m_textures.size();
 	if (!validHandle)
 	{
 		return TextureViewHandle();
 	}
-	return m_textures[handle - 1].m_viewHandle;
+	return m_textures[handle].m_viewHandle;
 }

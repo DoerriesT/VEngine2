@@ -222,6 +222,7 @@
     <ClInclude Include="src\importer\loader\GLTFLoader.h" />
     <ClInclude Include="src\importer\loader\LoadedModel.h" />
     <ClInclude Include="src\importer\loader\WavefrontOBJLoader.h" />
+    <ClInclude Include="src\importer\MaterialImporter.h" />
     <ClInclude Include="src\importer\MeshImporter.h" />
     <ClInclude Include="src\importer\meshoptimizer\meshoptimizer.h" />
     <ClInclude Include="src\importer\mikktspace.h" />
@@ -238,6 +239,7 @@
     <ClCompile Include="src\importer\AssetImporter.cpp" />
     <ClCompile Include="src\importer\loader\GLTFLoader.cpp" />
     <ClCompile Include="src\importer\loader\WavefrontOBJLoader.cpp" />
+    <ClCompile Include="src\importer\MaterialImporter.cpp" />
     <ClCompile Include="src\importer\MeshImporter.cpp" />
     <ClCompile Include="src\importer\meshoptimizer\allocator.cpp" />
     <ClCompile Include="src\importer\meshoptimizer\clusterizer.cpp" />

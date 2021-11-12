@@ -2,6 +2,7 @@
 #include "Asset.h"
 #include "Handles.h"
 #include <EASTL/vector.h>
+#include "MaterialAsset.h"
 
 /// <summary>
 /// AssetData implementation for mesh assets.
@@ -30,6 +31,7 @@ public:
 		uint32_t m_physicsTriangleMeshDataOffset;
 		uint32_t m_physicsTriangleMeshDataSize;
 		uint32_t m_subMeshCount;
+		uint32_t m_materialAssetIDDataOffset;
 		uint32_t m_materialSlotCount;
 		float m_aabbMinX;
 		float m_aabbMinY;
@@ -60,6 +62,7 @@ public:
 
 	explicit MeshAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
 	const eastl::vector<SubMeshHandle> &getSubMeshhandles() const noexcept { return m_subMeshHandles; }
+	const eastl::vector<Asset<MaterialAssetData>> &getMaterials() const noexcept { return m_materials; }
 	PhysicsConvexMeshHandle getPhysicsConvexMeshhandle() const noexcept { return m_physicsConvexMeshHandle; }
 	PhysicsTriangleMeshHandle getPhysicsTriangleMeshhandle() const noexcept { return m_physicsTriangleMeshHandle; }
 	bool isSkinned() const noexcept { return m_isSkinned; }
@@ -67,6 +70,7 @@ public:
 
 private:
 	eastl::vector<SubMeshHandle> m_subMeshHandles;
+	eastl::vector<Asset<MaterialAssetData>> m_materials;
 	PhysicsConvexMeshHandle m_physicsConvexMeshHandle = {};
 	PhysicsTriangleMeshHandle m_physicsTriangleMeshHandle = {};
 	size_t m_matrixPaletteSize = 0;

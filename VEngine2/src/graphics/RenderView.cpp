@@ -14,14 +14,16 @@
 #include "MeshManager.h"
 #include "animation/Skeleton.h"
 #include "RenderGraph.h"
+#include "RendererResources.h"
 
 using namespace gal;
 
-RenderView::RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
+RenderView::RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, RendererResources *rendererResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
 	:m_ecs(ecs),
 	m_device(device),
 	m_viewRegistry(viewRegistry),
 	m_meshManager(meshManager),
+	m_rendererResources(rendererResources),
 	m_width(width),
 	m_height(height)
 {
@@ -53,6 +55,7 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	m_modelMatrices.clear();
 	m_meshDrawInfo.clear();
 	m_meshBufferHandles.clear();
+	m_materialHandles.clear();
 	m_skinningMatrixOffsets.clear();
 
 	m_ecs->iterate<TransformComponent, MeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC)
@@ -67,11 +70,13 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 				}
 				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
 				const auto &submeshhandles = mc.m_mesh->getSubMeshhandles();
-				for (auto h : submeshhandles)
+				const auto &materialAssets = mc.m_mesh->getMaterials();
+				for (size_t j = 0; j < submeshhandles.size(); ++j)
 				{
 					m_modelMatrices.push_back(modelMatrix);
-					m_meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
-					m_meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
+					m_meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(submeshhandles[j]));
+					m_meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(submeshhandles[j]));
+					m_materialHandles.push_back(materialAssets[j]->getMaterialHandle());
 				}
 				
 			}
@@ -100,11 +105,13 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 
 				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
 				const auto &submeshhandles = smc.m_mesh->getSubMeshhandles();
-				for (auto h : submeshhandles)
+				const auto &materialAssets = smc.m_mesh->getMaterials();
+				for (size_t j = 0; j < submeshhandles.size(); ++j)
 				{
 					m_modelMatrices.push_back(modelMatrix);
-					m_meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(h));
-					m_meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(h));
+					m_meshDrawInfo.push_back(m_meshManager->getSubMeshDrawInfo(submeshhandles[j]));
+					m_meshBufferHandles.push_back(m_meshManager->getSubMeshBufferHandles(submeshhandles[j]));
+					m_materialHandles.push_back(materialAssets[j]->getMaterialHandle());
 					m_skinningMatrixOffsets.push_back(curSkinningMatrixOffset);
 				}
 
@@ -131,8 +138,11 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	forwardModuleData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
 	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
+	forwardModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
+	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_meshDrawInfo = m_meshDrawInfo.data();
 	forwardModuleData.m_meshBufferHandles = m_meshBufferHandles.data();
+	forwardModuleData.m_materialHandles = m_materialHandles.data();
 	forwardModuleData.m_skinningMatrixOffsets = m_skinningMatrixOffsets.data();
 
 	ForwardModule::ResultData forwardModuleResultData;
@@ -151,6 +161,7 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	postProcessModuleData.m_skinningMatrixBufferIndex = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
 	postProcessModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	postProcessModuleData.m_modelMatrices = m_modelMatrices.data();
+	postProcessModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	postProcessModuleData.m_meshDrawInfo = m_meshDrawInfo.data();
 	postProcessModuleData.m_meshBufferHandles = m_meshBufferHandles.data();
 	postProcessModuleData.m_skinningMatrixOffsets = m_skinningMatrixOffsets.data();

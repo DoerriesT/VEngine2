@@ -591,6 +591,12 @@
     <ClInclude Include="src\graphics\pass\PostProcessModule.h">
       <Filter>src\graphics\pass</Filter>
     </ClInclude>
+    <ClInclude Include="src\asset\MaterialAsset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\MaterialAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1045,6 +1051,9 @@
     </ClCompile>
     <ClCompile Include="src\graphics\pass\PostProcessModule.cpp">
       <Filter>src\graphics\pass</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\MaterialAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

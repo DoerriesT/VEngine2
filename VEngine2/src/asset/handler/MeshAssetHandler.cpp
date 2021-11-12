@@ -5,8 +5,10 @@
 #include "graphics/Renderer.h"
 #include "physics/Physics.h"
 #include "asset/MeshAsset.h"
+#include "asset/MaterialAsset.h"
 #include "asset/AssetManager.h"
 #include "filesystem/VirtualFileSystem.h"
+#include <EASTL/fixed_vector.h>
 
 static AssetManager *s_assetManager = nullptr;
 static MeshAssetHandler s_meshAssetHandler;
@@ -117,6 +119,32 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 				data += sizeof(header);
 
+				// materials
+				eastl::fixed_vector<Asset<MaterialAssetData>, 16> materialAssets;
+				{
+					materialAssets.resize(header.m_materialSlotCount);
+
+					// read strings
+					size_t curFileOffset = header.m_materialAssetIDDataOffset;
+					for (size_t i = 0; i < header.m_materialSlotCount; ++i)
+					{
+						assert(curFileOffset < fileSize);
+
+						size_t strLen = 0;
+						while (dataSegment[curFileOffset + strLen] != '\0')
+						{
+							assert(curFileOffset + strLen < fileSize);
+							++strLen;
+						}
+
+						assert(strLen);
+
+						materialAssets[i] = s_assetManager->getAsset<MaterialAssetData>(AssetID(dataSegment + curFileOffset));
+
+						curFileOffset += strLen + 1; // dont forget the null terminator
+					}
+				}
+
 				// physics meshes
 				{
 					if (header.m_physicsConvexMeshDataSize > 0)
@@ -135,6 +163,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 					eastl::vector<SubMeshCreateInfo> subMeshes;
 					subMeshes.reserve(header.m_subMeshCount);
 					meshAssetData->m_subMeshHandles.resize(header.m_subMeshCount);
+					meshAssetData->m_materials.resize(header.m_subMeshCount);
 
 					for (size_t i = 0; i < header.m_subMeshCount; ++i)
 					{
@@ -154,6 +183,8 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 						subMesh.m_maxTexCoord[1] = subMeshHeader.m_uvMaxY;
 						subMesh.m_vertexCount = subMeshHeader.m_vertexCount;
 						subMesh.m_indexCount = subMeshHeader.m_indexCount;
+
+						meshAssetData->m_materials[i] = materialAssets[subMeshHeader.m_materialIndex];
 
 						const char *subMeshData = dataSegment + subMeshHeader.m_dataOffset;
 

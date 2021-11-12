@@ -204,23 +204,23 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 		// store draw info
 		{
 			LOCK_HOLDER(m_subMeshDrawInfoMutex);
-			if (handles[i] > m_subMeshDrawInfo.size())
+			if (handles[i] >= m_subMeshDrawInfo.size())
 			{
 				m_subMeshDrawInfo.resize((size_t)(m_subMeshDrawInfo.size() * 1.5));
 			}
 
-			m_subMeshDrawInfo[handles[i] - 1] = subMeshDrawInfo;
+			m_subMeshDrawInfo[handles[i]] = subMeshDrawInfo;
 		}
 
 		// store buffer handles
 		{
 			LOCK_HOLDER(m_subMeshBufferHandlesMutex);
-			if (handles[i] > m_subMeshBufferHandles.size())
+			if (handles[i] >= m_subMeshBufferHandles.size())
 			{
 				m_subMeshBufferHandles.resize((size_t)(m_subMeshBufferHandles.size() * 1.5));
 			}
 
-			m_subMeshBufferHandles[handles[i] - 1] = subMeshBufferHandles;
+			m_subMeshBufferHandles[handles[i]] = subMeshBufferHandles;
 		}
 	}
 }
@@ -232,13 +232,13 @@ void MeshManager::destroySubMeshes(uint32_t count, const SubMeshHandle *handles,
 		FreedMesh freedMesh{};
 		{
 			LOCK_HOLDER(m_subMeshBufferHandlesMutex);
-			const bool validHandle = handles[i] != 0 && handles[i] <= m_subMeshBufferHandles.size();
+			const bool validHandle = handles[i] != 0 && handles[i] < m_subMeshBufferHandles.size();
 			if (!validHandle)
 			{
 				continue;
 			}
 
-			auto &meshBufferHandles = m_subMeshBufferHandles[handles[i] - 1];
+			auto &meshBufferHandles = m_subMeshBufferHandles[handles[i]];
 
 			m_viewRegistry->destroyHandle(meshBufferHandles.m_positionsBufferViewHandle);
 			m_viewRegistry->destroyHandle(meshBufferHandles.m_normalsBufferViewHandle);
@@ -374,21 +374,21 @@ void MeshManager::flushDeletionQueue(uint64_t frameIndex) noexcept
 SubMeshDrawInfo MeshManager::getSubMeshDrawInfo(SubMeshHandle handle) const noexcept
 {
 	LOCK_HOLDER(m_subMeshDrawInfoMutex);
-	const bool validHandle = handle != 0 && handle <= m_subMeshDrawInfo.size();
+	const bool validHandle = handle != 0 && handle < m_subMeshDrawInfo.size();
 	if (!validHandle)
 	{
 		return SubMeshDrawInfo();
 	}
-	return m_subMeshDrawInfo[handle - 1];
+	return m_subMeshDrawInfo[handle];
 }
 
 SubMeshBufferHandles MeshManager::getSubMeshBufferHandles(SubMeshHandle handle) const noexcept
 {
 	LOCK_HOLDER(m_subMeshBufferHandlesMutex);
-	const bool validHandle = handle != 0 && handle <= m_subMeshBufferHandles.size();
+	const bool validHandle = handle != 0 && handle < m_subMeshBufferHandles.size();
 	if (!validHandle)
 	{
 		return SubMeshBufferHandles();
 	}
-	return m_subMeshBufferHandles[handle - 1];
+	return m_subMeshBufferHandles[handle];
 }

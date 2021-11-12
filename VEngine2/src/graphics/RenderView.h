@@ -15,11 +15,13 @@ class ECS;
 class MeshManager;
 struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
+enum MaterialHandle : uint32_t;
+class RendererResources;
 
 class RenderView
 {
 public:
-	explicit RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
+	explicit RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
 	~RenderView();
 	void render(
 		rg::RenderGraph *graph,
@@ -43,8 +45,9 @@ private:
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
 	uint32_t m_frame = 0;
+	RendererResources *m_rendererResources = nullptr;
 	RenderViewResources *m_renderViewResources = nullptr;
-	rg::ResourceViewHandle m_resultImageViewHandle;
+	rg::ResourceViewHandle m_resultImageViewHandle = {};
 
 	ForwardModule *m_forwardModule = nullptr;
 	PostProcessModule *m_postProcessModule = nullptr;
@@ -53,5 +56,6 @@ private:
 	eastl::vector<glm::mat4> m_modelMatrices;
 	eastl::vector<SubMeshDrawInfo> m_meshDrawInfo;
 	eastl::vector<SubMeshBufferHandles> m_meshBufferHandles;
+	eastl::vector<MaterialHandle> m_materialHandles;
 	eastl::vector<uint32_t> m_skinningMatrixOffsets;
 };

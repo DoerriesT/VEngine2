@@ -5,6 +5,8 @@
 #include "SkeletonImporter.h"
 #include "AnimationClipImporter.h"
 #include "MeshImporter.h"
+#include "MaterialImporter.h"
+#include <asset/Asset.h>
 
 struct LoadedModel;
 
@@ -50,7 +52,9 @@ bool AssetImporter::importAsset(const ImportOptions &importOptions, Physics *phy
 
 	if (importOptions.m_importMeshes && !model.m_meshes.empty())
 	{
-		bool res = MeshImporter::importMeshes(1, &model, dstPath, nativeSrcPath, physics);
+		eastl::vector<AssetID> materialAssetIDs(model.m_materials.size());
+		bool matRes = MaterialImporter::importMaterials(model.m_materials.size(), model.m_materials.data(), dstPath, nativeSrcPath, materialAssetIDs.data());
+		bool res = MeshImporter::importMeshes(1, &model, dstPath, nativeSrcPath, physics, materialAssetIDs.data());
 	}
 
 	return true;

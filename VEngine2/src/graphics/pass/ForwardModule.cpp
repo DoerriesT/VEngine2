@@ -29,57 +29,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 	};
 	const uint32_t renderTargetFormatCount = static_cast<uint32_t>(eastl::size(renderTargetFormats));
 
-	// non-skinned
-	{
-		VertexInputAttributeDescription attributeDescs[]
-		{
-			{ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 },
-			{ "NORMAL", 1, 1, Format::R32G32B32_SFLOAT, 0 },
-			{ "TANGENT", 2, 2, Format::R32G32B32A32_SFLOAT, 0 },
-			{ "TEXCOORD", 3, 3, Format::R32G32_SFLOAT, 0 },
-		};
-
-		VertexInputBindingDescription bindingDescs[]
-		{
-			{ 0, sizeof(float) * 3, VertexInputRate::VERTEX },
-			{ 1, sizeof(float) * 3, VertexInputRate::VERTEX },
-			{ 2, sizeof(float) * 4, VertexInputRate::VERTEX },
-			{ 3, sizeof(float) * 2, VertexInputRate::VERTEX },
-		};
-
-		GraphicsPipelineCreateInfo pipelineCreateInfo{};
-		GraphicsPipelineBuilder builder(pipelineCreateInfo);
-		builder.setVertexShader("assets/shaders/forward_vs");
-		builder.setFragmentShader("assets/shaders/forward_ps");
-		builder.setVertexBindingDescriptions(eastl::size(bindingDescs), bindingDescs);
-		builder.setVertexAttributeDescriptions((uint32_t)eastl::size(attributeDescs), attributeDescs);
-		builder.setColorBlendAttachments(renderTargetFormatCount, blendStates);
-		builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
-		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
-		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
-		builder.setColorAttachmentFormats(renderTargetFormatCount, renderTargetFormats);
-		builder.setPolygonModeCullMode(gal::PolygonMode::FILL, gal::CullModeFlags::BACK_BIT, gal::FrontFace::COUNTER_CLOCKWISE);
-
-		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
-		DescriptorSetLayoutBinding usedBindlessBindings[] =
-		{
-			{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-			{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-		};
-
-
-		DescriptorSetLayoutDeclaration layoutDecls[]
-		{
-			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
-		};
-
-		builder.setPipelineLayoutDescription(2, layoutDecls, sizeof(float) * 16, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
-
-		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_forwardPipeline);
-	}
-
-	// skinned
+	for (size_t skinned = 0; skinned < 2; ++skinned)
 	{
 		VertexInputAttributeDescription attributeDescs[]
 		{
@@ -101,12 +51,16 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			{ 5, sizeof(uint32_t), VertexInputRate::VERTEX },
 		};
 
+		bool isSkinned = skinned != 0;
+		const size_t bindingDescCount = isSkinned ? eastl::size(bindingDescs) : eastl::size(bindingDescs) - 2;
+		const size_t attributeDescCount = isSkinned ? eastl::size(attributeDescs) : eastl::size(attributeDescs) - 2;
+
 		GraphicsPipelineCreateInfo pipelineCreateInfo{};
 		GraphicsPipelineBuilder builder(pipelineCreateInfo);
-		builder.setVertexShader("assets/shaders/forward_skinned_vs");
-		builder.setFragmentShader("assets/shaders/forward_skinned_ps");
-		builder.setVertexBindingDescriptions(eastl::size(bindingDescs), bindingDescs);
-		builder.setVertexAttributeDescriptions((uint32_t)eastl::size(attributeDescs), attributeDescs);
+		builder.setVertexShader(isSkinned ? "assets/shaders/forward_skinned_vs" : "assets/shaders/forward_vs");
+		builder.setFragmentShader("assets/shaders/forward_ps");
+		builder.setVertexBindingDescriptions(bindingDescCount, bindingDescs);
+		builder.setVertexAttributeDescriptions(attributeDescCount, attributeDescs);
 		builder.setColorBlendAttachments(renderTargetFormatCount, blendStates);
 		builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
 		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
@@ -117,8 +71,9 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
-			{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-			{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
+			{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // textures
+			{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // skinning matrices
+			{ DescriptorType::STRUCTURED_BUFFER, 262144, 2, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // material buffer
 		};
 
 
@@ -128,9 +83,13 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 
-		builder.setPipelineLayoutDescription(2, layoutDecls, sizeof(float) * 16 + sizeof(uint32_t), ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
+		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT);
 
-		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_forwardSkinnedPipeline);
+		uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t);
+		pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
+		builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 1, &staticSamplerDesc, 2);
+
+		device->createGraphicsPipelines(1, &pipelineCreateInfo, isSkinned ? &m_forwardSkinnedPipeline : &m_forwardPipeline);
 	}
 }
 
@@ -209,12 +168,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					float viewProjectionMatrix[16];
 					float cameraPosition[3];
 					uint32_t skinningMatricesBufferIndex;
+					uint32_t materialBufferIndex;
 				};
 
 				PassConstants passConsts;
 				memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 				memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferIndex;
+				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
 				uint64_t allocSize = sizeof(passConsts);
 				uint64_t allocOffset = 0;
@@ -237,11 +198,13 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 						struct MeshConstants
 						{
 							float modelMatrix[16];
+							uint32_t materialIndex;
 						};
 
 						struct SkinnedMeshConstants
 						{
 							float modelMatrix[16];
+							uint32_t materialIndex;
 							uint32_t skinningMatricesOffset;
 						};
 
@@ -253,11 +216,13 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 						if (skinned)
 						{
 							memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
+							skinnedConsts.materialIndex = data.m_materialHandles[curMeshOffset];
 							skinnedConsts.skinningMatricesOffset = data.m_skinningMatrixOffsets[i];
 						}
 						else
 						{
 							memcpy(consts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
+							consts.materialIndex = data.m_materialHandles[curMeshOffset];
 						}
 
 						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);

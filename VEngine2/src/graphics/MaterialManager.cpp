@@ -1,6 +1,7 @@
 #include "MaterialManager.h"
 #include "TextureManager.h"
 #include "Log.h"
+#include "gal/GraphicsAbstractionLayer.h"
 
 static MaterialGPU createGPUMaterial(const MaterialCreateInfo &createInfo, TextureManager *textureManager) noexcept
 {
@@ -23,8 +24,10 @@ static MaterialGPU createGPUMaterial(const MaterialCreateInfo &createInfo, Textu
 	return matGpu;
 }
 
-MaterialManager::MaterialManager(TextureManager *textureManager) noexcept
-	:m_textureManager(textureManager)
+MaterialManager::MaterialManager(gal::GraphicsDevice *device, TextureManager *textureManager, gal::Buffer *materialBuffer) noexcept
+	:m_device(device),
+	m_textureManager(textureManager),
+	m_materialBuffer(materialBuffer)
 {
 	m_materials.resize(16);
 }
@@ -32,6 +35,8 @@ MaterialManager::MaterialManager(TextureManager *textureManager) noexcept
 void MaterialManager::createMaterials(uint32_t count, const MaterialCreateInfo *materials, MaterialHandle *handles) noexcept
 {
 	LOCK_HOLDER(m_materialsMutex);
+	MaterialGPU *gpuMaterials = nullptr;
+	m_materialBuffer->map((void **)&gpuMaterials);
 	for (size_t i = 0; i < count; ++i)
 	{
 		// allocate handle
@@ -48,15 +53,16 @@ void MaterialManager::createMaterials(uint32_t count, const MaterialCreateInfo *
 
 		// store material
 		{
-			LOCK_HOLDER(m_materialsMutex);
-			if (handles[i] > m_materials.size())
+			if (handles[i] >= m_materials.size())
 			{
 				m_materials.resize((size_t)(m_materials.size() * 1.5));
 			}
 
-			m_materials[handles[i] - 1] = createGPUMaterial(materials[i], m_textureManager);
+			m_materials[handles[i]] = createGPUMaterial(materials[i], m_textureManager);
+			memcpy(gpuMaterials + handles[i], &m_materials[handles[i]], sizeof(MaterialGPU));
 		}
 	}
+	m_materialBuffer->unmap();
 }
 
 void MaterialManager::updateMaterials(uint32_t count, const MaterialCreateInfo *materials, MaterialHandle *handles) noexcept
@@ -64,14 +70,14 @@ void MaterialManager::updateMaterials(uint32_t count, const MaterialCreateInfo *
 	LOCK_HOLDER(m_materialsMutex);
 	for (size_t i = 0; i < count; ++i)
 	{
-		const bool validHandle = handles[i] != 0 && handles[i] <= m_materials.size();
+		const bool validHandle = handles[i] != 0 && handles[i] < m_materials.size();
 		if (!validHandle)
 		{
 			Log::warn("MaterialManager: Tried to update an invalid MaterialHandle!");
 			return;
 		}
 
-		m_materials[handles[i] - 1] = createGPUMaterial(materials[i], m_textureManager);
+		m_materials[handles[i]] = createGPUMaterial(materials[i], m_textureManager);
 	}
 }
 
@@ -80,14 +86,14 @@ void MaterialManager::destroyMaterials(uint32_t count, MaterialHandle *handles) 
 	LOCK_HOLDER(m_materialsMutex);
 	for (size_t i = 0; i < count; ++i)
 	{
-		const bool validHandle = handles[i] != 0 && handles[i] <= m_materials.size();
+		const bool validHandle = handles[i] != 0 && handles[i] < m_materials.size();
 
 		if (!validHandle)
 		{
 			continue;
 		}
 
-		m_materials[handles[i] - 1] = {};
+		m_materials[handles[i]] = {};
 
 		{
 			LOCK_HOLDER(m_handleManagerMutex);
@@ -99,10 +105,14 @@ void MaterialManager::destroyMaterials(uint32_t count, MaterialHandle *handles) 
 MaterialGPU MaterialManager::getMaterial(MaterialHandle handle) const noexcept
 {
 	LOCK_HOLDER(m_materialsMutex);
-	const bool validHandle = handle != 0 && handle <= m_materials.size();
+	const bool validHandle = handle != 0 && handle < m_materials.size();
 	if (!validHandle)
 	{
 		return MaterialGPU();
 	}
-	return m_materials[handle - 1];
+	return m_materials[handle];
+}
+
+void MaterialManager::flushUploadCopies(gal::CommandList *cmdList, uint64_t frameIndex) noexcept
+{
 }

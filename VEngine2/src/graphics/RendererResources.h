@@ -24,6 +24,9 @@ public:
 	gal::ImageView *m_imguiFontTextureView = nullptr;
 	TextureViewHandle m_imguiFontTextureViewHandle = {};
 
+	gal::Buffer *m_materialsBuffer = nullptr;
+	StructuredBufferViewHandle m_materialsBufferViewHandle = {};
+
 	gal::DescriptorSetLayout *m_offsetBufferDescriptorSetLayout = nullptr;
 	gal::DescriptorSetPool *m_offsetBufferDescriptorSetPool = nullptr;
 	gal::DescriptorSet *m_offsetBufferDescriptorSets[2] = {};

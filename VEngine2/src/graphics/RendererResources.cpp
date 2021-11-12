@@ -5,6 +5,7 @@
 #include "utility/Utility.h"
 #include "gal/Initializers.h"
 #include <assert.h>
+#include "Material.h"
 
 RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry) noexcept
 	:m_device(device),
@@ -165,6 +166,17 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		// Store our identifier
 		ImGui::GetIO().Fonts->SetTexID((ImTextureID)(size_t)m_imguiFontTextureViewHandle);
 	}
+
+	// materials buffer
+	{
+		gal::BufferCreateInfo createInfo{ sizeof(MaterialGPU) * 1024 * 32, {}, gal::BufferUsageFlags::STRUCTURED_BUFFER_BIT };
+		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_materialsBuffer);
+		gal::DescriptorBufferInfo bufferInfo{};
+		bufferInfo.m_buffer = m_materialsBuffer;
+		bufferInfo.m_range = createInfo.m_size;
+		bufferInfo.m_structureByteStride = sizeof(MaterialGPU);
+		m_materialsBufferViewHandle = m_resourceViewRegistry->createStructuredBufferViewHandle(bufferInfo);
+	}
 }
 
 RendererResources::~RendererResources()
@@ -186,6 +198,9 @@ RendererResources::~RendererResources()
 	m_resourceViewRegistry->destroyHandle(m_imguiFontTextureViewHandle);
 	m_device->destroyImageView(m_imguiFontTextureView);
 	m_device->destroyImage(m_imguiFontTexture);
+
+	m_resourceViewRegistry->destroyHandle(m_materialsBufferViewHandle);
+	m_device->destroyBuffer(m_materialsBuffer);
 
 	m_device->destroyDescriptorSetPool(m_offsetBufferDescriptorSetPool);
 	m_device->destroyDescriptorSetLayout(m_offsetBufferDescriptorSetLayout);

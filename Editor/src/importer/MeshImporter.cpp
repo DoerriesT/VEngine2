@@ -264,7 +264,7 @@ static bool cookPhysicsMeshes(
 	return true;
 }
 
-bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *baseDstPath, const char *sourcePath, Physics *physics) noexcept
+bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *baseDstPath, const char *sourcePath, Physics *physics, const AssetID *materialAssetIDs) noexcept
 {
 	SMikkTSpaceInterface mikkTSpaceInterface = {};
 	mikkTSpaceInterface.m_getNumFaces = mikktGetNumFaces;
@@ -294,6 +294,14 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 		eastl::vector<MeshAssetData::FileSubMeshHeader> subMeshHeaders;
 
 		eastl::vector<char> dataSegment;
+
+		// write material asset IDs
+		header.m_materialAssetIDDataOffset = static_cast<uint32_t>(dataSegment.size());
+		for (size_t i = 0; i < model.m_materials.size(); ++i)
+		{
+			const auto &assetID = materialAssetIDs[i];
+			dataSegment.insert(dataSegment.end(), assetID.m_string, assetID.m_string + strlen(assetID.m_string) + 1);
+		}
 
 		// cook physics meshes
 		cookPhysicsMeshes(model, physics, &dataSegment, &header.m_physicsConvexMeshDataOffset, &header.m_physicsConvexMeshDataSize, &header.m_physicsTriangleMeshDataOffset, &header.m_physicsTriangleMeshDataSize);

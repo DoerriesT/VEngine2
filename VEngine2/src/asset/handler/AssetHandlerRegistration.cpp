@@ -3,6 +3,7 @@
 #include "MeshAssetHandler.h"
 #include "SkeletonAssetHandler.h"
 #include "TextureAssetHandler.h"
+#include "MaterialAssetHandler.h"
 #include "ScriptAssetHandler.h"
 #include "asset/AssetManager.h"
 
@@ -12,6 +13,7 @@ void AssetHandlerRegistration::createAndRegisterHandlers(Renderer *renderer, Phy
 	MeshAssetHandler::init(AssetManager::get(), renderer, physics);
 	SkeletonAssetHandler::init(AssetManager::get(), animation);
 	TextureAssetHandler::init(AssetManager::get(), renderer);
+	MaterialAssetHandler::init(AssetManager::get(), renderer);
 	ScriptAssetHandler::init(AssetManager::get());
 }
 
@@ -21,5 +23,6 @@ void AssetHandlerRegistration::shutdownHandlers() noexcept
 	MeshAssetHandler::shutdown();
 	SkeletonAssetHandler::shutdown();
 	TextureAssetHandler::shutdown();
+	MaterialAssetHandler::shutdown();
 	ScriptAssetHandler::shutdown();
 }

@@ -6,7 +6,7 @@ struct MaterialCreateInfo
 {
 	enum class Alpha : uint32_t
 	{
-		OPAQUE, MASKED, BLENDED
+		Opaque, Mask, Blended
 	};
 
 	Alpha m_alpha;
@@ -37,4 +37,6 @@ struct MaterialGPU
 	TextureViewHandle m_occlusionTextureHandle;
 	TextureViewHandle m_emissiveTextureHandle;
 	TextureViewHandle m_displacementTextureHandle;
+	float pad0;
+	float pad1;
 };
