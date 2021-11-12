@@ -19,7 +19,9 @@ public:
 	void flushUploadCopies(gal::CommandList *cmdList, uint64_t frameIndex) noexcept;
 	void flushDeletionQueue(uint64_t frameIndex) noexcept;
 	SubMeshDrawInfo getSubMeshDrawInfo(SubMeshHandle handle) const noexcept;
+	const SubMeshDrawInfo *getSubMeshDrawInfoTable() const noexcept;
 	SubMeshBufferHandles getSubMeshBufferHandles(SubMeshHandle handle) const noexcept;
+	const SubMeshBufferHandles *getSubMeshBufferHandleTable() const noexcept;
 
 private:
 	struct Upload

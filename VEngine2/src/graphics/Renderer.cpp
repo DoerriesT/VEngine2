@@ -48,7 +48,7 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 
 	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
 
-	m_renderView = new RenderView(m_ecs, m_device, m_viewRegistry, m_meshManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
+	m_renderView = new RenderView(m_ecs, m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
 }

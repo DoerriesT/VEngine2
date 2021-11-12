@@ -7,6 +7,7 @@
 #include "utility/Utility.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
+#include "graphics/RenderData.h"
 
 using namespace gal;
 
@@ -77,7 +78,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		builder.setVertexBindingDescriptions(bindingDescCount, bindingDescs);
 		builder.setVertexAttributeDescriptions(attributeDescCount, attributeDescs);
 		builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
-		builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
+		builder.setDepthTest(true, false, CompareOp::GREATER_OR_EQUAL);
 		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
 		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
 		builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
@@ -147,7 +148,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		rg::ResourceUsageDesc debugNormalsUsageDescs[] =
 		{
 			{data.m_resultImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
-			{data.m_depthBufferImageViewHandle, {ResourceState::WRITE_DEPTH_STENCIL}},
+			{data.m_depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL}},
 		};
 		graph->addPass("Debug Normals", rg::QueueType::GRAPHICS, eastl::size(debugNormalsUsageDescs), debugNormalsUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
@@ -155,11 +156,8 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Debug Normals");
 				PROFILING_ZONE_SCOPED;
 
-				ColorAttachmentDescription attachmentDescs[]
-				{
-					 { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
-				};
-				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
+				ColorAttachmentDescription attachmentDescs[]{{ registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE }};
+				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
 				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
 				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
@@ -178,7 +176,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 					PassConstants passConsts;
 					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
-					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferIndex;
+					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.normalsLength = 0.1f;
 
 					uint64_t allocSize = sizeof(passConsts);
@@ -187,17 +185,43 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					memcpy(mappedPtr, &passConsts, sizeof(passConsts));
 					uint32_t passConstsAddress = (uint32_t)allocOffset;
 
-
-					for (size_t skinned = 0; skinned < 2; ++skinned)
+					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
-						auto *pipeline = skinned ? m_debugNormalsSkinnedPipeline : m_debugNormalsPipeline;
-						cmdList->bindPipeline(pipeline);
+						&data.m_renderList->m_opaque,
+						&data.m_renderList->m_opaqueAlphaTested,
+						&data.m_renderList->m_opaqueSkinned,
+						&data.m_renderList->m_opaqueSkinnedAlphaTested,
+					};
+					GraphicsPipeline *pipelines[]
+					{
+						m_debugNormalsPipeline,
+						m_debugNormalsPipeline,
+						m_debugNormalsSkinnedPipeline,
+						m_debugNormalsSkinnedPipeline,
+					};
 
-						gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
-						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+					GraphicsPipeline *prevPipeline = nullptr;
+					for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
+					{
+						if (instancesArr[listType]->empty())
+						{
+							continue;
+						}
 
-						const size_t meshCount = skinned ? data.m_skinnedMeshCount : data.m_meshCount;
-						for (size_t i = 0; i < meshCount; ++i)
+						const bool skinned = listType >= 2;
+						auto *pipeline = pipelines[listType];
+
+						if (pipeline != prevPipeline)
+						{
+							cmdList->bindPipeline(pipeline);
+
+							gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+							cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+
+							prevPipeline = pipeline;
+						}
+
+						for (const auto &instance : *instancesArr[listType])
 						{
 							struct MeshConstants
 							{
@@ -210,19 +234,17 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 								uint32_t skinningMatricesOffset;
 							};
 
-							const size_t curMeshOffset = skinned ? i + data.m_meshCount : i;
-
 							MeshConstants consts{};
 							SkinnedMeshConstants skinnedConsts{};
 
 							if (skinned)
 							{
-								memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
-								skinnedConsts.skinningMatricesOffset = data.m_skinningMatrixOffsets[i];
+								memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
+								skinnedConsts.skinningMatricesOffset = instance.m_skinningMatricesOffset;
 							}
 							else
 							{
-								memcpy(consts.modelMatrix, &data.m_modelMatrices[curMeshOffset][0][0], sizeof(float) * 16);
+								memcpy(consts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
 							}
 
 							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
@@ -230,13 +252,13 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 							Buffer *vertexBuffers[]
 							{
-								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
-								data.m_meshBufferHandles[curMeshOffset].m_vertexBuffer,
+								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
 							};
 
-							const uint32_t vertexCount = data.m_meshDrawInfo[curMeshOffset].m_vertexCount;
+							const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
 
 							const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
 							const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
@@ -253,9 +275,9 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize, // joint weights
 							};
 
-							cmdList->bindIndexBuffer(data.m_meshBufferHandles[curMeshOffset].m_indexBuffer, 0, IndexType::UINT16);
+							cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
 							cmdList->bindVertexBuffers(0, skinned ? 4 : 2, vertexBuffers, vertexBufferOffsets);
-							cmdList->drawIndexed(data.m_meshDrawInfo[curMeshOffset].m_indexCount, 1, 0, 0, 0);
+							cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 						}
 					}
 				}

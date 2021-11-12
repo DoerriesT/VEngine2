@@ -8,6 +8,7 @@
 class BufferStackAllocator;
 struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
+struct RenderList;
 
 class PostProcessModule
 {
@@ -20,18 +21,17 @@ public:
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
 		uint32_t m_height;
-		uint32_t m_meshCount;
-		uint32_t m_skinnedMeshCount;
-		uint32_t m_skinningMatrixBufferIndex;
-		glm::mat4 m_viewProjectionMatrix;
-		glm::mat4 *m_modelMatrices;
-		glm::vec3 m_cameraPosition;
-		const SubMeshDrawInfo *m_meshDrawInfo;
-		const SubMeshBufferHandles *m_meshBufferHandles;
-		const uint32_t *m_skinningMatrixOffsets;
 		rg::ResourceViewHandle m_lightingImageView;
 		rg::ResourceViewHandle m_depthBufferImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
+		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
+		StructuredBufferViewHandle m_materialsBufferHandle;
+		glm::mat4 m_viewProjectionMatrix;
+		glm::vec3 m_cameraPosition;
+		const RenderList *m_renderList;
+		const glm::mat4 *m_modelMatrices;
+		const SubMeshDrawInfo *m_meshDrawInfo;
+		const SubMeshBufferHandles *m_meshBufferHandles;
 		bool m_debugNormals;
 	};
 

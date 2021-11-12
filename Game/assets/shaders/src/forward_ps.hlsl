@@ -2,6 +2,7 @@
 #include "shadingModel.hlsli"
 #include "packing.hlsli"
 #include "srgb.hlsli"
+#include "material.hlsli"
 
 struct PSInput
 {
@@ -32,24 +33,6 @@ struct DrawConstants
 {
 	float4x4 modelMatrix;
 	uint materialIndex;
-};
-
-struct Material
-{
-	float3 emissive;
-	uint alphaMode;
-	uint albedo;
-	float metalness;
-	float roughness;
-	uint albedoTextureHandle;
-	uint normalTextureHandle;
-	uint metalnessTextureHandle;
-	uint roughnessTextureHandle;
-	uint occlusionTextureHandle;
-	uint emissiveTextureHandle;
-	uint displacementTextureHandle;
-	uint pad0;
-	uint pad1;
 };
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);

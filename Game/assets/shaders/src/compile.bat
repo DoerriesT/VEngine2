@@ -11,4 +11,10 @@ dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T gs_6_0 -E main debugNormals_gs.hlsl -Fo ./../debugNormals_gs.spv
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main debugNormals_ps.hlsl -Fo ./../debugNormals_ps.spv
 
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main shadow_vs.hlsl -Fo ./../shadow_vs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main -D SKINNED=1 shadow_vs.hlsl -Fo ./../shadow_skinned_vs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main -D ALPHA_TESTED=1 shadow_vs.hlsl -Fo ./../shadow_alpha_tested_vs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main -D SKINNED=1 -D ALPHA_TESTED=1 shadow_vs.hlsl -Fo ./../shadow_skinned_alpha_tested_vs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main shadow_ps.hlsl -Fo ./../shadow_ps.spv
+
 pause

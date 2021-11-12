@@ -597,6 +597,9 @@
     <ClInclude Include="src\asset\handler\MaterialAssetHandler.h">
       <Filter>src\asset\handler</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\RenderData.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">

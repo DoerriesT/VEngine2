@@ -92,7 +92,7 @@ bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 			materialAssetData->m_displacementTexture = getTextureAsset(jmat["displacementTexture"].get<std::string>());
 
 			MaterialCreateInfo material{};
-			//material.m_alpha = Material::Alpha(mat["alphaMode"].get<uint32_t>());
+			material.m_alpha = MaterialCreateInfo::Alpha(jmat["alphaMode"].get<uint32_t>());
 			material.m_albedoFactor = glm::packUnorm4x8(glm::vec4(jmat["albedo"][0].get<float>(), jmat["albedo"][1].get<float>(), jmat["albedo"][2].get<float>(), 1.0f));
 			material.m_metallicFactor = jmat["metalness"].get<float>();
 			material.m_roughnessFactor = jmat["roughness"].get<float>();

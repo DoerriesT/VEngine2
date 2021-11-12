@@ -10,4 +10,10 @@ dxc.exe -T vs_6_0 -E main debugNormals_vs.hlsl -Fo ./../debugNormals_vs.cso -Zi 
 dxc.exe -T vs_6_0 -E main -D SKINNED=1 debugNormals_vs.hlsl -Fo ./../debugNormals_skinned_vs.cso -Zi -Fd ./../debugNormals_skinned_vs.pdb
 dxc.exe -T gs_6_0 -E main debugNormals_gs.hlsl -Fo ./../debugNormals_gs.cso -Zi -Fd ./../debugNormals_gs.pdb
 dxc.exe -T ps_6_0 -E main debugNormals_ps.hlsl -Fo ./../debugNormals_ps.cso -Zi -Fd ./../debugNormals_ps.pdb
+
+dxc.exe -T vs_6_0 -E main shadow_vs.hlsl -Fo ./../shadow_vs.cso -Zi -Fd ./../shadow_vs.pdb
+dxc.exe -T vs_6_0 -E main -D SKINNED=1 shadow_vs.hlsl -Fo ./../shadow_skinned_vs.cso -Zi -Fd ./../shadow_skinned_vs.pdb
+dxc.exe -T vs_6_0 -E main -D ALPHA_TESTED=1 shadow_vs.hlsl -Fo ./../shadow_alpha_tested_vs.cso -Zi -Fd ./../shadow_alpha_tested_vs.pdb
+dxc.exe -T vs_6_0 -E main -D SKINNED=1 -D ALPHA_TESTED=1 shadow_vs.hlsl -Fo ./../shadow_skinned_alpha_tested_vs.cso -Zi -Fd ./../shadow_skinned_alpha_tested_vs.pdb
+dxc.exe -T ps_6_0 -E main shadow_ps.hlsl -Fo ./../shadow_ps.cso -Zi -Fd ./../shadow_ps.pdb
 pause

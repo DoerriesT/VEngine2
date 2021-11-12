@@ -4,6 +4,7 @@
 #include "ViewHandles.h"
 #include "RenderGraph.h"
 #include <glm/mat4x4.hpp>
+#include "RenderData.h"
 
 struct RenderViewResources;
 class ResourceViewRegistry;
@@ -13,6 +14,7 @@ class PostProcessModule;
 class GridPass;
 class ECS;
 class MeshManager;
+class MaterialManager;
 struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
 enum MaterialHandle : uint32_t;
@@ -21,7 +23,7 @@ class RendererResources;
 class RenderView
 {
 public:
-	explicit RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
+	explicit RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
 	~RenderView();
 	void render(
 		rg::RenderGraph *graph,
@@ -42,6 +44,7 @@ private:
 	gal::GraphicsDevice *m_device = nullptr;
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	MeshManager *m_meshManager = nullptr;
+	MaterialManager *m_materialManager = nullptr;
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
 	uint32_t m_frame = 0;
@@ -54,8 +57,5 @@ private:
 	GridPass *m_gridPass = nullptr;
 
 	eastl::vector<glm::mat4> m_modelMatrices;
-	eastl::vector<SubMeshDrawInfo> m_meshDrawInfo;
-	eastl::vector<SubMeshBufferHandles> m_meshBufferHandles;
-	eastl::vector<MaterialHandle> m_materialHandles;
-	eastl::vector<uint32_t> m_skinningMatrixOffsets;
+	RenderList m_renderList;
 };

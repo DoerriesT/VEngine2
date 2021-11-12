@@ -382,6 +382,11 @@ SubMeshDrawInfo MeshManager::getSubMeshDrawInfo(SubMeshHandle handle) const noex
 	return m_subMeshDrawInfo[handle];
 }
 
+const SubMeshDrawInfo *MeshManager::getSubMeshDrawInfoTable() const noexcept
+{
+	return m_subMeshDrawInfo.data();
+}
+
 SubMeshBufferHandles MeshManager::getSubMeshBufferHandles(SubMeshHandle handle) const noexcept
 {
 	LOCK_HOLDER(m_subMeshBufferHandlesMutex);
@@ -391,4 +396,9 @@ SubMeshBufferHandles MeshManager::getSubMeshBufferHandles(SubMeshHandle handle) 
 		return SubMeshBufferHandles();
 	}
 	return m_subMeshBufferHandles[handle];
+}
+
+const SubMeshBufferHandles *MeshManager::getSubMeshBufferHandleTable() const noexcept
+{
+	return m_subMeshBufferHandles.data();
 }

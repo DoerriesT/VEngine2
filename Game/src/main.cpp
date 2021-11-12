@@ -153,7 +153,6 @@ public:
 			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza.mesh"));
 
 			TransformComponent transC{};
-			transC.m_translation.z = -30.0f;
 
 			MeshComponent meshC{ m_sponzaAsset };
 
