@@ -3,6 +3,7 @@
 #include "packing.hlsli"
 #include "srgb.hlsli"
 #include "material.hlsli"
+#include "lights.hlsli"
 
 struct PSInput
 {
@@ -27,6 +28,8 @@ struct PassConstants
 	float3 cameraPosition;
 	uint skinningMatricesBufferIndex;
 	uint materialBufferIndex;
+	uint directionalLightBufferIndex;
+	uint directionalLightCount;
 };
 
 struct DrawConstants
@@ -38,14 +41,12 @@ struct DrawConstants
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
 StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(262144, 2, 1);
+StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(262144, 3, 1);
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
 
 PSOutput main(PSInput input)
 {
-	float3 lightDir = normalize(float3(1.0f, 1.0f, 1.0f));
-	float3 lightIntensity = 3.0f;
-	
 	Material material = g_Materials[g_PassConstants.materialBufferIndex][g_DrawConstants.materialIndex];
 	
 	// albedo
@@ -102,9 +103,11 @@ PSOutput main(PSInput input)
 	
 	float3 result = 0.0f;
 	
-	// directional light
+	// directional lights
+	for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)
 	{
-		result += Default_Lit(albedo, F0, lightIntensity, N, V, lightDir, roughness, metalness);
+		DirectionalLight light = g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i];
+		result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness);
 	}
 	
 	// ambient light

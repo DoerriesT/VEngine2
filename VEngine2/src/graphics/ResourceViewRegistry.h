@@ -9,6 +9,13 @@
 class ResourceViewRegistry
 {
 public:
+	static constexpr uint32_t k_textureBinding = 0;
+	static constexpr uint32_t k_rwTextureBinding = 65536;
+	static constexpr uint32_t k_typedBufferBinding = 131072;
+	static constexpr uint32_t k_rwTypedBufferBinding = 196608;
+	static constexpr uint32_t k_byteBufferBinding = 262144;
+	static constexpr uint32_t k_rwByteBufferBinding = 327680;
+
 	explicit ResourceViewRegistry(gal::GraphicsDevice *device) noexcept;
 	ResourceViewRegistry(const ResourceViewRegistry &) = delete;
 	ResourceViewRegistry(ResourceViewRegistry &&) = delete;

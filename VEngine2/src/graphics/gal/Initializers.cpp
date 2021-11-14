@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <float.h>
+#include "graphics/ResourceViewRegistry.h"
 
 using namespace gal;
 
@@ -636,6 +637,51 @@ StaticSamplerDescription gal::Initializers::staticAnisotropicRepeatSampler(uint3
 	desc.m_unnormalizedCoordinates = false;
 
 	return desc;
+}
+
+DescriptorBufferInfo gal::Initializers::structuedBufferInfo(size_t elementSize, size_t elementCount) noexcept
+{
+	elementCount = elementCount < 1 ? 1 : elementCount;
+	return { nullptr, 0, static_cast<uint64_t>(elementSize * elementCount), static_cast<uint32_t>(elementSize) };
+}
+
+DescriptorSetLayoutBinding gal::Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType type, uint32_t space, ShaderStageFlags stageFlags) noexcept
+{
+	DescriptorSetLayoutBinding binding{};
+	binding.m_descriptorType = type;
+	binding.m_space = space;
+	binding.m_descriptorCount = 65536;
+	binding.m_stageFlags = stageFlags;
+	binding.m_bindingFlags = DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT;
+
+	switch (type)
+	{
+	case gal::DescriptorType::TEXTURE:
+		binding.m_binding = ResourceViewRegistry::k_textureBinding;
+		break;
+	case gal::DescriptorType::RW_TEXTURE:
+		binding.m_binding = ResourceViewRegistry::k_rwTextureBinding;
+		break;
+	case gal::DescriptorType::TYPED_BUFFER:
+		binding.m_binding = ResourceViewRegistry::k_typedBufferBinding;
+		break;
+	case gal::DescriptorType::RW_TYPED_BUFFER:
+		binding.m_binding = ResourceViewRegistry::k_rwTypedBufferBinding;
+		break;
+	case gal::DescriptorType::BYTE_BUFFER:
+	case gal::DescriptorType::STRUCTURED_BUFFER:
+		binding.m_binding = ResourceViewRegistry::k_byteBufferBinding;
+		break;
+	case gal::DescriptorType::RW_BYTE_BUFFER:
+	case gal::DescriptorType::RW_STRUCTURED_BUFFER:
+		binding.m_binding = ResourceViewRegistry::k_rwByteBufferBinding;
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	return binding;
 }
 
 const PipelineColorBlendAttachmentState GraphicsPipelineBuilder::s_defaultBlendAttachment =

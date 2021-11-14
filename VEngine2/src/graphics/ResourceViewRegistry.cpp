@@ -1,12 +1,5 @@
 #include "ResourceViewRegistry.h"
 
-static constexpr uint32_t s_textureBinding = 0;
-static constexpr uint32_t s_rwTextureBinding = 65536;
-static constexpr uint32_t s_typedBufferBinding = 131072;
-static constexpr uint32_t s_rwTypedBufferBinding = 196608;
-static constexpr uint32_t s_byteBufferBinding = 262144;
-static constexpr uint32_t s_rwByteBufferBinding = 327680;
-
 ResourceViewRegistry::ResourceViewRegistry(gal::GraphicsDevice *device) noexcept
 	:m_device(device),
 	m_textureHandleManager(65536),
@@ -21,12 +14,12 @@ ResourceViewRegistry::ResourceViewRegistry(gal::GraphicsDevice *device) noexcept
 
 	gal::DescriptorSetLayoutBinding bindings[]
 	{
-		{gal::DescriptorType::TEXTURE, s_textureBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::RW_TEXTURE, s_rwTextureBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::TYPED_BUFFER, s_typedBufferBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::RW_TYPED_BUFFER, s_rwTypedBufferBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::BYTE_BUFFER, s_byteBufferBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::RW_BYTE_BUFFER, s_rwByteBufferBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::TEXTURE, k_textureBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::RW_TEXTURE, k_rwTextureBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::TYPED_BUFFER, k_typedBufferBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::RW_TYPED_BUFFER, k_rwTypedBufferBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::BYTE_BUFFER, k_byteBufferBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::RW_BYTE_BUFFER, k_rwByteBufferBinding, 0, 65536, stages, bindingFlags },
 	};
 	m_device->createDescriptorSetLayout((uint32_t)eastl::size(bindings), bindings, &m_descriptorSetLayout);
 	m_device->createDescriptorSetPool(2, m_descriptorSetLayout, &m_descriptorSetPool);
@@ -41,112 +34,112 @@ ResourceViewRegistry::~ResourceViewRegistry()
 
 TextureViewHandle ResourceViewRegistry::createTextureViewHandle(gal::ImageView *imageView, bool transient) noexcept
 {
-	return (TextureViewHandle)createHandle(m_textureHandleManager, m_textureHandleManagerMutex, s_textureBinding, transient, gal::DescriptorType::TEXTURE, imageView, nullptr, nullptr);
+	return (TextureViewHandle)createHandle(m_textureHandleManager, m_textureHandleManagerMutex, k_textureBinding, transient, gal::DescriptorType::TEXTURE, imageView, nullptr, nullptr);
 }
 
 RWTextureViewHandle ResourceViewRegistry::createRWTextureViewHandle(gal::ImageView *imageView, bool transient) noexcept
 {
-	return (RWTextureViewHandle)createHandle(m_rwTextureHandleManager, m_rwTextureHandleManagerMutex, s_rwTextureBinding, transient, gal::DescriptorType::RW_TEXTURE, imageView, nullptr, nullptr);
+	return (RWTextureViewHandle)createHandle(m_rwTextureHandleManager, m_rwTextureHandleManagerMutex, k_rwTextureBinding, transient, gal::DescriptorType::RW_TEXTURE, imageView, nullptr, nullptr);
 }
 
 TypedBufferViewHandle ResourceViewRegistry::createTypedBufferViewHandle(gal::BufferView *bufferView, bool transient) noexcept
 {
-	return (TypedBufferViewHandle)createHandle(m_typedBufferHandleManager, m_typedBufferHandleManagerMutex, s_typedBufferBinding, transient, gal::DescriptorType::TYPED_BUFFER, nullptr, bufferView, nullptr);
+	return (TypedBufferViewHandle)createHandle(m_typedBufferHandleManager, m_typedBufferHandleManagerMutex, k_typedBufferBinding, transient, gal::DescriptorType::TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 RWTypedBufferViewHandle ResourceViewRegistry::createRWTypedBufferViewHandle(gal::BufferView *bufferView, bool transient) noexcept
 {
-	return (RWTypedBufferViewHandle)createHandle(m_rwTypedBufferHandleManager, m_rwTypedBufferHandleManagerMutex, s_rwTypedBufferBinding, transient, gal::DescriptorType::RW_TYPED_BUFFER, nullptr, bufferView, nullptr);
+	return (RWTypedBufferViewHandle)createHandle(m_rwTypedBufferHandleManager, m_rwTypedBufferHandleManagerMutex, k_rwTypedBufferBinding, transient, gal::DescriptorType::RW_TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 ByteBufferViewHandle ResourceViewRegistry::createByteBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (ByteBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, s_byteBufferBinding, transient, gal::DescriptorType::BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
+	return (ByteBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, k_byteBufferBinding, transient, gal::DescriptorType::BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 RWByteBufferViewHandle ResourceViewRegistry::createRWByteBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (RWByteBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, s_rwByteBufferBinding, transient, gal::DescriptorType::RW_BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
+	return (RWByteBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, k_rwByteBufferBinding, transient, gal::DescriptorType::RW_BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 StructuredBufferViewHandle ResourceViewRegistry::createStructuredBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (StructuredBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, s_byteBufferBinding, transient, gal::DescriptorType::STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
+	return (StructuredBufferViewHandle)createHandle(m_byteBufferHandleManager, m_byteBufferHandleManagerMutex, k_byteBufferBinding, transient, gal::DescriptorType::STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 RWStructuredBufferViewHandle ResourceViewRegistry::createRWStructuredBufferViewHandle(const gal::DescriptorBufferInfo &bufferInfo, bool transient) noexcept
 {
-	return (RWStructuredBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, s_rwByteBufferBinding, transient, gal::DescriptorType::RW_STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
+	return (RWStructuredBufferViewHandle)createHandle(m_rwByteBufferHandleManager, m_rwByteBufferHandleManagerMutex, k_rwByteBufferBinding, transient, gal::DescriptorType::RW_STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(TextureViewHandle handle, gal::ImageView *imageView) noexcept
 {
-	updateHandle(handle, s_textureBinding, gal::DescriptorType::TEXTURE, imageView, nullptr, nullptr);
+	updateHandle(handle, k_textureBinding, gal::DescriptorType::TEXTURE, imageView, nullptr, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(RWTextureViewHandle handle, gal::ImageView *imageView) noexcept
 {
-	updateHandle(handle, s_rwTextureBinding, gal::DescriptorType::RW_TEXTURE, imageView, nullptr, nullptr);
+	updateHandle(handle, k_rwTextureBinding, gal::DescriptorType::RW_TEXTURE, imageView, nullptr, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(TypedBufferViewHandle handle, gal::BufferView *bufferView) noexcept
 {
-	updateHandle(handle, s_typedBufferBinding, gal::DescriptorType::TYPED_BUFFER, nullptr, bufferView, nullptr);
+	updateHandle(handle, k_typedBufferBinding, gal::DescriptorType::TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(RWTypedBufferViewHandle handle, gal::BufferView *bufferView) noexcept
 {
-	updateHandle(handle, s_rwTypedBufferBinding, gal::DescriptorType::RW_TYPED_BUFFER, nullptr, bufferView, nullptr);
+	updateHandle(handle, k_rwTypedBufferBinding, gal::DescriptorType::RW_TYPED_BUFFER, nullptr, bufferView, nullptr);
 }
 
 void ResourceViewRegistry::updateHandle(ByteBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle(handle, s_byteBufferBinding, gal::DescriptorType::BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
+	updateHandle(handle, k_byteBufferBinding, gal::DescriptorType::BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(RWByteBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle(handle, s_rwByteBufferBinding, gal::DescriptorType::RW_BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
+	updateHandle(handle, k_rwByteBufferBinding, gal::DescriptorType::RW_BYTE_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(StructuredBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle(handle, s_byteBufferBinding, gal::DescriptorType::STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
+	updateHandle(handle, k_byteBufferBinding, gal::DescriptorType::STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::updateHandle(RWStructuredBufferViewHandle handle, const gal::DescriptorBufferInfo &bufferInfo) noexcept
 {
-	updateHandle(handle, s_rwByteBufferBinding, gal::DescriptorType::RW_STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
+	updateHandle(handle, k_rwByteBufferBinding, gal::DescriptorType::RW_STRUCTURED_BUFFER, nullptr, nullptr, &bufferInfo);
 }
 
 void ResourceViewRegistry::destroyHandle(TextureViewHandle handle) noexcept
 {
-	destroyHandle(m_textureHandleManager, handle, s_textureBinding);
+	destroyHandle(m_textureHandleManager, handle, k_textureBinding);
 }
 
 void ResourceViewRegistry::destroyHandle(RWTextureViewHandle handle) noexcept
 {
-	destroyHandle(m_rwTextureHandleManager, handle, s_rwTextureBinding);
+	destroyHandle(m_rwTextureHandleManager, handle, k_rwTextureBinding);
 }
 
 void ResourceViewRegistry::destroyHandle(TypedBufferViewHandle handle) noexcept
 {
-	destroyHandle(m_typedBufferHandleManager, handle, s_typedBufferBinding);
+	destroyHandle(m_typedBufferHandleManager, handle, k_typedBufferBinding);
 }
 
 void ResourceViewRegistry::destroyHandle(RWTypedBufferViewHandle handle) noexcept
 {
-	destroyHandle(m_rwTypedBufferHandleManager, handle, s_rwTypedBufferBinding);
+	destroyHandle(m_rwTypedBufferHandleManager, handle, k_rwTypedBufferBinding);
 }
 
 void ResourceViewRegistry::destroyHandle(ByteBufferViewHandle handle) noexcept
 {
-	destroyHandle(m_byteBufferHandleManager, handle, s_byteBufferBinding);
+	destroyHandle(m_byteBufferHandleManager, handle, k_byteBufferBinding);
 }
 
 void ResourceViewRegistry::destroyHandle(RWByteBufferViewHandle handle) noexcept
 {
-	destroyHandle(m_rwByteBufferHandleManager, handle, s_rwByteBufferBinding);
+	destroyHandle(m_rwByteBufferHandleManager, handle, k_rwByteBufferBinding);
 }
 
 void ResourceViewRegistry::destroyHandle(StructuredBufferViewHandle handle) noexcept

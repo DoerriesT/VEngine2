@@ -23,6 +23,8 @@ public:
 		uint32_t m_height;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
+		StructuredBufferViewHandle m_directionalLightsBufferHandle;
+		uint32_t m_directionalLightCount;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;

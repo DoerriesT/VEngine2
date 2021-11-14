@@ -36,6 +36,16 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		}
 	}
 
+	// shader resource buffer
+	{
+		gal::BufferCreateInfo createInfo{ 8 * 1024 * 1024, {}, gal::BufferUsageFlags::TYPED_BUFFER_BIT | gal::BufferUsageFlags::BYTE_BUFFER_BIT | gal::BufferUsageFlags::STRUCTURED_BUFFER_BIT };
+		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableShaderResourceBuffers[0]);
+		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableShaderResourceBuffers[1]);
+
+		m_shaderResourceBufferStackAllocators[0] = new BufferStackAllocator(m_mappableShaderResourceBuffers[0]);
+		m_shaderResourceBufferStackAllocators[1] = new BufferStackAllocator(m_mappableShaderResourceBuffers[1]);
+	}
+
 	// index buffer
 	{
 		gal::BufferCreateInfo createInfo{ 1024 * 1024 * 4, {}, gal::BufferUsageFlags::INDEX_BUFFER_BIT };
@@ -183,6 +193,8 @@ RendererResources::~RendererResources()
 {
 	delete m_constantBufferStackAllocators[0];
 	delete m_constantBufferStackAllocators[1];
+	delete m_shaderResourceBufferStackAllocators[0];
+	delete m_shaderResourceBufferStackAllocators[1];
 	delete m_indexBufferStackAllocators[0];
 	delete m_indexBufferStackAllocators[1];
 	delete m_vertexBufferStackAllocators[0];
@@ -190,6 +202,8 @@ RendererResources::~RendererResources()
 
 	m_device->destroyBuffer(m_mappableConstantBuffers[0]);
 	m_device->destroyBuffer(m_mappableConstantBuffers[1]);
+	m_device->destroyBuffer(m_mappableShaderResourceBuffers[0]);
+	m_device->destroyBuffer(m_mappableShaderResourceBuffers[1]);
 	m_device->destroyBuffer(m_mappableIndexBuffers[0]);
 	m_device->destroyBuffer(m_mappableIndexBuffers[1]);
 	m_device->destroyBuffer(m_mappableVertexBuffers[0]);

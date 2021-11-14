@@ -2,32 +2,71 @@
 #include <glm/trigonometric.hpp>
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
+#include <EASTL/algorithm.h>
 
 void LightComponent::onGUI(void *instance) noexcept
 {
 	LightComponent &c = *reinterpret_cast<LightComponent *>(instance);
 
+	int typeInt = static_cast<int>(c.m_type);
+	const char *typeStrings[] = { "Point", "Spot", "Directional" };
+	if (ImGui::Combo("Type", &typeInt, typeStrings, IM_ARRAYSIZE(typeStrings)))
+	{
+		c.m_type = static_cast<LightComponent::Type>(typeInt);
+	}
+
 	ImGuiHelpers::ColorEdit3("Color", &c.m_color);
 	ImGuiHelpers::Tooltip("The sRGB color of the light source.");
 
-	ImGui::DragFloat("Intensity", &c.m_luminousPower, 1.0f, 0.0f, FLT_MAX);
+	ImGui::DragFloat("Intensity", &c.m_intensity, 1.0f, 0.0f, FLT_MAX);
 	ImGuiHelpers::Tooltip("Intensity as luminous power (in lumens).");
-
-	ImGui::DragFloat("Radius", &c.m_radius, 1.0f, 0.01f, FLT_MAX);
-	ImGuiHelpers::Tooltip("The radius of the sphere of influence of the light source.");
-
-	float outerAngleDegrees = glm::degrees(c.m_outerAngle);
-	ImGui::DragFloat("Outer Spot Angle", &outerAngleDegrees, 1.0f, 1.0f, 179.0f);
-	c.m_outerAngle = glm::radians(outerAngleDegrees);
-	ImGuiHelpers::Tooltip("The outer angle of the spot light cone.");
-
-	float innerAngleDegrees = glm::degrees(c.m_innerAngle);
-	ImGui::DragFloat("Inner Spot Angle", &innerAngleDegrees, 1.0f, 1.0f, outerAngleDegrees);
-	c.m_innerAngle = glm::radians(innerAngleDegrees);
-	ImGuiHelpers::Tooltip("The inner angle of the spot light cone.");
 
 	ImGui::Checkbox("Casts Shadows", &c.m_shadows);
 	ImGuiHelpers::Tooltip("Enables shadows for this light source.");
+
+	if (c.m_type == Type::Directional)
+	{
+		ImGui::DragFloat("Split Lambda", &c.m_splitLambda, 0.05f, 0.0f, 1.0f);
+
+		int cascades = static_cast<int>(c.m_cascadeCount);
+		if (ImGui::InputInt("Cascades", &cascades, 1, 1))
+		{
+			c.m_cascadeCount = eastl::clamp<int>(cascades, 1, LightComponent::k_maxCascades);
+		}
+
+		for (size_t i = 0; i < c.m_cascadeCount; ++i)
+		{
+			char cascadeLabel[] = "Cascade X";
+			cascadeLabel[sizeof(cascadeLabel) - 2] = '0' + static_cast<char>(i);
+			ImGui::Text(cascadeLabel);
+			ImGui::PushID(&c.m_depthBias[i]);
+			ImGui::DragFloat("Depth Bias", &c.m_depthBias[i], 0.05f, 0.0f, 20.0f);
+			ImGui::PopID();
+			ImGui::PushID(&c.m_normalOffsetBias[i]);
+			ImGui::DragFloat("Normal Offset Bias", &c.m_normalOffsetBias[i], 0.05f, 0.0f, 20.0f);
+			ImGui::PopID();
+		}
+
+		ImGui::DragFloat("Shadow Distance", &c.m_maxShadowDistance, 0.05f, 0.0f, FLT_MAX);
+	}
+	else
+	{
+		ImGui::DragFloat("Radius", &c.m_radius, 1.0f, 0.01f, FLT_MAX);
+		ImGuiHelpers::Tooltip("The radius of the sphere of influence of the light source.");
+
+		if (c.m_type == Type::Spot)
+		{
+			float outerAngleDegrees = glm::degrees(c.m_outerAngle);
+			ImGui::DragFloat("Outer Spot Angle", &outerAngleDegrees, 1.0f, 1.0f, 179.0f);
+			c.m_outerAngle = glm::radians(outerAngleDegrees);
+			ImGuiHelpers::Tooltip("The outer angle of the spot light cone.");
+
+			float innerAngleDegrees = glm::degrees(c.m_innerAngle);
+			ImGui::DragFloat("Inner Spot Angle", &innerAngleDegrees, 1.0f, 1.0f, outerAngleDegrees);
+			c.m_innerAngle = glm::radians(innerAngleDegrees);
+			ImGuiHelpers::Tooltip("The inner angle of the spot light cone.");
+		}
+	}
 }
 
 void LightComponent::toLua(lua_State *L, void *instance) noexcept

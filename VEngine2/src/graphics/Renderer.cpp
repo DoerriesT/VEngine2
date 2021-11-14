@@ -85,6 +85,7 @@ void Renderer::render() noexcept
 	PROFILING_GPU_NEW_FRAME(m_device->getProfilingContext());
 
 	m_rendererResources->m_constantBufferStackAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_shaderResourceBufferStackAllocators[m_frame & 1]->reset();
 	m_rendererResources->m_indexBufferStackAllocators[m_frame & 1]->reset();
 	m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1]->reset();
 

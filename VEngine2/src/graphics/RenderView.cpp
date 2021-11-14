@@ -10,12 +10,14 @@
 #include "component/TransformComponent.h"
 #include "component/MeshComponent.h"
 #include "component/SkinnedMeshComponent.h"
+#include "component/LightComponent.h"
 #include <glm/gtx/transform.hpp>
 #include "MeshManager.h"
 #include "MaterialManager.h"
 #include "animation/Skeleton.h"
 #include "RenderGraph.h"
 #include "RendererResources.h"
+#include "BufferStackAllocator.h"
 
 using namespace gal;
 
@@ -50,12 +52,69 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 		return;
 	}
 
+	const size_t resIdx = m_frame & 1;
+	const size_t prevResIdx = (m_frame + 1) & 1;
+
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
 	rg::ResourceViewHandle resultImageViewHandle = m_resultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Render View Result", resultImageHandle, graph));
 
 	m_modelMatrices.clear();
+	m_directionalLights.clear();
 	m_renderList.clear();
+
+	m_ecs->iterate<TransformComponent, LightComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, LightComponent *lightC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				auto &lc = lightC[i];
+
+				switch (lc.m_type)
+				{
+				case LightComponent::Type::Point:
+				case LightComponent::Type::Spot:
+					break;
+				case LightComponent::Type::Directional:
+				{
+					DirectionalLightGPU directionalLight{};
+					directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
+					directionalLight.m_direction = tc.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f);
+
+					m_directionalLights.push_back(directionalLight);
+
+					break;
+				}
+				default:
+					assert(false);
+					break;
+				}
+			}
+		});
+
+	auto createStructuredBuffer = [&](auto dataAsVector) -> StructuredBufferViewHandle
+	{
+		const size_t elementSize = sizeof(dataAsVector[0]);
+
+		// prepare DescriptorBufferInfo
+		DescriptorBufferInfo bufferInfo = Initializers::structuedBufferInfo(elementSize, dataAsVector.size());
+		bufferInfo.m_buffer = m_rendererResources->m_shaderResourceBufferStackAllocators[resIdx]->getBuffer();
+
+		// allocate memory
+		uint64_t alignment = m_device->getBufferAlignment(DescriptorType::STRUCTURED_BUFFER, elementSize);
+		uint8_t *bufferPtr = m_rendererResources->m_shaderResourceBufferStackAllocators[resIdx]->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+		
+		// copy to destination
+		if (!dataAsVector.empty())
+		{
+			memcpy(bufferPtr, dataAsVector.data(), dataAsVector.size() * elementSize);
+		}
+
+		// create a transient bindless handle
+		return m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
+	};
+
+	StructuredBufferViewHandle directionalLightsBufferViewHandle = createStructuredBuffer(m_directionalLights);
 
 	const auto *subMeshDrawInfoTable = m_meshManager->getSubMeshDrawInfoTable();
 
@@ -156,6 +215,8 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 
 	m_renderViewResources->m_skinningMatricesBuffers[m_frame & 1]->unmap();
 
+
+	ForwardModule::ResultData forwardModuleResultData;
 	ForwardModule::Data forwardModuleData{};
 	forwardModuleData.m_profilingCtx = m_device->getProfilingContext();
 	forwardModuleData.m_bufferAllocator = bufferAllocator;
@@ -165,6 +226,8 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	forwardModuleData.m_height = m_height;
 	forwardModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+	forwardModuleData.m_directionalLightsBufferHandle = directionalLightsBufferViewHandle;
+	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
 	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	forwardModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	forwardModuleData.m_renderList = &m_renderList;
@@ -172,9 +235,8 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	forwardModuleData.m_meshDrawInfo = subMeshDrawInfoTable;
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 
-	ForwardModule::ResultData forwardModuleResultData;
-
 	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
+
 
 	PostProcessModule::Data postProcessModuleData{};
 	postProcessModuleData.m_profilingCtx = m_device->getProfilingContext();
@@ -194,9 +256,10 @@ void RenderView::render(rg::RenderGraph *graph, BufferStackAllocator *bufferAllo
 	postProcessModuleData.m_modelMatrices = m_modelMatrices.data();
 	postProcessModuleData.m_meshDrawInfo = subMeshDrawInfoTable;
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
-	postProcessModuleData.m_debugNormals = true;
+	postProcessModuleData.m_debugNormals = false;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
+
 
 	GridPass::Data gridPassData{};
 	gridPassData.m_profilingCtx = m_device->getProfilingContext();

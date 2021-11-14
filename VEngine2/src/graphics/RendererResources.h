@@ -15,9 +15,11 @@ public:
 	gal::CommandList *m_commandList = nullptr;
 
 	gal::Buffer *m_mappableConstantBuffers[2] = {};
+	gal::Buffer *m_mappableShaderResourceBuffers[2] = {};
 	gal::Buffer *m_mappableIndexBuffers[2] = {};
 	gal::Buffer *m_mappableVertexBuffers[2] = {};
 	BufferStackAllocator *m_constantBufferStackAllocators[2] = {};
+	BufferStackAllocator *m_shaderResourceBufferStackAllocators[2] = {};
 	BufferStackAllocator *m_indexBufferStackAllocators[2] = {};
 	BufferStackAllocator *m_vertexBufferStackAllocators[2] = {};
 	gal::Image *m_imguiFontTexture = nullptr;

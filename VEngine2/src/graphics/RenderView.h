@@ -57,5 +57,6 @@ private:
 	GridPass *m_gridPass = nullptr;
 
 	eastl::vector<glm::mat4> m_modelMatrices;
+	eastl::vector<DirectionalLightGPU> m_directionalLights;
 	RenderList m_renderList;
 };

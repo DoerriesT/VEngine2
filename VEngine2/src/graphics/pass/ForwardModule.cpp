@@ -73,11 +73,10 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::VERTEX_BIT };
 				DescriptorSetLayoutBinding usedBindlessBindings[] =
 				{
-					{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // textures
-					{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // skinning matrices
-					{ DescriptorType::STRUCTURED_BUFFER, 262144, 2, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // material buffer
+					Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
+					Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // skinning matrices
+					Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 2, ShaderStageFlags::VERTEX_BIT), // material buffer
 				};
-
 
 				DescriptorSetLayoutDeclaration layoutDecls[]
 				{
@@ -180,11 +179,11 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
 			DescriptorSetLayoutBinding usedBindlessBindings[] =
 			{
-				{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // textures
-				{ DescriptorType::STRUCTURED_BUFFER, 262144, 1, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // skinning matrices
-				{ DescriptorType::STRUCTURED_BUFFER, 262144, 2, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // material buffer
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // skinning matrices
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 2, ShaderStageFlags::PIXEL_BIT), // material buffer
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // directional lights
 			};
-
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
 			{
@@ -328,7 +327,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 							consts.uintData[uintDataOffset++] = instance.m_materialHandle;
 						}
 
-						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, sizeof(float) * 16 + sizeof(uint32_t) * uintDataOffset, &consts);
+						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(float) * 16 + sizeof(uint32_t) * uintDataOffset), &consts);
 
 
 						Buffer *vertexBuffers[]
@@ -413,6 +412,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					float cameraPosition[3];
 					uint32_t skinningMatricesBufferIndex;
 					uint32_t materialBufferIndex;
+					uint32_t directionalLightBufferIndex;
+					uint32_t directionalLightCount;
 				};
 
 				PassConstants passConsts;
@@ -420,6 +421,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
+				passConsts.directionalLightBufferIndex = data.m_directionalLightsBufferHandle;
+				passConsts.directionalLightCount = data.m_directionalLightCount;
 
 				uint64_t allocSize = sizeof(passConsts);
 				uint64_t allocOffset = 0;

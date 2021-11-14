@@ -31,6 +31,8 @@ struct PassConstants
 	float3 cameraPosition;
 	uint skinningMatricesBufferIndex;
 	uint materialBufferIndex;
+	uint directionalLightBufferIndex;
+	uint directionalLightCount;
 };
 
 struct DrawConstants

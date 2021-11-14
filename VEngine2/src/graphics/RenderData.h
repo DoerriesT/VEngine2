@@ -3,6 +3,7 @@
 #include "Handles.h"
 #include <EASTL/vector.h>
 #include <glm/mat4x4.hpp>
+#include "component/LightComponent.h"
 
 struct SubMeshInstanceData
 {
@@ -26,4 +27,36 @@ struct RenderList
 		m_opaqueSkinned.clear();
 		m_opaqueSkinnedAlphaTested.clear();
 	}
+};
+
+struct DirectionalLightGPU
+{
+	glm::vec3 m_color;
+	TextureViewHandle m_shadowTextureHandle;
+	glm::vec3 m_direction;
+	uint32_t m_cascadeCount;
+	glm::mat4 m_shadowMatrices[LightComponent::k_maxCascades];
+};
+
+struct PunctualLightGPU
+{
+	glm::vec3 m_color;
+	float m_invSqrAttRadius;
+	glm::vec3 m_position;
+	float m_angleScale;
+	glm::vec3 m_direction;
+	float m_angleOffset;
+};
+
+struct PunctualLightShadowedGPU
+{
+	PunctualLightGPU m_light;
+	glm::vec4 m_shadowMatrix0;
+	glm::vec4 m_shadowMatrix1;
+	glm::vec4 m_shadowMatrix2;
+	glm::vec4 m_shadowMatrix3;
+	float m_radius;
+	uint32_t m_shadowTextureHandle;
+	float m_pad1;
+	float m_pad2;
 };
