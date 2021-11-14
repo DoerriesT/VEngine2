@@ -24,7 +24,11 @@ public:
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsBufferHandle;
+		StructuredBufferViewHandle m_directionalLightsShadowedBufferHandle;
+		const rg::ResourceViewHandle *m_shadowMapViewHandles;
 		uint32_t m_directionalLightCount;
+		uint32_t m_directionalLightShadowedCount;
+		size_t m_shadowMapViewHandleCount;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;

@@ -209,6 +209,20 @@ public:
 			//	createPhysicsObject(transC.m_translation, {}, PhysicsMobility::DYNAMIC);
 			//}
 		}
+
+		// light
+		{
+			TransformComponent transC{};
+
+			LightComponent lightC{};
+			lightC.m_type = LightComponent::Type::Directional;
+			lightC.m_shadows = true;
+			lightC.m_cascadeCount = 4;
+			lightC.m_intensity = 10.0f;
+
+			auto entity = m_engine->getECS()->createEntity<TransformComponent, LightComponent>(transC, lightC);
+			m_engine->getLevel()->addEntity(entity, "Directional Light");
+		}
 	}
 
 	void setPlaying(bool playing) noexcept override

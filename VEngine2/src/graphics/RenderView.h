@@ -9,6 +9,7 @@
 struct RenderViewResources;
 class ResourceViewRegistry;
 class BufferStackAllocator;
+class ShadowModule;
 class ForwardModule;
 class PostProcessModule;
 class GridPass;
@@ -19,6 +20,7 @@ struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
 enum MaterialHandle : uint32_t;
 class RendererResources;
+struct CameraComponent;
 
 class RenderView
 {
@@ -32,6 +34,7 @@ public:
 		const float *viewMatrix, 
 		const float *projectionMatrix, 
 		const float *cameraPosition, 
+		const CameraComponent *cameraComponent,
 		bool transitionResultToTexture) noexcept;
 	void resize(uint32_t width, uint32_t height) noexcept;
 	gal::Image *getResultImage() const noexcept;
@@ -52,11 +55,16 @@ private:
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle = {};
 
+	ShadowModule *m_shadowModule = nullptr;
 	ForwardModule *m_forwardModule = nullptr;
 	PostProcessModule *m_postProcessModule = nullptr;
 	GridPass *m_gridPass = nullptr;
 
 	eastl::vector<glm::mat4> m_modelMatrices;
+	eastl::vector<glm::mat4> m_shadowMatrices;
+	eastl::vector<rg::ResourceViewHandle> m_shadowTextureRenderHandles;
+	eastl::vector<rg::ResourceViewHandle> m_shadowTextureSampleHandles;
 	eastl::vector<DirectionalLightGPU> m_directionalLights;
+	eastl::vector<DirectionalLightGPU> m_shadowedDirectionalLights;
 	RenderList m_renderList;
 };

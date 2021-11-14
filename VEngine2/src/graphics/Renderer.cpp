@@ -123,6 +123,7 @@ void Renderer::render() noexcept
 					&viewMatrix[0][0], 
 					&projMatrix[0][0], 
 					&tc->m_translation.x,
+					cc,
 					m_editorMode);
 			}
 		}

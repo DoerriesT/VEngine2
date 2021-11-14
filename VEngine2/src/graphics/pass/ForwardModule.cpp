@@ -183,6 +183,8 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // skinning matrices
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 2, ShaderStageFlags::PIXEL_BIT), // material buffer
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // directional lights
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4, ShaderStageFlags::PIXEL_BIT), // shadowed directional lights
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 5, ShaderStageFlags::PIXEL_BIT), // array textures
 			};
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
@@ -191,11 +193,17 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 			};
 
-			gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT);
+			gal::StaticSamplerDescription staticSamplerDescs[]
+			{
+				gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT),
+				gal::Initializers::staticLinearClampSampler(1, 0, gal::ShaderStageFlags::PIXEL_BIT),
+			};
+			staticSamplerDescs[1].m_compareEnable = true;
+			staticSamplerDescs[1].m_compareOp = CompareOp::LESS_OR_EQUAL;
 
 			uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t);
 			pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
-			builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 1, &staticSamplerDesc, 2);
+			builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, static_cast<uint32_t>(eastl::size(staticSamplerDescs)), staticSamplerDescs, 2);
 
 			device->createGraphicsPipelines(1, &pipelineCreateInfo, isSkinned ? &m_forwardSkinnedPipeline : &m_forwardPipeline);
 		}
@@ -369,15 +377,18 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 		});
 
 	// forward
-	rg::ResourceUsageDesc forwardUsageDescs[] =
+	eastl::fixed_vector<rg::ResourceUsageDesc, 32 + 5> forwardUsageDescs;
+	forwardUsageDescs.push_back({ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
+	forwardUsageDescs.push_back({ normalImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
+	forwardUsageDescs.push_back({ albedoImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
+	forwardUsageDescs.push_back({ velocityImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
+	forwardUsageDescs.push_back({ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} });
+	for (size_t i = 0; i < data.m_shadowMapViewHandleCount; ++i)
 	{
-		{lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
-		{normalImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
-		{albedoImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
-		{velocityImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
-		{depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL}},
-	};
-	graph->addPass("Forward", rg::QueueType::GRAPHICS, eastl::size(forwardUsageDescs), forwardUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		forwardUsageDescs.push_back({ data.m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	}
+	
+	graph->addPass("Forward", rg::QueueType::GRAPHICS, forwardUsageDescs.size(), forwardUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Forward");
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Forward");
@@ -414,6 +425,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					uint32_t materialBufferIndex;
 					uint32_t directionalLightBufferIndex;
 					uint32_t directionalLightCount;
+					uint32_t directionalLightShadowedBufferIndex;
+					uint32_t directionalLightShadowedCount;
 				};
 
 				PassConstants passConsts;
@@ -423,6 +436,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 				passConsts.directionalLightBufferIndex = data.m_directionalLightsBufferHandle;
 				passConsts.directionalLightCount = data.m_directionalLightCount;
+				passConsts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
+				passConsts.directionalLightShadowedCount = data.m_directionalLightShadowedCount;
 
 				uint64_t allocSize = sizeof(passConsts);
 				uint64_t allocOffset = 0;

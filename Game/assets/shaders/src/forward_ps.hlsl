@@ -30,6 +30,8 @@ struct PassConstants
 	uint materialBufferIndex;
 	uint directionalLightBufferIndex;
 	uint directionalLightCount;
+	uint directionalLightShadowedBufferIndex;
+	uint directionalLightShadowedCount;
 };
 
 struct DrawConstants
@@ -42,8 +44,36 @@ ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
 StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(262144, 2, 1);
 StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(262144, 3, 1);
+StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(262144, 4, 1);
+Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
+SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
+
+float3 sampleCascadedShadowMaps(float3 posWS, float3 N, DirectionalLight light)
+{	
+	float4 shadowCoord = 0.0f;
+	uint cascadeIndex = 0;
+	bool foundCascade = false;
+	for (; cascadeIndex < light.cascadeCount; ++cascadeIndex)
+	{
+		shadowCoord = mul(light.shadowMatrices[cascadeIndex], float4(posWS + N * 0.1f, 1.0f));
+		if (all(abs(shadowCoord.xy) < 1.0f))
+		{
+			foundCascade = true;
+			break;
+		}
+	}
+	
+	if (foundCascade)
+	{
+		return g_ArrayTextures[light.shadowTextureHandle].SampleCmpLevelZero(g_ShadowSampler, float3(shadowCoord.xy * float2(0.5f, -0.5f) + 0.5f, cascadeIndex), shadowCoord.z).x;
+	}
+	else
+	{
+		return 1.0f;
+	}
+}
 
 PSOutput main(PSInput input)
 {
@@ -104,10 +134,24 @@ PSOutput main(PSInput input)
 	float3 result = 0.0f;
 	
 	// directional lights
-	for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)
 	{
-		DirectionalLight light = g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i];
-		result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness);
+		for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)
+		{
+			DirectionalLight light = g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i];
+			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness);
+		}
+	}
+	
+	
+	// directional lights shadowed
+	{
+		for (uint i = 0; i < g_PassConstants.directionalLightShadowedCount; ++i)
+		{
+			DirectionalLight light = g_DirectionalLightsShadowed[g_PassConstants.directionalLightShadowedBufferIndex][i];
+			
+			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness)
+				* sampleCascadedShadowMaps(input.worldSpacePosition, N, light);
+		}
 	}
 	
 	// ambient light

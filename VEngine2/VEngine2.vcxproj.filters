@@ -600,6 +600,9 @@
     <ClInclude Include="src\graphics\RenderData.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\pass\ShadowModule.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1057,6 +1060,9 @@
     </ClCompile>
     <ClCompile Include="src\asset\handler\MaterialAssetHandler.cpp">
       <Filter>src\asset\handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\ShadowModule.cpp">
+      <Filter>src\graphics\pass</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

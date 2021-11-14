@@ -320,6 +320,7 @@
     <ClInclude Include="src\graphics\pass\GridPass.h" />
     <ClInclude Include="src\graphics\pass\ImGuiPass.h" />
     <ClInclude Include="src\graphics\pass\PostProcessModule.h" />
+    <ClInclude Include="src\graphics\pass\ShadowModule.h" />
     <ClInclude Include="src\graphics\RenderData.h" />
     <ClInclude Include="src\graphics\Renderer.h" />
     <ClInclude Include="src\graphics\RendererResources.h" />
@@ -482,6 +483,7 @@
     <ClCompile Include="src\graphics\pass\GridPass.cpp" />
     <ClCompile Include="src\graphics\pass\ImGuiPass.cpp" />
     <ClCompile Include="src\graphics\pass\PostProcessModule.cpp" />
+    <ClCompile Include="src\graphics\pass\ShadowModule.cpp" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RendererResources.cpp" />
     <ClCompile Include="src\graphics\RenderGraph.cpp" />
