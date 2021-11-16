@@ -21,6 +21,9 @@ struct RenderViewResources
 	gal::Buffer *m_skinningMatricesBuffers[2] = {};
 	StructuredBufferViewHandle m_skinningMatricesBufferViewHandles[2] = {};
 
+	gal::Buffer *m_exposureDataBuffer = nullptr;
+	rg::ResourceStateData m_exposureDataBufferState[1] = {};
+
 	explicit RenderViewResources(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, uint32_t width, uint32_t height) noexcept;
 	~RenderViewResources();
 	void resize(uint32_t width, uint32_t height) noexcept;

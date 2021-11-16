@@ -143,6 +143,8 @@ RenderView::~RenderView()
 }
 
 void RenderView::render(
+	float deltaTime,
+	float time,
 	rg::RenderGraph *graph,
 	BufferStackAllocator *bufferAllocator,
 	gal::DescriptorSet *offsetBufferSet,
@@ -162,7 +164,12 @@ void RenderView::render(
 
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
-	rg::ResourceViewHandle resultImageViewHandle = m_resultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Render View Result", resultImageHandle, graph));
+	rg::ResourceViewHandle resultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Render View Result", resultImageHandle, graph));
+	m_resultImageViewHandle = resultImageViewHandle;
+
+	// exposure buffer
+	rg::ResourceHandle exposureBufferHandle = graph->importBuffer(m_renderViewResources->m_exposureDataBuffer, "Exposure Buffer", m_renderViewResources->m_exposureDataBufferState);
+	rg::ResourceViewHandle exposureBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::create("Exposure Buffer", exposureBufferHandle, sizeof(float) * 4, 0, sizeof(float)));
 
 	m_modelMatrices.clear();
 	m_shadowMatrices.clear();
@@ -393,6 +400,17 @@ void RenderView::render(
 			}
 		});
 
+	if (m_frame == 0)
+	{
+		rg::ResourceUsageDesc exposureBufferInitUsage = { exposureBufferViewHandle, {gal::ResourceState::WRITE_TRANSFER} };
+		graph->addPass("Exposure Buffer Init", rg::QueueType::GRAPHICS, 1, &exposureBufferInitUsage, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+			{
+				float data[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+				cmdList->updateBuffer(registry.getBuffer(exposureBufferViewHandle), 0, sizeof(data), data);
+			});
+	}
+	
+
 
 	ShadowModule::Data shadowModuleData{};
 	shadowModuleData.m_profilingCtx = m_device->getProfilingContext();
@@ -424,6 +442,7 @@ void RenderView::render(
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_directionalLightsBufferHandle = directionalLightsBufferViewHandle;
 	forwardModuleData.m_directionalLightsShadowedBufferHandle = directionalLightsShadowedBufferViewHandle;
+	forwardModuleData.m_exposureBufferHandle = exposureBufferViewHandle;
 	forwardModuleData.m_shadowMapViewHandles = m_shadowTextureSampleHandles.data();
 	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
 	forwardModuleData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
@@ -445,9 +464,12 @@ void RenderView::render(
 	postProcessModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	postProcessModuleData.m_width = m_width;
 	postProcessModuleData.m_height = m_height;
+	postProcessModuleData.m_deltaTime = deltaTime;
+	postProcessModuleData.m_time = time;
 	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
 	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
+	postProcessModuleData.m_exposureBufferViewHandle = exposureBufferViewHandle;
 	postProcessModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[resIdx];
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	postProcessModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);

@@ -60,6 +60,18 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 		gal::DescriptorBufferInfo descriptorBufferInfo{ m_skinningMatricesBuffers[i], 0, bufferSize, sizeof(float) * 16 };
 		m_skinningMatricesBufferViewHandles[i] = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
 	}
+
+	// exposure data buffer
+	{
+		size_t bufferSize = sizeof(float) * 4;
+
+		gal::BufferCreateInfo createInfo{};
+		createInfo.m_size = bufferSize;
+		createInfo.m_usageFlags = gal::BufferUsageFlags::BYTE_BUFFER_BIT | gal::BufferUsageFlags::RW_BYTE_BUFFER_BIT | gal::BufferUsageFlags::TRANSFER_DST_BIT;
+
+		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_exposureDataBuffer);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_exposureDataBuffer, "Exposure Buffer");
+	}
 }
 
 void RenderViewResources::destroy() noexcept
@@ -79,4 +91,6 @@ void RenderViewResources::destroy() noexcept
 		m_skinningMatricesBufferViewHandles[i] = {};
 		m_device->destroyBuffer(m_skinningMatricesBuffers[i]);
 	}
+
+	m_device->destroyBuffer(m_exposureDataBuffer);
 }

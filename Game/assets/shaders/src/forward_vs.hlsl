@@ -35,6 +35,7 @@ struct PassConstants
 	uint directionalLightCount;
 	uint directionalLightShadowedBufferIndex;
 	uint directionalLightShadowedCount;
+	uint exposureBufferIndex;
 };
 
 struct DrawConstants

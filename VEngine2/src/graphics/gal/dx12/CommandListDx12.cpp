@@ -984,11 +984,6 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 		}
 	}
 
-	D3D12_RESOURCE_BARRIER globalUAVBarrier{};
-	globalUAVBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	globalUAVBarrier.UAV.pResource = nullptr;
-	m_commandList->ResourceBarrier(1, &globalUAVBarrier);
-
 	// 1.) transition for discards
 	if (discardTransitionBarrierCount > 0)
 	{

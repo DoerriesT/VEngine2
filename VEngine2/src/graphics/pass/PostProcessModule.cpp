@@ -13,12 +13,39 @@ using namespace gal;
 
 namespace
 {
-	struct PushConsts
+	struct LuminanceHistogramPushConsts
+	{
+		uint32_t width;
+		float scale;
+		float bias;
+		uint32_t inputTextureIndex;
+		uint32_t exposureBufferIndex;
+		uint32_t resultLuminanceBufferIndex;
+	};
+
+	struct AutoExposurePushConsts
+	{
+		float precomputedTermUp;
+		float precomputedTermDown;
+		float invScale;
+		float bias;
+		uint32_t lowerBound;
+		uint32_t upperBound;
+		float exposureCompensation;
+		float exposureMin;
+		float exposureMax;
+		uint32_t fixExposureToMax;
+		uint32_t inputHistogramBufferIndex;
+		uint32_t resultExposureBufferIndex;
+	};
+
+	struct TonemapPushConsts
 	{
 		uint32_t resolution[2];
 		float texelSize[2];
 		float time;
 		uint32_t inputImageIndex;
+		uint32_t exposureBufferIndex;
 		uint32_t outputImageIndex;
 	};
 }
@@ -26,11 +53,55 @@ namespace
 PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept
 	:m_device(device)
 {
+	// luminance histogram
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 1),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/luminanceHistogram_cs");
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(LuminanceHistogramPushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_luminanceHistogramPipeline);
+	}
+
+	// auto exposure
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/autoExposure_cs");
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(AutoExposurePushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_autoExposurePipeline);
+	}
+
 	// tonemap
 	{
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 1),
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
 		};
 
@@ -42,7 +113,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		ComputePipelineCreateInfo pipelineCreateInfo{};
 		ComputePipelineBuilder builder(pipelineCreateInfo);
 		builder.setComputeShader("assets/shaders/tonemap_cs");
-		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(PushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(TonemapPushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
 
 		device->createComputePipelines(1, &pipelineCreateInfo, &m_tonemapPipeline);
 	}
@@ -107,6 +178,8 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 
 PostProcessModule::~PostProcessModule() noexcept
 {
+	m_device->destroyComputePipeline(m_luminanceHistogramPipeline);
+	m_device->destroyComputePipeline(m_autoExposurePipeline);
 	m_device->destroyComputePipeline(m_tonemapPipeline);
 	m_device->destroyGraphicsPipeline(m_debugNormalsPipeline);
 	m_device->destroyGraphicsPipeline(m_debugNormalsSkinnedPipeline);
@@ -114,28 +187,132 @@ PostProcessModule::~PostProcessModule() noexcept
 
 void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
 {
+	constexpr uint32_t k_histogramSize = 256;
+
+	// histogram buffer
+	rg::ResourceHandle histogramBufferHandle = graph->createBuffer(rg::BufferDesc::create("Luminance Histogram Buffer", k_histogramSize * sizeof(uint32_t), BufferUsageFlags::BYTE_BUFFER_BIT | BufferUsageFlags::RW_BYTE_BUFFER_BIT));
+	rg::ResourceViewHandle histogramBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::createDefault("Luminance Histogram Buffer", histogramBufferHandle, graph));
+
+	const float exposureLowPercentage = 0.0f;
+	const float exposureHighPercentage = 1.0f;
+	const float exposureSpeedUp = 3.0f;
+	const float exposureSpeedDown = 1.0f;
+	const float exposureCompensation = 1.0f;
+	const float exposureMin = 0.0001f;
+	const float exposureMax = 100.0f;
+	const bool exposureFixed = false;
+	const float exposureFixedValue = 2.0f;
+	float exposureHistogramLogMin = -10.0f;
+	float exposureHistogramLogMax = 17.0f;
+	exposureHistogramLogMin = fminf(exposureHistogramLogMin, exposureHistogramLogMax - 1e-7f); // ensure logMin is a little bit less than logMax
+
+	rg::ResourceUsageDesc luminanceHistogramUsageDescs[] =
+	{
+		{data.m_lightingImageView, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{histogramBufferViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+	};
+	graph->addPass("Luminance Histogram", rg::QueueType::GRAPHICS, eastl::size(luminanceHistogramUsageDescs), luminanceHistogramUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		{
+			GAL_SCOPED_GPU_LABEL(cmdList, "Luminance Histogram");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Luminance Histogram");
+			PROFILING_ZONE_SCOPED;
+
+			// clear histogram
+			{
+				cmdList->fillBuffer(registry.getBuffer(histogramBufferHandle), 0, k_histogramSize * sizeof(uint32_t), 0);
+
+				Barrier b = Initializers::bufferBarrier(registry.getBuffer(histogramBufferHandle), PipelineStageFlags::TRANSFER_BIT, PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::CLEAR_RESOURCE, ResourceState::RW_RESOURCE);
+				cmdList->barrier(1, &b);
+			}
+
+			cmdList->bindPipeline(m_luminanceHistogramPipeline);
+
+			cmdList->bindDescriptorSets(m_luminanceHistogramPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+			LuminanceHistogramPushConsts pushConsts;
+			pushConsts.width = data.m_width;
+			pushConsts.scale = 1.0f / (exposureHistogramLogMax - exposureHistogramLogMin);
+			pushConsts.bias = -exposureHistogramLogMin * pushConsts.scale;
+			pushConsts.inputTextureIndex = registry.getBindlessHandle(data.m_lightingImageView, DescriptorType::TEXTURE);
+			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
+			pushConsts.resultLuminanceBufferIndex = registry.getBindlessHandle(histogramBufferViewHandle, DescriptorType::RW_BYTE_BUFFER);
+
+			cmdList->pushConstants(m_luminanceHistogramPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+			cmdList->dispatch(data.m_height, 1, 1);
+		});
+
+	rg::ResourceUsageDesc autoExposureUsageDescs[] =
+	{
+		{histogramBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{data.m_exposureBufferViewHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+	};
+	graph->addPass("Auto Exposure", rg::QueueType::GRAPHICS, eastl::size(autoExposureUsageDescs), autoExposureUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		{
+			GAL_SCOPED_GPU_LABEL(cmdList, "Auto Exposure");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Auto Exposure");
+			PROFILING_ZONE_SCOPED;
+
+			cmdList->bindPipeline(m_autoExposurePipeline);
+
+			cmdList->bindDescriptorSets(m_autoExposurePipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+			AutoExposurePushConsts pushConsts;
+			pushConsts.precomputedTermUp = 1.0f - expf(-data.m_deltaTime * exposureSpeedUp);
+			pushConsts.precomputedTermDown = 1.0f - expf(-data.m_deltaTime * exposureSpeedDown);
+			pushConsts.invScale = exposureHistogramLogMax - exposureHistogramLogMin;
+			pushConsts.bias = -exposureHistogramLogMin * (1.0f / pushConsts.invScale);
+			pushConsts.lowerBound = static_cast<uint32_t>(data.m_width * data.m_height * exposureLowPercentage);
+			pushConsts.upperBound = static_cast<uint32_t>(data.m_width * data.m_height * exposureHighPercentage);
+
+			// ensure at least one pixel passes
+			if (pushConsts.lowerBound == pushConsts.upperBound)
+			{
+				pushConsts.lowerBound -= glm::min(pushConsts.lowerBound, 1u);
+				pushConsts.upperBound += 1;
+			}
+
+			const bool exposureFixed = false;
+
+			pushConsts.exposureCompensation = exposureCompensation;
+			pushConsts.exposureMin = exposureMin;
+			pushConsts.exposureMax = exposureFixed ? exposureFixedValue : exposureMax;
+			pushConsts.exposureMax = fmaxf(pushConsts.exposureMax, 1e-7f);
+			pushConsts.exposureMin = eastl::clamp(pushConsts.exposureMin, 1e-7f, pushConsts.exposureMax);
+			pushConsts.fixExposureToMax = exposureFixed;
+			pushConsts.inputHistogramBufferIndex = registry.getBindlessHandle(histogramBufferViewHandle, DescriptorType::BYTE_BUFFER);
+			pushConsts.resultExposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::RW_BYTE_BUFFER);
+
+			cmdList->pushConstants(m_autoExposurePipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+			cmdList->dispatch(1, 1, 1);
+		});
+
 	rg::ResourceUsageDesc tonemapUsageDescs[] =
 	{
 		{data.m_lightingImageView, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
-	graph->addPass("Post-Process", rg::QueueType::GRAPHICS, eastl::size(tonemapUsageDescs), tonemapUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+	graph->addPass("Tonemap", rg::QueueType::GRAPHICS, eastl::size(tonemapUsageDescs), tonemapUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
-			GAL_SCOPED_GPU_LABEL(cmdList, "Post-Process");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Post-Process");
+			GAL_SCOPED_GPU_LABEL(cmdList, "Tonemap");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Tonemap");
 			PROFILING_ZONE_SCOPED;
 
 			cmdList->bindPipeline(m_tonemapPipeline);
 
 			cmdList->bindDescriptorSets(m_tonemapPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
 
-			PushConsts pushConsts;
+			TonemapPushConsts pushConsts;
 			pushConsts.resolution[0] = data.m_width;
 			pushConsts.resolution[1] = data.m_height;
 			pushConsts.texelSize[0] = 1.0f / data.m_width;
 			pushConsts.texelSize[1] = 1.0f / data.m_height;
-			pushConsts.time = 0.0f; // TODO
+			pushConsts.time = data.m_time;
 			pushConsts.inputImageIndex = registry.getBindlessHandle(data.m_lightingImageView, DescriptorType::TEXTURE);
+			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
 			pushConsts.outputImageIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
 
 			cmdList->pushConstants(m_tonemapPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);

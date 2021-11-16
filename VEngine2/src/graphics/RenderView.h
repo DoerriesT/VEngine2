@@ -28,6 +28,8 @@ public:
 	explicit RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
 	~RenderView();
 	void render(
+		float deltaTime,
+		float time,
 		rg::RenderGraph *graph,
 		BufferStackAllocator *bufferAllocator, 
 		gal::DescriptorSet *offsetBufferSet,

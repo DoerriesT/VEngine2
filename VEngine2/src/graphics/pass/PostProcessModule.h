@@ -21,9 +21,12 @@ public:
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
 		uint32_t m_height;
+		float m_time;
+		float m_deltaTime;
 		rg::ResourceViewHandle m_lightingImageView;
 		rg::ResourceViewHandle m_depthBufferImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
+		rg::ResourceViewHandle m_exposureBufferViewHandle;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		glm::mat4 m_viewProjectionMatrix;
@@ -47,6 +50,8 @@ public:
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
+	gal::ComputePipeline *m_luminanceHistogramPipeline = nullptr;
+	gal::ComputePipeline *m_autoExposurePipeline = nullptr;
 	gal::ComputePipeline *m_tonemapPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsSkinnedPipeline = nullptr;

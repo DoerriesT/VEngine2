@@ -76,11 +76,12 @@ Renderer::~Renderer() noexcept
 	gal::GraphicsDevice::destroy(m_device);
 }
 
-void Renderer::render() noexcept
+void Renderer::render(float deltaTime) noexcept
 {
 	PROFILING_ZONE_SCOPED;
 
 	m_renderGraph->nextFrame();
+	m_time += deltaTime;
 
 	PROFILING_GPU_NEW_FRAME(m_device->getProfilingContext());
 
@@ -117,6 +118,8 @@ void Renderer::render() noexcept
 				auto projMatrix = camera.getProjectionMatrix();
 
 				m_renderView->render(
+					deltaTime,
+					m_time,
 					m_renderGraph,
 					m_rendererResources->m_constantBufferStackAllocators[m_frame & 1],
 					m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], 

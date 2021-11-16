@@ -32,6 +32,7 @@ struct PassConstants
 	uint directionalLightCount;
 	uint directionalLightShadowedBufferIndex;
 	uint directionalLightShadowedCount;
+	uint exposureBufferIndex;
 };
 
 struct DrawConstants
@@ -46,6 +47,7 @@ StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(4, 2, 1);
 StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 3, 1);
 StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(4, 4, 1);
 Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
+ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 6, 1);
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
@@ -131,6 +133,8 @@ PSOutput main(PSInput input)
 	float3 V = normalize(g_PassConstants.cameraPosition - input.worldSpacePosition);
 	const float3 F0 = lerp(0.04f, albedo, metalness);
 	
+	const float exposure = asfloat(g_ByteAddressBuffers[g_PassConstants.exposureBufferIndex].Load(0));
+	
 	float3 result = 0.0f;
 	
 	// directional lights
@@ -138,7 +142,7 @@ PSOutput main(PSInput input)
 		for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)
 		{
 			DirectionalLight light = g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i];
-			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness);
+			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness) * exposure;
 		}
 	}
 	
@@ -150,13 +154,13 @@ PSOutput main(PSInput input)
 			DirectionalLight light = g_DirectionalLightsShadowed[g_PassConstants.directionalLightShadowedBufferIndex][i];
 			
 			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness)
-				* sampleCascadedShadowMaps(input.worldSpacePosition, N, light);
+				* sampleCascadedShadowMaps(input.worldSpacePosition, N, light) * exposure;
 		}
 	}
 	
 	// ambient light
 	{
-		result += 0.5f * albedo;
+		result += 0.5f * albedo * exposure;
 	}
 	
 	PSOutput output = (PSOutput)0;

@@ -25,6 +25,7 @@ public:
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsShadowedBufferHandle;
+		rg::ResourceViewHandle m_exposureBufferHandle;
 		const rg::ResourceViewHandle *m_shadowMapViewHandles;
 		uint32_t m_directionalLightCount;
 		uint32_t m_directionalLightShadowedCount;

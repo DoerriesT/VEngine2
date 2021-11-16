@@ -185,6 +185,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // directional lights
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4, ShaderStageFlags::PIXEL_BIT), // shadowed directional lights
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 5, ShaderStageFlags::PIXEL_BIT), // array textures
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // exposure buffer
 			};
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
@@ -383,6 +384,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	forwardUsageDescs.push_back({ albedoImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
 	forwardUsageDescs.push_back({ velocityImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
 	forwardUsageDescs.push_back({ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} });
+	forwardUsageDescs.push_back({ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	for (size_t i = 0; i < data.m_shadowMapViewHandleCount; ++i)
 	{
 		forwardUsageDescs.push_back({ data.m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
@@ -427,6 +429,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					uint32_t directionalLightCount;
 					uint32_t directionalLightShadowedBufferIndex;
 					uint32_t directionalLightShadowedCount;
+					uint32_t exposureBufferIndex;
 				};
 
 				PassConstants passConsts;
@@ -438,6 +441,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.directionalLightCount = data.m_directionalLightCount;
 				passConsts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
 				passConsts.directionalLightShadowedCount = data.m_directionalLightShadowedCount;
+				passConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 
 				uint64_t allocSize = sizeof(passConsts);
 				uint64_t allocOffset = 0;

@@ -177,7 +177,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			ImGui::Render();
 		}
 
-		m_renderer->render();
+		m_renderer->render(timeDelta);
 	}
 
 	m_gameLogic->shutdown();

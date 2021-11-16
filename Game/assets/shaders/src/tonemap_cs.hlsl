@@ -7,10 +7,12 @@ struct PushConsts
 	float2 texelSize;
 	float time;
 	uint inputImageIndex;
+	uint exposureBufferIndex;
 	uint outputImageIndex;
 };
 
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 0);
+ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 1, 0);
 RWTexture2D<float4> g_RWTextures[65536] : REGISTER_UAV(1, 0, 0);
 PUSH_CONSTS(PushConsts, g_PushConsts);
 
@@ -84,7 +86,9 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	
 	const float2 texCoord = float2(float2(threadID.xy) + 0.5) * g_PushConsts.texelSize;
 	
-	float3 color = g_Textures[g_PushConsts.inputImageIndex].Load(int3(threadID.xy, 0)).rgb; 
+	const float prevToCurExposure = asfloat(g_ByteAddressBuffers[g_PushConsts.exposureBufferIndex].Load(4));
+	
+	float3 color = g_Textures[g_PushConsts.inputImageIndex].Load(int3(threadID.xy, 0)).rgb * prevToCurExposure; 
 	color = uchimura(color);
 	color = accurateLinearToSRGB(color);
 	color = ditherTriangleNoise(color, texCoord, g_PushConsts.time);

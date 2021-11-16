@@ -33,7 +33,7 @@ class Renderer
 public:
 	explicit Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height) noexcept;
 	~Renderer() noexcept;
-	void render() noexcept;
+	void render(float deltaTime) noexcept;
 	void resize(uint32_t swapchainWidth, uint32_t swapchainHeight, uint32_t width, uint32_t height) noexcept;
 	void getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept;
 	void setCameraEntity(EntityID cameraEntity) noexcept;
@@ -63,6 +63,7 @@ private:
 	uint32_t m_swapchainHeight = 1;
 	uint32_t m_width = 1;
 	uint32_t m_height = 1;
+	float m_time = 0.0f;
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;
 	MeshManager *m_meshManager = nullptr;
