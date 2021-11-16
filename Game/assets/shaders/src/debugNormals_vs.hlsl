@@ -39,7 +39,7 @@ struct DrawConstants
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
 #if SKINNED
-StructuredBuffer<float4x4> g_SkinningMatrices[65536] : REGISTER_SRV(262144, 0, 1);
+StructuredBuffer<float4x4> g_SkinningMatrices[65536] : REGISTER_SRV(4, 0, 1);
 #endif
 
 float3x3 inverse(float3x3 m)

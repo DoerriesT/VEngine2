@@ -11,7 +11,7 @@ struct PushConsts
 };
 
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 0);
-RWTexture2D<float4> g_RWTextures[65536] : REGISTER_UAV(65536, 0, 0);
+RWTexture2D<float4> g_RWTextures[65536] : REGISTER_UAV(1, 0, 0);
 PUSH_CONSTS(PushConsts, g_PushConsts);
 
 // n must be normalized in [0..1] (e.g. texture coordinates)

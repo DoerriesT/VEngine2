@@ -52,10 +52,10 @@ struct DrawConstants
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 #if SKINNED
-StructuredBuffer<float4x4> g_SkinningMatrices[65536] : REGISTER_SRV(262144, 1, 1);
+StructuredBuffer<float4x4> g_SkinningMatrices[65536] : REGISTER_SRV(4, 1, 1);
 #endif
 #if ALPHA_TESTED
-StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(262144, 2, 1);
+StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(4, 2, 1);
 #endif
 
 PUSH_CONSTS(DrawConstants, g_DrawConstants);

@@ -42,9 +42,9 @@ struct DrawConstants
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
-StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(262144, 2, 1);
-StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(262144, 3, 1);
-StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(262144, 4, 1);
+StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(4, 2, 1);
+StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 3, 1);
+StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(4, 4, 1);
 Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);

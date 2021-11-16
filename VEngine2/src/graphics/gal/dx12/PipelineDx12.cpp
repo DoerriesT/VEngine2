@@ -496,17 +496,38 @@ static ID3D12RootSignature *createRootSignature(ID3D12Device *device,
 				const size_t rangeOffset = descriptorRangesCount;
 				ShaderStageFlags tableStageMask = (ShaderStageFlags)0;
 
+				DescriptorSetLayoutDx12 *layoutDx12 = reinterpret_cast<DescriptorSetLayoutDx12 *>(layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_layout);
+				assert(layoutDx12);
+
 				const uint32_t bindingCount = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindingCount;
 				const auto *bindings = layoutCreateInfo.m_descriptorSetLayoutDeclarations[i].m_usedBindings;
+				const auto *descriptorSetLayoutBindings = layoutDx12->getBindings();
+				const auto *descriptorSetLayoutBindingOffsets = layoutDx12->getBindingTableStartOffsets();
+				const uint32_t descriptorSetLayoutBindingCount = layoutDx12->getBindingCount();
 
 				// iterate over all bindings
 				for (uint32_t j = 0; j < bindingCount; ++j)
 				{
+					size_t bindingIdxInLayout = -1;
+					for (size_t layoutBindingIdx = 0; layoutBindingIdx < descriptorSetLayoutBindingCount; ++layoutBindingIdx)
+					{
+						if (descriptorSetLayoutBindings[layoutBindingIdx].m_binding == bindings[j].m_binding)
+						{
+							bindingIdxInLayout = layoutBindingIdx;
+							break;
+						}
+					}
+
+					if (bindingIdxInLayout == -1)
+					{
+						util::fatalExit("DescriptorSet binding declared in PipelineLayoutCreateInfo does not match any binding in the DescriptorSetLayout!", EXIT_FAILURE);
+					}
+
 					D3D12_DESCRIPTOR_RANGE1 range{};
 					range.NumDescriptors = bindings[j].m_descriptorCount;
 					range.BaseShaderRegister = bindings[j].m_binding;
 					range.RegisterSpace = bindings[j].m_space;
-					range.OffsetInDescriptorsFromTableStart = range.BaseShaderRegister;
+					range.OffsetInDescriptorsFromTableStart = descriptorSetLayoutBindingOffsets[bindingIdxInLayout];//range.BaseShaderRegister;
 
 					switch (bindings[j].m_descriptorType)
 					{

@@ -19,12 +19,14 @@ namespace gal
 		uint32_t getDescriptorCount() const;
 		bool needsSamplerHeap() const;
 		const DescriptorSetLayoutBinding *getBindings() const;
+		const uint32_t *getBindingTableStartOffsets() const;
 		uint32_t getBindingCount() const;
 		uint32_t getRootDescriptorMask() const;
 
 
 	private:
 		DescriptorSetLayoutBinding m_bindings[32];
+		uint32_t m_bindingTableStartOffsets[32];
 		uint32_t m_bindingCount;
 		uint32_t m_descriptorCount;
 		uint32_t m_rootDescriptorMask;

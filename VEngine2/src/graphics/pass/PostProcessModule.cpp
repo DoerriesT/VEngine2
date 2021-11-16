@@ -30,8 +30,8 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 	{
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
-			{ DescriptorType::TEXTURE, 0, 0, 65536, ShaderStageFlags::PIXEL_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
-			{ DescriptorType::RW_TEXTURE, 65536, 0, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT },
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -87,7 +87,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
-			{ DescriptorType::STRUCTURED_BUFFER, 262144, 0, 65536, ShaderStageFlags::VERTEX_BIT, DescriptorBindingFlags::UPDATE_AFTER_BIND_BIT | DescriptorBindingFlags::PARTIALLY_BOUND_BIT }, // skinning matrices
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 0, ShaderStageFlags::VERTEX_BIT), // skinning matrices
 		};
 
 

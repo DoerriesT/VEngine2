@@ -42,7 +42,25 @@ void gal::DescriptorSetDx12::update(uint32_t count, const DescriptorSetUpdate *u
 			continue;
 		}
 
-		const uint32_t baseOffset = update.m_dstBinding;
+		const auto *descriptorSetLayoutBindings = m_layout->getBindings();
+		const auto *descriptorSetLayoutBindingOffsets = m_layout->getBindingTableStartOffsets();
+		const uint32_t descriptorSetLayoutBindingCount = m_layout->getBindingCount();
+		size_t bindingIdxInLayout = -1;
+		for (size_t layoutBindingIdx = 0; layoutBindingIdx < descriptorSetLayoutBindingCount; ++layoutBindingIdx)
+		{
+			if (descriptorSetLayoutBindings[layoutBindingIdx].m_binding == update.m_dstBinding)
+			{
+				bindingIdxInLayout = layoutBindingIdx;
+				break;
+			}
+		}
+
+		if (bindingIdxInLayout == -1)
+		{
+			util::fatalExit("DescriptorSet dstBinding declared in DescriptorSetUpdate does not match any binding in the DescriptorSetLayout!", EXIT_FAILURE);
+		}
+
+		const uint32_t baseOffset = descriptorSetLayoutBindingOffsets[bindingIdxInLayout];//update.m_dstBinding;
 
 		assert((update.m_descriptorType == DescriptorType::SAMPLER) == m_samplerHeap);
 
@@ -224,15 +242,20 @@ gal::DescriptorSetLayoutDx12::DescriptorSetLayoutDx12(uint32_t bindingCount, con
 	bool hasRootDescriptors = false;
 	bool hasNonRootDescriptors = false;
 
+	uint32_t currentTableStartOffset = 0;
+
 	for (size_t i = 0; i < bindingCount; ++i)
 	{
-		m_descriptorCount = eastl::max<uint32_t>(bindings[i].m_binding + bindings[i].m_descriptorCount, m_descriptorCount);
 		auto type = bindings[i].m_descriptorType;
 		m_rootDescriptorMask |= ((type == DescriptorType::OFFSET_CONSTANT_BUFFER) ? 1u : 0u) << i;
 		hasSamplers = hasSamplers || type == DescriptorType::SAMPLER;
 		hasNonSamplers = hasNonSamplers || type != DescriptorType::SAMPLER;
 		hasRootDescriptors = hasRootDescriptors || type == DescriptorType::OFFSET_CONSTANT_BUFFER;
 		hasNonRootDescriptors = hasNonRootDescriptors || type != DescriptorType::OFFSET_CONSTANT_BUFFER;
+
+		m_bindingTableStartOffsets[i] = currentTableStartOffset;
+		currentTableStartOffset += bindings[i].m_descriptorCount;
+		m_descriptorCount = currentTableStartOffset;
 	}
 
 	if (hasSamplers && hasNonSamplers)
@@ -274,6 +297,11 @@ bool gal::DescriptorSetLayoutDx12::needsSamplerHeap() const
 const gal::DescriptorSetLayoutBinding *gal::DescriptorSetLayoutDx12::getBindings() const
 {
 	return m_bindings;
+}
+
+const uint32_t *gal::DescriptorSetLayoutDx12::getBindingTableStartOffsets() const
+{
+	return m_bindingTableStartOffsets;
 }
 
 uint32_t gal::DescriptorSetLayoutDx12::getBindingCount() const
