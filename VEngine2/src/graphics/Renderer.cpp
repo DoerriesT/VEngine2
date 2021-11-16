@@ -156,6 +156,10 @@ void Renderer::render() noexcept
 			}
 			else
 			{
+				// have the view result image be transitioned to READ_RESOURCE
+				rg::ResourceUsageDesc viewResultTransitionUsageDesc = { renderViewResultImageViewHandle, {gal::ResourceState::READ_RESOURCE, gal::PipelineStageFlags::PIXEL_SHADER_BIT} };
+				m_renderGraph->addPass("View Image Transition", rg::QueueType::GRAPHICS, 1, &viewResultTransitionUsageDesc, [=](gal::CommandList *, const rg::Registry &) {});
+
 				// imgui
 				{
 					ImGuiPass::Data imguiPassData{};

@@ -136,6 +136,8 @@ namespace rg
 		gal::Image *getImage(ResourceHandle handle) const noexcept;
 		gal::Image *getImage(ResourceViewHandle handle) const noexcept;
 		gal::ImageView *getImageView(ResourceViewHandle handle) const noexcept;
+		gal::Buffer *getBuffer(ResourceHandle handle) const noexcept;
+		gal::Buffer *getBuffer(ResourceViewHandle handle) const noexcept;
 		void map(ResourceViewHandle handle, void **data) const noexcept;
 		void unmap(ResourceViewHandle handle) const noexcept;
 

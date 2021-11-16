@@ -325,7 +325,7 @@ void RenderView::render(
 	uint32_t curSkinningMatrixOffset = 0;
 
 	glm::mat4 *skinningMatricesBufferPtr = nullptr;
-	m_renderViewResources->m_skinningMatricesBuffers[m_frame & 1]->map((void **)&skinningMatricesBufferPtr);
+	m_renderViewResources->m_skinningMatricesBuffers[resIdx]->map((void **)&skinningMatricesBufferPtr);
 
 	m_ecs->iterate<TransformComponent, SkinnedMeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, SkinnedMeshComponent *sMeshC)
 		{
@@ -376,7 +376,7 @@ void RenderView::render(
 			}
 		});
 
-	m_renderViewResources->m_skinningMatricesBuffers[m_frame & 1]->unmap();
+	m_renderViewResources->m_skinningMatricesBuffers[resIdx]->unmap();
 
 
 	graph->addPass("Upload Light Data", rg::QueueType::GRAPHICS, 0, nullptr, [this, directionalLightsShadowedBufferPtr](gal::CommandList *cmdList, const rg::Registry &registry)
@@ -399,7 +399,7 @@ void RenderView::render(
 	shadowModuleData.m_bufferAllocator = bufferAllocator;
 	shadowModuleData.m_offsetBufferSet = offsetBufferSet;
 	shadowModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
-	shadowModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
+	shadowModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[resIdx];
 	shadowModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	shadowModuleData.m_shadowJobCount = m_shadowMatrices.size();
 	shadowModuleData.m_shadowMatrices = m_shadowMatrices.data();
@@ -420,12 +420,14 @@ void RenderView::render(
 	forwardModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	forwardModuleData.m_width = m_width;
 	forwardModuleData.m_height = m_height;
-	forwardModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
+	forwardModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[resIdx];
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_directionalLightsBufferHandle = directionalLightsBufferViewHandle;
-	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
 	forwardModuleData.m_directionalLightsShadowedBufferHandle = directionalLightsShadowedBufferViewHandle;
+	forwardModuleData.m_shadowMapViewHandles = m_shadowTextureSampleHandles.data();
+	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
 	forwardModuleData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
+	forwardModuleData.m_shadowMapViewHandleCount = m_shadowTextureSampleHandles.size();
 	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	forwardModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	forwardModuleData.m_renderList = &m_renderList;
@@ -446,7 +448,7 @@ void RenderView::render(
 	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
 	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
-	postProcessModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[m_frame & 1];
+	postProcessModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[resIdx];
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	postProcessModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	postProcessModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);

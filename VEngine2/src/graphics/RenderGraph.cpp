@@ -569,11 +569,11 @@ void rg::RenderGraph::createResources() noexcept
 			{
 				viewData.m_rwByteBufferHandle = m_resourceViewRegistry->createRWByteBufferViewHandle(bufferInfo, true);
 			}
-			if ((usageFlags & BufferUsageFlags::STRUCTURED_BUFFER_BIT) != 0)
+			if (viewDesc.m_structureByteStride != 0 && (usageFlags & BufferUsageFlags::STRUCTURED_BUFFER_BIT) != 0)
 			{
 				viewData.m_structuredBufferHandle = m_resourceViewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
 			}
-			if ((usageFlags & BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT) != 0)
+			if (viewDesc.m_structureByteStride != 0 && (usageFlags & BufferUsageFlags::RW_STRUCTURED_BUFFER_BIT) != 0)
 			{
 				viewData.m_rwStructuredBufferHandle = m_resourceViewRegistry->createRWStructuredBufferViewHandle(bufferInfo, true);
 			}
@@ -927,6 +927,18 @@ gal::ImageView *rg::Registry::getImageView(ResourceViewHandle handle) const noex
 {
 	const auto &frameResources = m_graph->m_frameResources[m_graph->m_frame % RenderGraph::k_numFrames];
 	return frameResources.m_resourceViews[(size_t)handle - 1].m_imageView;
+}
+
+gal::Buffer *rg::Registry::getBuffer(ResourceHandle handle) const noexcept
+{
+	const auto &frameResources = m_graph->m_frameResources[m_graph->m_frame % RenderGraph::k_numFrames];
+	return frameResources.m_resources[(size_t)handle - 1].m_buffer;
+}
+
+gal::Buffer *rg::Registry::getBuffer(ResourceViewHandle handle) const noexcept
+{
+	const auto &frameResources = m_graph->m_frameResources[m_graph->m_frame % RenderGraph::k_numFrames];
+	return frameResources.m_resources[(size_t)m_graph->m_viewDescriptions[(size_t)handle - 1].m_resourceHandle - 1].m_buffer;
 }
 
 void rg::Registry::map(ResourceViewHandle handle, void **data) const noexcept

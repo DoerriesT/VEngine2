@@ -33,6 +33,8 @@ struct PassConstants
 	uint materialBufferIndex;
 	uint directionalLightBufferIndex;
 	uint directionalLightCount;
+	uint directionalLightShadowedBufferIndex;
+	uint directionalLightShadowedCount;
 };
 
 struct DrawConstants
