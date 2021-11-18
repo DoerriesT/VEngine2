@@ -48,6 +48,9 @@ void SceneGraphWindow::draw() noexcept
 			{
 				ImGuiTreeNodeFlags treeBaseFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 
+				EntityID renderPickingSelectedEntity = m_engine->getPickedEntity();
+				const bool leftClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+
 				uint32_t entityCount = 0;
 				for (auto &node : sceneGraphNodes)
 				{
@@ -60,7 +63,7 @@ void SceneGraphWindow::draw() noexcept
 
 					nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 					ImGui::TreeNodeEx((void *)(intptr_t)entityCount, nodeFlags, node->m_name);
-					if (ImGui::IsItemClicked())
+					if (ImGui::IsItemClicked() || (leftClicked && (node->m_entity == renderPickingSelectedEntity)))
 					{
 						selected = node->m_entity;
 					}

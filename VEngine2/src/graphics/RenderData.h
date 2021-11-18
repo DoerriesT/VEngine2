@@ -4,6 +4,7 @@
 #include <EASTL/vector.h>
 #include <glm/mat4x4.hpp>
 #include "component/LightComponent.h"
+#include "ecs/ECSCommon.h"
 
 struct SubMeshInstanceData
 {
@@ -11,6 +12,7 @@ struct SubMeshInstanceData
 	uint32_t m_transformIndex;
 	uint32_t m_skinningMatricesOffset;
 	MaterialHandle m_materialHandle;
+	EntityID m_entityID;
 };
 
 struct RenderList

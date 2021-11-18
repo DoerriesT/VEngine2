@@ -46,6 +46,9 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying) noexcept
 
 	m_engine->setEditorViewport((int32_t)viewportOffset.x, (int32_t)viewportOffset.y, (uint32_t)fmaxf(viewportSize.x, 0.0f), (uint32_t)fmaxf(viewportSize.y, 0.0f));
 
+	auto mousePos = ImGui::GetMousePos();
+	m_engine->setPickingPos(static_cast<uint32_t>(mousePos.x - viewportOffset.x), static_cast<uint32_t>(mousePos.y - viewportOffset.y));
+
 	if (!gameIsPlaying)
 	{
 		TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(*m_editorCameraEntityPtr);

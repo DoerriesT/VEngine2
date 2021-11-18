@@ -21,10 +21,13 @@ public:
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
 		uint32_t m_height;
+		uint32_t m_pickingPosX;
+		uint32_t m_pickingPosY;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsShadowedBufferHandle;
+		rg::ResourceViewHandle m_pickingBufferHandle;
 		rg::ResourceViewHandle m_exposureBufferHandle;
 		const rg::ResourceViewHandle *m_shadowMapViewHandles;
 		uint32_t m_directionalLightCount;

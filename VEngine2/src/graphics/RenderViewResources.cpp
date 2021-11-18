@@ -63,14 +63,23 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 
 	// exposure data buffer
 	{
-		size_t bufferSize = sizeof(float) * 4;
-
 		gal::BufferCreateInfo createInfo{};
-		createInfo.m_size = bufferSize;
+		createInfo.m_size = sizeof(float) * 4;
 		createInfo.m_usageFlags = gal::BufferUsageFlags::BYTE_BUFFER_BIT | gal::BufferUsageFlags::RW_BYTE_BUFFER_BIT | gal::BufferUsageFlags::TRANSFER_DST_BIT;
 
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_exposureDataBuffer);
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_exposureDataBuffer, "Exposure Buffer");
+	}
+
+	// picking readback buffers
+	for (size_t i = 0; i < 2; ++i)
+	{
+		gal::BufferCreateInfo createInfo{};
+		createInfo.m_size = sizeof(uint32_t) * 4;
+		createInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_DST_BIT;
+
+		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_CACHED_BIT, {}, false, &m_pickingDataReadbackBuffers[i]);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_pickingDataReadbackBuffers[i], i == 0 ? "Picking Data Readback Buffer 0" : "Picking Data Readback Buffer 1");
 	}
 }
 
@@ -93,4 +102,9 @@ void RenderViewResources::destroy() noexcept
 	}
 
 	m_device->destroyBuffer(m_exposureDataBuffer);
+
+	for (size_t i = 0; i < 2; ++i)
+	{
+		m_device->destroyBuffer(m_pickingDataReadbackBuffers[i]);
+	}
 }

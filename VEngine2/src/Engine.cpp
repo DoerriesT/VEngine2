@@ -178,6 +178,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		}
 
 		m_renderer->render(timeDelta);
+		m_pickedEntity = m_renderer->getPickedEntity();
 	}
 
 	m_gameLogic->shutdown();
@@ -251,7 +252,17 @@ void Engine::setEditorViewport(int32_t offsetX, int32_t offsetY, uint32_t width,
 	}
 }
 
+void Engine::setPickingPos(uint32_t x, uint32_t y) noexcept
+{
+	m_renderer->setPickingPos(x, y);
+}
+
 void Engine::getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept
 {
 	m_renderer->getResolution(swapchainWidth, swapchainHeight, width, height);
+}
+
+uint64_t Engine::getPickedEntity() const noexcept
+{
+	return m_pickedEntity;
 }

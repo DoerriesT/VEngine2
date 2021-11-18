@@ -4,6 +4,7 @@
 #include "srgb.hlsli"
 #include "material.hlsli"
 #include "lights.hlsli"
+#include "picking.hlsli"
 
 struct PSInput
 {
@@ -33,12 +34,16 @@ struct PassConstants
 	uint directionalLightShadowedBufferIndex;
 	uint directionalLightShadowedCount;
 	uint exposureBufferIndex;
+	uint pickingBufferIndex;
+	uint pickingPosX;
+	uint pickingPosY;
 };
 
 struct DrawConstants
 {
 	float4x4 modelMatrix;
 	uint materialIndex;
+	uint entityID;
 };
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
@@ -48,6 +53,7 @@ StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 
 StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(4, 4, 1);
 Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
 ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 6, 1);
+RWByteAddressBuffer g_RWByteAddressBuffers[65536] : REGISTER_UAV(5, 7, 1);
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
@@ -77,8 +83,17 @@ float3 sampleCascadedShadowMaps(float3 posWS, float3 N, DirectionalLight light)
 	}
 }
 
+[earlydepthstencil]
 PSOutput main(PSInput input)
 {
+	updatePickingBuffer(
+		g_RWByteAddressBuffers[g_PassConstants.pickingBufferIndex], 
+		(uint2)input.position.xy, 
+		uint2(g_PassConstants.pickingPosX, g_PassConstants.pickingPosY),
+		g_DrawConstants.entityID, 
+		input.position.z
+	);
+	
 	Material material = g_Materials[g_PassConstants.materialBufferIndex][g_DrawConstants.materialIndex];
 	
 	// albedo

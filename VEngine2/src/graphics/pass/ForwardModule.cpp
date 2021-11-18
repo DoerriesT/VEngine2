@@ -186,6 +186,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4, ShaderStageFlags::PIXEL_BIT), // shadowed directional lights
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 5, ShaderStageFlags::PIXEL_BIT), // array textures
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 7, ShaderStageFlags::PIXEL_BIT), // exposure buffer
 			};
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
@@ -202,7 +203,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			staticSamplerDescs[1].m_compareEnable = true;
 			staticSamplerDescs[1].m_compareOp = CompareOp::LESS_OR_EQUAL;
 
-			uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t);
+			uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t) * 2;
 			pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
 			builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, static_cast<uint32_t>(eastl::size(staticSamplerDescs)), staticSamplerDescs, 2);
 
@@ -385,6 +386,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	forwardUsageDescs.push_back({ velocityImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
 	forwardUsageDescs.push_back({ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} });
 	forwardUsageDescs.push_back({ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	forwardUsageDescs.push_back({ data.m_pickingBufferHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	for (size_t i = 0; i < data.m_shadowMapViewHandleCount; ++i)
 	{
 		forwardUsageDescs.push_back({ data.m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
@@ -412,7 +414,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
 			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
 
-			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
+			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
 			{
 				Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
 				cmdList->setViewport(0, 1, &viewport);
@@ -430,6 +432,9 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					uint32_t directionalLightShadowedBufferIndex;
 					uint32_t directionalLightShadowedCount;
 					uint32_t exposureBufferIndex;
+					uint32_t pickingBufferIndex;
+					uint32_t pickingPosX;
+					uint32_t pickingPosY;
 				};
 
 				PassConstants passConsts;
@@ -442,6 +447,9 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
 				passConsts.directionalLightShadowedCount = data.m_directionalLightShadowedCount;
 				passConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+				passConsts.pickingBufferIndex = registry.getBindlessHandle(data.m_pickingBufferHandle, DescriptorType::RW_BYTE_BUFFER);
+				passConsts.pickingPosX = data.m_pickingPosX;
+				passConsts.pickingPosY = data.m_pickingPosY;
 
 				uint64_t allocSize = sizeof(passConsts);
 				uint64_t allocOffset = 0;
@@ -491,12 +499,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 						{
 							float modelMatrix[16];
 							uint32_t materialIndex;
+							uint32_t entityID;
 						};
 
 						struct SkinnedMeshConstants
 						{
 							float modelMatrix[16];
 							uint32_t materialIndex;
+							uint32_t entityID;
 							uint32_t skinningMatricesOffset;
 						};
 
@@ -507,12 +517,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 						{
 							memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
 							skinnedConsts.materialIndex = instance.m_materialHandle;
+							skinnedConsts.entityID = static_cast<uint32_t>(instance.m_entityID);
 							skinnedConsts.skinningMatricesOffset = instance.m_skinningMatricesOffset;
 						}
 						else
 						{
 							memcpy(consts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
 							consts.materialIndex = instance.m_materialHandle;
+							consts.entityID = static_cast<uint32_t>(instance.m_entityID);
 						}
 
 						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);

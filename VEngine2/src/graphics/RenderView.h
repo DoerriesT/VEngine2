@@ -5,6 +5,7 @@
 #include "RenderGraph.h"
 #include <glm/mat4x4.hpp>
 #include "RenderData.h"
+#include "ecs/ECSCommon.h"
 
 struct RenderViewResources;
 class ResourceViewRegistry;
@@ -37,12 +38,15 @@ public:
 		const float *projectionMatrix, 
 		const float *cameraPosition, 
 		const CameraComponent *cameraComponent,
-		bool transitionResultToTexture) noexcept;
+		uint32_t pickingPosX,
+		uint32_t pickingPosY
+	) noexcept;
 	void resize(uint32_t width, uint32_t height) noexcept;
 	gal::Image *getResultImage() const noexcept;
 	gal::ImageView *getResultImageView() const noexcept;
 	TextureViewHandle getResultTextureViewHandle() const noexcept;
 	rg::ResourceViewHandle getResultRGViewHandle() const noexcept;
+	EntityID getPickedEntity() const noexcept;
 
 private:
 	ECS *m_ecs;
@@ -53,6 +57,7 @@ private:
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
 	uint32_t m_frame = 0;
+	EntityID m_pickedEntity = 0;
 	RendererResources *m_rendererResources = nullptr;
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle = {};

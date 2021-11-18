@@ -152,7 +152,9 @@ void RenderView::render(
 	const float *projectionMatrix,
 	const float *cameraPosition,
 	const CameraComponent *cameraComponent,
-	bool transitionResultToTexture) noexcept
+	uint32_t pickingPosX,
+	uint32_t pickingPosY
+) noexcept
 {
 	if (m_width == 0 || m_height == 0)
 	{
@@ -162,6 +164,20 @@ void RenderView::render(
 	const size_t resIdx = m_frame & 1;
 	const size_t prevResIdx = (m_frame + 1) & 1;
 
+	// read back picking data
+	{
+		auto *buffer = m_renderViewResources->m_pickingDataReadbackBuffers[resIdx];
+		uint32_t *pickingReadbackData = nullptr;
+		MemoryRange range{ 0, sizeof(uint32_t) * 4 };
+		buffer->invalidate(1, &range);
+		buffer->map((void **)&pickingReadbackData);
+		{
+			m_pickedEntity = pickingReadbackData[1]; // [0] is depth, [1] is the picked entity
+		}
+		buffer->unmap();
+	}
+	
+
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
 	rg::ResourceViewHandle resultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Render View Result", resultImageHandle, graph));
@@ -170,6 +186,14 @@ void RenderView::render(
 	// exposure buffer
 	rg::ResourceHandle exposureBufferHandle = graph->importBuffer(m_renderViewResources->m_exposureDataBuffer, "Exposure Buffer", m_renderViewResources->m_exposureDataBufferState);
 	rg::ResourceViewHandle exposureBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::create("Exposure Buffer", exposureBufferHandle, sizeof(float) * 4, 0, sizeof(float)));
+
+	// picking readback buffer
+	rg::ResourceHandle pickingReadbackBufferHandle = graph->importBuffer(m_renderViewResources->m_pickingDataReadbackBuffers[resIdx], "Picking Readback Buffer", &m_renderViewResources->m_pickingDataReadbackBufferStates[resIdx]);
+	rg::ResourceViewHandle pickingReadbackBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::createDefault("Picking Readback Buffer", pickingReadbackBufferHandle, graph));
+
+	// picking buffer
+	rg::ResourceHandle pickingBufferHandle = graph->createBuffer(rg::BufferDesc::create("Picking Buffer", sizeof(uint32_t) * 4, gal::BufferUsageFlags::RW_BYTE_BUFFER_BIT | gal::BufferUsageFlags::TRANSFER_SRC_BIT | gal::BufferUsageFlags::CLEAR_BIT));
+	rg::ResourceViewHandle pickingBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::createDefault("Picking Buffer", pickingBufferHandle, graph));
 
 	m_modelMatrices.clear();
 	m_shadowMatrices.clear();
@@ -229,7 +253,7 @@ void RenderView::render(
 							depthRows);
 
 						rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Cascaded Shadow Maps", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, 2048, 2048, 1, lc.m_cascadeCount));
-						rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Cascaded Shadow Maps", shadowMapHandle, {0, 1, 0, lc.m_cascadeCount}, ImageViewType::_2D_ARRAY));
+						rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Cascaded Shadow Maps", shadowMapHandle, { 0, 1, 0, lc.m_cascadeCount }, ImageViewType::_2D_ARRAY));
 						static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
 						directionalLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(shadowMapViewHandle); // we later correct these to be actual TextureViewHandles
 						m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
@@ -308,6 +332,7 @@ void RenderView::render(
 					instanceData.m_transformIndex = static_cast<uint32_t>(m_modelMatrices.size());
 					instanceData.m_skinningMatricesOffset = 0;
 					instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
+					instanceData.m_entityID = entities[i];
 
 					m_modelMatrices.push_back(modelMatrix);
 
@@ -358,6 +383,7 @@ void RenderView::render(
 					instanceData.m_transformIndex = static_cast<uint32_t>(m_modelMatrices.size());
 					instanceData.m_skinningMatricesOffset = curSkinningMatrixOffset;
 					instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
+					instanceData.m_entityID = entities[i];
 
 					m_modelMatrices.push_back(modelMatrix);
 
@@ -400,6 +426,12 @@ void RenderView::render(
 			}
 		});
 
+	rg::ResourceUsageDesc pickingBufferClearUsage = { pickingBufferViewHandle, {gal::ResourceState::CLEAR_RESOURCE} };
+	graph->addPass("Clear Picking Buffer", rg::QueueType::GRAPHICS, 1, &pickingBufferClearUsage, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+		{
+			cmdList->fillBuffer(registry.getBuffer(pickingBufferViewHandle), 0, sizeof(uint32_t) * 4, 0);
+		});
+
 	if (m_frame == 0)
 	{
 		rg::ResourceUsageDesc exposureBufferInitUsage = { exposureBufferViewHandle, {gal::ResourceState::WRITE_TRANSFER} };
@@ -409,7 +441,7 @@ void RenderView::render(
 				cmdList->updateBuffer(registry.getBuffer(exposureBufferViewHandle), 0, sizeof(data), data);
 			});
 	}
-	
+
 
 
 	ShadowModule::Data shadowModuleData{};
@@ -438,10 +470,13 @@ void RenderView::render(
 	forwardModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	forwardModuleData.m_width = m_width;
 	forwardModuleData.m_height = m_height;
+	forwardModuleData.m_pickingPosX = pickingPosX;
+	forwardModuleData.m_pickingPosY = pickingPosY;
 	forwardModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[resIdx];
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_directionalLightsBufferHandle = directionalLightsBufferViewHandle;
 	forwardModuleData.m_directionalLightsShadowedBufferHandle = directionalLightsShadowedBufferViewHandle;
+	forwardModuleData.m_pickingBufferHandle = pickingBufferViewHandle;
 	forwardModuleData.m_exposureBufferHandle = exposureBufferViewHandle;
 	forwardModuleData.m_shadowMapViewHandles = m_shadowTextureSampleHandles.data();
 	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
@@ -501,6 +536,21 @@ void RenderView::render(
 
 	m_gridPass->record(graph, gridPassData);
 
+	// copy picking data to readback buffer
+	rg::ResourceUsageDesc pickingBufferReadbackUsages[]
+	{
+		{ pickingBufferViewHandle, {gal::ResourceState::READ_TRANSFER} },
+		{ pickingReadbackBufferViewHandle, {gal::ResourceState::WRITE_TRANSFER} },
+	};
+	graph->addPass("Readback Picking Buffer", rg::QueueType::GRAPHICS, eastl::size(pickingBufferReadbackUsages), pickingBufferReadbackUsages, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+		{
+			BufferCopy bufferCopy{};
+			bufferCopy.m_srcOffset = 0;
+			bufferCopy.m_dstOffset = 0;
+			bufferCopy.m_size = sizeof(uint32_t) * 4;
+			cmdList->copyBuffer(registry.getBuffer(pickingBufferViewHandle), registry.getBuffer(pickingReadbackBufferViewHandle), 1, &bufferCopy);
+		});
+
 	++m_frame;
 }
 
@@ -532,4 +582,9 @@ TextureViewHandle RenderView::getResultTextureViewHandle() const noexcept
 rg::ResourceViewHandle RenderView::getResultRGViewHandle() const noexcept
 {
 	return m_resultImageViewHandle;
+}
+
+EntityID RenderView::getPickedEntity() const noexcept
+{
+	return m_pickedEntity;
 }

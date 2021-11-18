@@ -50,6 +50,8 @@ public:
 	ImTextureID getEditorViewportTextureID() noexcept;
 	void setEditorMode(bool editorMode) noexcept;
 	bool isEditorMode() const noexcept;
+	void setPickingPos(uint32_t x, uint32_t y) noexcept;
+	EntityID getPickedEntity() const noexcept;
 
 private:
 	ECS *m_ecs = nullptr;
@@ -63,6 +65,9 @@ private:
 	uint32_t m_swapchainHeight = 1;
 	uint32_t m_width = 1;
 	uint32_t m_height = 1;
+	uint32_t m_pickingPosX = -1;
+	uint32_t m_pickingPosY = -1;
+	EntityID m_pickedEntity = k_nullEntity;
 	float m_time = 0.0f;
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;

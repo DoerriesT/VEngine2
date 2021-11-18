@@ -127,7 +127,9 @@ void Renderer::render(float deltaTime) noexcept
 					&projMatrix[0][0], 
 					&tc->m_translation.x,
 					cc,
-					m_editorMode);
+					m_pickingPosX,
+					m_pickingPosY);
+				m_pickedEntity = m_renderView->getPickedEntity();
 			}
 		}
 
@@ -317,4 +319,15 @@ void Renderer::setEditorMode(bool editorMode) noexcept
 bool Renderer::isEditorMode() const noexcept
 {
 	return m_editorMode;
+}
+
+void Renderer::setPickingPos(uint32_t x, uint32_t y) noexcept
+{
+	m_pickingPosX = x;
+	m_pickingPosY = y;
+}
+
+EntityID Renderer::getPickedEntity() const noexcept
+{
+	return static_cast<EntityID>(m_renderView->getPickedEntity());
 }

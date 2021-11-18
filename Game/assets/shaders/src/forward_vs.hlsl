@@ -36,12 +36,16 @@ struct PassConstants
 	uint directionalLightShadowedBufferIndex;
 	uint directionalLightShadowedCount;
 	uint exposureBufferIndex;
+	uint pickingBufferIndex;
+	uint pickingPosX;
+	uint pickingPosY;
 };
 
 struct DrawConstants
 {
 	float4x4 modelMatrix;
 	uint materialIndex;
+	uint entityID;
 #if SKINNED
 	uint skinningMatricesOffset;
 #endif
