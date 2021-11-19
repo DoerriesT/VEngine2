@@ -3,6 +3,7 @@
 #include <Engine.h>
 #include <Level.h>
 #include <input/InputTokens.h>
+#include <component/OutlineComponent.h>
 
 SceneGraphWindow::SceneGraphWindow(Engine *engine) noexcept
 	:m_engine(engine)
@@ -49,7 +50,7 @@ void SceneGraphWindow::draw() noexcept
 				ImGuiTreeNodeFlags treeBaseFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
 
 				EntityID renderPickingSelectedEntity = m_engine->getPickedEntity();
-				const bool leftClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+				const bool leftClicked = !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId) && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
 				uint32_t entityCount = 0;
 				for (auto &node : sceneGraphNodes)
@@ -84,6 +85,16 @@ void SceneGraphWindow::draw() noexcept
 
 			if (selected != k_nullEntity)
 			{
+				// disable outline on old entity
+				if (m_selectedEntity != k_nullEntity)
+				{
+					auto *editorOutlineComp = m_engine->getECS()->getComponent<EditorOutlineComponent>(m_selectedEntity);
+					if (editorOutlineComp)
+					{
+						editorOutlineComp->m_outlined = false;
+					}
+				}
+
 				// unselect entity
 				if (selected == m_selectedEntity)
 				{
@@ -93,6 +104,10 @@ void SceneGraphWindow::draw() noexcept
 				else
 				{
 					m_selectedEntity = selected;
+
+					EditorOutlineComponent editorOutlineComp{};
+					editorOutlineComp.m_outlined = true;
+					m_engine->getECS()->addComponent<EditorOutlineComponent>(selected, editorOutlineComp);
 				}
 			}
 

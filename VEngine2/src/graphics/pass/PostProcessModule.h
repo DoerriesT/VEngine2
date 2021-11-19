@@ -32,10 +32,12 @@ public:
 		glm::mat4 m_viewProjectionMatrix;
 		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;
+		const RenderList *m_outlineRenderList;
 		const glm::mat4 *m_modelMatrices;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 		bool m_debugNormals;
+		bool m_renderOutlines;
 	};
 
 	struct ResultData
@@ -53,6 +55,11 @@ private:
 	gal::ComputePipeline *m_luminanceHistogramPipeline = nullptr;
 	gal::ComputePipeline *m_autoExposurePipeline = nullptr;
 	gal::ComputePipeline *m_tonemapPipeline = nullptr;
+	gal::GraphicsPipeline *m_outlineIDPipeline = nullptr;
+	gal::GraphicsPipeline *m_outlineIDSkinnedPipeline = nullptr;
+	gal::GraphicsPipeline *m_outlineIDAlphaTestedPipeline = nullptr;
+	gal::GraphicsPipeline *m_outlineIDSkinnedAlphaTestedPipeline = nullptr;
+	gal::GraphicsPipeline *m_outlinePipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsSkinnedPipeline = nullptr;
 };

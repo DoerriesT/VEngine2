@@ -4,6 +4,7 @@
 #include <Engine.h>
 #include <Level.h>
 #include <ecs/ECSComponentInfoTable.h>
+#include <component/OutlineComponent.h>
 
 InspectorWindow::InspectorWindow(Engine *engine) noexcept
 	:m_engine(engine)
@@ -71,7 +72,8 @@ void InspectorWindow::draw(EntityID entity) noexcept
 
 				forEachComponentType(registeredComponentMask, [&](size_t, ComponentID componentID)
 					{
-						if (compMask[componentID])
+						// skip components already present on the entity and hidden editor components
+						if (compMask[componentID] || componentID == ComponentIDGenerator::getID<EditorOutlineComponent>())
 						{
 							return;
 						}
@@ -91,6 +93,12 @@ void InspectorWindow::draw(EntityID entity) noexcept
 			forEachComponentType(compMask,
 				[&](size_t, ComponentID componentID)
 				{
+					// skip hidden editor components
+					if (componentID == ComponentIDGenerator::getID<EditorOutlineComponent>())
+					{
+						return;
+					}
+
 					const auto &compInfo = ECSComponentInfoTable::getComponentInfo(componentID);
 
 					void *component = ecs.getComponentTypeless(entity, componentID);

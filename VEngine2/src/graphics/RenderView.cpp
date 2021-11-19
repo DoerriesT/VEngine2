@@ -13,6 +13,7 @@
 #include "component/SkinnedMeshComponent.h"
 #include "component/LightComponent.h"
 #include "component/CameraComponent.h"
+#include "component/OutlineComponent.h"
 #include <glm/gtx/transform.hpp>
 #include "MeshManager.h"
 #include "MaterialManager.h"
@@ -202,6 +203,7 @@ void RenderView::render(
 	m_directionalLights.clear();
 	m_shadowedDirectionalLights.clear();
 	m_renderList.clear();
+	m_outlineRenderList.clear();
 
 	const glm::mat4 invViewMatrix = glm::inverse(glm::make_mat4(viewMatrix));
 
@@ -312,82 +314,54 @@ void RenderView::render(
 
 	const auto *subMeshDrawInfoTable = m_meshManager->getSubMeshDrawInfoTable();
 
-	m_ecs->iterate<TransformComponent, MeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC)
-		{
-			for (size_t i = 0; i < count; ++i)
-			{
-				auto &tc = transC[i];
-				auto &mc = meshC[i];
-				if (!mc.m_mesh.get())
-				{
-					continue;
-				}
-				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
-				const auto &submeshhandles = mc.m_mesh->getSubMeshhandles();
-				const auto &materialAssets = mc.m_mesh->getMaterials();
-				for (size_t j = 0; j < submeshhandles.size(); ++j)
-				{
-					SubMeshInstanceData instanceData{};
-					instanceData.m_subMeshHandle = submeshhandles[j];
-					instanceData.m_transformIndex = static_cast<uint32_t>(m_modelMatrices.size());
-					instanceData.m_skinningMatricesOffset = 0;
-					instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
-					instanceData.m_entityID = entities[i];
-
-					m_modelMatrices.push_back(modelMatrix);
-
-					const bool skinned = subMeshDrawInfoTable[instanceData.m_subMeshHandle].m_skinned;
-					const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
-
-					if (alphaTested)
-						if (skinned)
-							m_renderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-						else
-							m_renderList.m_opaqueAlphaTested.push_back(instanceData);
-					else
-						if (skinned)
-							m_renderList.m_opaqueSkinned.push_back(instanceData);
-						else
-							m_renderList.m_opaque.push_back(instanceData);
-				}
-
-			}
-		});
+	bool anyOutlines = false;
 
 	uint32_t curSkinningMatrixOffset = 0;
-
 	glm::mat4 *skinningMatricesBufferPtr = nullptr;
 	m_renderViewResources->m_skinningMatricesBuffers[resIdx]->map((void **)&skinningMatricesBufferPtr);
 
-	m_ecs->iterate<TransformComponent, SkinnedMeshComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, SkinnedMeshComponent *sMeshC)
+	IterateQuery iterateQuery;
+	m_ecs->setIterateQueryRequiredComponents<TransformComponent>(iterateQuery);
+	m_ecs->setIterateQueryOptionalComponents<MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(iterateQuery);
+
+	m_ecs->iterate<TransformComponent, MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(
+		iterateQuery,
+		[&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC, SkinnedMeshComponent *sMeshC, OutlineComponent *outlineC, EditorOutlineComponent *editorOutlineC)
 		{
+			// we need either one of these
+			if (!meshC && !sMeshC)
+			{
+				return;
+			}
+			const bool skinned = sMeshC != nullptr;
 			for (size_t i = 0; i < count; ++i)
 			{
 				auto &tc = transC[i];
-				auto &smc = sMeshC[i];
-
-				if (!smc.m_mesh->isSkinned())
+				const auto &meshAsset = skinned ? sMeshC[i].m_mesh : meshC[i].m_mesh;
+				if (!meshAsset.get())
 				{
 					continue;
 				}
 
-				assert(smc.m_matrixPalette.size() == smc.m_skeleton->getSkeleton()->getJointCount());
+				if (skinned)
+				{
+					assert(sMeshC[i].m_matrixPalette.size() == sMeshC[i].m_skeleton->getSkeleton()->getJointCount());
+				}
 
 				glm::mat4 modelMatrix = glm::translate(tc.m_translation) * glm::mat4_cast(tc.m_rotation) * glm::scale(tc.m_scale);
-				const auto &submeshhandles = smc.m_mesh->getSubMeshhandles();
-				const auto &materialAssets = smc.m_mesh->getMaterials();
+				m_modelMatrices.push_back(modelMatrix);
+				const uint32_t transformIndex = static_cast<uint32_t>(m_modelMatrices.size()) - 1;
+				const auto &submeshhandles = meshAsset->getSubMeshhandles();
+				const auto &materialAssets = meshAsset->getMaterials();
 				for (size_t j = 0; j < submeshhandles.size(); ++j)
 				{
 					SubMeshInstanceData instanceData{};
 					instanceData.m_subMeshHandle = submeshhandles[j];
-					instanceData.m_transformIndex = static_cast<uint32_t>(m_modelMatrices.size());
-					instanceData.m_skinningMatricesOffset = curSkinningMatrixOffset;
+					instanceData.m_transformIndex = transformIndex;
+					instanceData.m_skinningMatricesOffset = skinned ? curSkinningMatrixOffset : 0;
 					instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
 					instanceData.m_entityID = entities[i];
 
-					m_modelMatrices.push_back(modelMatrix);
-
-					const bool skinned = subMeshDrawInfoTable[instanceData.m_subMeshHandle].m_skinned;
 					const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
 
 					if (alphaTested)
@@ -400,12 +374,31 @@ void RenderView::render(
 							m_renderList.m_opaqueSkinned.push_back(instanceData);
 						else
 							m_renderList.m_opaque.push_back(instanceData);
+
+					if ((outlineC && outlineC[i].m_outlined) || (editorOutlineC && editorOutlineC[i].m_outlined))
+					{
+						anyOutlines = true;
+						if (alphaTested)
+							if (skinned)
+								m_outlineRenderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
+							else
+								m_outlineRenderList.m_opaqueAlphaTested.push_back(instanceData);
+						else
+							if (skinned)
+								m_outlineRenderList.m_opaqueSkinned.push_back(instanceData);
+							else
+								m_outlineRenderList.m_opaque.push_back(instanceData);
+					}
 				}
 
-				assert(curSkinningMatrixOffset + smc.m_matrixPalette.size() <= 1024);
+				if (skinned)
+				{
+					assert(curSkinningMatrixOffset + sMeshC[i].m_matrixPalette.size() <= 1024);
 
-				memcpy(skinningMatricesBufferPtr + curSkinningMatrixOffset, smc.m_matrixPalette.data(), smc.m_matrixPalette.size() * sizeof(glm::mat4));
-				curSkinningMatrixOffset += curSkinningMatrixOffset;
+					memcpy(skinningMatricesBufferPtr + curSkinningMatrixOffset, sMeshC[i].m_matrixPalette.data(), sMeshC[i].m_matrixPalette.size() * sizeof(glm::mat4));
+					curSkinningMatrixOffset += curSkinningMatrixOffset;
+				}
+
 			}
 		});
 
@@ -510,10 +503,12 @@ void RenderView::render(
 	postProcessModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	postProcessModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	postProcessModuleData.m_renderList = &m_renderList;
+	postProcessModuleData.m_outlineRenderList = &m_outlineRenderList;
 	postProcessModuleData.m_modelMatrices = m_modelMatrices.data();
 	postProcessModuleData.m_meshDrawInfo = subMeshDrawInfoTable;
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	postProcessModuleData.m_debugNormals = false;
+	postProcessModuleData.m_renderOutlines = anyOutlines;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
 

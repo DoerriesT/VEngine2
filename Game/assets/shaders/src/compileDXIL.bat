@@ -19,4 +19,15 @@ dxc.exe -T ps_6_0 -E main shadow_ps.hlsl -Fo ./../shadow_ps.cso -Zi -Fd ./../sha
 
 dxc.exe -T cs_6_0 -E main luminanceHistogram_cs.hlsl -Fo ./../luminanceHistogram_cs.cso -Zi -Fd ./../luminanceHistogram_cs.pdb
 dxc.exe -T cs_6_0 -E main autoExposure_cs.hlsl -Fo ./../autoExposure_cs.cso -Zi -Fd ./../autoExposure_cs.pdb
+
+dxc.exe -T vs_6_0 -E main outlineID_vs.hlsl -Fo ./../outlineID_vs.cso -Zi -Fd ./../outlineID_vs.pdb
+dxc.exe -T vs_6_0 -E main -D SKINNED=1 outlineID_vs.hlsl -Fo ./../outlineID_skinned_vs.cso -Zi -Fd ./../outlineID_skinned_vs.pdb
+dxc.exe -T vs_6_0 -E main -D ALPHA_TESTED=1 outlineID_vs.hlsl -Fo ./../outlineID_alpha_tested_vs.cso -Zi -Fd ./../outlineID_alpha_tested_vs.pdb
+dxc.exe -T vs_6_0 -E main -D SKINNED=1 -D ALPHA_TESTED=1 outlineID_vs.hlsl -Fo ./../outlineID_skinned_alpha_tested_vs.cso -Zi -Fd ./../outlineID_skinned_alpha_tested_vs.pdb
+dxc.exe -T ps_6_0 -E main outlineID_ps.hlsl -Fo ./../outlineID_ps.cso -Zi -Fd ./../outlineID_ps.pdb
+dxc.exe -T ps_6_0 -E main -D ALPHA_TESTED=1 outlineID_ps.hlsl -Fo ./../outlineID_alpha_tested_ps.cso -Zi -Fd ./../outlineID_alpha_tested_ps.pdb
+
+dxc.exe -T ps_6_0 -E main outline_ps.hlsl -Fo ./../outline_ps.cso -Zi -Fd ./../outline_ps.pdb
+dxc.exe -T vs_6_0 -E main fullscreenTriangle_vs.hlsl -Fo ./../fullscreenTriangle_vs.cso -Zi -Fd ./../fullscreenTriangle_vs.pdb
+
 pause

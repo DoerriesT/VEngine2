@@ -24,6 +24,13 @@ private:
 	static ComponentID m_idCount;
 };
 
+struct IterateQuery
+{
+	ComponentMask m_requiredComponents;
+	ComponentMask m_optionalComponents;
+	ComponentMask m_disallowedComponents;
+};
+
 class ECS
 {
 public:
@@ -278,6 +285,15 @@ public:
 	/// <returns>The mask of registered components including singleton components.</returns>
 	ComponentMask getRegisteredComponentMaskWithSingletons() const noexcept;
 
+	template<typename ...T>
+	void setIterateQueryRequiredComponents(IterateQuery &query) noexcept;
+
+	template<typename ...T>
+	void setIterateQueryOptionalComponents(IterateQuery &query) noexcept;
+
+	template<typename ...T>
+	void setIterateQueryDisallowedComponents(IterateQuery &query) noexcept;
+
 	/// <summary>
 	/// Invokes the given function on all entity/component arrays that contain the requested components.
 	/// The function must have the following signature:
@@ -292,6 +308,9 @@ public:
 	/// <param name="func">The function/callable object to invoke for each set of matching entity/component arrays.</param>
 	template<typename ...T, typename F>
 	inline void iterate(F &&func) noexcept;
+
+	template<typename ...T, typename F>
+	inline void iterate(const IterateQuery &query, F &&func) noexcept;
 
 	/// <summary>
 	/// Invokes the given function on all entity/component arrays that contain the requested components.

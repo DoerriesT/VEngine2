@@ -265,6 +265,57 @@ inline bool ECS::hasComponents(EntityID entity) const noexcept
 	return record.m_archetype && (... && (record.m_archetype->getComponentMask()[ComponentIDGenerator::getID<T>()]));
 }
 
+template<typename ...T>
+inline void ECS::setIterateQueryRequiredComponents(IterateQuery &query) noexcept
+{
+	assert(isRegisteredComponent<T...>());
+	assert(isNotSingletonComponent<T...>());
+
+	// build mask
+	query.m_requiredComponents = 0;
+
+	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+
+	for (size_t j = 0; j < sizeof...(T); ++j)
+	{
+		query.m_requiredComponents.set(ids[j], true);
+	}
+}
+
+template<typename ...T>
+inline void ECS::setIterateQueryOptionalComponents(IterateQuery &query) noexcept
+{
+	assert(isRegisteredComponent<T...>());
+	assert(isNotSingletonComponent<T...>());
+
+	// build mask
+	query.m_optionalComponents = 0;
+
+	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+
+	for (size_t j = 0; j < sizeof...(T); ++j)
+	{
+		query.m_optionalComponents.set(ids[j], true);
+	}
+}
+
+template<typename ...T>
+inline void ECS::setIterateQueryDisallowedComponents(IterateQuery &query) noexcept
+{
+	assert(isRegisteredComponent<T...>());
+	assert(isNotSingletonComponent<T...>());
+
+	// build mask
+	query.m_disallowedComponents = 0;
+
+	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+
+	for (size_t j = 0; j < sizeof...(T); ++j)
+	{
+		query.m_disallowedComponents.set(ids[j], true);
+	}
+}
+
 template<typename ...T, typename F>
 inline void ECS::iterate(F &&func) noexcept
 {
@@ -294,6 +345,45 @@ inline void ECS::iterate(F &&func) noexcept
 				if (chunk.m_size > 0)
 				{
 					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(chunk.m_memory + at.getComponentArrayOffset(ComponentIDGenerator::getID<T>())))...);
+				}
+			}
+		}
+	}
+}
+
+template<typename ...T, typename F>
+inline void ECS::iterate(const IterateQuery &query, F &&func) noexcept
+{
+	assert(isRegisteredComponent<T...>());
+	assert(isNotSingletonComponent<T...>());
+
+	ComponentMask functionSignatureMask = 0;
+	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+	for (size_t j = 0; j < sizeof...(T); ++j)
+	{
+		functionSignatureMask.set(ids[j], true);
+	}
+
+	ComponentMask combinedRequiredOptionalMask = query.m_requiredComponents | query.m_optionalComponents;
+	assert((combinedRequiredOptionalMask & functionSignatureMask) == functionSignatureMask);
+
+	// search through all archetypes and look for matching masks
+	for (auto &atPtr : m_archetypes)
+	{
+		auto &at = *atPtr;
+		const auto &atMask = at.getComponentMask();
+
+		if (
+			((atMask & query.m_requiredComponents) == query.m_requiredComponents) && // all required components present
+			((atMask & query.m_disallowedComponents) == 0) // no disallowed components present
+			)
+		{
+			const auto &memoryChunks = at.getMemoryChunks();
+			for (auto &chunk : memoryChunks)
+			{
+				if (chunk.m_size > 0)
+				{
+					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(atMask[ComponentIDGenerator::getID<T>()] ? (chunk.m_memory + at.getComponentArrayOffset(ComponentIDGenerator::getID<T>())) : nullptr))...);
 				}
 			}
 		}

@@ -74,4 +74,5 @@ private:
 	eastl::vector<DirectionalLightGPU> m_directionalLights;
 	eastl::vector<DirectionalLightGPU> m_shadowedDirectionalLights;
 	RenderList m_renderList;
+	RenderList m_outlineRenderList;
 };
