@@ -30,4 +30,7 @@ dxc.exe -T ps_6_0 -E main -D ALPHA_TESTED=1 outlineID_ps.hlsl -Fo ./../outlineID
 dxc.exe -T ps_6_0 -E main outline_ps.hlsl -Fo ./../outline_ps.cso -Zi -Fd ./../outline_ps.pdb
 dxc.exe -T vs_6_0 -E main fullscreenTriangle_vs.hlsl -Fo ./../fullscreenTriangle_vs.cso -Zi -Fd ./../fullscreenTriangle_vs.pdb
 
+dxc.exe -T vs_6_0 -E main sky_vs.hlsl -Fo ./../sky_vs.cso -Zi -Fd ./../sky_vs.pdb
+dxc.exe -T ps_6_0 -E main sky_ps.hlsl -Fo ./../sky_ps.cso -Zi -Fd ./../sky_ps.pdb
+
 pause

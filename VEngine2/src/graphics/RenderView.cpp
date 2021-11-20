@@ -476,6 +476,7 @@ void RenderView::render(
 	forwardModuleData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
 	forwardModuleData.m_shadowMapViewHandleCount = m_shadowTextureSampleHandles.size();
 	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
+	forwardModuleData.m_invViewProjectionMatrix = glm::inverse(forwardModuleData.m_viewProjectionMatrix);
 	forwardModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	forwardModuleData.m_renderList = &m_renderList;
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();

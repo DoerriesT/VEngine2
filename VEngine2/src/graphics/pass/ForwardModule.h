@@ -34,6 +34,7 @@ public:
 		uint32_t m_directionalLightShadowedCount;
 		size_t m_shadowMapViewHandleCount;
 		glm::mat4 m_viewProjectionMatrix;
+		glm::mat4 m_invViewProjectionMatrix;
 		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;
 		const glm::mat4 *m_modelMatrices;
@@ -63,4 +64,5 @@ private:
 	gal::GraphicsPipeline *m_depthPrepassSkinnedAlphaTestedPipeline = nullptr;
 	gal::GraphicsPipeline *m_forwardPipeline = nullptr;
 	gal::GraphicsPipeline *m_forwardSkinnedPipeline = nullptr;
+	gal::GraphicsPipeline *m_skyPipeline = nullptr;
 };

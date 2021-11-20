@@ -119,24 +119,24 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		}
 	}
 
+	Format renderTargetFormats[]
+	{
+		Format::R16G16B16A16_SFLOAT,
+		Format::R8G8B8A8_UNORM,
+		Format::R8G8B8A8_SRGB,
+		Format::R16G16_SFLOAT
+	};
+	PipelineColorBlendAttachmentState blendStates[]
+	{
+		GraphicsPipelineBuilder::s_defaultBlendAttachment,
+		GraphicsPipelineBuilder::s_defaultBlendAttachment,
+		GraphicsPipelineBuilder::s_defaultBlendAttachment,
+		GraphicsPipelineBuilder::s_defaultBlendAttachment,
+	};
+	const uint32_t renderTargetFormatCount = static_cast<uint32_t>(eastl::size(renderTargetFormats));
+
 	// forward
 	{
-		Format renderTargetFormats[]
-		{
-			Format::R16G16B16A16_SFLOAT,
-			Format::R8G8B8A8_UNORM,
-			Format::R8G8B8A8_SRGB,
-			Format::R16G16_SFLOAT
-		};
-		PipelineColorBlendAttachmentState blendStates[]
-		{
-			GraphicsPipelineBuilder::s_defaultBlendAttachment,
-			GraphicsPipelineBuilder::s_defaultBlendAttachment,
-			GraphicsPipelineBuilder::s_defaultBlendAttachment,
-			GraphicsPipelineBuilder::s_defaultBlendAttachment,
-		};
-		const uint32_t renderTargetFormatCount = static_cast<uint32_t>(eastl::size(renderTargetFormats));
-
 		for (size_t skinned = 0; skinned < 2; ++skinned)
 		{
 			VertexInputAttributeDescription attributeDescs[]
@@ -210,6 +210,34 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			device->createGraphicsPipelines(1, &pipelineCreateInfo, isSkinned ? &m_forwardSkinnedPipeline : &m_forwardPipeline);
 		}
 	}
+
+	// sky
+	{
+		gal::GraphicsPipelineCreateInfo pipelineCreateInfo{};
+		gal::GraphicsPipelineBuilder builder(pipelineCreateInfo);
+		builder.setVertexShader("assets/shaders/sky_vs");
+		builder.setFragmentShader("assets/shaders/sky_ps");
+		builder.setColorBlendAttachments(renderTargetFormatCount, blendStates);
+		builder.setDepthTest(true, false, CompareOp::EQUAL);
+		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
+		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
+		builder.setColorAttachmentFormats(renderTargetFormatCount, renderTargetFormats);
+
+		DescriptorSetLayoutBinding usedBindlessBindings[]
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 0, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t);
+		builder.setPipelineLayoutDescription(1, layoutDecls, pushConstSize, ShaderStageFlags::ALL_STAGES, 0, nullptr, -1);
+
+		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_skyPipeline);
+	}
 }
 
 ForwardModule::~ForwardModule() noexcept
@@ -220,6 +248,7 @@ ForwardModule::~ForwardModule() noexcept
 	m_device->destroyGraphicsPipeline(m_depthPrepassSkinnedAlphaTestedPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardSkinnedPipeline);
+	m_device->destroyGraphicsPipeline(m_skyPipeline);
 }
 
 void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
@@ -398,18 +427,12 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Forward");
 			PROFILING_ZONE_SCOPED;
 
-			ClearColorValue clearColor{};
-			clearColor.m_float32[0] = 1.0f;
-			clearColor.m_float32[1] = 1.0f;
-			clearColor.m_float32[2] = 1.0f;
-			clearColor.m_float32[3] = 1.0f;
-
 			ColorAttachmentDescription attachmentDescs[]
 			{
-				 { registry.getImageView(lightingImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, clearColor },
-				 { registry.getImageView(normalImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE },
-				 { registry.getImageView(albedoImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE },
-				 { registry.getImageView(velocityImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE },
+				 { registry.getImageView(lightingImageViewHandle), AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::STORE },
+				 { registry.getImageView(normalImageViewHandle), AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::STORE },
+				 { registry.getImageView(albedoImageViewHandle), AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::STORE },
+				 { registry.getImageView(velocityImageViewHandle), AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::STORE },
 			};
 			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
 			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
@@ -563,6 +586,26 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 						cmdList->bindVertexBuffers(0, skinned ? 6 : 4, vertexBuffers, vertexBufferOffsets);
 						cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 					}
+				}
+
+				// sky
+				{
+					struct SkyPushConsts
+					{
+						float invModelViewProjection[16];
+						uint32_t exposureBufferIndex;
+					};
+
+					cmdList->bindPipeline(m_skyPipeline);
+					cmdList->bindDescriptorSets(m_skyPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+					SkyPushConsts skyPushConsts{};
+					memcpy(skyPushConsts.invModelViewProjection, &data.m_invViewProjectionMatrix[0][0], sizeof(skyPushConsts.invModelViewProjection));
+					skyPushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+
+					cmdList->pushConstants(m_skyPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(skyPushConsts), &skyPushConsts);
+
+					cmdList->draw(3, 1, 0, 0);
 				}
 			}
 			cmdList->endRenderPass();
