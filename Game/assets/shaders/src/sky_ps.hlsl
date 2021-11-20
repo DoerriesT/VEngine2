@@ -34,7 +34,7 @@ PSOutput main(PSInput input)
 	
 	PSOutput output = (PSOutput)0;
 	
-	output.color = float4(lerp(groundColor, skyColor, ray.y * 0.5f + 0.5f));//float4(0.2f, 0.2f, 1.0f, 1.0f);
+	output.color = float4(lerp(groundColor, skyColor, ray.y * 0.5f + 0.5f), 1.0f);//float4(0.2f, 0.2f, 1.0f, 1.0f);
 	output.normalRoughness = 0.0f;
 	output.albedoMetalness = 0.0f;
 	output.velocity = 0.0f;
