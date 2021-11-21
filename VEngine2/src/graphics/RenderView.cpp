@@ -169,10 +169,10 @@ void RenderView::render(
 	{
 		auto *buffer = m_renderViewResources->m_pickingDataReadbackBuffers[resIdx];
 		uint32_t *pickingReadbackData = nullptr;
-		MemoryRange range{ 0, sizeof(uint32_t) * 4 };
-		buffer->invalidate(1, &range);
 		buffer->map((void **)&pickingReadbackData);
 		{
+			MemoryRange range{ 0, sizeof(uint32_t) * 4 };
+			buffer->invalidate(1, &range);
 			m_pickedEntity = pickingReadbackData[1]; // [0] is depth, [1] is the picked entity
 		}
 		buffer->unmap();
