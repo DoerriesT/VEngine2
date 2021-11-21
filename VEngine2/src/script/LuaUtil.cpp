@@ -166,7 +166,7 @@ void LuaUtil::setTableLightUserDataField(lua_State *L, const char *key, void *va
 
 void LuaUtil::setTableNumberArrayField(lua_State *L, const char *key, const float *value, size_t arraySize) noexcept
 {
-	lua_createtable(L, arraySize, 0);
+	lua_createtable(L, static_cast<int>(arraySize), 0);
 	for (size_t i = 0; i < arraySize; ++i)
 	{
 		lua_pushnumber(L, (lua_Number)value[i]);
