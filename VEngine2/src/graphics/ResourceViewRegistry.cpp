@@ -15,10 +15,10 @@ ResourceViewRegistry::ResourceViewRegistry(gal::GraphicsDevice *device) noexcept
 	gal::DescriptorSetLayoutBinding bindings[]
 	{
 		{gal::DescriptorType::TEXTURE, k_textureBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::RW_TEXTURE, k_rwTextureBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::TYPED_BUFFER, k_typedBufferBinding, 0, 65536, stages, bindingFlags },
-		{gal::DescriptorType::RW_TYPED_BUFFER, k_rwTypedBufferBinding, 0, 65536, stages, bindingFlags },
 		{gal::DescriptorType::BYTE_BUFFER, k_byteBufferBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::TYPED_BUFFER, k_typedBufferBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::RW_TEXTURE, k_rwTextureBinding, 0, 65536, stages, bindingFlags },
+		{gal::DescriptorType::RW_TYPED_BUFFER, k_rwTypedBufferBinding, 0, 65536, stages, bindingFlags },
 		{gal::DescriptorType::RW_BYTE_BUFFER, k_rwByteBufferBinding, 0, 65536, stages, bindingFlags },
 	};
 	m_device->createDescriptorSetLayout((uint32_t)eastl::size(bindings), bindings, &m_descriptorSetLayout);
