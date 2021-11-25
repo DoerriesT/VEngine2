@@ -1,8 +1,10 @@
 #include "Archetype.h"
 #include "utility/Utility.h"
+#include "ECS.h"
 
-Archetype::Archetype(const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept
-	:m_componentMask(componentMask),
+Archetype::Archetype(ECS *ecs, const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept
+	:m_ecs(ecs),
+	m_componentMask(componentMask),
 	m_componentInfo(componentInfo),
 	m_memoryChunkSize(),
 	m_memoryChunks(),
@@ -107,24 +109,33 @@ void Archetype::freeDataSlot(const ArchetypeSlot &slot) noexcept
 
 	auto &chunk = m_memoryChunks[chunkIdx];
 
-	forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
-		{
-			const auto &compInfo = m_componentInfo[componentID];
-			uint8_t *freedComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * chunkSlotIdx;
-			uint8_t *lastComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * (chunk.m_size - 1);
+	assert(chunkSlotIdx < chunk.m_size);
 
-			if (freedComp != lastComp)
+	// do swap-and-pop on components and entity
+	if (chunk.m_size > 1)
+	{
+		forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
 			{
-				// move last element into free slot. we may assume that freedComp had its destructor called already.
-				compInfo.m_moveConstructor(freedComp, lastComp);
+				const auto &compInfo = m_componentInfo[componentID];
+				uint8_t *freedComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * chunkSlotIdx;
+				uint8_t *lastComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * (chunk.m_size - 1);
 
-				// call destructor on last element
-				compInfo.m_destructor(lastComp);
-			}
-		});
+				if (freedComp != lastComp)
+				{
+					// move last element into free slot. we may assume that freedComp had its destructor called already.
+					compInfo.m_moveConstructor(freedComp, lastComp);
 
-	// swap accompanying entities
-	reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx] = reinterpret_cast<EntityID *>(chunk.m_memory)[chunk.m_size - 1];
+					// call destructor on last element
+					compInfo.m_destructor(lastComp);
+				}
+			});
+
+		// swap accompanying entities
+		reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx] = reinterpret_cast<EntityID *>(chunk.m_memory)[chunk.m_size - 1];
+
+		// update entity record of last entity that got swapped into the freed slot
+		m_ecs->m_entityRecords[reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx]].m_slot = slot;
+	}
 
 	// reduce chunk size
 	--chunk.m_size;

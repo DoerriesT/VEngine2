@@ -396,7 +396,7 @@ Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
 	// create new archetype
 	if (!archetype)
 	{
-		archetype = new Archetype(mask, m_componentInfo);
+		archetype = new Archetype(this, mask, m_componentInfo);
 		m_archetypes.push_back(archetype);
 	}
 

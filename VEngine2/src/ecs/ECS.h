@@ -33,6 +33,7 @@ struct IterateQuery
 
 class ECS
 {
+	friend class Archetype;
 public:
 	/// <summary>
 	///  Registers a component with the ECS. Must be called on a component type before it can be used in any way.

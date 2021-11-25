@@ -5,6 +5,7 @@
 #include "utility/ErasedType.h"
 #include "utility/DeletedCopyMove.h"
 
+class ECS;
 class Archetype;
 
 /// <summary>
@@ -68,9 +69,10 @@ public:
 	/// <summary>
 	/// Constructs a new Archetype for a given set of component types.
 	/// </summary>
+	/// <param name="ecs">The owning ECS.</param>
 	/// <param name="componentMask">The ComponentMask defining this Archetype.</param>
 	/// <param name="componentInfo">An array of ErasedType corresponding to each bit of the ComponentMask.</param>
-	explicit Archetype(const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept;
+	explicit Archetype(ECS *ecs, const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept;
 
 	DELETED_COPY_MOVE(Archetype);
 
@@ -148,6 +150,7 @@ public:
 	const uint8_t *getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) const noexcept;
 
 private:
+	ECS *m_ecs = nullptr;
 	ComponentMask m_componentMask = {};
 	const ErasedType *m_componentInfo = nullptr;
 	size_t m_memoryChunkSize = 0;
