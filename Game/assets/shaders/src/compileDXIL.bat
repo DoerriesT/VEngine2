@@ -33,4 +33,8 @@ dxc.exe -T vs_6_0 -E main fullscreenTriangle_vs.hlsl -Fo ./../fullscreenTriangle
 dxc.exe -T vs_6_0 -E main sky_vs.hlsl -Fo ./../sky_vs.cso -Zi -Fd ./../sky_vs.pdb
 dxc.exe -T ps_6_0 -E main sky_ps.hlsl -Fo ./../sky_ps.cso -Zi -Fd ./../sky_ps.pdb
 
+dxc.exe -T cs_6_0 -E main gtao_cs.hlsl -Fo ./../gtao_cs.cso -Zi -Fd ./../gtao_cs.pdb
+dxc.exe -T cs_6_0 -E main gtaoBlur_cs.hlsl -Fo ./../gtaoBlur_cs.cso -Zi -Fd ./../gtaoBlur_cs.pdb
+dxc.exe -T ps_6_0 -E main indirectLighting_ps.hlsl -Fo ./../indirectLighting_ps.cso -Zi -Fd ./../indirectLighting_ps.pdb
+
 pause

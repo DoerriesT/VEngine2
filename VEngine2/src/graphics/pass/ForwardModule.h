@@ -21,6 +21,8 @@ public:
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
 		uint32_t m_height;
+		uint32_t m_frame;
+		float m_fovy;
 		uint32_t m_pickingPosX;
 		uint32_t m_pickingPosY;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
@@ -35,6 +37,8 @@ public:
 		size_t m_shadowMapViewHandleCount;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::mat4 m_invViewProjectionMatrix;
+		glm::mat4 m_viewMatrix;
+		glm::mat4 m_invProjectionMatrix;
 		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;
 		const glm::mat4 *m_modelMatrices;
@@ -65,4 +69,7 @@ private:
 	gal::GraphicsPipeline *m_forwardPipeline = nullptr;
 	gal::GraphicsPipeline *m_forwardSkinnedPipeline = nullptr;
 	gal::GraphicsPipeline *m_skyPipeline = nullptr;
+	gal::ComputePipeline *m_gtaoPipeline = nullptr;
+	gal::ComputePipeline *m_gtaoBlurPipeline = nullptr;
+	gal::GraphicsPipeline *m_indirectLightingPipeline = nullptr;
 };

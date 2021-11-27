@@ -13,6 +13,7 @@ struct PSInput
 	float4 tangent : TANGENT;
 	float2 texCoord : TEXCOORD;
 	float3 worldSpacePosition : WORLD_SPACE_POS;
+	bool frontFace : SV_IsFrontFace;
 };
 
 struct PSOutput
@@ -109,6 +110,7 @@ PSOutput main(PSInput input)
 	
 	// normal
 	float3 N = normalize(input.normal);
+	N = input.frontFace ? N : -N;
 	float3 vertexNormal = N;
 	{
 		if (material.normalTextureHandle != 0)
@@ -173,10 +175,10 @@ PSOutput main(PSInput input)
 		}
 	}
 	
-	// ambient light
-	{
-		result += 0.5f * albedo * exposure;
-	}
+	//// ambient light
+	//{
+	//	result += 0.5f * albedo * exposure;
+	//}
 	
 	PSOutput output = (PSOutput)0;
 	output.color = float4(result, 1.0f);

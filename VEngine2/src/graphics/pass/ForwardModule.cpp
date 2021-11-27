@@ -9,6 +9,7 @@
 #include "profiling/Profiling.h"
 #include <EASTL/fixed_vector.h>
 #include "graphics/RenderData.h"
+#include <glm/trigonometric.hpp>
 
 using namespace gal;
 
@@ -238,6 +239,101 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 
 		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_skyPipeline);
 	}
+
+	// gtao
+	{
+		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		gal::StaticSamplerDescription staticSamplerDescs[]
+		{
+			gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::ALL_STAGES),
+		};
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/gtao_cs");
+		builder.setPipelineLayoutDescription((uint32_t)eastl::size(layoutDecls), layoutDecls, 0, ShaderStageFlags::ALL_STAGES, 1, staticSamplerDescs, 2);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_gtaoPipeline);
+	}
+
+	// gtao blur
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		gal::StaticSamplerDescription staticSamplerDescs[]
+		{
+			gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::ALL_STAGES),
+		};
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/gtaoBlur_cs");
+
+		uint32_t pushConstSize = sizeof(uint32_t) * 6;
+		builder.setPipelineLayoutDescription((uint32_t)eastl::size(layoutDecls), layoutDecls, pushConstSize, ShaderStageFlags::ALL_STAGES, 1, staticSamplerDescs, 1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_gtaoBlurPipeline);
+	}
+
+	// indirect lighting
+	{
+		gal::PipelineColorBlendAttachmentState additiveBlendState{};
+		additiveBlendState.m_blendEnable = true;
+		additiveBlendState.m_srcColorBlendFactor = gal::BlendFactor::ONE;
+		additiveBlendState.m_dstColorBlendFactor = gal::BlendFactor::ONE;
+		additiveBlendState.m_colorBlendOp = gal::BlendOp::ADD;
+		additiveBlendState.m_srcAlphaBlendFactor = gal::BlendFactor::ZERO;
+		additiveBlendState.m_dstAlphaBlendFactor = gal::BlendFactor::ONE;
+		additiveBlendState.m_alphaBlendOp = gal::BlendOp::ADD;
+		additiveBlendState.m_colorWriteMask = gal::ColorComponentFlags::ALL_BITS;
+
+		gal::GraphicsPipelineCreateInfo pipelineCreateInfo{};
+		gal::GraphicsPipelineBuilder builder(pipelineCreateInfo);
+		builder.setVertexShader("assets/shaders/fullscreenTriangle_vs");
+		builder.setFragmentShader("assets/shaders/indirectLighting_ps");
+		builder.setColorBlendAttachment(additiveBlendState);
+		builder.setDepthTest(true, false, CompareOp::NOT_EQUAL);
+		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
+		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
+		builder.setColorAttachmentFormat(Format::R16G16B16A16_SFLOAT);
+
+		DescriptorSetLayoutBinding usedBindlessBindings[]
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 1, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		uint32_t pushConstSize = sizeof(uint32_t) * 3;
+		builder.setPipelineLayoutDescription(1, layoutDecls, pushConstSize, ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
+
+		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_indirectLightingPipeline);
+	}
 }
 
 ForwardModule::~ForwardModule() noexcept
@@ -249,6 +345,9 @@ ForwardModule::~ForwardModule() noexcept
 	m_device->destroyGraphicsPipeline(m_forwardPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardSkinnedPipeline);
 	m_device->destroyGraphicsPipeline(m_skyPipeline);
+	m_device->destroyComputePipeline(m_gtaoPipeline);
+	m_device->destroyComputePipeline(m_gtaoBlurPipeline);
+	m_device->destroyGraphicsPipeline(m_indirectLightingPipeline);
 }
 
 void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
@@ -277,6 +376,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	rg::ResourceHandle velocityImageHandle = graph->createImage(rg::ImageDesc::create("Velocity Image", Format::R16G16_SFLOAT, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
 	rg::ResourceViewHandle velocityImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Velocity Image", velocityImageHandle, graph));
 	resultData->m_velocityImageViewHandle = velocityImageViewHandle;
+
+	// gtao
+	rg::ResourceHandle gtaoImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceViewHandle gtaoImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Image", gtaoImageHandle, graph));
+
+	// gtao result
+	rg::ResourceHandle gtaoResultImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Result Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceViewHandle gtaoResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Result Image", gtaoResultImageHandle, graph));
 
 
 	// depth prepass
@@ -610,4 +717,153 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			}
 			cmdList->endRenderPass();
 		});
+
+		rg::ResourceUsageDesc gtaoUsageDescs[] =
+		{
+			{normalImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{depthBufferImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{gtaoImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		};
+		graph->addPass("GTAO", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				GAL_SCOPED_GPU_LABEL(cmdList, "GTAO");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO");
+				PROFILING_ZONE_SCOPED;
+
+				struct GTAOConstants
+				{
+					glm::mat4 viewMatrix;
+					glm::mat4 invProjectionMatrix;
+					uint32_t resolution[2];
+					float texelSize[2];
+					float radiusScale;
+					float falloffScale;
+					float falloffBias;
+					float maxTexelRadius;
+					int sampleCount;
+					uint32_t frame;
+					uint32_t depthTextureIndex;
+					uint32_t normalTextureIndex;
+					uint32_t resultTextureIndex;
+				};
+
+				const float radius = 2.0f;
+
+				GTAOConstants consts{};
+				consts.viewMatrix = data.m_viewMatrix;
+				consts.invProjectionMatrix = data.m_invProjectionMatrix;
+				consts.resolution[0] = data.m_width;
+				consts.resolution[1] = data.m_height;
+				consts.texelSize[0] = 1.0f / data.m_width;
+				consts.texelSize[1] = 1.0f / data.m_height;
+				consts.radiusScale = 0.5f * radius * (1.0f / tanf(glm::radians(data.m_fovy) * 0.5f) * (data.m_height / static_cast<float>(data.m_width)));
+				consts.falloffScale = 1.0f / radius;
+				consts.falloffBias = -0.75f;
+				consts.maxTexelRadius = 256.0f;
+				consts.sampleCount = 12;
+				consts.frame = 0;// data.m_frame;
+				consts.depthTextureIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
+				consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
+				consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
+
+				uint64_t allocSize = sizeof(consts);
+				uint64_t allocOffset = 0;
+				auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
+				memcpy(mappedPtr, &consts, sizeof(consts));
+				uint32_t constsAddress = (uint32_t)allocOffset;
+
+				cmdList->bindPipeline(m_gtaoPipeline);
+
+				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+				cmdList->bindDescriptorSets(m_gtaoPipeline, 0, 2, sets, 1, &constsAddress);
+
+				cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+			});
+
+		rg::ResourceUsageDesc gtaoBlurUsageDescs[] =
+		{
+			{gtaoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{gtaoResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		};
+		graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				GAL_SCOPED_GPU_LABEL(cmdList, "GTAO Blur");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO Blur");
+				PROFILING_ZONE_SCOPED;
+
+				struct GTAOPushConsts
+				{
+					uint32_t resolution[2];
+					float texelSize[2];
+					uint32_t inputTextureIndex;
+					uint32_t resultTextureIndex;
+				};
+
+				GTAOPushConsts consts{};
+				consts.resolution[0] = data.m_width;
+				consts.resolution[1] = data.m_height;
+				consts.texelSize[0] = 1.0f / data.m_width;
+				consts.texelSize[1] = 1.0f / data.m_height;
+				consts.inputTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::TEXTURE);
+				consts.resultTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::RW_TEXTURE);
+
+				cmdList->bindPipeline(m_gtaoBlurPipeline);
+
+				cmdList->bindDescriptorSets(m_gtaoBlurPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+				cmdList->pushConstants(m_gtaoBlurPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(consts), &consts);
+
+				cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+			});
+
+		rg::ResourceUsageDesc indirectLightingUsageDescs[]
+		{
+			{ albedoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+			{ gtaoResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+			{ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+			{ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} },
+			{ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} },
+		};
+		graph->addPass("Indirect Lighting", rg::QueueType::GRAPHICS, eastl::size(indirectLightingUsageDescs), indirectLightingUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				GAL_SCOPED_GPU_LABEL(cmdList, "Indirect Lighting");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Indirect Lighting");
+				PROFILING_ZONE_SCOPED;
+
+				ColorAttachmentDescription attachmentDescs[]
+				{
+					 { registry.getImageView(lightingImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
+				};
+				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
+				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+
+				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
+				{
+					cmdList->bindPipeline(m_indirectLightingPipeline);
+
+					gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					cmdList->setViewport(0, 1, &viewport);
+					gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					cmdList->setScissor(0, 1, &scissor);
+
+					cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+					struct PushConsts
+					{
+						uint32_t exposureBufferIndex;
+						uint32_t albedoTextureIndex;
+						uint32_t gtaoTextureIndex;
+					};
+
+					PushConsts pushConsts{};
+					pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+					pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
+					pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
+
+					cmdList->pushConstants(m_indirectLightingPipeline, ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+					cmdList->draw(3, 1, 0, 0);
+				}
+				cmdList->endRenderPass();
+			});
 }

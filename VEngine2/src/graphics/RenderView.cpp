@@ -463,6 +463,8 @@ void RenderView::render(
 	forwardModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	forwardModuleData.m_width = m_width;
 	forwardModuleData.m_height = m_height;
+	forwardModuleData.m_frame = m_frame;
+	forwardModuleData.m_fovy = cameraComponent->m_fovy;
 	forwardModuleData.m_pickingPosX = pickingPosX;
 	forwardModuleData.m_pickingPosY = pickingPosY;
 	forwardModuleData.m_skinningMatrixBufferHandle = m_renderViewResources->m_skinningMatricesBufferViewHandles[resIdx];
@@ -477,6 +479,8 @@ void RenderView::render(
 	forwardModuleData.m_shadowMapViewHandleCount = m_shadowTextureSampleHandles.size();
 	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	forwardModuleData.m_invViewProjectionMatrix = glm::inverse(forwardModuleData.m_viewProjectionMatrix);
+	forwardModuleData.m_viewMatrix = glm::make_mat4(viewMatrix);
+	forwardModuleData.m_invProjectionMatrix = glm::inverse(glm::make_mat4(projectionMatrix));
 	forwardModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	forwardModuleData.m_renderList = &m_renderList;
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
