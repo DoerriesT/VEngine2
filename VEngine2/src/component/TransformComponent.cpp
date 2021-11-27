@@ -8,8 +8,8 @@ void TransformComponent::onGUI(void *instance) noexcept
 	TransformComponent &c = *reinterpret_cast<TransformComponent *>(instance);
 
 	int mobilityInt = static_cast<int>(c.m_mobility);
-	const char *mobilityStrings[] = { "STATIC", "DYNAMIC" };
-	ImGui::Combo("Mobility", &mobilityInt, mobilityStrings, IM_ARRAYSIZE(mobilityStrings));
+	ImGui::RadioButton("Static", &mobilityInt, static_cast<int>(Mobility::STATIC)); ImGui::SameLine();
+	ImGui::RadioButton("Dynamic", &mobilityInt, static_cast<int>(Mobility::DYNAMIC));
 	c.m_mobility = static_cast<Mobility>(mobilityInt);
 
 	ImGui::DragFloat3("Translation", &c.m_translation.x, 0.1f);

@@ -9,11 +9,10 @@ void LightComponent::onGUI(void *instance) noexcept
 	LightComponent &c = *reinterpret_cast<LightComponent *>(instance);
 
 	int typeInt = static_cast<int>(c.m_type);
-	const char *typeStrings[] = { "Point", "Spot", "Directional" };
-	if (ImGui::Combo("Type", &typeInt, typeStrings, IM_ARRAYSIZE(typeStrings)))
-	{
-		c.m_type = static_cast<LightComponent::Type>(typeInt);
-	}
+	ImGui::RadioButton("Point", &typeInt, static_cast<int>(LightComponent::Type::Point)); ImGui::SameLine();
+	ImGui::RadioButton("Spot", &typeInt, static_cast<int>(LightComponent::Type::Spot)); ImGui::SameLine();
+	ImGui::RadioButton("Directional", &typeInt, static_cast<int>(LightComponent::Type::Directional));
+	c.m_type = static_cast<LightComponent::Type>(typeInt);
 
 	ImGuiHelpers::ColorEdit3("Color", &c.m_color);
 	ImGuiHelpers::Tooltip("The sRGB color of the light source.");
