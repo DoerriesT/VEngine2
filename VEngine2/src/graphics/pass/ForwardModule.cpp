@@ -629,12 +629,12 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 						};
 
 						PushConsts pushConsts{};
-						pushConsts.lightIndex = static_cast<uint32_t>(data.m_punctualLightsOrder[i] & 0xFFFFFFFF);
+						pushConsts.lightIndex = static_cast<uint32_t>(i);// static_cast<uint32_t>(data.m_punctualLightsOrder[i] & 0xFFFFFFFF);
 						pushConsts.transformIndex = pushConsts.lightIndex;
 
 						cmdList->pushConstants(m_lightTileAssignmentPipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
 
-						const auto &light = data.m_punctualLights[pushConsts.lightIndex];
+						const auto &light = data.m_punctualLights[static_cast<uint32_t>(data.m_punctualLightsOrder[i] & 0xFFFFFFFF)];
 						const bool spotLight = light.m_angleScale != -1.0f;
 						size_t spotLightProxyMeshIndex = -1;
 						if (spotLight)
