@@ -12,8 +12,8 @@ GridPass::GridPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offset
 	blendState.m_srcColorBlendFactor = gal::BlendFactor::SRC_ALPHA;
 	blendState.m_dstColorBlendFactor = gal::BlendFactor::ONE_MINUS_SRC_ALPHA;
 	blendState.m_colorBlendOp = gal::BlendOp::ADD;
-	blendState.m_srcAlphaBlendFactor = gal::BlendFactor::SRC_ALPHA;
-	blendState.m_dstAlphaBlendFactor = gal::BlendFactor::ONE_MINUS_SRC_ALPHA;
+	blendState.m_srcAlphaBlendFactor = gal::BlendFactor::ZERO;
+	blendState.m_dstAlphaBlendFactor = gal::BlendFactor::ONE;
 	blendState.m_alphaBlendOp = gal::BlendOp::ADD;
 	blendState.m_colorWriteMask = gal::ColorComponentFlags::ALL_BITS;
 

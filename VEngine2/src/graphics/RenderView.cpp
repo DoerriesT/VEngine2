@@ -185,8 +185,9 @@ void RenderView::render(
 	const glm::mat4 viewMat = glm::make_mat4(viewMatrix);
 	const glm::mat4 projMat = glm::make_mat4(projectionMatrix);
 	const glm::mat4 viewProjMat = projMat * viewMat;
-	
 	const glm::vec4 viewMatDepthRow = glm::vec4(viewMat[0][2], viewMat[1][2], viewMat[2][2], viewMat[3][2]);
+	const glm::vec3 cameraPos = glm::make_vec3(cameraPosition);
+	const glm::vec3 gridPos = glm::vec3(cameraPos.x, 0.0f, cameraPos.z);
 
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
@@ -543,11 +544,11 @@ void RenderView::render(
 	forwardModuleData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
 	forwardModuleData.m_punctualLightCount = static_cast<uint32_t>(m_punctualLights.size());
 	forwardModuleData.m_shadowMapViewHandleCount = m_shadowTextureSampleHandles.size();
-	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
-	forwardModuleData.m_invViewProjectionMatrix = glm::inverse(forwardModuleData.m_viewProjectionMatrix);
-	forwardModuleData.m_viewMatrix = glm::make_mat4(viewMatrix);
-	forwardModuleData.m_invProjectionMatrix = glm::inverse(glm::make_mat4(projectionMatrix));
-	forwardModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
+	forwardModuleData.m_viewProjectionMatrix = viewProjMat;
+	forwardModuleData.m_invViewProjectionMatrix = glm::inverse(viewProjMat);
+	forwardModuleData.m_viewMatrix = viewMat;
+	forwardModuleData.m_invProjectionMatrix = glm::inverse(projMat);
+	forwardModuleData.m_cameraPosition = cameraPos;
 	forwardModuleData.m_renderList = &m_renderList;
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
@@ -574,8 +575,8 @@ void RenderView::render(
 	postProcessModuleData.m_exposureBufferViewHandle = exposureBufferViewHandle;
 	postProcessModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	postProcessModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
-	postProcessModuleData.m_cameraPosition = glm::make_vec3(cameraPosition);
+	postProcessModuleData.m_viewProjectionMatrix = viewProjMat;
+	postProcessModuleData.m_cameraPosition = cameraPos;
 	postProcessModuleData.m_renderList = &m_renderList;
 	postProcessModuleData.m_outlineRenderList = &m_outlineRenderList;
 	postProcessModuleData.m_modelMatrices = m_modelMatrices.data();
@@ -595,13 +596,13 @@ void RenderView::render(
 	gridPassData.m_height = m_height;
 	gridPassData.m_colorAttachment = resultImageViewHandle;
 	gridPassData.m_depthBufferAttachment = forwardModuleResultData.m_depthBufferImageViewHandle;
-	gridPassData.m_modelMatrix = glm::mat4(1.0f);
-	gridPassData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
+	gridPassData.m_modelMatrix = glm::translate(glm::floor(gridPos * 0.1f) * 10.0f);
+	gridPassData.m_viewProjectionMatrix = viewProjMat;
 	gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 	gridPassData.m_thickLineColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-	gridPassData.m_cameraPos = glm::make_vec3(cameraPosition);
+	gridPassData.m_cameraPos = cameraPos;
 	gridPassData.m_cellSize = 1.0f;
-	gridPassData.m_gridSize = 1000.0f;
+	gridPassData.m_gridSize = 200.0f;
 
 	m_gridPass->record(graph, gridPassData);
 

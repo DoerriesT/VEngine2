@@ -31,6 +31,7 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying) noexcept
 	Renderer *renderer = m_engine->getRenderer();
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.0f);
 	ImGui::Begin("Viewport");
 
 	auto viewportOffset = ImGui::GetWindowContentRegionMin();
@@ -42,6 +43,7 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying) noexcept
 	ImGui::Image(renderer->getEditorViewportTextureID(), viewportSize);
 
 	ImGui::End();
+	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
 
 	m_engine->setEditorViewport((int32_t)viewportOffset.x, (int32_t)viewportOffset.y, (uint32_t)fmaxf(viewportSize.x, 0.0f), (uint32_t)fmaxf(viewportSize.y, 0.0f));
