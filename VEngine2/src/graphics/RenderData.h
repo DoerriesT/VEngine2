@@ -62,3 +62,14 @@ struct PunctualLightShadowedGPU
 	float m_pad1;
 	float m_pad2;
 };
+
+enum class DebugDrawVisibility
+{
+	Always = 0, Visible = 1, Occluded = 2
+};
+
+struct DebugDrawVertex
+{
+	glm::vec3 m_position;
+	uint32_t m_color;
+};

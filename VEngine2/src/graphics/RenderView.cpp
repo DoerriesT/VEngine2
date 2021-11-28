@@ -563,6 +563,7 @@ void RenderView::render(
 	PostProcessModule::Data postProcessModuleData{};
 	postProcessModuleData.m_profilingCtx = m_device->getProfilingContext();
 	postProcessModuleData.m_bufferAllocator = bufferAllocator;
+	postProcessModuleData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[resIdx];
 	postProcessModuleData.m_offsetBufferSet = offsetBufferSet;
 	postProcessModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	postProcessModuleData.m_width = m_width;
@@ -657,4 +658,19 @@ rg::ResourceViewHandle RenderView::getResultRGViewHandle() const noexcept
 EntityID RenderView::getPickedEntity() const noexcept
 {
 	return m_pickedEntity;
+}
+
+void RenderView::clearDebugGeometry() noexcept
+{
+	m_postProcessModule->clearDebugGeometry();
+}
+
+void RenderView::drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept
+{
+	m_postProcessModule->drawDebugLine(visibility, position0, position1, color0, color1);
+}
+
+void RenderView::drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept
+{
+	m_postProcessModule->drawDebugTriangle(visibility, position0, position1, position2, color0, color1, color2);
 }

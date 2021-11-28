@@ -175,6 +175,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 					}
 				});
 
+			m_renderer->clearDebugGeometry();
+
 			m_physics->update(k_stepSize);
 
 			m_gameLogic->update(k_stepSize);

@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include "Handles.h"
 #include "Mesh.h"
+#include <glm/vec4.hpp>
+#include "RenderData.h"
 
 #ifdef OPAQUE
 #undef OPAQUE
@@ -50,6 +52,9 @@ public:
 	bool isEditorMode() const noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	uint64_t getPickedEntity() const noexcept;
+	void clearDebugGeometry() noexcept;
+	void drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept;
+	void drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept;
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;

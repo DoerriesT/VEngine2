@@ -40,4 +40,7 @@ dxc.exe -T ps_6_0 -E main indirectLighting_ps.hlsl -Fo ./../indirectLighting_ps.
 dxc.exe -T vs_6_0 -E main lightTileAssignment_vs.hlsl -Fo ./../lightTileAssignment_vs.cso -Zi -Fd ./../lightTileAssignment_vs.pdb
 dxc.exe -T ps_6_0 -E main lightTileAssignment_ps.hlsl -Fo ./../lightTileAssignment_ps.cso -Zi -Fd ./../lightTileAssignment_ps.pdb
 
+dxc.exe -T vs_6_0 -E main debugDraw_vs.hlsl -Fo ./../debugDraw_vs.cso -Zi -Fd ./../debugDraw_vs.pdb
+dxc.exe -T ps_6_0 -E main debugDraw_ps.hlsl -Fo ./../debugDraw_ps.cso -Zi -Fd ./../debugDraw_ps.pdb
+
 pause

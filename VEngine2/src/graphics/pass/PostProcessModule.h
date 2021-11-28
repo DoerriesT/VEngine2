@@ -4,6 +4,7 @@
 #include "../RenderGraph.h"
 #include "utility/DeletedCopyMove.h"
 #include <glm/mat4x4.hpp>
+#include "../RenderData.h"
 
 class BufferStackAllocator;
 struct SubMeshDrawInfo;
@@ -17,6 +18,7 @@ public:
 	{
 		void *m_profilingCtx;
 		BufferStackAllocator *m_bufferAllocator;
+		BufferStackAllocator *m_vertexBufferAllocator;
 		gal::DescriptorSet *m_offsetBufferSet;
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
@@ -50,6 +52,10 @@ public:
 	~PostProcessModule() noexcept;
 	void record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept;
 
+	void clearDebugGeometry() noexcept;
+	void drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept;
+	void drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept;
+
 private:
 	gal::GraphicsDevice *m_device = nullptr;
 	gal::ComputePipeline *m_luminanceHistogramPipeline = nullptr;
@@ -62,4 +68,6 @@ private:
 	gal::GraphicsPipeline *m_outlinePipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsSkinnedPipeline = nullptr;
+	gal::GraphicsPipeline *m_debugDrawPipelines[6] = {};
+	eastl::vector<DebugDrawVertex> m_debugDrawVertices[6];
 };

@@ -9,6 +9,7 @@
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "graphics/RenderData.h"
+#include <glm/packing.hpp>
 
 using namespace gal;
 
@@ -318,6 +319,42 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 
 		device->createGraphicsPipelines(1, &pipelineCreateInfo, isSkinned ? &m_debugNormalsSkinnedPipeline : &m_debugNormalsPipeline);
 	}
+
+	// debug draws
+	for (size_t triangle = 0; triangle < 2; ++triangle)
+	{
+		for (size_t visType = 0; visType < 3; ++visType)
+		{
+			bool isTriangle = triangle != 0;
+			DebugDrawVisibility visibility = static_cast<DebugDrawVisibility>(visType);
+
+			VertexInputAttributeDescription attributeDesc = { "POSITION_AND_COLOR", 0, 0, Format::R32G32B32A32_SFLOAT, 0 };
+			VertexInputBindingDescription bindingDesc = { 0, sizeof(float) * 4, VertexInputRate::VERTEX };
+
+			GraphicsPipelineCreateInfo pipelineCreateInfo{};
+			GraphicsPipelineBuilder builder(pipelineCreateInfo);
+			builder.setVertexShader("assets/shaders/debugDraw_vs");
+			builder.setFragmentShader("assets/shaders/debugDraw_ps");
+			builder.setInputAssemblyState(isTriangle ? PrimitiveTopology::TRIANGLE_LIST : PrimitiveTopology::LINE_LIST, false);
+			builder.setVertexBindingDescription(bindingDesc);
+			builder.setVertexAttributeDescription(attributeDesc);
+			builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
+			if (visibility != DebugDrawVisibility::Always)
+			{
+				builder.setDepthTest(true, false, visibility == DebugDrawVisibility::Visible ? CompareOp::GREATER_OR_EQUAL : CompareOp::LESS);
+			}
+			builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
+			builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
+			builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
+			builder.setPolygonModeCullMode(gal::PolygonMode::FILL, gal::CullModeFlags::NONE, gal::FrontFace::COUNTER_CLOCKWISE);
+
+			DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
+			DescriptorSetLayoutDeclaration layoutDecl = { offsetBufferSetLayout, 1, &usedOffsetBufferBinding };
+			builder.setPipelineLayoutDescription(1, &layoutDecl, 0, {}, 0, nullptr, -1);
+
+			device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_debugDrawPipelines[visType + (triangle * 3)]);
+		}
+	}
 }
 
 PostProcessModule::~PostProcessModule() noexcept
@@ -332,6 +369,10 @@ PostProcessModule::~PostProcessModule() noexcept
 	m_device->destroyGraphicsPipeline(m_outlinePipeline);
 	m_device->destroyGraphicsPipeline(m_debugNormalsPipeline);
 	m_device->destroyGraphicsPipeline(m_debugNormalsSkinnedPipeline);
+	for (auto &pso : m_debugDrawPipelines)
+	{
+		m_device->destroyGraphicsPipeline(pso);
+	}
 }
 
 void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
@@ -797,4 +838,125 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				cmdList->endRenderPass();
 			});
 	}
+
+	bool anyDebugDraws = false;
+	{
+		for (const auto &vertices : m_debugDrawVertices)
+		{
+			if (!vertices.empty())
+			{
+				anyDebugDraws = true;
+				break;
+			}
+		}
+	}
+
+	if (anyDebugDraws)
+	{
+		// compute vertex buffer size requirements
+		size_t debugVertexCount = 0;
+		for (const auto &vertices : m_debugDrawVertices)
+		{
+			debugVertexCount += vertices.size();
+		}
+
+		// allocate buffer and copy data
+		uint32_t vertexOffsets[6] = {};
+		uint64_t vertexBufferByteOffset;
+		{
+			uint64_t allocSize = (sizeof(float) * 4) * static_cast<uint64_t>(debugVertexCount);
+			auto *mappedPtr = data.m_vertexBufferAllocator->allocate(sizeof(float) * 4, &allocSize, &vertexBufferByteOffset);
+			assert(mappedPtr);
+			if (mappedPtr)
+			{
+				uint32_t curVertexOffset = 0;
+				for (size_t i = 0; i < 6; ++i)
+				{
+					if (!m_debugDrawVertices[i].empty())
+					{
+						vertexOffsets[i] = curVertexOffset;
+						const size_t vertexCount = m_debugDrawVertices[i].size();
+						const size_t dataSize = vertexCount * (sizeof(float) * 4);
+						memcpy(mappedPtr, m_debugDrawVertices[i].data(), dataSize);
+						mappedPtr += dataSize;
+						curVertexOffset += static_cast<uint32_t>(vertexCount);
+					}
+				}
+			}
+		}
+
+		rg::ResourceUsageDesc debugDrawsUsageDescs[] =
+		{
+			{data.m_resultImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
+			{data.m_depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL}},
+		};
+		graph->addPass("Debug Draws", rg::QueueType::GRAPHICS, eastl::size(debugDrawsUsageDescs), debugDrawsUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				GAL_SCOPED_GPU_LABEL(cmdList, "Debug Draws");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Debug Draws");
+				PROFILING_ZONE_SCOPED;
+
+				ColorAttachmentDescription attachmentDescs[]{ { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE } };
+				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
+				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+
+				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
+				{
+					Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					cmdList->setViewport(0, 1, &viewport);
+					Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					cmdList->setScissor(0, 1, &scissor);
+
+					struct PassConstants
+					{
+						float viewProjectionMatrix[16];
+					};
+
+					PassConstants passConsts;
+					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+
+					uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+
+					for (size_t i = 0; i < 6; ++i)
+					{
+						if (m_debugDrawVertices[i].empty())
+						{
+							continue;
+						}
+
+						cmdList->bindPipeline(m_debugDrawPipelines[i]);
+						cmdList->bindDescriptorSets(m_debugDrawPipelines[i], 0, 1, &data.m_offsetBufferSet, 1, &passConstsAddress);
+						
+						Buffer *vertexBuffer = data.m_vertexBufferAllocator->getBuffer();
+						uint64_t vertexBufferOffset = vertexBufferByteOffset;
+						cmdList->bindVertexBuffers(0, 1, &vertexBuffer, &vertexBufferOffset);
+
+						uint32_t vertexDrawCount = static_cast<uint32_t>(m_debugDrawVertices[i].size());
+						cmdList->draw(vertexDrawCount, 1, vertexOffsets[i], 0);
+					}
+				}
+				cmdList->endRenderPass();
+			});
+	}
+}
+
+void PostProcessModule::clearDebugGeometry() noexcept
+{
+	for (auto &vertices : m_debugDrawVertices)
+	{
+		vertices.clear();
+	}
+}
+
+void PostProcessModule::drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept
+{
+	m_debugDrawVertices[static_cast<size_t>(visibility)].push_back({ position0, glm::packUnorm4x8(color0) });
+	m_debugDrawVertices[static_cast<size_t>(visibility)].push_back({ position1, glm::packUnorm4x8(color1) });
+}
+
+void PostProcessModule::drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept
+{
+	m_debugDrawVertices[static_cast<size_t>(visibility) + 3].push_back({ position0, glm::packUnorm4x8(color0) });
+	m_debugDrawVertices[static_cast<size_t>(visibility) + 3].push_back({ position1, glm::packUnorm4x8(color1) });
+	m_debugDrawVertices[static_cast<size_t>(visibility) + 3].push_back({ position2, glm::packUnorm4x8(color2) });
 }

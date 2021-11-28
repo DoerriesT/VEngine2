@@ -327,3 +327,18 @@ uint64_t Renderer::getPickedEntity() const noexcept
 {
 	return static_cast<uint64_t>(m_renderView->getPickedEntity());
 }
+
+void Renderer::clearDebugGeometry() noexcept
+{
+	m_renderView->clearDebugGeometry();
+}
+
+void Renderer::drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept
+{
+	m_renderView->drawDebugLine(visibility, position0, position1, color0, color1);
+}
+
+void Renderer::drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept
+{
+	m_renderView->drawDebugTriangle(visibility, position0, position1, position2, color0, color1, color2);
+}

@@ -48,6 +48,9 @@ public:
 	TextureViewHandle getResultTextureViewHandle() const noexcept;
 	rg::ResourceViewHandle getResultRGViewHandle() const noexcept;
 	EntityID getPickedEntity() const noexcept;
+	void clearDebugGeometry() noexcept;
+	void drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept;
+	void drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept;
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
