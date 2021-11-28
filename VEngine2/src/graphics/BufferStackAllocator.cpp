@@ -3,8 +3,9 @@
 #include <assert.h>
 #include "utility/Utility.h"
 
-BufferStackAllocator::BufferStackAllocator(gal::Buffer *buffer)
-	:m_bufferSize(buffer->getDescription().m_size),
+BufferStackAllocator::BufferStackAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer)
+	:m_device(device),
+	m_bufferSize(buffer->getDescription().m_size),
 	m_buffer(buffer)
 {
 	m_buffer->map((void **)&m_mappedPtr);

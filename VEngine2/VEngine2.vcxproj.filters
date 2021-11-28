@@ -606,6 +606,9 @@
     <ClInclude Include="src\component\OutlineComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\RenderWorld.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1069,6 +1072,9 @@
     </ClCompile>
     <ClCompile Include="src\component\OutlineComponent.cpp">
       <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\RenderWorld.cpp">
+      <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

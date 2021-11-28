@@ -15,6 +15,7 @@ struct SkinnedMeshComponent
 	Asset<SkeletonAssetData> m_skeleton;
 	AnimationGraph *m_animationGraph;
 	eastl::vector<glm::mat4> m_matrixPalette;
+	eastl::vector<glm::mat4> m_prevMatrixPalette;
 
 	static void onGUI(void *instance) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;

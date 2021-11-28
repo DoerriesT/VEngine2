@@ -416,11 +416,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-				uint64_t allocSize = sizeof(passConsts);
-				uint64_t allocOffset = 0;
-				auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-				memcpy(mappedPtr, &passConsts, sizeof(passConsts));
-				uint32_t passConstsAddress = (uint32_t)allocOffset;
+				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 				const eastl::vector<SubMeshInstanceData> *instancesArr[]
 				{
@@ -581,11 +577,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.pickingPosX = data.m_pickingPosX;
 				passConsts.pickingPosY = data.m_pickingPosY;
 
-				uint64_t allocSize = sizeof(passConsts);
-				uint64_t allocOffset = 0;
-				auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-				memcpy(mappedPtr, &passConsts, sizeof(passConsts));
-				uint32_t passConstsAddress = (uint32_t)allocOffset;
+				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 				const eastl::vector<SubMeshInstanceData> *instancesArr[]
 				{
@@ -766,11 +758,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
 				consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
 
-				uint64_t allocSize = sizeof(consts);
-				uint64_t allocOffset = 0;
-				auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-				memcpy(mappedPtr, &consts, sizeof(consts));
-				uint32_t constsAddress = (uint32_t)allocOffset;
+				uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 				cmdList->bindPipeline(m_gtaoPipeline);
 

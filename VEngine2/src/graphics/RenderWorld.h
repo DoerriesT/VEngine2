@@ -1,0 +1,80 @@
+#pragma once
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
+#include <stdint.h>
+#include "component/LightComponent.h"
+#include "component/TransformComponent.h"
+#include "Handles.h"
+#include "ecs/ECSCommon.h"
+#include <EASTL/vector.h>
+
+class ECS;
+
+struct RenderWorld
+{
+	struct DirectionalLight
+	{
+		glm::vec3 m_direction;
+		uint32_t m_color;
+		float m_intensity;
+		uint32_t m_cascadeCount;
+		float m_splitLambda;
+		float m_maxShadowDistance;
+		float m_depthBias[LightComponent::k_maxCascades] ;
+		float m_normalOffsetBias[LightComponent::k_maxCascades];
+		bool m_shadowsEnabled;
+		size_t m_transformIndex;
+	};
+
+	struct PunctualLight
+	{
+		glm::vec3 m_position;
+		glm::vec3 m_direction;
+		uint32_t m_color;
+		float m_intensity;
+		float m_radius;
+		float m_outerAngle;
+		float m_innerAngle;
+		bool m_shadowsEnabled;
+		bool m_spotLight;
+		size_t m_transformIndex;
+	};
+
+	struct Mesh
+	{
+		SubMeshHandle m_subMeshHandle;
+		MaterialHandle m_materialHandle;
+		EntityID m_entity;
+		size_t m_transformIndex;
+		size_t m_skinningMatricesOffset;
+		size_t m_skinningMatricesCount;
+		bool m_outlined;
+	};
+
+	struct Camera
+	{
+		float m_aspectRatio;
+		float m_fovy;
+		float m_near;
+		float m_far;
+		size_t m_transformIndex;
+	};
+
+	size_t m_meshTransformsOffset;
+	size_t m_meshTransformsCount;
+	size_t m_cameraIndex;
+	eastl::vector<Camera> m_cameras;
+	eastl::vector<DirectionalLight> m_directionalLights;
+	eastl::vector<PunctualLight> m_punctualLights;
+	eastl::vector<Mesh> m_meshes;
+	eastl::vector<Transform> m_transforms;
+	eastl::vector<Transform> m_prevTransforms;
+	eastl::vector<glm::mat4> m_skinningMatrices;
+	eastl::vector<glm::mat4> m_prevSkinningMatrices;
+
+	eastl::vector<Transform> m_interpolatedTransforms;
+	eastl::vector<glm::mat4> m_interpolatedSkinningMatrices;
+
+	void populate(ECS *ecs, EntityID cameraEntity) noexcept;
+	void interpolate(float fractionalSimFrameTime) noexcept;
+};

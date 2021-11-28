@@ -33,7 +33,7 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 				// rotation
 				{
 					glm::quat turnQuat = glm::quat(glm::angleAxis(-mc.m_turnRightInputAxis, glm::vec3(0.0f, 1.0f, 0.0f)));
-					tc.m_rotation = glm::normalize(turnQuat * tc.m_rotation);
+					tc.m_transform.m_rotation = glm::normalize(turnQuat * tc.m_transform.m_rotation);
 				}
 
 				mc.m_velocityX = 0.0f;

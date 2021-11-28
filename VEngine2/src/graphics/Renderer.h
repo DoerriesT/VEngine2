@@ -1,7 +1,6 @@
 #pragma once
 #include "gal/FwdDecl.h"
 #include <stdint.h>
-#include "ecs/ECS.h"
 #include "Handles.h"
 #include "Mesh.h"
 
@@ -20,6 +19,7 @@ class TextureLoader;
 class TextureManager;
 class MaterialManager;
 class ImGuiPass;
+struct RenderWorld;
 
 typedef void *ImTextureID;
 
@@ -31,13 +31,11 @@ namespace rg
 class Renderer
 {
 public:
-	explicit Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height) noexcept;
+	explicit Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept;
 	~Renderer() noexcept;
-	void render(float deltaTime) noexcept;
+	void render(float deltaTime, const RenderWorld &renderWorld) noexcept;
 	void resize(uint32_t swapchainWidth, uint32_t swapchainHeight, uint32_t width, uint32_t height) noexcept;
 	void getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept;
-	void setCameraEntity(EntityID cameraEntity) noexcept;
-	EntityID getCameraEntity() const noexcept;
 	void createSubMeshes(uint32_t count, SubMeshCreateInfo *subMeshes, SubMeshHandle *handles) noexcept;
 	void destroySubMeshes(uint32_t count, SubMeshHandle *handles) noexcept;
 	TextureHandle loadTexture(size_t fileSize, const char *fileData, const char *textureName) noexcept;
@@ -51,10 +49,9 @@ public:
 	void setEditorMode(bool editorMode) noexcept;
 	bool isEditorMode() const noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
-	EntityID getPickedEntity() const noexcept;
+	uint64_t getPickedEntity() const noexcept;
 
 private:
-	ECS *m_ecs = nullptr;
 	gal::GraphicsDevice *m_device = nullptr;
 	gal::SwapChain *m_swapChain = nullptr;
 	gal::Semaphore *m_semaphores[3] = {};
@@ -67,7 +64,7 @@ private:
 	uint32_t m_height = 1;
 	uint32_t m_pickingPosX = -1;
 	uint32_t m_pickingPosY = -1;
-	EntityID m_pickedEntity = k_nullEntity;
+	uint64_t m_pickedEntity = 0;
 	float m_time = 0.0f;
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;
@@ -77,6 +74,5 @@ private:
 	MaterialManager *m_materialManager = nullptr;
 	RenderView *m_renderView = nullptr;
 	ImGuiPass *m_imguiPass = nullptr;
-	EntityID m_cameraEntity = k_nullEntity;
 	bool m_editorMode = false;
 };

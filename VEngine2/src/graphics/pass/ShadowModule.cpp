@@ -165,11 +165,7 @@ void ShadowModule::record(rg::RenderGraph *graph, const Data &data) noexcept
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-					uint64_t allocSize = sizeof(passConsts);
-					uint64_t allocOffset = 0;
-					auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-					memcpy(mappedPtr, &passConsts, sizeof(passConsts));
-					uint32_t passConstsAddress = (uint32_t)allocOffset;
+					uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{

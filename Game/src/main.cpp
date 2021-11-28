@@ -95,7 +95,7 @@ public:
 		// camera
 		{
 			TransformComponent transC1{};
-			transC1.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+			transC1.m_transform.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
 
 			CameraComponent cameraC1{};
 			cameraC1.m_fovy = glm::radians(60.0f);
@@ -104,7 +104,7 @@ public:
 
 			Camera cam(transC1, cameraC1);
 			m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>(transC1, cameraC1);
-			m_engine->getRenderer()->setCameraEntity(m_cameraEntity);
+			m_engine->setCameraEntity(m_cameraEntity);
 			m_engine->getLevel()->addEntity(m_cameraEntity, "Camera");
 		}
 
@@ -116,9 +116,9 @@ public:
 			m_customAnimGraph = setupAnimationGraph();
 
 			TransformComponent transC{};
-			transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
-			transC.m_scale = glm::vec3(0.01f);
-			transC.m_translation.y = 4.0f;
+			transC.m_transform.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
+			transC.m_transform.m_scale = glm::vec3(0.01f);
+			transC.m_transform.m_translation.y = 4.0f;
 
 			SkinnedMeshComponent meshC{};
 			meshC.m_mesh = m_cesiumManAsset;
@@ -236,7 +236,7 @@ public:
 
 		if (m_playing)
 		{
-			m_engine->getRenderer()->setCameraEntity(m_cameraEntity);
+			m_engine->setCameraEntity(m_cameraEntity);
 
 			TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(m_cameraEntity);
 			CameraComponent *cc = m_engine->getECS()->getComponent<CameraComponent>(m_cameraEntity);
@@ -262,7 +262,7 @@ public:
 				{
 					auto d = camera.getForwardDirection();
 					velocity = d * 20.0f;
-					pos = tc->m_translation + d;
+					pos = tc->m_transform.m_translation + d;
 				}
 
 				createPhysicsObject(pos, velocity, PhysicsMobility::DYNAMIC);
@@ -323,10 +323,10 @@ private:
 	void createPhysicsObject(const glm::vec3 &pos, const glm::vec3 &vel, PhysicsMobility mobility)
 	{
 		TransformComponent transC{};
-		transC.m_translation.x = pos.x;
-		transC.m_translation.y = pos.y;
-		transC.m_translation.z = pos.z;
-		transC.m_scale = glm::vec3(0.25f);
+		transC.m_transform.m_translation.x = pos.x;
+		transC.m_transform.m_translation.y = pos.y;
+		transC.m_transform.m_translation.z = pos.z;
+		transC.m_transform.m_scale = glm::vec3(0.25f);
 
 		MeshComponent meshC{ m_meshAsset };
 

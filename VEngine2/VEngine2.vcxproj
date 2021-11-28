@@ -328,6 +328,7 @@
     <ClInclude Include="src\graphics\RenderGraph.h" />
     <ClInclude Include="src\graphics\RenderView.h" />
     <ClInclude Include="src\graphics\RenderViewResources.h" />
+    <ClInclude Include="src\graphics\RenderWorld.h" />
     <ClInclude Include="src\graphics\ResourceViewRegistry.h" />
     <ClInclude Include="src\graphics\TextureLoader.h" />
     <ClInclude Include="src\graphics\TextureManager.h" />
@@ -491,6 +492,7 @@
     <ClCompile Include="src\graphics\RenderGraph.cpp" />
     <ClCompile Include="src\graphics\RenderView.cpp" />
     <ClCompile Include="src\graphics\RenderViewResources.cpp" />
+    <ClCompile Include="src\graphics\RenderWorld.cpp" />
     <ClCompile Include="src\graphics\ResourceViewRegistry.cpp" />
     <ClCompile Include="src\graphics\TextureLoader.cpp" />
     <ClCompile Include="src\graphics\TextureManager.cpp" />

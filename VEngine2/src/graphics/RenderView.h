@@ -14,7 +14,6 @@ class ShadowModule;
 class ForwardModule;
 class PostProcessModule;
 class GridPass;
-class ECS;
 class MeshManager;
 class MaterialManager;
 struct SubMeshDrawInfo;
@@ -22,15 +21,17 @@ struct SubMeshBufferHandles;
 enum MaterialHandle : uint32_t;
 class RendererResources;
 struct CameraComponent;
+struct RenderWorld;
 
 class RenderView
 {
 public:
-	explicit RenderView(ECS *ecs, gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
+	explicit RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
 	~RenderView();
 	void render(
 		float deltaTime,
 		float time,
+		const RenderWorld &renderWorld,
 		rg::RenderGraph *graph,
 		BufferStackAllocator *bufferAllocator, 
 		gal::DescriptorSet *offsetBufferSet,
@@ -49,7 +50,6 @@ public:
 	EntityID getPickedEntity() const noexcept;
 
 private:
-	ECS *m_ecs;
 	gal::GraphicsDevice *m_device = nullptr;
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	MeshManager *m_meshManager = nullptr;

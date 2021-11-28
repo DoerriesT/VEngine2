@@ -31,7 +31,7 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 		return result;
 	};
 
-	glm::vec3 center = characterTc->m_translation + glm::vec3(0.0f, 2.0f, 0.0f);
+	glm::vec3 center = characterTc->m_transform.m_translation + glm::vec3(0.0f, 2.0f, 0.0f);
 	glm::vec3 cameraPos = sphericalToCartesian(m_cameraPitch, m_cameraYaw, m_prevCameraDistance);
 	glm::vec3 toCamera = glm::normalize(cameraPos - center);
 
@@ -64,7 +64,7 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 			return glm::fract(normed) * glm::two_pi<float>();
 		};
 
-		glm::vec3 characterForward3D = glm::mat3_cast(characterTc->m_rotation) * glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::vec3 characterForward3D = glm::mat3_cast(characterTc->m_transform.m_rotation) * glm::vec3(0.0f, 1.0f, 0.0f);
 		glm::vec3 targetDir = glm::normalize(glm::vec3(movc->m_velocityX, 0.0f, movc->m_velocityZ));
 		targetDir = glm::any(glm::isnan(targetDir)) ? characterForward3D : targetDir;
 		float characterYaw = atan2f(characterForward3D.z, characterForward3D.x);

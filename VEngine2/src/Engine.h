@@ -25,6 +25,8 @@ public:
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	void getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept;
 	uint64_t getPickedEntity() const noexcept;
+	void setCameraEntity(uint64_t cameraEntity) noexcept;
+	uint64_t getCameraEntity() const noexcept;
 
 private:
 	IGameLogic *m_gameLogic = nullptr;
@@ -42,4 +44,5 @@ private:
 	uint32_t m_editorViewportWidth = 0;
 	uint32_t m_editorViewportHeight = 0;
 	uint64_t m_pickedEntity = 0;
+	uint64_t m_cameraEntity = 0;
 };

@@ -18,9 +18,9 @@
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "RenderGraph.h"
+#include "RenderWorld.h"
 
-Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height) noexcept
-	:m_ecs(ecs)
+Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 {
 	m_swapchainWidth = width;
 	m_swapchainHeight = height;
@@ -48,7 +48,7 @@ Renderer::Renderer(ECS *ecs, void *windowHandle, uint32_t width, uint32_t height
 
 	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
 
-	m_renderView = new RenderView(m_ecs, m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
+	m_renderView = new RenderView(m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
 }
@@ -76,7 +76,7 @@ Renderer::~Renderer() noexcept
 	gal::GraphicsDevice::destroy(m_device);
 }
 
-void Renderer::render(float deltaTime) noexcept
+void Renderer::render(float deltaTime, const RenderWorld &renderWorld) noexcept
 {
 	PROFILING_ZONE_SCOPED;
 
@@ -106,31 +106,37 @@ void Renderer::render(float deltaTime) noexcept
 		
 
 		// render views
-		if (m_cameraEntity != k_nullEntity)
+		if (renderWorld.m_cameraIndex != -1)
 		{
-			TransformComponent *tc = m_ecs->getComponent<TransformComponent>(m_cameraEntity);
-			CameraComponent *cc = m_ecs->getComponent<CameraComponent>(m_cameraEntity);
+			const RenderWorld::Camera &renderWorldCam = renderWorld.m_cameras[renderWorld.m_cameraIndex];
 
-			if (tc && cc)
-			{
-				Camera camera(*tc, *cc);
-				auto viewMatrix = camera.getViewMatrix();
-				auto projMatrix = camera.getProjectionMatrix();
+			TransformComponent tc{};
+			tc.m_transform = renderWorld.m_interpolatedTransforms[renderWorldCam.m_transformIndex];
+			
+			CameraComponent cc{};
+			cc.m_aspectRatio = renderWorldCam.m_aspectRatio;
+			cc.m_fovy = renderWorldCam.m_fovy;
+			cc.m_near = renderWorldCam.m_near;
+			cc.m_far = renderWorldCam.m_far;
 
-				m_renderView->render(
-					deltaTime,
-					m_time,
-					m_renderGraph,
-					m_rendererResources->m_constantBufferStackAllocators[m_frame & 1],
-					m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1], 
-					&viewMatrix[0][0], 
-					&projMatrix[0][0], 
-					&tc->m_translation.x,
-					cc,
-					m_pickingPosX,
-					m_pickingPosY);
-				m_pickedEntity = m_renderView->getPickedEntity();
-			}
+			Camera camera(tc, cc);
+			auto viewMatrix = camera.getViewMatrix();
+			auto projMatrix = camera.getProjectionMatrix();
+
+			m_renderView->render(
+				deltaTime,
+				m_time,
+				renderWorld,
+				m_renderGraph,
+				m_rendererResources->m_constantBufferStackAllocators[m_frame & 1],
+				m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1],
+				&viewMatrix[0][0],
+				&projMatrix[0][0],
+				&tc.m_transform.m_translation.x,
+				&cc,
+				m_pickingPosX,
+				m_pickingPosY);
+			m_pickedEntity = m_renderView->getPickedEntity();
 		}
 
 
@@ -237,16 +243,6 @@ void Renderer::getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight
 	*height = m_height;
 }
 
-void Renderer::setCameraEntity(EntityID cameraEntity) noexcept
-{
-	m_cameraEntity = cameraEntity;
-}
-
-EntityID Renderer::getCameraEntity() const noexcept
-{
-	return m_cameraEntity;
-}
-
 void Renderer::createSubMeshes(uint32_t count, SubMeshCreateInfo *subMeshes, SubMeshHandle *handles) noexcept
 {
 	m_meshManager->createSubMeshes(count, subMeshes, handles);
@@ -327,7 +323,7 @@ void Renderer::setPickingPos(uint32_t x, uint32_t y) noexcept
 	m_pickingPosY = y;
 }
 
-EntityID Renderer::getPickedEntity() const noexcept
+uint64_t Renderer::getPickedEntity() const noexcept
 {
-	return static_cast<EntityID>(m_renderView->getPickedEntity());
+	return static_cast<uint64_t>(m_renderView->getPickedEntity());
 }

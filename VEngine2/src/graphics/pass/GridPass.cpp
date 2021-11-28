@@ -75,10 +75,7 @@ void GridPass::record(rg::RenderGraph *graph, const Data &data)
 			memcpy(consts.gridNormal, &gridNormal, sizeof(consts.gridNormal));
 			consts.gridSize = data.m_gridSize;
 
-			uint64_t allocSize = sizeof(consts);
-			uint64_t allocOffset = 0;
-			auto *mappedPtr = data.m_bufferAllocator->allocate(m_device->getBufferAlignment(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0), &allocSize, &allocOffset);
-			memcpy(mappedPtr, &consts, sizeof(consts));
+			uint32_t allocOffset = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			gal::ColorAttachmentDescription attachmentDesc{ registry.getImageView(data.m_colorAttachment), gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE };
 			gal::DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferAttachment), gal::AttachmentLoadOp::LOAD, gal::AttachmentStoreOp::STORE, gal::AttachmentLoadOp::DONT_CARE, gal::AttachmentStoreOp::DONT_CARE };
@@ -93,8 +90,7 @@ void GridPass::record(rg::RenderGraph *graph, const Data &data)
 				gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
 				cmdList->setScissor(0, 1, &scissor);
 
-				uint32_t allocOffset32 = (uint32_t)allocOffset;
-				cmdList->bindDescriptorSets(m_pipeline, 0, 1, &data.m_offsetBufferSet, 1, &allocOffset32);
+				cmdList->bindDescriptorSets(m_pipeline, 0, 1, &data.m_offsetBufferSet, 1, &allocOffset);
 
 				cmdList->draw(6, 1, 0, 0);
 			}

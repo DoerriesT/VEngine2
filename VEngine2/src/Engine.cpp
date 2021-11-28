@@ -13,6 +13,7 @@
 #include "IGameLogic.h"
 #include "ecs/ECS.h"
 #include "component/ComponentRegistration.h"
+#include "component/TransformComponent.h"
 #include "physics/Physics.h"
 #include "animation/AnimationSystem.h"
 #include "Level.h"
@@ -25,6 +26,7 @@
 #include "utility/allocator/DefaultAllocator.h"
 #include "script/ScriptSystem.h"
 #include "job/JobSystem.h"
+#include "graphics/RenderWorld.h"
 
 // these are needed for EASTL
 
@@ -96,15 +98,15 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	ComponentRegistration::registerAllComponents(m_ecs);
 
-	Renderer renderer(m_ecs, m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
+	Renderer renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_renderer = &renderer;
-	
+
 	Physics physics(m_ecs);
 	m_physics = &physics;
-	
+
 	AnimationSystem animationSystem(m_ecs);
 	m_animationSystem = &animationSystem;
-	
+
 	ScriptSystem scriptSystem(m_ecs);
 
 	UserInput userInput(*m_window, m_ecs);
@@ -123,6 +125,8 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	PROFILING_ZONE_END(engineInitZone);
 
+	RenderWorld renderWorld;
+
 	Timer timer;
 
 	constexpr float k_stepSize = 1.0f / 60.0f;
@@ -134,8 +138,6 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 		timer.update();
 		float timeDelta = fminf(0.5f, static_cast<float>(timer.getTimeDelta()));
-
-
 
 		accumulator += timeDelta;
 		while (accumulator >= k_stepSize)
@@ -164,6 +166,15 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 			ImGui::ShowDemoWindow();
 
+			// swap transforms
+			m_ecs->iterate<TransformComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC)
+				{
+					for (size_t i = 0; i < count; ++i)
+					{
+						transC[i].m_prevTransform = transC[i].m_transform;
+					}
+				});
+
 			m_physics->update(k_stepSize);
 
 			m_gameLogic->update(k_stepSize);
@@ -175,9 +186,13 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			m_animationSystem->update(k_stepSize);
 
 			ImGui::Render();
+
+			renderWorld.populate(m_ecs, m_cameraEntity);
 		}
 
-		m_renderer->render(timeDelta);
+		renderWorld.interpolate(accumulator / k_stepSize);
+
+		m_renderer->render(timeDelta, renderWorld);
 		m_pickedEntity = m_renderer->getPickedEntity();
 	}
 
@@ -265,4 +280,14 @@ void Engine::getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, 
 uint64_t Engine::getPickedEntity() const noexcept
 {
 	return m_pickedEntity;
+}
+
+void Engine::setCameraEntity(uint64_t cameraEntity) noexcept
+{
+	m_cameraEntity = cameraEntity;
+}
+
+uint64_t Engine::getCameraEntity() const noexcept
+{
+	return m_cameraEntity;
 }

@@ -47,9 +47,18 @@ void AnimationSystem::update(float deltaTime) noexcept
 						const glm::mat4 *invBindMatrices = skel->getInvBindPoseMatrices();
 
 						// ensure the vector is correctly sized
+						bool firstTimePalette = false;
 						if (smc.m_matrixPalette.empty() || smc.m_matrixPalette.size() != jointCount)
 						{
 							smc.m_matrixPalette.resize(jointCount);
+							smc.m_prevMatrixPalette.resize(jointCount);
+							firstTimePalette = true;
+						}
+
+						if (!firstTimePalette)
+						{
+							smc.m_prevMatrixPalette = smc.m_matrixPalette;
+							//eastl::swap(smc.m_matrixPalette, smc.m_prevMatrixPalette);
 						}
 
 						// early out if the graph is invalid
@@ -104,6 +113,12 @@ void AnimationSystem::update(float deltaTime) noexcept
 						for (size_t i = 0; i < jointCount; ++i)
 						{
 							smc.m_matrixPalette[i] = smc.m_matrixPalette[i] * invBindMatrices[i];
+						}
+
+						// copy current palette into previous one if the palette was newly created this frame
+						if (firstTimePalette)
+						{
+							memcpy(smc.m_prevMatrixPalette.data(), smc.m_matrixPalette.data(), sizeof(glm::mat4) * jointCount);
 						}
 					}
 				}

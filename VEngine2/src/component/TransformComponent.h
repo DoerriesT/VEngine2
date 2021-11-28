@@ -4,6 +4,13 @@
 
 struct lua_State;
 
+struct Transform
+{
+	glm::vec3 m_translation = glm::vec3(0.0f);
+	glm::quat m_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+	glm::vec3 m_scale = glm::vec3(1.0f);
+};
+
 struct TransformComponent
 {
 	enum class Mobility
@@ -12,11 +19,8 @@ struct TransformComponent
 	};
 
 	Mobility m_mobility = Mobility::DYNAMIC;
-	glm::vec3 m_translation = glm::vec3(0.0f);
-	glm::quat m_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-	glm::vec3 m_scale = glm::vec3(1.0f);
-	glm::mat4 m_transformation;
-	glm::mat4 m_previousTransformation;
+	Transform m_transform;
+	Transform m_prevTransform;
 
 	static void onGUI(void *instance) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;

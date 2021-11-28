@@ -20,8 +20,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableConstantBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableConstantBuffers[1]);
 
-		m_constantBufferStackAllocators[0] = new BufferStackAllocator(m_mappableConstantBuffers[0]);
-		m_constantBufferStackAllocators[1] = new BufferStackAllocator(m_mappableConstantBuffers[1]);
+		m_constantBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableConstantBuffers[0]);
+		m_constantBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableConstantBuffers[1]);
 
 		gal::DescriptorSetLayoutBinding binding{ gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, gal::ShaderStageFlags::ALL_STAGES };
 		m_device->createDescriptorSetLayout(1, &binding, &m_offsetBufferDescriptorSetLayout);
@@ -42,8 +42,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableShaderResourceBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableShaderResourceBuffers[1]);
 
-		m_shaderResourceBufferStackAllocators[0] = new BufferStackAllocator(m_mappableShaderResourceBuffers[0]);
-		m_shaderResourceBufferStackAllocators[1] = new BufferStackAllocator(m_mappableShaderResourceBuffers[1]);
+		m_shaderResourceBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableShaderResourceBuffers[0]);
+		m_shaderResourceBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableShaderResourceBuffers[1]);
 	}
 
 	// index buffer
@@ -52,8 +52,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableIndexBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableIndexBuffers[1]);
 
-		m_indexBufferStackAllocators[0] = new BufferStackAllocator(m_mappableIndexBuffers[0]);
-		m_indexBufferStackAllocators[1] = new BufferStackAllocator(m_mappableIndexBuffers[1]);
+		m_indexBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableIndexBuffers[0]);
+		m_indexBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableIndexBuffers[1]);
 	}
 
 	// vertex buffer
@@ -62,8 +62,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableVertexBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableVertexBuffers[1]);
 
-		m_vertexBufferStackAllocators[0] = new BufferStackAllocator(m_mappableVertexBuffers[0]);
-		m_vertexBufferStackAllocators[1] = new BufferStackAllocator(m_mappableVertexBuffers[1]);
+		m_vertexBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableVertexBuffers[0]);
+		m_vertexBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableVertexBuffers[1]);
 	}
 
 	// imgui font texture

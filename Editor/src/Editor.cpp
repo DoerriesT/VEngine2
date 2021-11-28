@@ -24,7 +24,7 @@ void Editor::init(Engine *engine) noexcept
 	m_engine = engine;
 
 	TransformComponent transC{};
-	transC.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+	transC.m_transform.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
 	CameraComponent cameraC{};
 	cameraC.m_fovy = glm::radians(60.0f);
 
@@ -148,7 +148,7 @@ void Editor::update(float deltaTime) noexcept
 
 	if (!m_gameIsPlaying)
 	{
-		m_engine->getRenderer()->setCameraEntity(m_editorCameraEntity);
+		m_engine->setCameraEntity(m_editorCameraEntity);
 	}
 }
 

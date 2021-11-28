@@ -18,9 +18,6 @@ struct RenderViewResources
 	TextureViewHandle m_resultImageTextureViewHandle = {};
 	rg::ResourceStateData m_resultImageState[1] = {};
 
-	gal::Buffer *m_skinningMatricesBuffers[2] = {};
-	StructuredBufferViewHandle m_skinningMatricesBufferViewHandles[2] = {};
-
 	gal::Buffer *m_exposureDataBuffer = nullptr;
 	rg::ResourceStateData m_exposureDataBufferState[1] = {};
 

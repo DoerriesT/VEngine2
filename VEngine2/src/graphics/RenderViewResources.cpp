@@ -45,22 +45,6 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 		m_resultImageState[0] = {};
 	}
 	
-	// skinning matrices buffer
-	for (size_t i = 0; i < 2; ++i)
-	{
-		size_t bufferSize = sizeof(float) * 16 * 1024;
-		
-		gal::BufferCreateInfo createInfo{};
-		createInfo.m_size = bufferSize;
-		createInfo.m_usageFlags = gal::BufferUsageFlags::STRUCTURED_BUFFER_BIT;
-
-		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, {}, false, &m_skinningMatricesBuffers[i]);
-		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_skinningMatricesBuffers[i], i == 0 ? "Skinning Matrices Buffer 0" : "Skinning Matrices Buffer 1");
-
-		gal::DescriptorBufferInfo descriptorBufferInfo{ m_skinningMatricesBuffers[i], 0, bufferSize, sizeof(float) * 16 };
-		m_skinningMatricesBufferViewHandles[i] = m_viewRegistry->createStructuredBufferViewHandle(descriptorBufferInfo);
-	}
-
 	// exposure data buffer
 	{
 		gal::BufferCreateInfo createInfo{};
@@ -91,14 +75,6 @@ void RenderViewResources::destroy() noexcept
 		m_resultImageTextureViewHandle = {};
 		m_device->destroyImageView(m_resultImageView);
 		m_device->destroyImage(m_resultImage);
-	}
-
-	// skinning matrices buffer
-	for (size_t i = 0; i < 2; ++i)
-	{
-		m_viewRegistry->destroyHandle(m_skinningMatricesBufferViewHandles[i]);
-		m_skinningMatricesBufferViewHandles[i] = {};
-		m_device->destroyBuffer(m_skinningMatricesBuffers[i]);
 	}
 
 	m_device->destroyBuffer(m_exposureDataBuffer);

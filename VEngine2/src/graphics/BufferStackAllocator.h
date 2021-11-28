@@ -1,11 +1,12 @@
 #pragma once
 #include <stdint.h>
-#include "gal/FwdDecl.h"
+#include <assert.h>
+#include "gal/GraphicsAbstractionLayer.h"
 
 class BufferStackAllocator
 {
 public:
-	explicit BufferStackAllocator(gal::Buffer *buffer);
+	explicit BufferStackAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer);
 	BufferStackAllocator(BufferStackAllocator &) = delete;
 	BufferStackAllocator(BufferStackAllocator &&) = delete;
 	BufferStackAllocator &operator=(const BufferStackAllocator &) = delete;
@@ -23,7 +24,24 @@ public:
 	gal::Buffer *getBuffer() const;
 	void reset();
 
+	template<typename T>
+	uint64_t uploadStruct(gal::DescriptorType type, const T &data)
+	{
+		uint64_t allocSize = sizeof(T);
+		uint64_t allocOffset = 0;
+		auto *mappedPtr = allocate(m_device->getBufferAlignment(type, allocSize), &allocSize, &allocOffset);
+		if (mappedPtr)
+		{
+			memcpy(mappedPtr, &data, sizeof(data));
+			return allocOffset;
+		}
+		
+		assert(false);
+		return -1;
+	}
+
 private:
+	gal::GraphicsDevice *m_device = nullptr;
 	uint64_t m_currentOffset = 0;
 	const uint64_t m_bufferSize = 0;
 	uint8_t *m_mappedPtr = nullptr;

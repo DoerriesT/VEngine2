@@ -181,13 +181,13 @@ void Physics::update(float deltaTime) noexcept
 
 					// create transform
 					PxTransform pxTransform{};
-					pxTransform.p.x = tc.m_translation.x;
-					pxTransform.p.y = tc.m_translation.y;
-					pxTransform.p.z = tc.m_translation.z;
-					pxTransform.q.x = tc.m_rotation.x;
-					pxTransform.q.y = tc.m_rotation.y;
-					pxTransform.q.z = tc.m_rotation.z;
-					pxTransform.q.w = tc.m_rotation.w;
+					pxTransform.p.x = tc.m_transform.m_translation.x;
+					pxTransform.p.y = tc.m_transform.m_translation.y;
+					pxTransform.p.z = tc.m_transform.m_translation.z;
+					pxTransform.q.x = tc.m_transform.m_rotation.x;
+					pxTransform.q.y = tc.m_transform.m_rotation.y;
+					pxTransform.q.z = tc.m_transform.m_rotation.z;
+					pxTransform.q.w = tc.m_transform.m_rotation.w;
 
 
 					// create actor
@@ -256,13 +256,13 @@ void Physics::update(float deltaTime) noexcept
 				{
 					// create transform
 					PxTransform pxTransform{};
-					pxTransform.p.x = tc.m_translation.x;
-					pxTransform.p.y = tc.m_translation.y;
-					pxTransform.p.z = tc.m_translation.z;
-					pxTransform.q.x = tc.m_rotation.x;
-					pxTransform.q.y = tc.m_rotation.y;
-					pxTransform.q.z = tc.m_rotation.z;
-					pxTransform.q.w = tc.m_rotation.w;
+					pxTransform.p.x = tc.m_transform.m_translation.x;
+					pxTransform.p.y = tc.m_transform.m_translation.y;
+					pxTransform.p.z = tc.m_transform.m_translation.z;
+					pxTransform.q.x = tc.m_transform.m_rotation.x;
+					pxTransform.q.y = tc.m_transform.m_rotation.y;
+					pxTransform.q.z = tc.m_transform.m_rotation.z;
+					pxTransform.q.w = tc.m_transform.m_rotation.w;
 
 					((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->setKinematicTarget(pxTransform);
 				}
@@ -286,7 +286,7 @@ void Physics::update(float deltaTime) noexcept
 					PxCapsuleControllerDesc  controllerDesc{};
 					controllerDesc.radius = adjustedRadius;
 					controllerDesc.height = adjustedHeight - 2.0f * adjustedRadius;
-					controllerDesc.position.set(tc.m_translation.x, tc.m_translation.y - centerToTranslationCompHeight, tc.m_translation.z);
+					controllerDesc.position.set(tc.m_transform.m_translation.x, tc.m_transform.m_translation.y - centerToTranslationCompHeight, tc.m_transform.m_translation.z);
 					controllerDesc.slopeLimit = cosf(cc.m_slopeLimit);
 					controllerDesc.contactOffset = cc.m_contactOffset;
 					controllerDesc.stepOffset = cc.m_stepOffset;
@@ -312,13 +312,13 @@ void Physics::update(float deltaTime) noexcept
 					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN) ? CharacterControllerCollisionFlags::DOWN : CharacterControllerCollisionFlags::NONE;
 				
 					auto centerPos = controller->getPosition();
-					tc.m_translation.x = (float)centerPos.x;
-					tc.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
-					tc.m_translation.z = (float)centerPos.z;
+					tc.m_transform.m_translation.x = (float)centerPos.x;
+					tc.m_transform.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
+					tc.m_transform.m_translation.z = (float)centerPos.z;
 				}
 				else
 				{
-					controller->setPosition(PxExtendedVec3(tc.m_translation.x, tc.m_translation.y - centerToTranslationCompHeight, tc.m_translation.z));
+					controller->setPosition(PxExtendedVec3(tc.m_transform.m_translation.x, tc.m_transform.m_translation.y - centerToTranslationCompHeight, tc.m_transform.m_translation.z));
 				}
 				
 				// movement has been consumed
@@ -355,13 +355,13 @@ void Physics::update(float deltaTime) noexcept
 						if (pc.m_mobility == PhysicsMobility::DYNAMIC)
 						{
 							auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
-							tc.m_translation.x = pxTc.p.x;
-							tc.m_translation.y = pxTc.p.y;
-							tc.m_translation.z = pxTc.p.z;
-							tc.m_rotation.x = pxTc.q.x;
-							tc.m_rotation.y = pxTc.q.y;
-							tc.m_rotation.z = pxTc.q.z;
-							tc.m_rotation.w = pxTc.q.w;
+							tc.m_transform.m_translation.x = pxTc.p.x;
+							tc.m_transform.m_translation.y = pxTc.p.y;
+							tc.m_transform.m_translation.z = pxTc.p.z;
+							tc.m_transform.m_rotation.x = pxTc.q.x;
+							tc.m_transform.m_rotation.y = pxTc.q.y;
+							tc.m_transform.m_rotation.z = pxTc.q.z;
+							tc.m_transform.m_rotation.w = pxTc.q.w;
 						}
 					}
 				});
