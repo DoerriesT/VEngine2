@@ -4,6 +4,8 @@
 #include <Level.h>
 #include <input/InputTokens.h>
 #include <component/OutlineComponent.h>
+#include <component/TransformComponent.h>
+#include <component/LightComponent.h>
 
 SceneGraphWindow::SceneGraphWindow(Engine *engine) noexcept
 	:m_engine(engine)
@@ -34,6 +36,33 @@ void SceneGraphWindow::draw() noexcept
 			{
 				auto entity = ecs.createEntity();
 				level->addEntity(entity, "New Entity");
+				m_selectedEntity = entity;
+			}
+			if (ImGui::Selectable("Point Light"))
+			{
+				TransformComponent tc{};
+				LightComponent lc{};
+				lc.m_type = LightComponent::Type::Point;
+				auto entity = ecs.createEntity<TransformComponent, LightComponent>(tc, lc);
+				level->addEntity(entity, "Point Light");
+				m_selectedEntity = entity;
+			}
+			if (ImGui::Selectable("Spot Light"))
+			{
+				TransformComponent tc{};
+				LightComponent lc{};
+				lc.m_type = LightComponent::Type::Spot;
+				auto entity = ecs.createEntity<TransformComponent, LightComponent>(tc, lc);
+				level->addEntity(entity, "Spot Light");
+				m_selectedEntity = entity;
+			}
+			if (ImGui::Selectable("Directional Light"))
+			{
+				TransformComponent tc{};
+				LightComponent lc{};
+				lc.m_type = LightComponent::Type::Directional;
+				auto entity = ecs.createEntity<TransformComponent, LightComponent>(tc, lc);
+				level->addEntity(entity, "Directional Light");
 				m_selectedEntity = entity;
 			}
 
