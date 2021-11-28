@@ -22,6 +22,9 @@
 #include "BufferStackAllocator.h"
 #include "RenderWorld.h"
 #include <EASTL/fixed_vector.h>
+#include <EASTL/numeric.h>
+#include <EASTL/sort.h>
+#include <glm/gtx/quaternion.hpp>
 
 using namespace gal;
 
@@ -178,7 +181,12 @@ void RenderView::render(
 		}
 		buffer->unmap();
 	}
+
+	const glm::mat4 viewMat = glm::make_mat4(viewMatrix);
+	const glm::mat4 projMat = glm::make_mat4(projectionMatrix);
+	const glm::mat4 viewProjMat = projMat * viewMat;
 	
+	const glm::vec4 viewMatDepthRow = glm::vec4(viewMat[0][2], viewMat[1][2], viewMat[2][2], viewMat[3][2]);
 
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
@@ -203,12 +211,15 @@ void RenderView::render(
 	m_shadowTextureSampleHandles.clear();
 	m_directionalLights.clear();
 	m_shadowedDirectionalLights.clear();
+	m_punctualLights.clear();
+	m_punctualLightsOrder.clear();
+	m_lightTransforms.clear();
 	m_renderList.clear();
 	m_outlineRenderList.clear();
 
 	const glm::mat4 invViewMatrix = glm::inverse(glm::make_mat4(viewMatrix));
 
-	// process lights
+	// process directional lights
 	for (const auto &dirLight : renderWorld.m_directionalLights)
 	{
 		DirectionalLightGPU directionalLight{};
@@ -221,7 +232,7 @@ void RenderView::render(
 			glm::vec4 cascadeParams[LightComponent::k_maxCascades];
 			glm::vec4 depthRows[LightComponent::k_maxCascades];
 
-			assert(lc.m_cascadeCount <= LightComponent::k_maxCascades);
+			assert(dirLight.m_cascadeCount <= LightComponent::k_maxCascades);
 
 			for (size_t j = 0; j < dirLight.m_cascadeCount; ++j)
 			{
@@ -261,6 +272,98 @@ void RenderView::render(
 		else
 		{
 			m_directionalLights.push_back(directionalLight);
+		}
+	}
+
+	// process punctual lights
+	for (const auto &light : renderWorld.m_punctualLights)
+	{
+		float intensity = light.m_spotLight ? (1.0f / (glm::pi<float>())) : (1.0f / (4.0f * glm::pi<float>()));
+		intensity *= light.m_intensity;
+		PunctualLightGPU punctualLight{};
+		punctualLight.m_color = glm::vec3(glm::unpackUnorm4x8(light.m_color)) * intensity;
+		punctualLight.m_invSqrAttRadius = 1.0f / (light.m_radius * light.m_radius);
+		punctualLight.m_position = light.m_position;
+		if (light.m_spotLight)
+		{
+			punctualLight.m_angleScale = 1.0f / fmaxf(0.001f, cosf(light.m_innerAngle * 0.5f) - cosf(light.m_outerAngle * 0.5f));
+			punctualLight.m_angleOffset = -cosf(light.m_outerAngle * 0.5f) * punctualLight.m_angleScale;
+			punctualLight.m_direction = light.m_direction;
+		}
+		else
+		{
+			punctualLight.m_angleScale = -1.0f; // special value to mark this as a point light
+		}
+
+		m_punctualLights.push_back(punctualLight);
+		if (light.m_spotLight)
+		{
+			m_lightTransforms.push_back(viewProjMat * glm::translate(light.m_position) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), light.m_direction)) * glm::scale(glm::vec3(light.m_radius)));
+		}
+		else
+		{
+			m_lightTransforms.push_back(viewProjMat * glm::translate(light.m_position) * glm::scale(glm::vec3(light.m_radius)));
+		}
+	}
+
+	// sort lights and assign to depth bins
+	{
+		union FloatUint32Union
+		{
+			float f;
+			uint32_t ui;
+		};
+
+		m_punctualLightsOrder.resize(m_punctualLights.size());
+		for (size_t i = 0; i < m_punctualLightsOrder.size(); ++i)
+		{
+			FloatUint32Union fu;
+			fu.f = -glm::dot(glm::vec4(m_punctualLights[i].m_position, 1.0f), viewMatDepthRow);
+
+			uint64_t packedDepthAndIndex = 0;
+			packedDepthAndIndex |= static_cast<uint64_t>(i) & 0xFFFFFFFF; // index
+			// floats interpreted as integers keep the less-than ordering, so we can just put the depth
+			// in the most significant bits and use that to sort by depth
+			packedDepthAndIndex |= static_cast<uint64_t>(fu.ui) << 32ull;
+			m_punctualLightsOrder[i] = packedDepthAndIndex;
+		}
+
+		// sort by distance to camera
+		eastl::sort(m_punctualLightsOrder.begin(), m_punctualLightsOrder.end());
+
+		// clear bins
+		constexpr size_t k_numDepthBins = 8192;
+		constexpr float k_depthBinRange = 1.0f; // each bin covers a depth range of 1 unit
+		constexpr uint32_t k_emptyBin = ((~0u & 0xFFFFu) << 16u);
+		m_punctualLightsDepthBins.resize(k_numDepthBins);
+		eastl::fill(m_punctualLightsDepthBins.begin(), m_punctualLightsDepthBins.end(), k_emptyBin);
+
+		// assign lights to bins
+		for (size_t i = 0; i < m_punctualLightsOrder.size(); ++i)
+		{
+			FloatUint32Union fu;
+			fu.ui = static_cast<uint32_t>(m_punctualLightsOrder[i] >> 32ull);
+			float lightDepthVS = -fu.f;
+
+			const size_t lightIndex = static_cast<size_t>(m_punctualLightsOrder[i] & 0xFFFFFFFF);
+
+			const auto &light = m_punctualLights[lightIndex];
+			const float radius = glm::sqrt(1.0f / light.m_invSqrAttRadius);
+			float nearestPoint = -lightDepthVS - radius;
+			float farthestPoint = -lightDepthVS + radius;
+
+			size_t minBin = eastl::min(static_cast<size_t>(fmaxf(nearestPoint / k_depthBinRange, 0.0f)), size_t(k_numDepthBins - 1));
+			size_t maxBin = eastl::min(static_cast<size_t>(fmaxf(farthestPoint / k_depthBinRange, 0.0f)), size_t(k_numDepthBins - 1));
+
+			for (size_t j = minBin; j <= maxBin; ++j)
+			{
+				uint32_t &val = m_punctualLightsDepthBins[j];
+				uint32_t minIndex = (val & 0xFFFF0000) >> 16;
+				uint32_t maxIndex = val & 0xFFFF;
+				minIndex = eastl::min(minIndex, static_cast<uint32_t>(i));
+				maxIndex = eastl::max(maxIndex, static_cast<uint32_t>(i));
+				val = ((minIndex & 0xFFFF) << 16) | (maxIndex & 0xFFFF);
+			}
 		}
 	}
 
@@ -313,7 +416,7 @@ void RenderView::render(
 		}
 	}
 
-	auto createStructuredBuffer = [&](auto dataAsVector, bool copyNow = true, void **resultBufferPtr = nullptr) -> StructuredBufferViewHandle
+	auto createShaderResourceBuffer = [&](DescriptorType descriptorType, auto dataAsVector, bool copyNow = true, void **resultBufferPtr = nullptr, uint64_t *permutation = nullptr)
 	{
 		const size_t elementSize = sizeof(dataAsVector[0]);
 
@@ -322,13 +425,24 @@ void RenderView::render(
 		bufferInfo.m_buffer = m_rendererResources->m_shaderResourceBufferStackAllocators[resIdx]->getBuffer();
 
 		// allocate memory
-		uint64_t alignment = m_device->getBufferAlignment(DescriptorType::STRUCTURED_BUFFER, elementSize);
+		uint64_t alignment = m_device->getBufferAlignment(descriptorType, elementSize);
 		uint8_t *bufferPtr = m_rendererResources->m_shaderResourceBufferStackAllocators[resIdx]->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
 
 		// copy to destination
 		if (copyNow && !dataAsVector.empty())
 		{
-			memcpy(bufferPtr, dataAsVector.data(), dataAsVector.size() * elementSize);
+			if (permutation)
+			{
+				for (size_t i = 0; i < dataAsVector.size(); ++i)
+				{
+					size_t index = static_cast<size_t>(permutation[i] & 0xFFFFFFFF);
+					memcpy(bufferPtr + i * elementSize, &dataAsVector[index], elementSize);
+				}
+			}
+			else
+			{
+				memcpy(bufferPtr, dataAsVector.data(), dataAsVector.size() *elementSize);
+			}
 		}
 
 		if (resultBufferPtr)
@@ -337,13 +451,18 @@ void RenderView::render(
 		}
 
 		// create a transient bindless handle
-		return m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
+		return descriptorType == DescriptorType::STRUCTURED_BUFFER ?
+			m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) : 
+			m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
 	};
 
-	StructuredBufferViewHandle directionalLightsBufferViewHandle = createStructuredBuffer(m_directionalLights);
+	StructuredBufferViewHandle punctualLightsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_punctualLights, true, nullptr, m_punctualLightsOrder.data());
+	ByteBufferViewHandle punctualLightsDepthBinsBufferViewHandle = (ByteBufferViewHandle)createShaderResourceBuffer(DescriptorType::BYTE_BUFFER, m_punctualLightsDepthBins);
+	StructuredBufferViewHandle lightTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_lightTransforms, true, nullptr, m_punctualLightsOrder.data());
+	StructuredBufferViewHandle directionalLightsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_directionalLights);
 	void *directionalLightsShadowedBufferPtr = nullptr;
-	StructuredBufferViewHandle directionalLightsShadowedBufferViewHandle = createStructuredBuffer(m_shadowedDirectionalLights, false, &directionalLightsShadowedBufferPtr);
-	StructuredBufferViewHandle skinningMatricesBufferViewHandle = createStructuredBuffer(renderWorld.m_skinningMatrices);
+	StructuredBufferViewHandle directionalLightsShadowedBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_shadowedDirectionalLights, false, &directionalLightsShadowedBufferPtr);
+	StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, renderWorld.m_skinningMatrices);
 
 	// prepare data
 	eastl::fixed_vector<rg::ResourceUsageDesc, 8> prepareFrameDataPassUsages;
@@ -414,11 +533,15 @@ void RenderView::render(
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_directionalLightsBufferHandle = directionalLightsBufferViewHandle;
 	forwardModuleData.m_directionalLightsShadowedBufferHandle = directionalLightsShadowedBufferViewHandle;
+	forwardModuleData.m_lightTransformBufferHandle = lightTransformsBufferViewHandle;
+	forwardModuleData.m_punctualLightsBufferHandle = punctualLightsBufferViewHandle;
+	forwardModuleData.m_punctualLightsDepthBinsBufferHandle = punctualLightsDepthBinsBufferViewHandle;
 	forwardModuleData.m_pickingBufferHandle = pickingBufferViewHandle;
 	forwardModuleData.m_exposureBufferHandle = exposureBufferViewHandle;
 	forwardModuleData.m_shadowMapViewHandles = m_shadowTextureSampleHandles.data();
 	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
 	forwardModuleData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
+	forwardModuleData.m_punctualLightCount = static_cast<uint32_t>(m_punctualLights.size());
 	forwardModuleData.m_shadowMapViewHandleCount = m_shadowTextureSampleHandles.size();
 	forwardModuleData.m_viewProjectionMatrix = glm::make_mat4(projectionMatrix) * glm::make_mat4(viewMatrix);
 	forwardModuleData.m_invViewProjectionMatrix = glm::inverse(forwardModuleData.m_viewProjectionMatrix);
@@ -429,6 +552,9 @@ void RenderView::render(
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
+	forwardModuleData.m_punctualLights = m_punctualLights.data();
+	forwardModuleData.m_punctualLightsOrder = m_punctualLightsOrder.data();
+	forwardModuleData.m_rendererResources = m_rendererResources;
 
 	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
 

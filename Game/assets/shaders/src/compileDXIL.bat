@@ -37,4 +37,7 @@ dxc.exe -T cs_6_0 -E main gtao_cs.hlsl -Fo ./../gtao_cs.cso -Zi -Fd ./../gtao_cs
 dxc.exe -T cs_6_0 -E main gtaoBlur_cs.hlsl -Fo ./../gtaoBlur_cs.cso -Zi -Fd ./../gtaoBlur_cs.pdb
 dxc.exe -T ps_6_0 -E main indirectLighting_ps.hlsl -Fo ./../indirectLighting_ps.cso -Zi -Fd ./../indirectLighting_ps.pdb
 
+dxc.exe -T vs_6_0 -E main lightTileAssignment_vs.hlsl -Fo ./../lightTileAssignment_vs.cso -Zi -Fd ./../lightTileAssignment_vs.pdb
+dxc.exe -T ps_6_0 -E main lightTileAssignment_ps.hlsl -Fo ./../lightTileAssignment_ps.cso -Zi -Fd ./../lightTileAssignment_ps.pdb
+
 pause

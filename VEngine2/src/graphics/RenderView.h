@@ -73,6 +73,10 @@ private:
 	eastl::vector<rg::ResourceViewHandle> m_shadowTextureSampleHandles;
 	eastl::vector<DirectionalLightGPU> m_directionalLights;
 	eastl::vector<DirectionalLightGPU> m_shadowedDirectionalLights;
+	eastl::vector<PunctualLightGPU> m_punctualLights;
+	eastl::vector<uint64_t> m_punctualLightsOrder;
+	eastl::vector<uint32_t> m_punctualLightsDepthBins;
+	eastl::vector<glm::mat4> m_lightTransforms;
 	RenderList m_renderList;
 	RenderList m_outlineRenderList;
 };

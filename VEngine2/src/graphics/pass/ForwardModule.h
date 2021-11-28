@@ -9,6 +9,8 @@ class BufferStackAllocator;
 struct SubMeshDrawInfo;
 struct RenderList;
 struct SubMeshBufferHandles;
+struct PunctualLightGPU;
+class RendererResources;
 
 class ForwardModule
 {
@@ -29,11 +31,15 @@ public:
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsShadowedBufferHandle;
+		StructuredBufferViewHandle m_lightTransformBufferHandle;
+		StructuredBufferViewHandle m_punctualLightsBufferHandle;
+		ByteBufferViewHandle m_punctualLightsDepthBinsBufferHandle;
 		rg::ResourceViewHandle m_pickingBufferHandle;
 		rg::ResourceViewHandle m_exposureBufferHandle;
 		const rg::ResourceViewHandle *m_shadowMapViewHandles;
 		uint32_t m_directionalLightCount;
 		uint32_t m_directionalLightShadowedCount;
+		uint32_t m_punctualLightCount;
 		size_t m_shadowMapViewHandleCount;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::mat4 m_invViewProjectionMatrix;
@@ -44,6 +50,9 @@ public:
 		const glm::mat4 *m_modelMatrices;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
+		const PunctualLightGPU *m_punctualLights;
+		const uint64_t *m_punctualLightsOrder;
+		RendererResources *m_rendererResources;
 	};
 
 	struct ResultData
@@ -66,6 +75,7 @@ private:
 	gal::GraphicsPipeline *m_depthPrepassSkinnedPipeline = nullptr;
 	gal::GraphicsPipeline *m_depthPrepassAlphaTestedPipeline = nullptr;
 	gal::GraphicsPipeline *m_depthPrepassSkinnedAlphaTestedPipeline = nullptr;
+	gal::GraphicsPipeline *m_lightTileAssignmentPipeline = nullptr;
 	gal::GraphicsPipeline *m_forwardPipeline = nullptr;
 	gal::GraphicsPipeline *m_forwardSkinnedPipeline = nullptr;
 	gal::GraphicsPipeline *m_skyPipeline = nullptr;

@@ -5,6 +5,13 @@
 class BufferStackAllocator;
 class ResourceViewRegistry;
 
+struct ProxyMeshInfo
+{
+	uint32_t m_indexCount;
+	uint32_t m_firstIndex;
+	uint32_t m_vertexOffset;
+};
+
 class RendererResources
 {
 public:
@@ -25,6 +32,17 @@ public:
 	gal::Image *m_imguiFontTexture = nullptr;
 	gal::ImageView *m_imguiFontTextureView = nullptr;
 	TextureViewHandle m_imguiFontTextureViewHandle = {};
+
+	gal::Buffer *m_proxyMeshVertexBuffer = {};
+	gal::Buffer *m_proxyMeshIndexBuffer = {};
+
+	// proxy mesh info
+	ProxyMeshInfo m_icoSphereProxyMeshInfo;
+	ProxyMeshInfo m_cone180ProxyMeshInfo;
+	ProxyMeshInfo m_cone135ProxyMeshInfo;
+	ProxyMeshInfo m_cone90ProxyMeshInfo;
+	ProxyMeshInfo m_cone45ProxyMeshInfo;
+	ProxyMeshInfo m_boxProxyMeshInfo;
 
 	gal::Buffer *m_materialsBuffer = nullptr;
 	StructuredBufferViewHandle m_materialsBufferViewHandle = {};

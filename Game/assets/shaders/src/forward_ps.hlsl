@@ -1,9 +1,8 @@
 #include "bindings.hlsli"
-#include "shadingModel.hlsli"
 #include "packing.hlsli"
 #include "srgb.hlsli"
 #include "material.hlsli"
-#include "lights.hlsli"
+#include "lightEvaluation.hlsli"
 #include "picking.hlsli"
 
 struct PSInput
@@ -27,13 +26,18 @@ struct PSOutput
 struct PassConstants
 {
 	float4x4 viewProjectionMatrix;
+	float4 viewMatrixDepthRow;
 	float3 cameraPosition;
 	uint skinningMatricesBufferIndex;
 	uint materialBufferIndex;
-	uint directionalLightBufferIndex;
 	uint directionalLightCount;
-	uint directionalLightShadowedBufferIndex;
+	uint directionalLightBufferIndex;
 	uint directionalLightShadowedCount;
+	uint directionalLightShadowedBufferIndex;
+	uint punctualLightCount;
+	uint punctualLightBufferIndex;
+	uint punctualLightTileTextureIndex;
+	uint punctualLightDepthBinsBufferIndex;
 	uint exposureBufferIndex;
 	uint pickingBufferIndex;
 	uint pickingPosX;
@@ -48,6 +52,7 @@ struct DrawConstants
 };
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
+
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
 StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(4, 2, 1);
 StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 3, 1);
@@ -55,8 +60,12 @@ StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER
 Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
 ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 6, 1);
 RWByteAddressBuffer g_RWByteAddressBuffers[65536] : REGISTER_UAV(5, 7, 1);
+StructuredBuffer<PunctualLight> g_PunctualLights[65536] : REGISTER_SRV(4, 8, 1);
+Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 9, 1);
+
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
+
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
 
 float3 sampleCascadedShadowMaps(float3 posWS, float3 N, DirectionalLight light)
@@ -95,23 +104,23 @@ PSOutput main(PSInput input)
 		input.position.z
 	);
 	
+	LightingParams lightingParams = (LightingParams)0;
+	
 	Material material = g_Materials[g_PassConstants.materialBufferIndex][g_DrawConstants.materialIndex];
 	
 	// albedo
-	float3 albedo;
 	{
-		albedo = unpackUnorm4x8(material.albedo).rgb;
+		lightingParams.albedo = unpackUnorm4x8(material.albedo).rgb;
 		if (material.albedoTextureHandle != 0)
 		{
-			albedo = g_Textures[material.albedoTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).rgb;
+			lightingParams.albedo = g_Textures[material.albedoTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).rgb;
 		}
-		albedo = accurateSRGBToLinear(albedo);
+		lightingParams.albedo = accurateSRGBToLinear(lightingParams.albedo);
 	}
 	
 	// normal
-	float3 N = normalize(input.normal);
-	N = input.frontFace ? N : -N;
-	float3 vertexNormal = N;
+	lightingParams.N = normalize(input.normal);
+	lightingParams.N = input.frontFace ? lightingParams.N : -lightingParams.N;
 	{
 		if (material.normalTextureHandle != 0)
 		{
@@ -120,35 +129,33 @@ PSOutput main(PSInput input)
 			tangentSpaceNormal.z = sqrt(1.0 - tangentSpaceNormal.x * tangentSpaceNormal.x + tangentSpaceNormal.y * tangentSpaceNormal.y);
 
 			float3 bitangent = cross(input.normal, input.tangent.xyz) * input.tangent.w;
-			N = tangentSpaceNormal.x * input.tangent.xyz + tangentSpaceNormal.y * bitangent + tangentSpaceNormal.z * input.normal;
+			lightingParams.N = tangentSpaceNormal.x * input.tangent.xyz + tangentSpaceNormal.y * bitangent + tangentSpaceNormal.z * input.normal;
 			
-			N = normalize(N);
-			N = any(isnan(N)) ? normalize(input.normal) : N;
+			lightingParams.N = normalize(lightingParams.N);
+			lightingParams.N = any(isnan(lightingParams.N)) ? normalize(input.normal) : lightingParams.N;
 		}
 	}
 	
 	// metalness
-	float metalness;
 	{
-		metalness = material.metalness;
+		lightingParams.metalness = material.metalness;
 		if (material.metalnessTextureHandle != 0)
 		{
-			metalness = g_Textures[material.metalnessTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).z;
+			lightingParams.metalness = g_Textures[material.metalnessTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).z;
 		}
 	}
 	
 	// roughness
-	float roughness;
 	{
-		roughness = material.roughness;
+		lightingParams.roughness = material.roughness;
 		if (material.roughnessTextureHandle != 0)
 		{
-			roughness = g_Textures[material.roughnessTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).y;
+			lightingParams.roughness = g_Textures[material.roughnessTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).y;
 		}
 	}
 	
-	float3 V = normalize(g_PassConstants.cameraPosition - input.worldSpacePosition);
-	const float3 F0 = lerp(0.04f, albedo, metalness);
+	lightingParams.V = normalize(g_PassConstants.cameraPosition - input.worldSpacePosition);
+	lightingParams.position = input.worldSpacePosition;
 	
 	const float exposure = asfloat(g_ByteAddressBuffers[g_PassConstants.exposureBufferIndex].Load(0));
 	
@@ -158,8 +165,7 @@ PSOutput main(PSInput input)
 	{
 		for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)
 		{
-			DirectionalLight light = g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i];
-			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness) * exposure;
+			result += evaluateDirectionalLight(lightingParams, g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i]);
 		}
 	}
 	
@@ -169,9 +175,35 @@ PSOutput main(PSInput input)
 		for (uint i = 0; i < g_PassConstants.directionalLightShadowedCount; ++i)
 		{
 			DirectionalLight light = g_DirectionalLightsShadowed[g_PassConstants.directionalLightShadowedBufferIndex][i];
+			result += evaluateDirectionalLight(lightingParams, light)
+				* sampleCascadedShadowMaps(input.worldSpacePosition, lightingParams.N, light) * exposure;
+		}
+	}
+	
+	const float linearDepth = -dot(g_PassConstants.viewMatrixDepthRow, float4(lightingParams.position, 1.0));
+	
+	// punctual lights
+	uint punctualLightCount = g_PassConstants.punctualLightCount;
+	if (punctualLightCount > 0)
+	{
+		uint wordMin, wordMax, minIndex, maxIndex, wordCount;
+		getLightingMinMaxIndices(g_ByteAddressBuffers[g_PassConstants.punctualLightDepthBinsBufferIndex], punctualLightCount, linearDepth, minIndex, maxIndex, wordMin, wordMax, wordCount);
+		const uint2 tile = getTile(int2(input.position.xy));
+
+		Texture2DArray<uint4> tileTex = g_ArrayTexturesUI[g_PassConstants.punctualLightTileTextureIndex];
+		StructuredBuffer<PunctualLight> punctualLights = g_PunctualLights[g_PassConstants.punctualLightBufferIndex];
+
+		for (uint wordIndex = wordMin; wordIndex <= wordMax; ++wordIndex)
+		{
+			uint mask = getLightingBitMask(tileTex, tile, wordIndex, minIndex, maxIndex);
 			
-			result += Default_Lit(albedo, F0, light.color, N, V, light.direction, roughness, metalness)
-				* sampleCascadedShadowMaps(input.worldSpacePosition, N, light) * exposure;
+			while (mask != 0)
+			{
+				const uint bitIndex = firstbitlow(mask);
+				const uint index = 32 * wordIndex + bitIndex;
+				mask ^= (1u << bitIndex);
+				result += evaluatePunctualLight(lightingParams, punctualLights[index]);
+			}
 		}
 	}
 	
@@ -182,8 +214,8 @@ PSOutput main(PSInput input)
 	
 	PSOutput output = (PSOutput)0;
 	output.color = float4(result, 1.0f);
-	output.normalRoughness = float4(encodeOctahedron24(N), roughness);
-	output.albedoMetalness = float4(albedo, metalness);
+	output.normalRoughness = float4(encodeOctahedron24(lightingParams.N), lightingParams.roughness);
+	output.albedoMetalness = float4(lightingParams.albedo, lightingParams.metalness);
 	
 	return output;
 }

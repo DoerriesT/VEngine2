@@ -6,6 +6,7 @@
 #include "gal/Initializers.h"
 #include <assert.h>
 #include "Material.h"
+#include "ProxyMeshes.h"
 
 RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry) noexcept
 	:m_device(device),
@@ -177,6 +178,171 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		ImGui::GetIO().Fonts->SetTexID((ImTextureID)(size_t)m_imguiFontTextureViewHandle);
 	}
 
+	// proxy mesh vertex/index buffer
+	{
+		gal::BufferCreateInfo vertexBufferInfo{};
+		vertexBufferInfo.m_size = IcoSphereProxyMesh::vertexDataSize 
+			+ Cone180ProxyMesh::vertexDataSize 
+			+ Cone135ProxyMesh::vertexDataSize 
+			+ Cone90ProxyMesh::vertexDataSize 
+			+ Cone45ProxyMesh::vertexDataSize 
+			+ BoxProxyMesh::vertexDataSize;
+		vertexBufferInfo.m_createFlags = {};
+		vertexBufferInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_DST_BIT | gal::BufferUsageFlags::VERTEX_BUFFER_BIT;
+
+		m_device->createBuffer(vertexBufferInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_proxyMeshVertexBuffer);
+
+		gal::BufferCreateInfo indexBufferInfo{};
+		indexBufferInfo.m_size = IcoSphereProxyMesh::indexDataSize 
+			+ Cone180ProxyMesh::indexDataSize
+			+ Cone135ProxyMesh::indexDataSize
+			+ Cone90ProxyMesh::indexDataSize
+			+ Cone45ProxyMesh::indexDataSize
+			+ BoxProxyMesh::indexDataSize;
+		indexBufferInfo.m_createFlags = {};
+		indexBufferInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_DST_BIT | gal::BufferUsageFlags::INDEX_BUFFER_BIT;
+
+		m_device->createBuffer(indexBufferInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_proxyMeshIndexBuffer);
+
+		gal::Buffer *stagingBuffer = nullptr;
+		{
+			gal::BufferCreateInfo bufferCreateInfo{};
+			bufferCreateInfo.m_size = vertexBufferInfo.m_size + indexBufferInfo.m_size;
+			bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_SRC_BIT;
+
+			m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::HOST_COHERENT_BIT | gal::MemoryPropertyFlags::HOST_VISIBLE_BIT, {}, false, &stagingBuffer);
+		}
+
+		uint8_t *data;
+		size_t srcOffset = 0;
+
+		stagingBuffer->map((void **)&data);
+
+		// ico sphere vertex buffer
+		memcpy(data + srcOffset, IcoSphereProxyMesh::vertexData, IcoSphereProxyMesh::vertexDataSize);
+		srcOffset += IcoSphereProxyMesh::vertexDataSize;
+
+		// cone 180 vertex buffer
+		memcpy(data + srcOffset, Cone180ProxyMesh::vertexData, Cone180ProxyMesh::vertexDataSize);
+		srcOffset += Cone180ProxyMesh::vertexDataSize;
+
+		// cone 135 vertex buffer
+		memcpy(data + srcOffset, Cone135ProxyMesh::vertexData, Cone135ProxyMesh::vertexDataSize);
+		srcOffset += Cone135ProxyMesh::vertexDataSize;
+
+		// cone 90 vertex buffer
+		memcpy(data + srcOffset, Cone90ProxyMesh::vertexData, Cone90ProxyMesh::vertexDataSize);
+		srcOffset += Cone90ProxyMesh::vertexDataSize;
+
+		// cone 45 vertex buffer
+		memcpy(data + srcOffset, Cone45ProxyMesh::vertexData, Cone45ProxyMesh::vertexDataSize);
+		srcOffset += Cone45ProxyMesh::vertexDataSize;
+
+		// box vertex buffer
+		memcpy(data + srcOffset, BoxProxyMesh::vertexData, BoxProxyMesh::vertexDataSize);
+		srcOffset += BoxProxyMesh::vertexDataSize;
+
+		// ico sphere index buffer
+		memcpy(data + srcOffset, IcoSphereProxyMesh::indexData, IcoSphereProxyMesh::indexDataSize);
+		srcOffset += IcoSphereProxyMesh::indexDataSize;
+
+		// cone 180 index buffer
+		memcpy(data + srcOffset, Cone180ProxyMesh::indexData, Cone180ProxyMesh::indexDataSize);
+		srcOffset += Cone180ProxyMesh::indexDataSize;
+
+		// cone 135 index buffer
+		memcpy(data + srcOffset, Cone135ProxyMesh::indexData, Cone135ProxyMesh::indexDataSize);
+		srcOffset += Cone135ProxyMesh::indexDataSize;
+
+		// cone 90 index buffer
+		memcpy(data + srcOffset, Cone90ProxyMesh::indexData, Cone90ProxyMesh::indexDataSize);
+		srcOffset += Cone90ProxyMesh::indexDataSize;
+
+		// cone 45 index buffer
+		memcpy(data + srcOffset, Cone45ProxyMesh::indexData, Cone45ProxyMesh::indexDataSize);
+		srcOffset += Cone45ProxyMesh::indexDataSize;
+
+		// box index buffer
+		memcpy(data + srcOffset, BoxProxyMesh::indexData, BoxProxyMesh::indexDataSize);
+		srcOffset += BoxProxyMesh::indexDataSize;
+
+		stagingBuffer->unmap();
+
+
+		m_commandListPool->reset();
+		m_commandList->begin();
+		{
+			{
+				gal::Barrier barriers[]
+				{
+					gal::Initializers::bufferBarrier(stagingBuffer,
+					gal::PipelineStageFlags::TOP_OF_PIPE_BIT, gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::ResourceState::UNDEFINED, gal::ResourceState::READ_TRANSFER),
+
+					gal::Initializers::bufferBarrier(m_proxyMeshVertexBuffer,
+					gal::PipelineStageFlags::TOP_OF_PIPE_BIT, gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::ResourceState::UNDEFINED, gal::ResourceState::WRITE_TRANSFER),
+
+					gal::Initializers::bufferBarrier(m_proxyMeshIndexBuffer,
+					gal::PipelineStageFlags::TOP_OF_PIPE_BIT, gal::PipelineStageFlags::TRANSFER_BIT,
+					gal::ResourceState::UNDEFINED, gal::ResourceState::WRITE_TRANSFER),
+				};
+
+				m_commandList->barrier(3, barriers);
+			}
+
+			gal::BufferCopy vertexCopy = { 0, 0, vertexBufferInfo.m_size };
+			m_commandList->copyBuffer(stagingBuffer, m_proxyMeshVertexBuffer, 1, &vertexCopy);
+
+			gal::BufferCopy indexCopy = { vertexBufferInfo.m_size, 0, indexBufferInfo.m_size };
+			m_commandList->copyBuffer(stagingBuffer, m_proxyMeshIndexBuffer, 1, &indexCopy);
+
+			{
+				gal::Barrier barriers[]
+				{
+					gal::Initializers::bufferBarrier(m_proxyMeshVertexBuffer,
+					gal::PipelineStageFlags::TRANSFER_BIT, gal::PipelineStageFlags::VERTEX_INPUT_BIT,
+					gal::ResourceState::WRITE_TRANSFER, gal::ResourceState::READ_VERTEX_BUFFER),
+
+					gal::Initializers::bufferBarrier(m_proxyMeshIndexBuffer,
+					gal::PipelineStageFlags::TRANSFER_BIT, gal::PipelineStageFlags::VERTEX_INPUT_BIT,
+					gal::ResourceState::WRITE_TRANSFER, gal::ResourceState::READ_INDEX_BUFFER),
+				};
+
+				m_commandList->barrier(2, barriers);
+			}
+		}
+		m_commandList->end();
+		gal::Initializers::submitSingleTimeCommands(m_device->getGraphicsQueue(), m_commandList);
+
+		// free staging buffer
+		m_device->destroyBuffer(stagingBuffer);
+
+		m_icoSphereProxyMeshInfo.m_firstIndex = 0;
+		m_icoSphereProxyMeshInfo.m_indexCount = static_cast<uint32_t>(IcoSphereProxyMesh::indexCount);
+		m_icoSphereProxyMeshInfo.m_vertexOffset = 0;
+
+		m_cone180ProxyMeshInfo.m_firstIndex = m_icoSphereProxyMeshInfo.m_firstIndex + m_icoSphereProxyMeshInfo.m_indexCount;
+		m_cone180ProxyMeshInfo.m_indexCount = static_cast<uint32_t>(Cone180ProxyMesh::indexCount);
+		m_cone180ProxyMeshInfo.m_vertexOffset = m_icoSphereProxyMeshInfo.m_vertexOffset + static_cast<uint32_t>(IcoSphereProxyMesh::vertexDataSize / (sizeof(float) * 3));
+
+		m_cone135ProxyMeshInfo.m_firstIndex = m_cone180ProxyMeshInfo.m_firstIndex + m_cone180ProxyMeshInfo.m_indexCount;
+		m_cone135ProxyMeshInfo.m_indexCount = static_cast<uint32_t>(Cone135ProxyMesh::indexCount);
+		m_cone135ProxyMeshInfo.m_vertexOffset = m_cone180ProxyMeshInfo.m_vertexOffset + static_cast<uint32_t>(Cone180ProxyMesh::vertexDataSize / (sizeof(float) * 3));
+
+		m_cone90ProxyMeshInfo.m_firstIndex = m_cone135ProxyMeshInfo.m_firstIndex + m_cone135ProxyMeshInfo.m_indexCount;
+		m_cone90ProxyMeshInfo.m_indexCount = static_cast<uint32_t>(Cone90ProxyMesh::indexCount);
+		m_cone90ProxyMeshInfo.m_vertexOffset = m_cone135ProxyMeshInfo.m_vertexOffset + static_cast<uint32_t>(Cone135ProxyMesh::vertexDataSize / (sizeof(float) * 3));
+
+		m_cone45ProxyMeshInfo.m_firstIndex = m_cone90ProxyMeshInfo.m_firstIndex + m_cone90ProxyMeshInfo.m_indexCount;
+		m_cone45ProxyMeshInfo.m_indexCount = static_cast<uint32_t>(Cone45ProxyMesh::indexCount);
+		m_cone45ProxyMeshInfo.m_vertexOffset = m_cone90ProxyMeshInfo.m_vertexOffset + static_cast<uint32_t>(Cone90ProxyMesh::vertexDataSize / (sizeof(float) * 3));
+
+		m_boxProxyMeshInfo.m_firstIndex = m_cone45ProxyMeshInfo.m_firstIndex + m_cone45ProxyMeshInfo.m_indexCount;
+		m_boxProxyMeshInfo.m_indexCount = static_cast<uint32_t>(BoxProxyMesh::indexCount);
+		m_boxProxyMeshInfo.m_vertexOffset = m_cone45ProxyMeshInfo.m_vertexOffset + static_cast<uint32_t>(Cone45ProxyMesh::vertexDataSize / (sizeof(float) * 3));
+	}
+
 	// materials buffer
 	{
 		gal::BufferCreateInfo createInfo{ sizeof(MaterialGPU) * 1024 * 32, {}, gal::BufferUsageFlags::STRUCTURED_BUFFER_BIT };
@@ -212,6 +378,9 @@ RendererResources::~RendererResources()
 	m_resourceViewRegistry->destroyHandle(m_imguiFontTextureViewHandle);
 	m_device->destroyImageView(m_imguiFontTextureView);
 	m_device->destroyImage(m_imguiFontTexture);
+
+	m_device->destroyBuffer(m_proxyMeshVertexBuffer);
+	m_device->destroyBuffer(m_proxyMeshIndexBuffer);
 
 	m_resourceViewRegistry->destroyHandle(m_materialsBufferViewHandle);
 	m_device->destroyBuffer(m_materialsBuffer);

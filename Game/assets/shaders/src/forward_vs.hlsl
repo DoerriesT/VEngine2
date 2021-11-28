@@ -28,13 +28,18 @@ struct VSOutput
 struct PassConstants
 {
 	float4x4 viewProjectionMatrix;
+	float4 viewMatrixDepthRow;
 	float3 cameraPosition;
 	uint skinningMatricesBufferIndex;
 	uint materialBufferIndex;
-	uint directionalLightBufferIndex;
 	uint directionalLightCount;
-	uint directionalLightShadowedBufferIndex;
+	uint directionalLightBufferIndex;
 	uint directionalLightShadowedCount;
+	uint directionalLightShadowedBufferIndex;
+	uint punctualLightCount;
+	uint punctualLightBufferIndex;
+	uint punctualLightTileTextureIndex;
+	uint punctualLightDepthBinsBufferIndex;
 	uint exposureBufferIndex;
 	uint pickingBufferIndex;
 	uint pickingPosX;

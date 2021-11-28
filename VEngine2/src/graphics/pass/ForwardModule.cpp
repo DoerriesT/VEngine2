@@ -9,6 +9,7 @@
 #include "profiling/Profiling.h"
 #include <EASTL/fixed_vector.h>
 #include "graphics/RenderData.h"
+#include "graphics/RendererResources.h"
 #include <glm/trigonometric.hpp>
 
 using namespace gal;
@@ -63,7 +64,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				{
 					builder.setVertexShader(isSkinned ? "assets/shaders/shadow_skinned_vs" : "assets/shaders/shadow_vs");
 				}
-				
+
 				builder.setVertexBindingDescriptions(static_cast<uint32_t>(bindingDescs.size()), bindingDescs.data());
 				builder.setVertexAttributeDescriptions(static_cast<uint32_t>(attributeDescs.size()), attributeDescs.data());
 				builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
@@ -118,6 +119,37 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				}
 			}
 		}
+	}
+
+	// light tile assignment
+	{
+		GraphicsPipelineCreateInfo pipelineCreateInfo;
+		GraphicsPipelineBuilder builder(pipelineCreateInfo);
+		builder.setVertexShader("assets/shaders/lightTileAssignment_vs");
+		builder.setFragmentShader("assets/shaders/lightTileAssignment_ps");
+		builder.setVertexBindingDescription({ 0, sizeof(float) * 3, VertexInputRate::VERTEX });
+		builder.setVertexAttributeDescription({ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 });
+		builder.setPolygonModeCullMode(PolygonMode::FILL, CullModeFlags::FRONT_BIT, FrontFace::COUNTER_CLOCKWISE);
+		builder.setMultisampleState(SampleCount::_4, false, 0.0f, 0xFFFFFFFF, false, false);
+		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
+
+		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 0, ShaderStageFlags::VERTEX_BIT), // transforms
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 1, ShaderStageFlags::PIXEL_BIT), // result textures
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		uint32_t pushConstSize = sizeof(uint32_t) * 2;
+		builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
+
+		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_lightTileAssignmentPipeline);
 	}
 
 	Format renderTargetFormats[]
@@ -186,8 +218,10 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // directional lights
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4, ShaderStageFlags::PIXEL_BIT), // shadowed directional lights
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 5, ShaderStageFlags::PIXEL_BIT), // array textures
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // exposure buffer
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 7, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // exposure buffer, depth bins buffers
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 7, ShaderStageFlags::PIXEL_BIT), // picking buffer
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 8, ShaderStageFlags::PIXEL_BIT), // punctual lights
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 9, ShaderStageFlags::PIXEL_BIT), // array textures UI
 			};
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
@@ -342,6 +376,7 @@ ForwardModule::~ForwardModule() noexcept
 	m_device->destroyGraphicsPipeline(m_depthPrepassSkinnedPipeline);
 	m_device->destroyGraphicsPipeline(m_depthPrepassAlphaTestedPipeline);
 	m_device->destroyGraphicsPipeline(m_depthPrepassSkinnedAlphaTestedPipeline);
+	m_device->destroyGraphicsPipeline(m_lightTileAssignmentPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardSkinnedPipeline);
 	m_device->destroyGraphicsPipeline(m_skyPipeline);
@@ -385,6 +420,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	rg::ResourceHandle gtaoResultImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Result Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
 	rg::ResourceViewHandle gtaoResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Result Image", gtaoResultImageHandle, graph));
 
+
+	// punctual lights tile texture
+	constexpr uint32_t k_lightingTileSize = 8;
+	const uint32_t punctualLightsTileTextureWidth = (data.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
+	const uint32_t punctualLightsTileTextureHeight = (data.m_height + k_lightingTileSize - 1) / k_lightingTileSize;
+	const uint32_t punctualLightsTileTextureLayerCount = eastl::max<uint32_t>(1, (data.m_punctualLightCount + 31) / 32);
+	rg::ResourceHandle punctualLightsTileTextureHandle = graph->createImage(rg::ImageDesc::create("Punctual Lights Tile Image", Format::R32_UINT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, punctualLightsTileTextureWidth, punctualLightsTileTextureHeight, 1, punctualLightsTileTextureLayerCount));
+	rg::ResourceViewHandle punctualLightsTileTextureViewHandle = graph->createImageView(rg::ImageViewDesc::create("Punctual Lights Tile Image", punctualLightsTileTextureHandle, { 0, 1, 0, punctualLightsTileTextureLayerCount }, ImageViewType::_2D_ARRAY));
 
 	// depth prepass
 	rg::ResourceUsageDesc prepassUsageDescs[] = { {depthBufferImageViewHandle, {ResourceState::WRITE_DEPTH_STENCIL}} };
@@ -510,6 +553,106 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			cmdList->endRenderPass();
 		});
 
+	if (data.m_punctualLightCount > 0)
+	{
+		rg::ResourceUsageDesc usageDescs[]
+		{
+			{punctualLightsTileTextureViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT}},
+		};
+		graph->addPass("Light Tile Assignment", rg::QueueType::GRAPHICS, eastl::size(usageDescs), usageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				// clear tile texture
+				{
+					Image *image = registry.getImage(punctualLightsTileTextureHandle);
+
+					ClearColorValue clearColor{};
+					ImageSubresourceRange range = { 0, 1, 0, punctualLightsTileTextureLayerCount };
+					cmdList->clearColorImage(image, &clearColor, 1, &range);
+
+					Barrier b = Initializers::imageBarrier(image, PipelineStageFlags::CLEAR_BIT, PipelineStageFlags::PIXEL_SHADER_BIT, ResourceState::CLEAR_RESOURCE, ResourceState::RW_RESOURCE, range);
+					cmdList->barrier(1, &b);
+				}
+
+
+				struct PassConstants
+				{
+					uint32_t tileCountX;
+					uint32_t transformBufferIndex;
+					uint32_t wordCount;
+					uint32_t resultTextureIndex;
+				};
+
+				PassConstants passConsts{};
+				passConsts.tileCountX = (data.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
+				passConsts.transformBufferIndex = data.m_lightTransformBufferHandle;
+				passConsts.wordCount = (data.m_punctualLightCount + 31) / 32;
+				passConsts.resultTextureIndex = registry.getBindlessHandle(punctualLightsTileTextureViewHandle, DescriptorType::RW_TEXTURE);
+
+				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+
+				ProxyMeshInfo &pointLightProxyMeshInfo = data.m_rendererResources->m_icoSphereProxyMeshInfo;
+				ProxyMeshInfo *spotLightProxyMeshInfo[]
+				{
+					&data.m_rendererResources->m_cone45ProxyMeshInfo,
+					&data.m_rendererResources->m_cone90ProxyMeshInfo,
+					&data.m_rendererResources->m_cone135ProxyMeshInfo,
+					&data.m_rendererResources->m_cone180ProxyMeshInfo,
+				};
+
+				const uint32_t width = (data.m_width + 1) / 2;
+				const uint32_t height = (data.m_height + 1) / 2;
+				Rect renderRect{ {0, 0}, {width, height} };
+
+				cmdList->beginRenderPass(0, nullptr, nullptr, renderRect, true);
+				{
+					Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
+					cmdList->setViewport(0, 1, &viewport);
+					Rect scissor{ {0, 0}, {width, height} };
+					cmdList->setScissor(0, 1, &scissor);
+
+					cmdList->bindPipeline(m_lightTileAssignmentPipeline);
+
+					gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+					cmdList->bindDescriptorSets(m_lightTileAssignmentPipeline, 0, 2, sets, 1, &passConstsAddress);
+
+					cmdList->bindIndexBuffer(data.m_rendererResources->m_proxyMeshIndexBuffer, 0, IndexType::UINT16);
+
+					uint64_t vertexOffset = 0;
+					cmdList->bindVertexBuffers(0, 1, &data.m_rendererResources->m_proxyMeshVertexBuffer, &vertexOffset);
+
+					for (size_t i = 0; i < data.m_punctualLightCount; ++i)
+					{
+						struct PushConsts
+						{
+							uint32_t lightIndex;
+							uint32_t transformIndex;
+						};
+
+						PushConsts pushConsts{};
+						pushConsts.lightIndex = static_cast<uint32_t>(data.m_punctualLightsOrder[i] & 0xFFFFFFFF);
+						pushConsts.transformIndex = pushConsts.lightIndex;
+
+						cmdList->pushConstants(m_lightTileAssignmentPipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+						const auto &light = data.m_punctualLights[pushConsts.lightIndex];
+						const bool spotLight = light.m_angleScale != -1.0f;
+						size_t spotLightProxyMeshIndex = -1;
+						if (spotLight)
+						{
+							float outerAngle = glm::degrees(acosf(-(light.m_angleOffset / light.m_angleScale)) * 2.0f);
+							spotLightProxyMeshIndex = static_cast<size_t>(floorf(outerAngle / 45.0f));
+						}
+
+						ProxyMeshInfo &proxyMeshInfo = !spotLight ? pointLightProxyMeshInfo : *spotLightProxyMeshInfo[spotLightProxyMeshIndex];
+
+						cmdList->drawIndexed(proxyMeshInfo.m_indexCount, 1, proxyMeshInfo.m_firstIndex, proxyMeshInfo.m_vertexOffset, 0);
+					}
+
+				}
+				cmdList->endRenderPass();
+			});
+	}
+
 	// forward
 	eastl::fixed_vector<rg::ResourceUsageDesc, 32 + 5> forwardUsageDescs;
 	forwardUsageDescs.push_back({ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
@@ -519,11 +662,15 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	forwardUsageDescs.push_back({ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} });
 	forwardUsageDescs.push_back({ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	forwardUsageDescs.push_back({ data.m_pickingBufferHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	if (data.m_punctualLightCount > 0)
+	{
+		forwardUsageDescs.push_back({ punctualLightsTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	}
 	for (size_t i = 0; i < data.m_shadowMapViewHandleCount; ++i)
 	{
 		forwardUsageDescs.push_back({ data.m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	}
-	
+
 	graph->addPass("Forward", rg::QueueType::GRAPHICS, forwardUsageDescs.size(), forwardUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Forward");
@@ -550,28 +697,41 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				struct PassConstants
 				{
 					float viewProjectionMatrix[16];
+					float viewMatrixDepthRow[4];
 					float cameraPosition[3];
 					uint32_t skinningMatricesBufferIndex;
 					uint32_t materialBufferIndex;
-					uint32_t directionalLightBufferIndex;
 					uint32_t directionalLightCount;
-					uint32_t directionalLightShadowedBufferIndex;
+					uint32_t directionalLightBufferIndex;
 					uint32_t directionalLightShadowedCount;
+					uint32_t directionalLightShadowedBufferIndex;
+					uint32_t punctualLightCount;
+					uint32_t punctualLightBufferIndex;
+					uint32_t punctualLightTileTextureIndex;
+					uint32_t punctualLightDepthBinsBufferIndex;
 					uint32_t exposureBufferIndex;
 					uint32_t pickingBufferIndex;
 					uint32_t pickingPosX;
 					uint32_t pickingPosY;
 				};
 
-				PassConstants passConsts;
+				PassConstants passConsts{};
 				memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+				passConsts.viewMatrixDepthRow[0] = data.m_viewMatrix[0][2];
+				passConsts.viewMatrixDepthRow[1] = data.m_viewMatrix[1][2];
+				passConsts.viewMatrixDepthRow[2] = data.m_viewMatrix[2][2];
+				passConsts.viewMatrixDepthRow[3] = data.m_viewMatrix[3][2];
 				memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
-				passConsts.directionalLightBufferIndex = data.m_directionalLightsBufferHandle;
 				passConsts.directionalLightCount = data.m_directionalLightCount;
-				passConsts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
+				passConsts.directionalLightBufferIndex = data.m_directionalLightsBufferHandle;
 				passConsts.directionalLightShadowedCount = data.m_directionalLightShadowedCount;
+				passConsts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
+				passConsts.punctualLightCount = data.m_punctualLightCount;
+				passConsts.punctualLightBufferIndex = data.m_punctualLightsBufferHandle;
+				passConsts.punctualLightTileTextureIndex = data.m_punctualLightCount > 0 ? registry.getBindlessHandle(punctualLightsTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
+				passConsts.punctualLightDepthBinsBufferIndex = data.m_punctualLightsDepthBinsBufferHandle;
 				passConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 				passConsts.pickingBufferIndex = registry.getBindlessHandle(data.m_pickingBufferHandle, DescriptorType::RW_BYTE_BUFFER);
 				passConsts.pickingPosX = data.m_pickingPosX;
@@ -710,148 +870,148 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			cmdList->endRenderPass();
 		});
 
-		rg::ResourceUsageDesc gtaoUsageDescs[] =
+	rg::ResourceUsageDesc gtaoUsageDescs[] =
+	{
+		{normalImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{depthBufferImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{gtaoImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+	};
+	graph->addPass("GTAO", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
-			{normalImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-			{depthBufferImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-			{gtaoImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		};
-		graph->addPass("GTAO", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
-			{
-				GAL_SCOPED_GPU_LABEL(cmdList, "GTAO");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO");
-				PROFILING_ZONE_SCOPED;
+			GAL_SCOPED_GPU_LABEL(cmdList, "GTAO");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO");
+			PROFILING_ZONE_SCOPED;
 
-				struct GTAOConstants
+			struct GTAOConstants
+			{
+				glm::mat4 viewMatrix;
+				glm::mat4 invProjectionMatrix;
+				uint32_t resolution[2];
+				float texelSize[2];
+				float radiusScale;
+				float falloffScale;
+				float falloffBias;
+				float maxTexelRadius;
+				int sampleCount;
+				uint32_t frame;
+				uint32_t depthTextureIndex;
+				uint32_t normalTextureIndex;
+				uint32_t resultTextureIndex;
+			};
+
+			const float radius = 2.0f;
+
+			GTAOConstants consts{};
+			consts.viewMatrix = data.m_viewMatrix;
+			consts.invProjectionMatrix = data.m_invProjectionMatrix;
+			consts.resolution[0] = data.m_width;
+			consts.resolution[1] = data.m_height;
+			consts.texelSize[0] = 1.0f / data.m_width;
+			consts.texelSize[1] = 1.0f / data.m_height;
+			consts.radiusScale = 0.5f * radius * (1.0f / tanf(glm::radians(data.m_fovy) * 0.5f) * (data.m_height / static_cast<float>(data.m_width)));
+			consts.falloffScale = 1.0f / radius;
+			consts.falloffBias = -0.75f;
+			consts.maxTexelRadius = 256.0f;
+			consts.sampleCount = 12;
+			consts.frame = 0;// data.m_frame;
+			consts.depthTextureIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
+			consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
+			consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
+
+			uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+
+			cmdList->bindPipeline(m_gtaoPipeline);
+
+			gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+			cmdList->bindDescriptorSets(m_gtaoPipeline, 0, 2, sets, 1, &constsAddress);
+
+			cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+		});
+
+	rg::ResourceUsageDesc gtaoBlurUsageDescs[] =
+	{
+		{gtaoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{gtaoResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+	};
+	graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		{
+			GAL_SCOPED_GPU_LABEL(cmdList, "GTAO Blur");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO Blur");
+			PROFILING_ZONE_SCOPED;
+
+			struct GTAOPushConsts
+			{
+				uint32_t resolution[2];
+				float texelSize[2];
+				uint32_t inputTextureIndex;
+				uint32_t resultTextureIndex;
+			};
+
+			GTAOPushConsts consts{};
+			consts.resolution[0] = data.m_width;
+			consts.resolution[1] = data.m_height;
+			consts.texelSize[0] = 1.0f / data.m_width;
+			consts.texelSize[1] = 1.0f / data.m_height;
+			consts.inputTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::TEXTURE);
+			consts.resultTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::RW_TEXTURE);
+
+			cmdList->bindPipeline(m_gtaoBlurPipeline);
+
+			cmdList->bindDescriptorSets(m_gtaoBlurPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+			cmdList->pushConstants(m_gtaoBlurPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(consts), &consts);
+
+			cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+		});
+
+	rg::ResourceUsageDesc indirectLightingUsageDescs[]
+	{
+		{ albedoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		{ gtaoResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		{ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		{ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} },
+		{ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} },
+	};
+	graph->addPass("Indirect Lighting", rg::QueueType::GRAPHICS, eastl::size(indirectLightingUsageDescs), indirectLightingUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		{
+			GAL_SCOPED_GPU_LABEL(cmdList, "Indirect Lighting");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Indirect Lighting");
+			PROFILING_ZONE_SCOPED;
+
+			ColorAttachmentDescription attachmentDescs[]
+			{
+				 { registry.getImageView(lightingImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
+			};
+			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
+			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+
+			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
+			{
+				cmdList->bindPipeline(m_indirectLightingPipeline);
+
+				gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+				cmdList->setViewport(0, 1, &viewport);
+				gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+				cmdList->setScissor(0, 1, &scissor);
+
+				cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+
+				struct PushConsts
 				{
-					glm::mat4 viewMatrix;
-					glm::mat4 invProjectionMatrix;
-					uint32_t resolution[2];
-					float texelSize[2];
-					float radiusScale;
-					float falloffScale;
-					float falloffBias;
-					float maxTexelRadius;
-					int sampleCount;
-					uint32_t frame;
-					uint32_t depthTextureIndex;
-					uint32_t normalTextureIndex;
-					uint32_t resultTextureIndex;
+					uint32_t exposureBufferIndex;
+					uint32_t albedoTextureIndex;
+					uint32_t gtaoTextureIndex;
 				};
 
-				const float radius = 2.0f;
+				PushConsts pushConsts{};
+				pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+				pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
+				pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
 
-				GTAOConstants consts{};
-				consts.viewMatrix = data.m_viewMatrix;
-				consts.invProjectionMatrix = data.m_invProjectionMatrix;
-				consts.resolution[0] = data.m_width;
-				consts.resolution[1] = data.m_height;
-				consts.texelSize[0] = 1.0f / data.m_width;
-				consts.texelSize[1] = 1.0f / data.m_height;
-				consts.radiusScale = 0.5f * radius * (1.0f / tanf(glm::radians(data.m_fovy) * 0.5f) * (data.m_height / static_cast<float>(data.m_width)));
-				consts.falloffScale = 1.0f / radius;
-				consts.falloffBias = -0.75f;
-				consts.maxTexelRadius = 256.0f;
-				consts.sampleCount = 12;
-				consts.frame = 0;// data.m_frame;
-				consts.depthTextureIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
-				consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
-				consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
+				cmdList->pushConstants(m_indirectLightingPipeline, ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
 
-				uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
-
-				cmdList->bindPipeline(m_gtaoPipeline);
-
-				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
-				cmdList->bindDescriptorSets(m_gtaoPipeline, 0, 2, sets, 1, &constsAddress);
-
-				cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
-			});
-
-		rg::ResourceUsageDesc gtaoBlurUsageDescs[] =
-		{
-			{gtaoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-			{gtaoResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		};
-		graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
-			{
-				GAL_SCOPED_GPU_LABEL(cmdList, "GTAO Blur");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO Blur");
-				PROFILING_ZONE_SCOPED;
-
-				struct GTAOPushConsts
-				{
-					uint32_t resolution[2];
-					float texelSize[2];
-					uint32_t inputTextureIndex;
-					uint32_t resultTextureIndex;
-				};
-
-				GTAOPushConsts consts{};
-				consts.resolution[0] = data.m_width;
-				consts.resolution[1] = data.m_height;
-				consts.texelSize[0] = 1.0f / data.m_width;
-				consts.texelSize[1] = 1.0f / data.m_height;
-				consts.inputTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::TEXTURE);
-				consts.resultTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::RW_TEXTURE);
-
-				cmdList->bindPipeline(m_gtaoBlurPipeline);
-
-				cmdList->bindDescriptorSets(m_gtaoBlurPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
-
-				cmdList->pushConstants(m_gtaoBlurPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(consts), &consts);
-
-				cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
-			});
-
-		rg::ResourceUsageDesc indirectLightingUsageDescs[]
-		{
-			{ albedoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
-			{ gtaoResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
-			{ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
-			{ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} },
-			{ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} },
-		};
-		graph->addPass("Indirect Lighting", rg::QueueType::GRAPHICS, eastl::size(indirectLightingUsageDescs), indirectLightingUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
-			{
-				GAL_SCOPED_GPU_LABEL(cmdList, "Indirect Lighting");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Indirect Lighting");
-				PROFILING_ZONE_SCOPED;
-
-				ColorAttachmentDescription attachmentDescs[]
-				{
-					 { registry.getImageView(lightingImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
-				};
-				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
-				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
-
-				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
-				{
-					cmdList->bindPipeline(m_indirectLightingPipeline);
-
-					gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
-					cmdList->setViewport(0, 1, &viewport);
-					gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
-					cmdList->setScissor(0, 1, &scissor);
-
-					cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
-
-					struct PushConsts
-					{
-						uint32_t exposureBufferIndex;
-						uint32_t albedoTextureIndex;
-						uint32_t gtaoTextureIndex;
-					};
-
-					PushConsts pushConsts{};
-					pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
-					pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
-					pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
-
-					cmdList->pushConstants(m_indirectLightingPipeline, ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
-
-					cmdList->draw(3, 1, 0, 0);
-				}
-				cmdList->endRenderPass();
-			});
+				cmdList->draw(3, 1, 0, 0);
+			}
+			cmdList->endRenderPass();
+		});
 }
