@@ -612,6 +612,12 @@
     <ClInclude Include="src\graphics\ProxyMeshes.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\pass\VolumetricFogModule.h">
+      <Filter>src\graphics\pass</Filter>
+    </ClInclude>
+    <ClInclude Include="src\component\ParticipatingMediumComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1078,6 +1084,12 @@
     </ClCompile>
     <ClCompile Include="src\graphics\RenderWorld.cpp">
       <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\pass\VolumetricFogModule.cpp">
+      <Filter>src\graphics\pass</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\ParticipatingMediumComponent.cpp">
+      <Filter>src\component</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

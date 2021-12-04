@@ -210,6 +210,7 @@ void RenderView::render(
 	m_shadowMatrices.clear();
 	m_shadowTextureRenderHandles.clear();
 	m_shadowTextureSampleHandles.clear();
+	m_globalMedia.clear();
 	m_directionalLights.clear();
 	m_shadowedDirectionalLights.clear();
 	m_punctualLights.clear();
@@ -368,6 +369,25 @@ void RenderView::render(
 		}
 	}
 
+	// process global participating media
+	for (const auto &pm : renderWorld.m_globalParticipatingMedia)
+	{
+		GlobalParticipatingMediumGPU medium{};
+		medium.emissive = glm::unpackUnorm4x8(pm.m_emissiveColor) * pm.m_emissiveIntensity;
+		medium.extinction = pm.m_extinction;
+		medium.scattering = glm::unpackUnorm4x8(pm.m_albedo) * pm.m_extinction;
+		medium.phase = pm.m_phaseAnisotropy;
+		medium.heightFogEnabled = pm.m_heightFogEnabled;
+		medium.heightFogStart = pm.m_heightFogStart;
+		medium.heightFogFalloff = pm.m_heightFogFalloff;
+		medium.maxHeight = pm.m_maxHeight;
+		medium.textureScale = pm.m_textureScale;
+		medium.textureBias = glm::make_vec3(pm.m_textureBias);
+		medium.densityTexture = pm.m_densityTextureHandle;
+
+		m_globalMedia.push_back(medium);
+	}
+
 	// create transform matrices
 	for (size_t i = 0; i < renderWorld.m_meshTransformsCount; ++i)
 	{
@@ -465,6 +485,8 @@ void RenderView::render(
 	StructuredBufferViewHandle directionalLightsShadowedBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_shadowedDirectionalLights, false, &directionalLightsShadowedBufferPtr);
 	StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, renderWorld.m_skinningMatrices);
 
+	StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
+
 	// prepare data
 	eastl::fixed_vector<rg::ResourceUsageDesc, 8> prepareFrameDataPassUsages;
 	prepareFrameDataPassUsages.push_back({ pickingBufferViewHandle, {gal::ResourceState::CLEAR_RESOURCE} });
@@ -528,10 +550,12 @@ void RenderView::render(
 	forwardModuleData.m_height = m_height;
 	forwardModuleData.m_frame = m_frame;
 	forwardModuleData.m_fovy = cameraComponent->m_fovy;
+	forwardModuleData.m_nearPlane = cameraComponent->m_near;
 	forwardModuleData.m_pickingPosX = pickingPosX;
 	forwardModuleData.m_pickingPosY = pickingPosY;
 	forwardModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+	forwardModuleData.m_globalMediaBufferHandle = globalMediaBufferViewHandle;
 	forwardModuleData.m_directionalLightsBufferHandle = directionalLightsBufferViewHandle;
 	forwardModuleData.m_directionalLightsShadowedBufferHandle = directionalLightsShadowedBufferViewHandle;
 	forwardModuleData.m_lightTransformBufferHandle = lightTransformsBufferViewHandle;
@@ -540,6 +564,7 @@ void RenderView::render(
 	forwardModuleData.m_pickingBufferHandle = pickingBufferViewHandle;
 	forwardModuleData.m_exposureBufferHandle = exposureBufferViewHandle;
 	forwardModuleData.m_shadowMapViewHandles = m_shadowTextureSampleHandles.data();
+	forwardModuleData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
 	forwardModuleData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
 	forwardModuleData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
 	forwardModuleData.m_punctualLightCount = static_cast<uint32_t>(m_punctualLights.size());

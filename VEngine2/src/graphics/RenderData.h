@@ -63,6 +63,24 @@ struct PunctualLightShadowedGPU
 	float m_pad2;
 };
 
+struct GlobalParticipatingMediumGPU
+{
+	glm::vec3 emissive;
+	float extinction;
+	glm::vec3 scattering;
+	float phase;
+	uint32_t heightFogEnabled;
+	float heightFogStart;
+	float heightFogFalloff;
+	float maxHeight;
+	glm::vec3 textureBias;
+	float textureScale;
+	uint32_t densityTexture;
+	float pad0;
+	float pad1;
+	float pad2;
+};
+
 enum class DebugDrawVisibility
 {
 	Always = 0, Visible = 1, Occluded = 2

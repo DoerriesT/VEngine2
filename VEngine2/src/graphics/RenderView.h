@@ -77,6 +77,7 @@ private:
 	eastl::vector<DirectionalLightGPU> m_directionalLights;
 	eastl::vector<DirectionalLightGPU> m_shadowedDirectionalLights;
 	eastl::vector<PunctualLightGPU> m_punctualLights;
+	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
 	eastl::vector<uint64_t> m_punctualLightsOrder;
 	eastl::vector<uint32_t> m_punctualLightsDepthBins;
 	eastl::vector<glm::mat4> m_lightTransforms;

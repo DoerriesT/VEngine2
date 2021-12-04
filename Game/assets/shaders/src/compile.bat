@@ -45,4 +45,8 @@ dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main lightTil
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main debugDraw_vs.hlsl -Fo ./../debugDraw_vs.spv
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main debugDraw_ps.hlsl -Fo ./../debugDraw_ps.spv
 
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main volumetricFogScatter_cs.hlsl -Fo ./../volumetricFogScatter_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main volumetricFogFilter_cs.hlsl -Fo ./../volumetricFogFilter_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main volumetricFogIntegrate_cs.hlsl -Fo ./../volumetricFogIntegrate_cs.spv
+
 pause

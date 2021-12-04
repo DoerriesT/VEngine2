@@ -40,6 +40,22 @@ struct RenderWorld
 		size_t m_transformIndex;
 	};
 
+	struct GlobalParticipatingMedium
+	{
+		uint32_t m_albedo;
+		float m_extinction;
+		uint32_t m_emissiveColor;
+		float m_emissiveIntensity;
+		float m_phaseAnisotropy;
+		bool m_heightFogEnabled;
+		float m_heightFogStart;
+		float m_heightFogFalloff;
+		float m_maxHeight;
+		TextureHandle m_densityTextureHandle;
+		float m_textureScale;
+		float m_textureBias[3];
+	};
+
 	struct Mesh
 	{
 		SubMeshHandle m_subMeshHandle;
@@ -66,6 +82,7 @@ struct RenderWorld
 	eastl::vector<Camera> m_cameras;
 	eastl::vector<DirectionalLight> m_directionalLights;
 	eastl::vector<PunctualLight> m_punctualLights;
+	eastl::vector<GlobalParticipatingMedium> m_globalParticipatingMedia;
 	eastl::vector<Mesh> m_meshes;
 	eastl::vector<Transform> m_transforms;
 	eastl::vector<Transform> m_prevTransforms;

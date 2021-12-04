@@ -11,6 +11,7 @@
 #include "graphics/RenderData.h"
 #include "graphics/RendererResources.h"
 #include <glm/trigonometric.hpp>
+#include "VolumetricFogModule.h"
 
 using namespace gal;
 
@@ -355,7 +356,8 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		DescriptorSetLayoutBinding usedBindlessBindings[]
 		{
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 1, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 1, ShaderStageFlags::PIXEL_BIT), // 3d textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 2, ShaderStageFlags::PIXEL_BIT), // exposure buffer
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -363,11 +365,18 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 
-		uint32_t pushConstSize = sizeof(uint32_t) * 3;
-		builder.setPipelineLayoutDescription(1, layoutDecls, pushConstSize, ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
+		gal::StaticSamplerDescription staticSamplerDescs[]
+		{
+			gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT),
+		};
+
+		uint32_t pushConstSize = 48;
+		builder.setPipelineLayoutDescription(1, layoutDecls, pushConstSize, ShaderStageFlags::PIXEL_BIT, 1, staticSamplerDescs, 1);
 
 		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_indirectLightingPipeline);
 	}
+
+	m_volumetricFogModule = new VolumetricFogModule(m_device, offsetBufferSetLayout, bindlessSetLayout);
 }
 
 ForwardModule::~ForwardModule() noexcept
@@ -383,6 +392,7 @@ ForwardModule::~ForwardModule() noexcept
 	m_device->destroyComputePipeline(m_gtaoPipeline);
 	m_device->destroyComputePipeline(m_gtaoBlurPipeline);
 	m_device->destroyGraphicsPipeline(m_indirectLightingPipeline);
+	delete m_volumetricFogModule;
 }
 
 void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
@@ -652,6 +662,40 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				cmdList->endRenderPass();
 			});
 	}
+
+	VolumetricFogModule::ResultData volumetricFogResultData{};
+	VolumetricFogModule::Data volumetricFogData{};
+	volumetricFogData.m_profilingCtx = data.m_profilingCtx;
+	volumetricFogData.m_bufferAllocator = data.m_bufferAllocator;
+	volumetricFogData.m_offsetBufferSet = data.m_offsetBufferSet;
+	volumetricFogData.m_bindlessSet = data.m_bindlessSet;
+	volumetricFogData.m_width = data.m_width;
+	volumetricFogData.m_height = data.m_height;
+	volumetricFogData.m_frame = data.m_frame;
+	volumetricFogData.m_fovy = data.m_fovy;
+	volumetricFogData.m_nearPlane = data.m_nearPlane;
+	volumetricFogData.m_globalMediaBufferHandle = data.m_globalMediaBufferHandle;
+	volumetricFogData.m_localMediaBufferHandle = {}; // TODO;
+	volumetricFogData.m_localMediaDepthBinsBufferHandle = {}; // TODO
+	volumetricFogData.m_localMediaTileTextureViewHandle = {}; // TODO
+	volumetricFogData.m_directionalLightsBufferHandle = data.m_directionalLightsBufferHandle;
+	volumetricFogData.m_directionalLightsShadowedBufferHandle = data.m_directionalLightsShadowedBufferHandle;
+	volumetricFogData.m_punctualLightsBufferHandle = data.m_punctualLightsBufferHandle;
+	volumetricFogData.m_punctualLightsDepthBinsBufferHandle = data.m_punctualLightsDepthBinsBufferHandle;
+	volumetricFogData.m_exposureBufferHandle = data.m_exposureBufferHandle;
+	volumetricFogData.m_punctualLightsTileTextureViewHandle = punctualLightsTileTextureViewHandle;
+	volumetricFogData.m_shadowMapViewHandles = data.m_shadowMapViewHandles;
+	volumetricFogData.m_globalMediaCount = data.m_globalMediaCount;
+	volumetricFogData.m_localMediaCount = 0; // TODO
+	volumetricFogData.m_directionalLightCount = data.m_directionalLightCount;
+	volumetricFogData.m_directionalLightShadowedCount = data.m_directionalLightShadowedCount;
+	volumetricFogData.m_punctualLightCount = data.m_punctualLightCount;
+	volumetricFogData.m_shadowMapViewHandleCount = data.m_shadowMapViewHandleCount;
+	volumetricFogData.m_viewMatrix = data.m_viewMatrix;
+	volumetricFogData.m_cameraPosition = data.m_cameraPosition;
+	volumetricFogData.m_ignoreHistory = data.m_frame < 2;
+
+	m_volumetricFogModule->record(graph, volumetricFogData, &volumetricFogResultData);
 
 	// forward
 	eastl::fixed_vector<rg::ResourceUsageDesc, 32 + 5> forwardUsageDescs;
@@ -969,8 +1013,9 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 		{ albedoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ gtaoResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		{ volumetricFogResultData.m_volumetricFogImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} },
-		{ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} },
+		{ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL | ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 	};
 	graph->addPass("Indirect Lighting", rg::QueueType::GRAPHICS, eastl::size(indirectLightingUsageDescs), indirectLightingUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
@@ -998,15 +1043,28 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 				struct PushConsts
 				{
+					glm::vec3 volumetricFogTexelSize;
+					float volumetricFogNear;
+					float depthUnprojectParams[2];
+					float volumetricFogFar;
 					uint32_t exposureBufferIndex;
 					uint32_t albedoTextureIndex;
 					uint32_t gtaoTextureIndex;
+					uint32_t depthBufferIndex;
+					uint32_t volumetricFogTextureIndex;
 				};
 
 				PushConsts pushConsts{};
+				pushConsts.volumetricFogTexelSize = 1.0f / glm::vec3(240.0f, 135.0f, 128.0f);
+				pushConsts.volumetricFogNear = 0.5f;
+				pushConsts.volumetricFogFar = 64.0f;
+				pushConsts.depthUnprojectParams[0] = data.m_invProjectionMatrix[2][3];
+				pushConsts.depthUnprojectParams[1] = data.m_invProjectionMatrix[3][3];
 				pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 				pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
+				pushConsts.depthBufferIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
+				pushConsts.volumetricFogTextureIndex = registry.getBindlessHandle(volumetricFogResultData.m_volumetricFogImageViewHandle, DescriptorType::TEXTURE);
 
 				cmdList->pushConstants(m_indirectLightingPipeline, ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
 

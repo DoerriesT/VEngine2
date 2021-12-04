@@ -249,6 +249,7 @@
     <ClInclude Include="src\component\ComponentRegistration.h" />
     <ClInclude Include="src\component\InputStateComponent.h" />
     <ClInclude Include="src\component\OutlineComponent.h" />
+    <ClInclude Include="src\component\ParticipatingMediumComponent.h" />
     <ClInclude Include="src\component\RawInputStateComponent.h" />
     <ClInclude Include="src\component\LightComponent.h" />
     <ClInclude Include="src\component\MeshComponent.h" />
@@ -322,6 +323,7 @@
     <ClInclude Include="src\graphics\pass\ImGuiPass.h" />
     <ClInclude Include="src\graphics\pass\PostProcessModule.h" />
     <ClInclude Include="src\graphics\pass\ShadowModule.h" />
+    <ClInclude Include="src\graphics\pass\VolumetricFogModule.h" />
     <ClInclude Include="src\graphics\ProxyMeshes.h" />
     <ClInclude Include="src\graphics\RenderData.h" />
     <ClInclude Include="src\graphics\Renderer.h" />
@@ -427,6 +429,7 @@
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\MeshComponent.cpp" />
     <ClCompile Include="src\component\OutlineComponent.cpp" />
+    <ClCompile Include="src\component\ParticipatingMediumComponent.cpp" />
     <ClCompile Include="src\component\PhysicsComponent.cpp" />
     <ClCompile Include="src\component\CharacterMovementComponent.cpp" />
     <ClCompile Include="src\component\ScriptComponent.cpp" />
@@ -488,6 +491,7 @@
     <ClCompile Include="src\graphics\pass\ImGuiPass.cpp" />
     <ClCompile Include="src\graphics\pass\PostProcessModule.cpp" />
     <ClCompile Include="src\graphics\pass\ShadowModule.cpp" />
+    <ClCompile Include="src\graphics\pass\VolumetricFogModule.cpp" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RendererResources.cpp" />
     <ClCompile Include="src\graphics\RenderGraph.cpp" />

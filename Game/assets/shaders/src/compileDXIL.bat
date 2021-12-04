@@ -43,4 +43,8 @@ dxc.exe -T ps_6_0 -E main lightTileAssignment_ps.hlsl -Fo ./../lightTileAssignme
 dxc.exe -T vs_6_0 -E main debugDraw_vs.hlsl -Fo ./../debugDraw_vs.cso -Zi -Fd ./../debugDraw_vs.pdb
 dxc.exe -T ps_6_0 -E main debugDraw_ps.hlsl -Fo ./../debugDraw_ps.cso -Zi -Fd ./../debugDraw_ps.pdb
 
+dxc.exe -T cs_6_0 -E main volumetricFogScatter_cs.hlsl -Fo ./../volumetricFogScatter_cs.cso -Zi -Fd ./../volumetricFogScatter_cs.pdb
+dxc.exe -T cs_6_0 -E main volumetricFogFilter_cs.hlsl -Fo ./../volumetricFogFilter_cs.cso -Zi -Fd ./../volumetricFogFilter_cs.pdb
+dxc.exe -T cs_6_0 -E main volumetricFogIntegrate_cs.hlsl -Fo ./../volumetricFogIntegrate_cs.cso -Zi -Fd ./../volumetricFogIntegrate_cs.pdb
+
 pause

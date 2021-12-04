@@ -11,6 +11,7 @@ struct RenderList;
 struct SubMeshBufferHandles;
 struct PunctualLightGPU;
 class RendererResources;
+class VolumetricFogModule;
 
 class ForwardModule
 {
@@ -25,10 +26,12 @@ public:
 		uint32_t m_height;
 		uint32_t m_frame;
 		float m_fovy;
+		float m_nearPlane;
 		uint32_t m_pickingPosX;
 		uint32_t m_pickingPosY;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
+		StructuredBufferViewHandle m_globalMediaBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsBufferHandle;
 		StructuredBufferViewHandle m_directionalLightsShadowedBufferHandle;
 		StructuredBufferViewHandle m_lightTransformBufferHandle;
@@ -37,6 +40,7 @@ public:
 		rg::ResourceViewHandle m_pickingBufferHandle;
 		rg::ResourceViewHandle m_exposureBufferHandle;
 		const rg::ResourceViewHandle *m_shadowMapViewHandles;
+		uint32_t m_globalMediaCount;
 		uint32_t m_directionalLightCount;
 		uint32_t m_directionalLightShadowedCount;
 		uint32_t m_punctualLightCount;
@@ -82,4 +86,5 @@ private:
 	gal::ComputePipeline *m_gtaoPipeline = nullptr;
 	gal::ComputePipeline *m_gtaoBlurPipeline = nullptr;
 	gal::GraphicsPipeline *m_indirectLightingPipeline = nullptr;
+	VolumetricFogModule *m_volumetricFogModule = nullptr;
 };

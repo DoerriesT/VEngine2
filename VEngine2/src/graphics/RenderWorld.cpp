@@ -4,6 +4,7 @@
 #include "component/MeshComponent.h"
 #include "component/SkinnedMeshComponent.h"
 #include "component/LightComponent.h"
+#include "component/ParticipatingMediumComponent.h"
 #include "component/CameraComponent.h"
 #include "component/OutlineComponent.h"
 #include <glm/gtx/transform.hpp>
@@ -62,6 +63,7 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 	m_cameras.clear();
 	m_directionalLights.clear();
 	m_punctualLights.clear();
+	m_globalParticipatingMedia.clear();
 	m_meshes.clear();
 	m_transforms.clear();
 	m_prevTransforms.clear();
@@ -151,6 +153,34 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 
 				m_transforms.push_back(tc.m_transform);
 				m_prevTransforms.push_back(tc.m_prevTransform);
+			}
+		});
+
+	// participating media
+	ecs->iterate<ParticipatingMediumComponent>([&](size_t count, const EntityID *entities, ParticipatingMediumComponent *mediaC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &mc = mediaC[i];
+
+				if (mc.m_type == ParticipatingMediumComponent::Type::Global)
+				{
+					GlobalParticipatingMedium medium{};
+					medium.m_albedo = mc.m_albedo;
+					medium.m_extinction = mc.m_extinction;
+					medium.m_emissiveColor = mc.m_emissiveColor;
+					medium.m_emissiveIntensity = mc.m_emissiveIntensity;
+					medium.m_phaseAnisotropy = mc.m_phaseAnisotropy;
+					medium.m_heightFogEnabled = mc.m_heightFogEnabled;
+					medium.m_heightFogStart = mc.m_heightFogStart;
+					medium.m_heightFogFalloff = mc.m_heightFogFalloff;
+					medium.m_maxHeight = mc.m_maxHeight;
+					medium.m_densityTextureHandle = mc.m_densityTexture.isLoaded() ? mc.m_densityTexture->getTextureHandle() : TextureHandle{};
+					medium.m_textureScale = mc.m_textureScale;
+					memcpy(medium.m_textureBias, mc.m_textureBias, sizeof(medium.m_textureBias));
+
+					m_globalParticipatingMedia.push_back(medium);
+				}
 			}
 		});
 
