@@ -7,6 +7,7 @@
 #include "utility/Timer.h"
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/imnodes.h"
+#include "graphics/imgui/ImGuizmo.h"
 #include "input/ImGuiInputAdapter.h"
 #include "asset/AssetManager.h"
 #include "utility/Utility.h"
@@ -160,6 +161,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			m_userInput->input();
 			imguiInputAdapter.update();
 			ImGui::NewFrame();
+			ImGuizmo::BeginFrame();
 			bool imnodesLinkDetachModifierDown = m_userInput->isKeyPressed(InputKey::LEFT_ALT);
 			ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &imnodesLinkDetachModifierDown;
 

@@ -618,6 +618,9 @@
     <ClInclude Include="src\component\ParticipatingMediumComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\imgui\ImGuizmo.h">
+      <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1090,6 +1093,9 @@
     </ClCompile>
     <ClCompile Include="src\component\ParticipatingMediumComponent.cpp">
       <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\imgui\ImGuizmo.cpp">
+      <Filter>src\graphics\imgui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

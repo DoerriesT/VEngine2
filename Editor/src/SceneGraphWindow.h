@@ -9,7 +9,7 @@ class SceneGraphWindow
 {
 public:
 	explicit SceneGraphWindow(Engine *engine) noexcept;
-	void draw() noexcept;
+	void draw(bool viewportHasFocus) noexcept;
 	void setVisible(bool visible) noexcept;
 	bool isVisible() const noexcept;
 	EntityID getSelectedEntity() const;

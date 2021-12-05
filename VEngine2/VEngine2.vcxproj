@@ -307,6 +307,7 @@
     <ClInclude Include="src\graphics\imgui\gui_helpers.h" />
     <ClInclude Include="src\graphics\imgui\imconfig.h" />
     <ClInclude Include="src\graphics\imgui\imgui.h" />
+    <ClInclude Include="src\graphics\imgui\ImGuizmo.h" />
     <ClInclude Include="src\graphics\imgui\imgui_file_browser.h" />
     <ClInclude Include="src\graphics\imgui\imgui_internal.h" />
     <ClInclude Include="src\graphics\imgui\imnodes.h" />
@@ -478,6 +479,7 @@
     <ClCompile Include="src\graphics\gal\vulkan\volk.c" />
     <ClCompile Include="src\graphics\imgui\gui_helpers.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui.cpp" />
+    <ClCompile Include="src\graphics\imgui\ImGuizmo.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_demo.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_draw.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_file_browser.cpp" />

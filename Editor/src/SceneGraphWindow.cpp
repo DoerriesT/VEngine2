@@ -1,5 +1,6 @@
 #include "SceneGraphWindow.h"
 #include <graphics/imgui/imgui.h>
+#include <graphics/imgui/ImGuizmo.h>
 #include <Engine.h>
 #include <Level.h>
 #include <input/InputTokens.h>
@@ -12,7 +13,7 @@ SceneGraphWindow::SceneGraphWindow(Engine *engine) noexcept
 {
 }
 
-void SceneGraphWindow::draw() noexcept
+void SceneGraphWindow::draw(bool viewportHasFocus) noexcept
 {
 	if (!m_visible)
 	{
@@ -80,6 +81,7 @@ void SceneGraphWindow::draw() noexcept
 
 				EntityID renderPickingSelectedEntity = m_engine->getPickedEntity();
 				const bool leftClicked = !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId) && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+				const bool hasFocusSelectionFocus = viewportHasFocus && !(ImGuizmo::IsOver() || ImGuizmo::IsUsing());
 
 				uint32_t entityCount = 0;
 				for (auto &node : sceneGraphNodes)
@@ -93,7 +95,7 @@ void SceneGraphWindow::draw() noexcept
 
 					nodeFlags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
 					ImGui::TreeNodeEx((void *)(intptr_t)entityCount, nodeFlags, node->m_name);
-					if (ImGui::IsItemClicked() || (leftClicked && (node->m_entity == renderPickingSelectedEntity)))
+					if (ImGui::IsItemClicked() || (leftClicked && hasFocusSelectionFocus && (node->m_entity == renderPickingSelectedEntity)))
 					{
 						selected = node->m_entity;
 					}

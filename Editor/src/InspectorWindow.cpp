@@ -1,6 +1,7 @@
 #include "InspectorWindow.h"
 #include <graphics/imgui/imgui.h>
 #include <graphics/imgui/gui_helpers.h>
+#include <graphics/imgui/ImGuizmo.h>
 #include <Engine.h>
 #include <graphics/Renderer.h>
 #include <Level.h>
@@ -240,6 +241,7 @@ void InspectorWindow::draw(EntityID entity) noexcept
 		{
 			ECS &ecs = *m_engine->getECS();
 
+			// draw light debug geometry
 			if (ecs.hasComponents<TransformComponent, LightComponent>(entity))
 			{
 				auto *tc = ecs.getComponent<TransformComponent>(entity);

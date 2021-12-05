@@ -24,7 +24,8 @@ void Editor::init(Engine *engine) noexcept
 	m_engine = engine;
 
 	TransformComponent transC{};
-	transC.m_transform.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+	transC.m_transform.m_translation = glm::vec3(-12.0f, 2.0f, 0.0f);
+	transC.m_transform.m_rotation = glm::quat(glm::vec3(0.0f, glm::radians(-90.0f), 0.0f));
 	CameraComponent cameraC{};
 	cameraC.m_fovy = glm::radians(60.0f);
 
@@ -126,9 +127,9 @@ void Editor::update(float deltaTime) noexcept
 		ImGui::End();
 	}
 
-	m_sceneGraphWindow->draw();
+	m_viewportWindow->draw(deltaTime, m_gameIsPlaying, m_sceneGraphWindow->getSelectedEntity());
+	m_sceneGraphWindow->draw(m_viewportWindow->hasFocus());
 	m_inspectorWindow->draw(m_sceneGraphWindow->getSelectedEntity());
-	m_viewportWindow->draw(deltaTime, m_gameIsPlaying);
 	m_assetBrowserWindow->draw();
 
 	AnimationGraph *animGraph = nullptr;
