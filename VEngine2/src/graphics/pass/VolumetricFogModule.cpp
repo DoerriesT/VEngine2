@@ -139,6 +139,11 @@ VolumetricFogModule::~VolumetricFogModule() noexcept
 	m_device->destroyComputePipeline(m_scatterPipeline);
 	m_device->destroyComputePipeline(m_filterPipeline);
 	m_device->destroyComputePipeline(m_integratePipeline);
+
+	for (size_t i = 0; i < 2; ++i)
+	{
+		m_device->destroyImage(m_historyTextures[i]);
+	}
 }
 
 void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
