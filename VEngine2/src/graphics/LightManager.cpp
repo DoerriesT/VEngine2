@@ -475,7 +475,44 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 				glm::mat4 shadowMatrix = glm::perspective(light.m_outerAngle, 1.0f, 0.1f, light.m_radius) * shadowViewMatrix;
 				glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
 
-				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, 1024, 1024));
+				// project shadow far plane to screen space to get the optimal size of the shadow map
+				uint32_t resolution = 16;
+				{
+					glm::mat4 shadowToScreenSpace = viewData.m_viewProjectionMatrix * glm::inverse(shadowMatrix);
+
+					float maxX = -FLT_MAX;
+					float maxY = -FLT_MAX;
+					float minX = FLT_MAX;
+					float minY = FLT_MAX;
+
+					glm::vec4 positions[]
+					{
+						glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
+						glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
+						glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
+						glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+					};
+
+					for (auto &pos : positions)
+					{
+						glm::vec4 ssPos = shadowToScreenSpace * pos;
+						float x = (ssPos.x / ssPos.w) * 0.5f + 0.5f;
+						float y = (ssPos.y / ssPos.w) * 0.5f + 0.5f;
+						
+						maxX = fmaxf(maxX, x);
+						maxY = fmaxf(maxY, y);
+						minX = fminf(minX, x);
+						minY = fminf(minY, y);
+					}
+
+					float width = (maxX - minX) * viewData.m_width;
+					float height = (maxY - minY) * viewData.m_height;
+					float maxDim = eastl::clamp(fmaxf(width, height), 16.0f, 2048.0f);
+
+					resolution = util::alignUp<uint32_t>(static_cast<uint32_t>(ceilf(maxDim)), 16);
+				}
+
+				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
 				rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle));
 				static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
 
