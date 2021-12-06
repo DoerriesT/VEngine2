@@ -41,6 +41,44 @@ float getAngleAtt(float3 L, float3 lightDir, float lightAngleScale, float lightA
 	return attenuation;
 }
 
+float evaluatePunctualLightShadow(Texture2D<float4> texture, SamplerComparisonState shadowSampler, float3 position, float3 offsetDir, const PunctualLightShadowed light)
+{
+	if (light.light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+	{
+		float4 shadowPosWS = float4(position + offsetDir * 0.05f, 1.0f);
+		
+		float4 shadowPos;
+		shadowPos.x = dot(light.shadowMatrix0, shadowPosWS);
+		shadowPos.y = dot(light.shadowMatrix1, shadowPosWS);
+		shadowPos.z = dot(light.shadowMatrix2, shadowPosWS);
+		shadowPos.w = dot(light.shadowMatrix3, shadowPosWS);
+		shadowPos.xyz /= shadowPos.w;
+		shadowPos.xy = shadowPos.xy * float2(0.5f, -0.5f) + 0.5f;
+		
+		return texture.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+	}
+	else
+	{
+		return 1.0f; // TODO
+	}
+}
+
+float3 evaluatePunctualLightRadiance(float3 position, const PunctualLight light)
+{
+	const float3 unnormalizedLightVector = light.position - position;
+	const float3 L = normalize(unnormalizedLightVector);
+	float att = getDistanceAtt(unnormalizedLightVector, light.invSqrAttRadius);
+	
+	if (light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+	{
+		att *= getAngleAtt(L, light.direction, light.angleScale, light.angleOffset);
+	}
+	
+	const float3 radiance = light.color * att;
+	
+	return radiance;
+}
+
 float3 evaluatePunctualLight(const LightingParams params, const PunctualLight light)
 {
 	const float3 unnormalizedLightVector = light.position - params.position;

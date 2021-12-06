@@ -40,6 +40,10 @@ struct PassConstants
 	uint punctualLightBufferIndex;
 	uint punctualLightTileTextureIndex;
 	uint punctualLightDepthBinsBufferIndex;
+	uint punctualLightShadowedCount;
+	uint punctualLightShadowedBufferIndex;
+	uint punctualLightShadowedTileTextureIndex;
+	uint punctualLightShadowedDepthBinsBufferIndex;
 	uint exposureBufferIndex;
 	uint pickingBufferIndex;
 	uint pickingPosX;

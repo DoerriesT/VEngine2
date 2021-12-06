@@ -7,6 +7,7 @@
 #include "graphics/BufferStackAllocator.h"
 #include "utility/Utility.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include "graphics/LightManager.h"
 
 using namespace gal;
 
@@ -31,16 +32,18 @@ VolumetricFogModule::VolumetricFogModule(gal::GraphicsDevice *device, gal::Descr
 		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::COMPUTE_BIT };
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0), // 3d textures
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 1), // 2d array textures UI
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 2), // 2d array textures
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3), // directional lights
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4), // directional lights shadowed
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 5), // punctual lights
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 6), // global media
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 7), // local media
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 8), // exposure
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 9), // result
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0), // 2d textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 1), // 3d textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 2), // 2d array textures UI
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 3), // 2d array textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4), // directional lights
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 5), // directional lights shadowed
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 6), // punctual lights
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 7), // punctual lights shadowed
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 8), // global media
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 9), // local media
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 10), // exposure
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 11), // result
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -204,13 +207,17 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 	{
 		usageDescs.push_back({ data.m_localMediaTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	}
-	if (data.m_punctualLightCount > 0)
+	if (data.m_lightRecordData->m_punctualLightCount > 0)
 	{
-		usageDescs.push_back({ data.m_punctualLightsTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+		usageDescs.push_back({ data.m_lightRecordData->m_punctualLightsTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	}
-	for (size_t i = 0; i < data.m_shadowMapViewHandleCount; ++i)
+	if (data.m_lightRecordData->m_punctualLightShadowedCount > 0)
 	{
-		usageDescs.push_back({ data.m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+		usageDescs.push_back({ data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	}
+	for (size_t i = 0; i < data.m_lightRecordData->m_shadowMapViewHandleCount; ++i)
+	{
+		usageDescs.push_back({ data.m_lightRecordData->m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	}
 	graph->addPass("Volumetric Fog", rg::QueueType::GRAPHICS, usageDescs.size(), usageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 		{
@@ -240,6 +247,10 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 				uint32_t punctualLightBufferIndex;
 				uint32_t punctualLightTileTextureIndex;
 				uint32_t punctualLightDepthBinsBufferIndex;
+				uint32_t punctualLightShadowedCount;
+				uint32_t punctualLightShadowedBufferIndex;
+				uint32_t punctualLightShadowedTileTextureIndex;
+				uint32_t punctualLightShadowedDepthBinsBufferIndex;
 				uint32_t globalMediaCount;
 				uint32_t globalMediaBufferIndex;
 				uint32_t localMediaCount;
@@ -276,14 +287,18 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			consts.cameraPos = data.m_cameraPosition;
 			consts.volumeTexelSize[0] = 1.0f / k_imageWidth;
 			consts.volumeTexelSize[1] = 1.0f / k_imageHeight;
-			consts.directionalLightCount = data.m_directionalLightCount;
-			consts.directionalLightBufferIndex = data.m_directionalLightsBufferHandle;
-			consts.directionalLightShadowedCount = data.m_directionalLightShadowedCount;
-			consts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
-			consts.punctualLightCount = data.m_punctualLightCount;
-			consts.punctualLightBufferIndex = data.m_punctualLightsBufferHandle;
-			consts.punctualLightTileTextureIndex = data.m_punctualLightCount > 0 ? registry.getBindlessHandle(data.m_punctualLightsTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
-			consts.punctualLightDepthBinsBufferIndex = data.m_punctualLightsDepthBinsBufferHandle;
+			consts.directionalLightCount = data.m_lightRecordData->m_directionalLightCount;
+			consts.directionalLightBufferIndex = data.m_lightRecordData->m_directionalLightsBufferViewHandle;
+			consts.directionalLightShadowedCount = data.m_lightRecordData->m_directionalLightShadowedCount;
+			consts.directionalLightShadowedBufferIndex = data.m_lightRecordData->m_directionalLightsShadowedBufferViewHandle;
+			consts.punctualLightCount = data.m_lightRecordData->m_punctualLightCount;
+			consts.punctualLightBufferIndex = data.m_lightRecordData->m_punctualLightsBufferViewHandle;
+			consts.punctualLightTileTextureIndex = data.m_lightRecordData->m_punctualLightCount > 0 ? registry.getBindlessHandle(data.m_lightRecordData->m_punctualLightsTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
+			consts.punctualLightDepthBinsBufferIndex = data.m_lightRecordData->m_punctualLightsDepthBinsBufferViewHandle;
+			consts.punctualLightShadowedCount = data.m_lightRecordData->m_punctualLightShadowedCount;
+			consts.punctualLightShadowedBufferIndex = data.m_lightRecordData->m_punctualLightsShadowedBufferViewHandle;
+			consts.punctualLightShadowedTileTextureIndex = data.m_lightRecordData->m_punctualLightShadowedCount > 0 ? registry.getBindlessHandle(data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
+			consts.punctualLightShadowedDepthBinsBufferIndex = data.m_lightRecordData->m_punctualLightsShadowedDepthBinsBufferViewHandle;
 			consts.globalMediaCount = data.m_globalMediaCount;
 			consts.globalMediaBufferIndex = data.m_globalMediaBufferHandle;
 			consts.localMediaCount = data.m_localMediaBufferHandle;

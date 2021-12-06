@@ -22,6 +22,7 @@ enum MaterialHandle : uint32_t;
 class RendererResources;
 struct CameraComponent;
 struct RenderWorld;
+class LightManager;
 
 class RenderView
 {
@@ -65,22 +66,13 @@ private:
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle = {};
 
-	ShadowModule *m_shadowModule = nullptr;
+	LightManager *m_lightManager = nullptr;
 	ForwardModule *m_forwardModule = nullptr;
 	PostProcessModule *m_postProcessModule = nullptr;
 	GridPass *m_gridPass = nullptr;
 
 	eastl::vector<glm::mat4> m_modelMatrices;
-	eastl::vector<glm::mat4> m_shadowMatrices;
-	eastl::vector<rg::ResourceViewHandle> m_shadowTextureRenderHandles;
-	eastl::vector<rg::ResourceViewHandle> m_shadowTextureSampleHandles;
-	eastl::vector<DirectionalLightGPU> m_directionalLights;
-	eastl::vector<DirectionalLightGPU> m_shadowedDirectionalLights;
-	eastl::vector<PunctualLightGPU> m_punctualLights;
 	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
-	eastl::vector<uint64_t> m_punctualLightsOrder;
-	eastl::vector<uint32_t> m_punctualLightsDepthBins;
-	eastl::vector<glm::mat4> m_lightTransforms;
 	RenderList m_renderList;
 	RenderList m_outlineRenderList;
 };

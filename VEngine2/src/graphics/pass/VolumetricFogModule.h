@@ -11,6 +11,7 @@ struct RenderList;
 struct SubMeshBufferHandles;
 struct PunctualLightGPU;
 class RendererResources;
+struct LightRecordData;
 
 class VolumetricFogModule
 {
@@ -30,22 +31,13 @@ public:
 		StructuredBufferViewHandle m_localMediaBufferHandle;
 		ByteBufferViewHandle m_localMediaDepthBinsBufferHandle;
 		rg::ResourceViewHandle m_localMediaTileTextureViewHandle;
-		StructuredBufferViewHandle m_directionalLightsBufferHandle;
-		StructuredBufferViewHandle m_directionalLightsShadowedBufferHandle;
-		StructuredBufferViewHandle m_punctualLightsBufferHandle;
-		ByteBufferViewHandle m_punctualLightsDepthBinsBufferHandle;
 		rg::ResourceViewHandle m_exposureBufferHandle;
-		rg::ResourceViewHandle m_punctualLightsTileTextureViewHandle;
-		const rg::ResourceViewHandle *m_shadowMapViewHandles;
 		uint32_t m_globalMediaCount;
 		uint32_t m_localMediaCount;
-		uint32_t m_directionalLightCount;
-		uint32_t m_directionalLightShadowedCount;
-		uint32_t m_punctualLightCount;
-		size_t m_shadowMapViewHandleCount;
 		glm::mat4 m_viewMatrix;
 		glm::vec3 m_cameraPosition;
 		bool m_ignoreHistory;
+		const LightRecordData *m_lightRecordData;
 	};
 
 	struct ResultData

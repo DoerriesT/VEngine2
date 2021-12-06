@@ -5,6 +5,7 @@
 #include <glm/mat4x4.hpp>
 #include "component/LightComponent.h"
 #include "ecs/ECSCommon.h"
+#include "ViewHandles.h"
 
 struct SubMeshInstanceData
 {

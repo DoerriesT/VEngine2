@@ -27,6 +27,10 @@ struct Constants
 	uint punctualLightBufferIndex;
 	uint punctualLightTileTextureIndex;
 	uint punctualLightDepthBinsBufferIndex;
+	uint punctualLightShadowedCount;
+	uint punctualLightShadowedBufferIndex;
+	uint punctualLightShadowedTileTextureIndex;
+	uint punctualLightShadowedDepthBinsBufferIndex;
 	uint globalMediaCount;
 	uint globalMediaBufferIndex;
 	uint localMediaCount;
@@ -86,16 +90,19 @@ struct LocalParticipatingMedium
 
 ConstantBuffer<Constants> g_Constants : REGISTER_CBV(0, 0, 0);
 
-Texture3D<float4> g_Textures3D[65536] : REGISTER_SRV(0, 0, 1);
-Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 1, 1);
-Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 2, 1);
-StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 3, 1);
-StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(4, 4, 1);
-StructuredBuffer<PunctualLight> g_PunctualLights[65536] : REGISTER_SRV(4, 5, 1);
-StructuredBuffer<GlobalParticipatingMedium> g_GlobalMedia[65536] : REGISTER_SRV(4, 6, 1);
-StructuredBuffer<LocalParticipatingMedium> g_LocalMedia[65536] : REGISTER_SRV(4, 7, 1);
-ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 8, 1);
-RWTexture3D<float4> g_RWTextures3D[65536] : REGISTER_UAV(1, 9, 1);
+Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
+Texture3D<float4> g_Textures3D[65536] : REGISTER_SRV(0, 1, 1);
+Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 2, 1);
+Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 3, 1);
+StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 4, 1);
+StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(4, 5, 1);
+StructuredBuffer<PunctualLight> g_PunctualLights[65536] : REGISTER_SRV(4, 6, 1);
+StructuredBuffer<PunctualLightShadowed> g_PunctualLightsShadowed[65536] : REGISTER_SRV(4, 7, 1);
+StructuredBuffer<GlobalParticipatingMedium> g_GlobalMedia[65536] : REGISTER_SRV(4, 8, 1);
+StructuredBuffer<LocalParticipatingMedium> g_LocalMedia[65536] : REGISTER_SRV(4, 9, 1);
+ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 10, 1);
+RWTexture3D<float4> g_RWTextures3D[65536] : REGISTER_UAV(1, 11, 1);
+
 
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
@@ -314,6 +321,47 @@ float4 inscattering(uint2 coord, float3 V, float3 worldSpacePos, float linearDep
 					}
 					
 					const float3 radiance = light.color * att;
+					
+					lighting += radiance * henyeyGreenstein(V, L, phase);
+				}
+			}
+		}
+		
+		// punctual lights shadowed
+		uint punctualLightShadowedCount = g_Constants.punctualLightShadowedCount;
+		if (punctualLightShadowedCount > 0)
+		{
+			uint wordMin, wordMax, minIndex, maxIndex, wordCount;
+			getLightingMinMaxIndices(g_ByteAddressBuffers[g_Constants.punctualLightShadowedDepthBinsBufferIndex], punctualLightShadowedCount, linearDepth, minIndex, maxIndex, wordMin, wordMax, wordCount);
+			const uint2 tile = getTile(coord / g_Constants.volumeResResultRes.xy * g_Constants.volumeResResultRes.zw);
+	
+			Texture2DArray<uint4> tileTex = g_ArrayTexturesUI[g_Constants.punctualLightShadowedTileTextureIndex];
+			StructuredBuffer<PunctualLightShadowed> punctualLights = g_PunctualLightsShadowed[g_Constants.punctualLightShadowedBufferIndex];
+	
+			for (uint wordIndex = wordMin; wordIndex <= wordMax; ++wordIndex)
+			{
+				uint mask = getLightingBitMask(tileTex, tile, wordIndex, minIndex, maxIndex);
+				
+				while (mask != 0)
+				{
+					const uint bitIndex = firstbitlow(mask);
+					const uint index = 32 * wordIndex + bitIndex;
+					mask ^= (1u << bitIndex);
+					
+					const PunctualLightShadowed lightShadowed = punctualLights[index];
+					const PunctualLight light = lightShadowed.light;
+					
+					const float3 unnormalizedLightVector = light.position - worldSpacePos;
+					const float3 L = normalize(unnormalizedLightVector);
+					float att = getDistanceAtt(unnormalizedLightVector, light.invSqrAttRadius);
+					
+					if (light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+					{
+						att *= getAngleAtt(L, light.direction, light.angleScale, light.angleOffset);
+					}
+					
+					float shadow = evaluatePunctualLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, worldSpacePos, 0.0f, lightShadowed);
+					const float3 radiance = light.color * att * shadow;
 					
 					lighting += radiance * henyeyGreenstein(V, L, phase);
 				}

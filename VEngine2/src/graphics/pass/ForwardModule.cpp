@@ -12,6 +12,7 @@
 #include "graphics/RendererResources.h"
 #include <glm/trigonometric.hpp>
 #include "VolumetricFogModule.h"
+#include "graphics/LightManager.h"
 
 using namespace gal;
 
@@ -122,37 +123,6 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		}
 	}
 
-	// light tile assignment
-	{
-		GraphicsPipelineCreateInfo pipelineCreateInfo;
-		GraphicsPipelineBuilder builder(pipelineCreateInfo);
-		builder.setVertexShader("assets/shaders/lightTileAssignment_vs");
-		builder.setFragmentShader("assets/shaders/lightTileAssignment_ps");
-		builder.setVertexBindingDescription({ 0, sizeof(float) * 3, VertexInputRate::VERTEX });
-		builder.setVertexAttributeDescription({ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 });
-		builder.setPolygonModeCullMode(PolygonMode::FILL, CullModeFlags::FRONT_BIT, FrontFace::COUNTER_CLOCKWISE);
-		builder.setMultisampleState(SampleCount::_4, false, 0.0f, 0xFFFFFFFF, false, false);
-		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
-
-		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
-		DescriptorSetLayoutBinding usedBindlessBindings[] =
-		{
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 0, ShaderStageFlags::VERTEX_BIT), // transforms
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 1, ShaderStageFlags::PIXEL_BIT), // result textures
-		};
-
-		DescriptorSetLayoutDeclaration layoutDecls[]
-		{
-			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
-		};
-
-		uint32_t pushConstSize = sizeof(uint32_t) * 2;
-		builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, nullptr, -1);
-
-		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_lightTileAssignmentPipeline);
-	}
-
 	Format renderTargetFormats[]
 	{
 		Format::R16G16B16A16_SFLOAT,
@@ -222,7 +192,8 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // exposure buffer, depth bins buffers
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 7, ShaderStageFlags::PIXEL_BIT), // picking buffer
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 8, ShaderStageFlags::PIXEL_BIT), // punctual lights
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 9, ShaderStageFlags::PIXEL_BIT), // array textures UI
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 9, ShaderStageFlags::PIXEL_BIT), // punctual lights shadowed
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 10, ShaderStageFlags::PIXEL_BIT), // array textures UI
 			};
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
@@ -385,7 +356,6 @@ ForwardModule::~ForwardModule() noexcept
 	m_device->destroyGraphicsPipeline(m_depthPrepassSkinnedPipeline);
 	m_device->destroyGraphicsPipeline(m_depthPrepassAlphaTestedPipeline);
 	m_device->destroyGraphicsPipeline(m_depthPrepassSkinnedAlphaTestedPipeline);
-	m_device->destroyGraphicsPipeline(m_lightTileAssignmentPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardPipeline);
 	m_device->destroyGraphicsPipeline(m_forwardSkinnedPipeline);
 	m_device->destroyGraphicsPipeline(m_skyPipeline);
@@ -429,15 +399,6 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	// gtao result
 	rg::ResourceHandle gtaoResultImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Result Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
 	rg::ResourceViewHandle gtaoResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Result Image", gtaoResultImageHandle, graph));
-
-
-	// punctual lights tile texture
-	constexpr uint32_t k_lightingTileSize = 8;
-	const uint32_t punctualLightsTileTextureWidth = (data.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
-	const uint32_t punctualLightsTileTextureHeight = (data.m_height + k_lightingTileSize - 1) / k_lightingTileSize;
-	const uint32_t punctualLightsTileTextureLayerCount = eastl::max<uint32_t>(1, (data.m_punctualLightCount + 31) / 32);
-	rg::ResourceHandle punctualLightsTileTextureHandle = graph->createImage(rg::ImageDesc::create("Punctual Lights Tile Image", Format::R32_UINT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, punctualLightsTileTextureWidth, punctualLightsTileTextureHeight, 1, punctualLightsTileTextureLayerCount));
-	rg::ResourceViewHandle punctualLightsTileTextureViewHandle = graph->createImageView(rg::ImageViewDesc::create("Punctual Lights Tile Image", punctualLightsTileTextureHandle, { 0, 1, 0, punctualLightsTileTextureLayerCount }, ImageViewType::_2D_ARRAY));
 
 	// depth prepass
 	rg::ResourceUsageDesc prepassUsageDescs[] = { {depthBufferImageViewHandle, {ResourceState::WRITE_DEPTH_STENCIL}} };
@@ -563,106 +524,6 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			cmdList->endRenderPass();
 		});
 
-	if (data.m_punctualLightCount > 0)
-	{
-		rg::ResourceUsageDesc usageDescs[]
-		{
-			{punctualLightsTileTextureViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT}},
-		};
-		graph->addPass("Light Tile Assignment", rg::QueueType::GRAPHICS, eastl::size(usageDescs), usageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
-			{
-				// clear tile texture
-				{
-					Image *image = registry.getImage(punctualLightsTileTextureHandle);
-
-					ClearColorValue clearColor{};
-					ImageSubresourceRange range = { 0, 1, 0, punctualLightsTileTextureLayerCount };
-					cmdList->clearColorImage(image, &clearColor, 1, &range);
-
-					Barrier b = Initializers::imageBarrier(image, PipelineStageFlags::CLEAR_BIT, PipelineStageFlags::PIXEL_SHADER_BIT, ResourceState::CLEAR_RESOURCE, ResourceState::RW_RESOURCE, range);
-					cmdList->barrier(1, &b);
-				}
-
-
-				struct PassConstants
-				{
-					uint32_t tileCountX;
-					uint32_t transformBufferIndex;
-					uint32_t wordCount;
-					uint32_t resultTextureIndex;
-				};
-
-				PassConstants passConsts{};
-				passConsts.tileCountX = (data.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
-				passConsts.transformBufferIndex = data.m_lightTransformBufferHandle;
-				passConsts.wordCount = (data.m_punctualLightCount + 31) / 32;
-				passConsts.resultTextureIndex = registry.getBindlessHandle(punctualLightsTileTextureViewHandle, DescriptorType::RW_TEXTURE);
-
-				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
-
-				ProxyMeshInfo &pointLightProxyMeshInfo = data.m_rendererResources->m_icoSphereProxyMeshInfo;
-				ProxyMeshInfo *spotLightProxyMeshInfo[]
-				{
-					&data.m_rendererResources->m_cone45ProxyMeshInfo,
-					&data.m_rendererResources->m_cone90ProxyMeshInfo,
-					&data.m_rendererResources->m_cone135ProxyMeshInfo,
-					&data.m_rendererResources->m_cone180ProxyMeshInfo,
-				};
-
-				const uint32_t width = (data.m_width + 1) / 2;
-				const uint32_t height = (data.m_height + 1) / 2;
-				Rect renderRect{ {0, 0}, {width, height} };
-
-				cmdList->beginRenderPass(0, nullptr, nullptr, renderRect, true);
-				{
-					Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
-					cmdList->setViewport(0, 1, &viewport);
-					Rect scissor{ {0, 0}, {width, height} };
-					cmdList->setScissor(0, 1, &scissor);
-
-					cmdList->bindPipeline(m_lightTileAssignmentPipeline);
-
-					gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
-					cmdList->bindDescriptorSets(m_lightTileAssignmentPipeline, 0, 2, sets, 1, &passConstsAddress);
-
-					cmdList->bindIndexBuffer(data.m_rendererResources->m_proxyMeshIndexBuffer, 0, IndexType::UINT16);
-
-					uint64_t vertexOffset = 0;
-					cmdList->bindVertexBuffers(0, 1, &data.m_rendererResources->m_proxyMeshVertexBuffer, &vertexOffset);
-
-					for (size_t i = 0; i < data.m_punctualLightCount; ++i)
-					{
-						struct PushConsts
-						{
-							uint32_t lightIndex;
-							uint32_t transformIndex;
-						};
-
-						PushConsts pushConsts{};
-						pushConsts.lightIndex = static_cast<uint32_t>(i);// static_cast<uint32_t>(data.m_punctualLightsOrder[i] & 0xFFFFFFFF);
-						pushConsts.transformIndex = pushConsts.lightIndex;
-
-						cmdList->pushConstants(m_lightTileAssignmentPipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
-
-						const auto &light = data.m_punctualLights[static_cast<uint32_t>(data.m_punctualLightsOrder[i] & 0xFFFFFFFF)];
-						const bool spotLight = light.m_angleScale != -1.0f;
-						size_t spotLightProxyMeshIndex = -1;
-						if (spotLight)
-						{
-							float outerAngle = glm::degrees(acosf(-(light.m_angleOffset / light.m_angleScale)) * 2.0f);
-							spotLightProxyMeshIndex = static_cast<size_t>(floorf(outerAngle / 45.0f));
-						}
-
-						ProxyMeshInfo &proxyMeshInfo = !spotLight ? pointLightProxyMeshInfo : *spotLightProxyMeshInfo[spotLightProxyMeshIndex];
-
-						cmdList->drawIndexed(proxyMeshInfo.m_indexCount, 1, proxyMeshInfo.m_firstIndex, proxyMeshInfo.m_vertexOffset, 0);
-					}
-
-				}
-				cmdList->endRenderPass();
-			});
-	}
-
 	VolumetricFogModule::ResultData volumetricFogResultData{};
 	VolumetricFogModule::Data volumetricFogData{};
 	volumetricFogData.m_profilingCtx = data.m_profilingCtx;
@@ -678,22 +539,13 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	volumetricFogData.m_localMediaBufferHandle = {}; // TODO;
 	volumetricFogData.m_localMediaDepthBinsBufferHandle = {}; // TODO
 	volumetricFogData.m_localMediaTileTextureViewHandle = {}; // TODO
-	volumetricFogData.m_directionalLightsBufferHandle = data.m_directionalLightsBufferHandle;
-	volumetricFogData.m_directionalLightsShadowedBufferHandle = data.m_directionalLightsShadowedBufferHandle;
-	volumetricFogData.m_punctualLightsBufferHandle = data.m_punctualLightsBufferHandle;
-	volumetricFogData.m_punctualLightsDepthBinsBufferHandle = data.m_punctualLightsDepthBinsBufferHandle;
 	volumetricFogData.m_exposureBufferHandle = data.m_exposureBufferHandle;
-	volumetricFogData.m_punctualLightsTileTextureViewHandle = punctualLightsTileTextureViewHandle;
-	volumetricFogData.m_shadowMapViewHandles = data.m_shadowMapViewHandles;
 	volumetricFogData.m_globalMediaCount = data.m_globalMediaCount;
 	volumetricFogData.m_localMediaCount = 0; // TODO
-	volumetricFogData.m_directionalLightCount = data.m_directionalLightCount;
-	volumetricFogData.m_directionalLightShadowedCount = data.m_directionalLightShadowedCount;
-	volumetricFogData.m_punctualLightCount = data.m_punctualLightCount;
-	volumetricFogData.m_shadowMapViewHandleCount = data.m_shadowMapViewHandleCount;
 	volumetricFogData.m_viewMatrix = data.m_viewMatrix;
 	volumetricFogData.m_cameraPosition = data.m_cameraPosition;
 	volumetricFogData.m_ignoreHistory = data.m_frame < 2;
+	volumetricFogData.m_lightRecordData = data.m_lightRecordData;
 
 	m_volumetricFogModule->record(graph, volumetricFogData, &volumetricFogResultData);
 
@@ -706,13 +558,17 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	forwardUsageDescs.push_back({ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} });
 	forwardUsageDescs.push_back({ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	forwardUsageDescs.push_back({ data.m_pickingBufferHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
-	if (data.m_punctualLightCount > 0)
+	if (data.m_lightRecordData->m_punctualLightCount > 0)
 	{
-		forwardUsageDescs.push_back({ punctualLightsTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+		forwardUsageDescs.push_back({ data.m_lightRecordData->m_punctualLightsTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	}
-	for (size_t i = 0; i < data.m_shadowMapViewHandleCount; ++i)
+	if (data.m_lightRecordData->m_punctualLightShadowedCount > 0)
 	{
-		forwardUsageDescs.push_back({ data.m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+		forwardUsageDescs.push_back({ data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	}
+	for (size_t i = 0; i < data.m_lightRecordData->m_shadowMapViewHandleCount; ++i)
+	{
+		forwardUsageDescs.push_back({ data.m_lightRecordData->m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	}
 
 	graph->addPass("Forward", rg::QueueType::GRAPHICS, forwardUsageDescs.size(), forwardUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
@@ -753,6 +609,10 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					uint32_t punctualLightBufferIndex;
 					uint32_t punctualLightTileTextureIndex;
 					uint32_t punctualLightDepthBinsBufferIndex;
+					uint32_t punctualLightShadowedCount;
+					uint32_t punctualLightShadowedBufferIndex;
+					uint32_t punctualLightShadowedTileTextureIndex;
+					uint32_t punctualLightShadowedDepthBinsBufferIndex;
 					uint32_t exposureBufferIndex;
 					uint32_t pickingBufferIndex;
 					uint32_t pickingPosX;
@@ -768,14 +628,18 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
-				passConsts.directionalLightCount = data.m_directionalLightCount;
-				passConsts.directionalLightBufferIndex = data.m_directionalLightsBufferHandle;
-				passConsts.directionalLightShadowedCount = data.m_directionalLightShadowedCount;
-				passConsts.directionalLightShadowedBufferIndex = data.m_directionalLightsShadowedBufferHandle;
-				passConsts.punctualLightCount = data.m_punctualLightCount;
-				passConsts.punctualLightBufferIndex = data.m_punctualLightsBufferHandle;
-				passConsts.punctualLightTileTextureIndex = data.m_punctualLightCount > 0 ? registry.getBindlessHandle(punctualLightsTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
-				passConsts.punctualLightDepthBinsBufferIndex = data.m_punctualLightsDepthBinsBufferHandle;
+				passConsts.directionalLightCount = data.m_lightRecordData->m_directionalLightCount;
+				passConsts.directionalLightBufferIndex = data.m_lightRecordData->m_directionalLightsBufferViewHandle;
+				passConsts.directionalLightShadowedCount = data.m_lightRecordData->m_directionalLightShadowedCount;
+				passConsts.directionalLightShadowedBufferIndex = data.m_lightRecordData->m_directionalLightsShadowedBufferViewHandle;
+				passConsts.punctualLightCount = data.m_lightRecordData->m_punctualLightCount;
+				passConsts.punctualLightBufferIndex = data.m_lightRecordData->m_punctualLightsBufferViewHandle;
+				passConsts.punctualLightTileTextureIndex = data.m_lightRecordData->m_punctualLightCount > 0 ? registry.getBindlessHandle(data.m_lightRecordData->m_punctualLightsTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
+				passConsts.punctualLightDepthBinsBufferIndex = data.m_lightRecordData->m_punctualLightsDepthBinsBufferViewHandle;
+				passConsts.punctualLightShadowedCount = data.m_lightRecordData->m_punctualLightShadowedCount;
+				passConsts.punctualLightShadowedBufferIndex = data.m_lightRecordData->m_punctualLightsShadowedBufferViewHandle;
+				passConsts.punctualLightShadowedTileTextureIndex = data.m_lightRecordData->m_punctualLightShadowedCount > 0 ? registry.getBindlessHandle(data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
+				passConsts.punctualLightShadowedDepthBinsBufferIndex = data.m_lightRecordData->m_punctualLightsShadowedDepthBinsBufferViewHandle;
 				passConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 				passConsts.pickingBufferIndex = registry.getBindlessHandle(data.m_pickingBufferHandle, DescriptorType::RW_BYTE_BUFFER);
 				passConsts.pickingPosX = data.m_pickingPosX;

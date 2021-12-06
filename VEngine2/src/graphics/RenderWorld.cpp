@@ -33,10 +33,23 @@ void RenderWorld::interpolate(float fractionalSimFrameTime) noexcept
 			directionalLight.m_direction = glm::normalize(m_interpolatedTransforms[directionalLight.m_transformIndex].m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
 		}
 
+		for (auto &directionalLight : m_directionalLightsShadowed)
+		{
+			directionalLight.m_direction = glm::normalize(m_interpolatedTransforms[directionalLight.m_transformIndex].m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+
 		for (auto &punctualLight : m_punctualLights)
 		{
 			punctualLight.m_position = m_interpolatedTransforms[punctualLight.m_transformIndex].m_translation;
 			punctualLight.m_direction = punctualLight.m_spotLight ? 
+				glm::normalize(m_interpolatedTransforms[punctualLight.m_transformIndex].m_rotation * glm::vec3(0.0f, -1.0f, 0.0f)) :
+				glm::vec3(0.0f, -1.0f, 0.0f);
+		}
+
+		for (auto &punctualLight : m_punctualLightsShadowed)
+		{
+			punctualLight.m_position = m_interpolatedTransforms[punctualLight.m_transformIndex].m_translation;
+			punctualLight.m_direction = punctualLight.m_spotLight ?
 				glm::normalize(m_interpolatedTransforms[punctualLight.m_transformIndex].m_rotation * glm::vec3(0.0f, -1.0f, 0.0f)) :
 				glm::vec3(0.0f, -1.0f, 0.0f);
 		}
@@ -62,7 +75,9 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 {
 	m_cameras.clear();
 	m_directionalLights.clear();
+	m_directionalLightsShadowed.clear();
 	m_punctualLights.clear();
+	m_punctualLightsShadowed.clear();
 	m_globalParticipatingMedia.clear();
 	m_meshes.clear();
 	m_transforms.clear();
@@ -124,7 +139,14 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 					punctualLight.m_spotLight = lc.m_type == LightComponent::Type::Spot;
 					punctualLight.m_transformIndex = m_transforms.size();
 
-					m_punctualLights.push_back(punctualLight);
+					if (lc.m_shadows)
+					{
+						m_punctualLightsShadowed.push_back(punctualLight);
+					}
+					else
+					{
+						m_punctualLights.push_back(punctualLight);
+					}
 					break;
 				}
 				case LightComponent::Type::Directional:
@@ -143,7 +165,14 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 					directionalLight.m_shadowsEnabled = lc.m_shadows;
 					directionalLight.m_transformIndex = m_transforms.size();
 
-					m_directionalLights.push_back(directionalLight);
+					if (lc.m_shadows)
+					{
+						m_directionalLightsShadowed.push_back(directionalLight);
+					}
+					else
+					{
+						m_directionalLights.push_back(directionalLight);
+					}
 					break;
 				}
 				default:

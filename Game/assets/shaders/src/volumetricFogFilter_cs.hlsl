@@ -26,6 +26,10 @@ struct Constants
 	uint punctualLightBufferIndex;
 	uint punctualLightTileTextureIndex;
 	uint punctualLightDepthBinsBufferIndex;
+	uint punctualLightShadowedCount;
+	uint punctualLightShadowedBufferIndex;
+	uint punctualLightShadowedTileTextureIndex;
+	uint punctualLightShadowedDepthBinsBufferIndex;
 	uint globalMediaCount;
 	uint globalMediaBufferIndex;
 	uint localMediaCount;

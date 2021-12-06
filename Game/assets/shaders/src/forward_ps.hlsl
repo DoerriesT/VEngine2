@@ -38,6 +38,10 @@ struct PassConstants
 	uint punctualLightBufferIndex;
 	uint punctualLightTileTextureIndex;
 	uint punctualLightDepthBinsBufferIndex;
+	uint punctualLightShadowedCount;
+	uint punctualLightShadowedBufferIndex;
+	uint punctualLightShadowedTileTextureIndex;
+	uint punctualLightShadowedDepthBinsBufferIndex;
 	uint exposureBufferIndex;
 	uint pickingBufferIndex;
 	uint pickingPosX;
@@ -61,7 +65,8 @@ Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
 ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 6, 1);
 RWByteAddressBuffer g_RWByteAddressBuffers[65536] : REGISTER_UAV(5, 7, 1);
 StructuredBuffer<PunctualLight> g_PunctualLights[65536] : REGISTER_SRV(4, 8, 1);
-Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 9, 1);
+StructuredBuffer<PunctualLightShadowed> g_PunctualLightsShadowed[65536] : REGISTER_SRV(4, 9, 1);
+Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 10, 1);
 
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
@@ -121,6 +126,7 @@ PSOutput main(PSInput input)
 	// normal
 	lightingParams.N = normalize(input.normal);
 	lightingParams.N = input.frontFace ? lightingParams.N : -lightingParams.N;
+	float3 vertexNormal = lightingParams.N;
 	{
 		if (material.normalTextureHandle != 0)
 		{
@@ -203,6 +209,34 @@ PSOutput main(PSInput input)
 				const uint index = 32 * wordIndex + bitIndex;
 				mask ^= (1u << bitIndex);
 				result += evaluatePunctualLight(lightingParams, punctualLights[index]);
+			}
+		}
+	}
+	
+	// punctual lights shadowed
+	uint punctualLightShadowedCount = g_PassConstants.punctualLightShadowedCount;
+	if (punctualLightShadowedCount > 0)
+	{
+		uint wordMin, wordMax, minIndex, maxIndex, wordCount;
+		getLightingMinMaxIndices(g_ByteAddressBuffers[g_PassConstants.punctualLightShadowedDepthBinsBufferIndex], punctualLightShadowedCount, linearDepth, minIndex, maxIndex, wordMin, wordMax, wordCount);
+		const uint2 tile = getTile(int2(input.position.xy));
+
+		Texture2DArray<uint4> tileTex = g_ArrayTexturesUI[g_PassConstants.punctualLightShadowedTileTextureIndex];
+		StructuredBuffer<PunctualLightShadowed> punctualLights = g_PunctualLightsShadowed[g_PassConstants.punctualLightShadowedBufferIndex];
+
+		for (uint wordIndex = wordMin; wordIndex <= wordMax; ++wordIndex)
+		{
+			uint mask = getLightingBitMask(tileTex, tile, wordIndex, minIndex, maxIndex);
+			
+			while (mask != 0)
+			{
+				const uint bitIndex = firstbitlow(mask);
+				const uint index = 32 * wordIndex + bitIndex;
+				mask ^= (1u << bitIndex);
+				
+				PunctualLightShadowed lightShadowed = punctualLights[index];
+				float shadow = evaluatePunctualLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, lightingParams.position, vertexNormal, lightShadowed);
+				result += evaluatePunctualLight(lightingParams, lightShadowed.light) * shadow;
 			}
 		}
 	}

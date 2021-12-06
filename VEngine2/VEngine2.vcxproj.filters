@@ -600,9 +600,6 @@
     <ClInclude Include="src\graphics\RenderData.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
-    <ClInclude Include="src\graphics\pass\ShadowModule.h">
-      <Filter>src\graphics\pass</Filter>
-    </ClInclude>
     <ClInclude Include="src\component\OutlineComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
@@ -620,6 +617,12 @@
     </ClInclude>
     <ClInclude Include="src\graphics\imgui\ImGuizmo.h">
       <Filter>src\graphics\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\LightManager.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\CommonViewData.h">
+      <Filter>src\graphics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1079,9 +1082,6 @@
     <ClCompile Include="src\asset\handler\MaterialAssetHandler.cpp">
       <Filter>src\asset\handler</Filter>
     </ClCompile>
-    <ClCompile Include="src\graphics\pass\ShadowModule.cpp">
-      <Filter>src\graphics\pass</Filter>
-    </ClCompile>
     <ClCompile Include="src\component\OutlineComponent.cpp">
       <Filter>src\component</Filter>
     </ClCompile>
@@ -1096,6 +1096,9 @@
     </ClCompile>
     <ClCompile Include="src\graphics\imgui\ImGuizmo.cpp">
       <Filter>src\graphics\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\LightManager.cpp">
+      <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -81,7 +81,9 @@ struct RenderWorld
 	size_t m_cameraIndex;
 	eastl::vector<Camera> m_cameras;
 	eastl::vector<DirectionalLight> m_directionalLights;
+	eastl::vector<DirectionalLight> m_directionalLightsShadowed;
 	eastl::vector<PunctualLight> m_punctualLights;
+	eastl::vector<PunctualLight> m_punctualLightsShadowed;
 	eastl::vector<GlobalParticipatingMedium> m_globalParticipatingMedia;
 	eastl::vector<Mesh> m_meshes;
 	eastl::vector<Transform> m_transforms;

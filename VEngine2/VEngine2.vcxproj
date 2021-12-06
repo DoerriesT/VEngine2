@@ -272,6 +272,7 @@
     <ClInclude Include="src\graphics\BufferStackAllocator.h" />
     <ClInclude Include="src\graphics\Camera.h" />
     <ClInclude Include="src\graphics\CommandListFramePool.h" />
+    <ClInclude Include="src\graphics\CommonViewData.h" />
     <ClInclude Include="src\graphics\gal\dx12\CommandListDx12.h" />
     <ClInclude Include="src\graphics\gal\dx12\CommandListPoolDx12.h" />
     <ClInclude Include="src\graphics\gal\dx12\D3D12MemAlloc.h" />
@@ -315,6 +316,7 @@
     <ClInclude Include="src\graphics\imgui\imstb_rectpack.h" />
     <ClInclude Include="src\graphics\imgui\imstb_textedit.h" />
     <ClInclude Include="src\graphics\imgui\imstb_truetype.h" />
+    <ClInclude Include="src\graphics\LightManager.h" />
     <ClInclude Include="src\graphics\Material.h" />
     <ClInclude Include="src\graphics\MaterialManager.h" />
     <ClInclude Include="src\graphics\Mesh.h" />
@@ -323,7 +325,6 @@
     <ClInclude Include="src\graphics\pass\GridPass.h" />
     <ClInclude Include="src\graphics\pass\ImGuiPass.h" />
     <ClInclude Include="src\graphics\pass\PostProcessModule.h" />
-    <ClInclude Include="src\graphics\pass\ShadowModule.h" />
     <ClInclude Include="src\graphics\pass\VolumetricFogModule.h" />
     <ClInclude Include="src\graphics\ProxyMeshes.h" />
     <ClInclude Include="src\graphics\RenderData.h" />
@@ -486,13 +487,13 @@
     <ClCompile Include="src\graphics\imgui\imgui_tables.cpp" />
     <ClCompile Include="src\graphics\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\graphics\imgui\imnodes.cpp" />
+    <ClCompile Include="src\graphics\LightManager.cpp" />
     <ClCompile Include="src\graphics\MaterialManager.cpp" />
     <ClCompile Include="src\graphics\MeshManager.cpp" />
     <ClCompile Include="src\graphics\pass\ForwardModule.cpp" />
     <ClCompile Include="src\graphics\pass\GridPass.cpp" />
     <ClCompile Include="src\graphics\pass\ImGuiPass.cpp" />
     <ClCompile Include="src\graphics\pass\PostProcessModule.cpp" />
-    <ClCompile Include="src\graphics\pass\ShadowModule.cpp" />
     <ClCompile Include="src\graphics\pass\VolumetricFogModule.cpp" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RendererResources.cpp" />
