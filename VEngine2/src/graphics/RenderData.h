@@ -54,8 +54,8 @@ struct PunctualLightGPU
 struct PunctualLightShadowedGPU
 {
 	PunctualLightGPU m_light;
-	glm::vec4 m_shadowMatrix0;
-	glm::vec4 m_shadowMatrix1;
+	glm::vec4 m_shadowMatrix0; // aliased with first 4 point light shadow map indices
+	glm::vec4 m_shadowMatrix1; // aliased with last 2 point light shadow map indices. has depth projection params in zw components.
 	glm::vec4 m_shadowMatrix2;
 	glm::vec4 m_shadowMatrix3;
 	float m_radius;

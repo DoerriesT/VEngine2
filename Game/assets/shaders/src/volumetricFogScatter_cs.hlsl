@@ -355,12 +355,30 @@ float4 inscattering(uint2 coord, float3 V, float3 worldSpacePos, float linearDep
 					const float3 L = normalize(unnormalizedLightVector);
 					float att = getDistanceAtt(unnormalizedLightVector, light.invSqrAttRadius);
 					
-					if (light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+					float shadow;
+					
+					// spot light
+					if (lightShadowed.light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
 					{
 						att *= getAngleAtt(L, light.direction, light.angleScale, light.angleOffset);
+						shadow = evaluateSpotLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, worldSpacePos, 0.0f, lightShadowed);
+					}
+					// point light
+					else
+					{
+						shadow = evaluatePointLightShadow(
+							g_Textures[asuint(lightShadowed.shadowMatrix0[0])], 
+							g_Textures[asuint(lightShadowed.shadowMatrix0[1])], 
+							g_Textures[asuint(lightShadowed.shadowMatrix0[2])], 
+							g_Textures[asuint(lightShadowed.shadowMatrix0[3])], 
+							g_Textures[asuint(lightShadowed.shadowMatrix1[0])], 
+							g_Textures[asuint(lightShadowed.shadowMatrix1[1])], 
+							g_ShadowSampler, 
+							worldSpacePos, 
+							0.0f, 
+							lightShadowed);
 					}
 					
-					float shadow = evaluatePunctualLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, worldSpacePos, 0.0f, lightShadowed);
 					const float3 radiance = light.color * att * shadow;
 					
 					lighting += radiance * henyeyGreenstein(V, L, phase);

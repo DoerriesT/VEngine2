@@ -16,6 +16,33 @@ struct LightingParams
 	float roughness;
 };
 
+// https://www.gamedev.net/forums/topic/687535-implementing-a-cube-map-lookup-function/
+float2 sampleCube(float3 dir, out int faceIndex)
+{
+	float3 absDir = abs(dir);
+	float ma;
+	float2 uv;
+	if (absDir.z >= absDir.x && absDir.z >= absDir.y)
+	{
+		faceIndex = dir.z < 0.0f ? 5 : 4;
+		ma = 0.5f / absDir.z;
+		uv = float2(dir.z < 0.0 ? -dir.x : dir.x, -dir.y);
+	}
+	else if (absDir.y >= absDir.x)
+	{
+		faceIndex = dir.y < 0.0f ? 3 : 2;
+		ma = 0.5f / absDir.y;
+		uv = float2(dir.x, dir.y < 0.0f ? -dir.z : dir.z);
+	}
+	else
+	{
+		faceIndex = dir.x < 0.0f ? 1 : 0;
+		ma = 0.5f / absDir.x;
+		uv = float2(dir.x < 0.0f ? dir.z : -dir.z, -dir.y);
+	}
+	return uv * ma + 0.5f;
+}
+
 float smoothDistanceAtt(float squaredDistance, float invSqrAttRadius)
 {
 	float factor = squaredDistance * invSqrAttRadius;
@@ -41,25 +68,56 @@ float getAngleAtt(float3 L, float3 lightDir, float lightAngleScale, float lightA
 	return attenuation;
 }
 
-float evaluatePunctualLightShadow(Texture2D<float4> texture, SamplerComparisonState shadowSampler, float3 position, float3 offsetDir, const PunctualLightShadowed light)
+float evaluateSpotLightShadow(Texture2D<float4> texture, SamplerComparisonState shadowSampler, float3 position, float3 offsetDir, const PunctualLightShadowed light)
 {
-	if (light.light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+	float4 shadowPosWS = float4(position + offsetDir * 0.05f, 1.0f);
+	
+	float4 shadowPos;
+	shadowPos.x = dot(light.shadowMatrix0, shadowPosWS);
+	shadowPos.y = dot(light.shadowMatrix1, shadowPosWS);
+	shadowPos.z = dot(light.shadowMatrix2, shadowPosWS);
+	shadowPos.w = dot(light.shadowMatrix3, shadowPosWS);
+	shadowPos.xyz /= shadowPos.w;
+	shadowPos.xy = shadowPos.xy * float2(0.5f, -0.5f) + 0.5f;
+	
+	return texture.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+}
+
+float evaluatePointLightShadow(
+	Texture2D<float4> texturePosX, 
+	Texture2D<float4> textureNegX, 
+	Texture2D<float4> texturePosY, 
+	Texture2D<float4> textureNegY, 
+	Texture2D<float4> texturePosZ, 
+	Texture2D<float4> textureNegZ, 
+	SamplerComparisonState shadowSampler, 
+	float3 position, 
+	float3 offsetDir, 
+	const PunctualLightShadowed light)
+{
+	float4 shadowPosWS = float4(position + offsetDir * 0.05f, 1.0f);
+	
+	float3 shadowPos;
+	float3 lightToPoint = shadowPosWS.xyz - light.light.position;
+	int faceIdx = 0;
+	shadowPos.xy = sampleCube(lightToPoint, faceIdx);
+	shadowPos.x = 1.0f - shadowPos.x; // correct for handedness (cubemap coordinate system is left-handed, our world space is right-handed)
+	
+	const float depthProjParam0 = light.shadowMatrix1.z;
+	const float depthProjParam1 = light.shadowMatrix1.w;
+	const float dist = faceIdx < 2 ? abs(lightToPoint.x) : faceIdx < 4 ? abs(lightToPoint.y) : abs(lightToPoint.z);
+	
+	shadowPos.z = depthProjParam0 + depthProjParam1 / dist;
+	
+	Texture2D<float4> texture;
+	switch(faceIdx)
 	{
-		float4 shadowPosWS = float4(position + offsetDir * 0.05f, 1.0f);
-		
-		float4 shadowPos;
-		shadowPos.x = dot(light.shadowMatrix0, shadowPosWS);
-		shadowPos.y = dot(light.shadowMatrix1, shadowPosWS);
-		shadowPos.z = dot(light.shadowMatrix2, shadowPosWS);
-		shadowPos.w = dot(light.shadowMatrix3, shadowPosWS);
-		shadowPos.xyz /= shadowPos.w;
-		shadowPos.xy = shadowPos.xy * float2(0.5f, -0.5f) + 0.5f;
-		
-		return texture.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
-	}
-	else
-	{
-		return 1.0f; // TODO
+		case 0: return texturePosX.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+		case 1: return textureNegX.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+		case 2: return texturePosY.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+		case 3: return textureNegY.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+		case 4: return texturePosZ.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
+		default: return textureNegZ.SampleCmpLevelZero(shadowSampler, shadowPos.xy, shadowPos.z).x;
 	}
 }
 

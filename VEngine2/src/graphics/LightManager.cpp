@@ -187,6 +187,42 @@ static void calculateCascadeViewProjectionMatrices(const glm::vec3 &lightDir,
 	}
 }
 
+static uint32_t calculateProjectedLightSize(const CommonViewData &viewData, const glm::mat4 &shadowMatrix) noexcept
+{
+	glm::mat4 shadowToScreenSpace = viewData.m_viewProjectionMatrix * glm::inverse(shadowMatrix);
+
+	float maxX = -FLT_MAX;
+	float maxY = -FLT_MAX;
+	float minX = FLT_MAX;
+	float minY = FLT_MAX;
+
+	glm::vec4 positions[]
+	{
+		glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
+		glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
+		glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
+		glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+	};
+
+	for (auto &pos : positions)
+	{
+		glm::vec4 ssPos = shadowToScreenSpace * pos;
+		float x = (ssPos.x / ssPos.w) * 0.5f + 0.5f;
+		float y = (ssPos.y / ssPos.w) * 0.5f + 0.5f;
+
+		maxX = fmaxf(maxX, x);
+		maxY = fmaxf(maxY, y);
+		minX = fminf(minX, x);
+		minY = fminf(minY, y);
+	}
+
+	float width = (maxX - minX) * viewData.m_width;
+	float height = (maxY - minY) * viewData.m_height;
+	float maxDim = eastl::clamp(fmaxf(width, height), 16.0f, 2048.0f);
+
+	return util::alignUp<uint32_t>(static_cast<uint32_t>(ceilf(maxDim)), 16);
+}
+
 LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept
 	:m_device(device)
 {
@@ -462,6 +498,9 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 			punctualLight.m_light = createPunctualLightGPU(light);
 			punctualLight.m_radius = light.m_radius;
 
+			const float nearPlane = 0.1f;
+
+			// spot light
 			if (light.m_spotLight)
 			{
 				glm::vec3 upDir(0.0f, 1.0f, 0.0f);
@@ -472,45 +511,11 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 				}
 
 				glm::mat4 shadowViewMatrix = glm::lookAt(light.m_position, light.m_position + light.m_direction, upDir);
-				glm::mat4 shadowMatrix = glm::perspective(light.m_outerAngle, 1.0f, 0.1f, light.m_radius) * shadowViewMatrix;
+				glm::mat4 shadowMatrix = glm::perspective(light.m_outerAngle, 1.0f, nearPlane, light.m_radius) * shadowViewMatrix;
 				glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
 
 				// project shadow far plane to screen space to get the optimal size of the shadow map
-				uint32_t resolution = 16;
-				{
-					glm::mat4 shadowToScreenSpace = viewData.m_viewProjectionMatrix * glm::inverse(shadowMatrix);
-
-					float maxX = -FLT_MAX;
-					float maxY = -FLT_MAX;
-					float minX = FLT_MAX;
-					float minY = FLT_MAX;
-
-					glm::vec4 positions[]
-					{
-						glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
-						glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
-						glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
-						glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-					};
-
-					for (auto &pos : positions)
-					{
-						glm::vec4 ssPos = shadowToScreenSpace * pos;
-						float x = (ssPos.x / ssPos.w) * 0.5f + 0.5f;
-						float y = (ssPos.y / ssPos.w) * 0.5f + 0.5f;
-						
-						maxX = fmaxf(maxX, x);
-						maxY = fmaxf(maxY, y);
-						minX = fminf(minX, x);
-						minY = fminf(minY, y);
-					}
-
-					float width = (maxX - minX) * viewData.m_width;
-					float height = (maxY - minY) * viewData.m_height;
-					float maxDim = eastl::clamp(fmaxf(width, height), 16.0f, 2048.0f);
-
-					resolution = util::alignUp<uint32_t>(static_cast<uint32_t>(ceilf(maxDim)), 16);
-				}
+				uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
 
 				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
 				rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle));
@@ -525,6 +530,63 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 				punctualLight.m_shadowMatrix2 = shadowMatrixTransposed[2];
 				punctualLight.m_shadowMatrix3 = shadowMatrixTransposed[3];
 				punctualLight.m_shadowTextureHandle = shadowMapViewHandle; // we later correct these to be actual TextureViewHandles
+			}
+			// point light
+			else
+			{
+				glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, nearPlane, light.m_radius);
+				glm::mat4 viewMatrices[6];
+				viewMatrices[0] = glm::lookAt(light.m_position, light.m_position + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrices[1] = glm::lookAt(light.m_position, light.m_position + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrices[2] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+				viewMatrices[3] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+				viewMatrices[4] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrices[5] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				constexpr const char *resourceNames[]
+				{
+					"Point Light Shadow Map +X",
+					"Point Light Shadow Map -X",
+					"Point Light Shadow Map +Y",
+					"Point Light Shadow Map -Y",
+					"Point Light Shadow Map +Z",
+					"Point Light Shadow Map -Z",
+				};
+
+				for (size_t i = 0; i < 6; ++i)
+				{
+					glm::mat4 shadowMatrix = projection * viewMatrices[i];
+
+					// project shadow far plane to screen space to get the optimal size of the shadow map
+					uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
+
+					rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create(resourceNames[i], Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
+					rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle));
+					static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+
+					m_shadowMatrices.push_back(shadowMatrix);
+					m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
+					m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
+
+					FloatUint32Union fu;
+					fu.ui = shadowMapViewHandle;
+
+					// we later correct these to be actual TextureViewHandles
+					if (i < 4)
+					{
+						punctualLight.m_shadowMatrix0[i] = fu.f;
+					}
+					else
+					{
+						punctualLight.m_shadowMatrix1[i - 4] = fu.f;
+					}
+				}
+
+				// store depth projection params
+				float param0 = -light.m_radius / (light.m_radius - nearPlane);
+				float param1 = param0 * nearPlane;
+				punctualLight.m_shadowMatrix1.z = -param0;
+				punctualLight.m_shadowMatrix1.w = param1;
 			}
 
 			m_punctualLightsShadowed.push_back(punctualLight);
@@ -623,7 +685,29 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 			// correct render graph handles to be actual bindless handles
 			for (auto &punctualLight : m_punctualLightsShadowed)
 			{
-				punctualLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(punctualLight.m_shadowTextureHandle), DescriptorType::TEXTURE));
+				if (punctualLight.m_light.m_angleScale != -1.0f)
+				{
+					punctualLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(punctualLight.m_shadowTextureHandle), DescriptorType::TEXTURE));
+				}
+				else
+				{
+					for (size_t i = 0; i < 6; ++i)
+					{
+						FloatUint32Union fu;
+						if (i < 4)
+						{
+							fu.f = punctualLight.m_shadowMatrix0[i];
+							fu.ui = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(fu.ui), DescriptorType::TEXTURE));
+							punctualLight.m_shadowMatrix0[i] = fu.f;
+						}
+						else
+						{
+							fu.f = punctualLight.m_shadowMatrix1[i - 4];
+							fu.ui = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(fu.ui), DescriptorType::TEXTURE));
+							punctualLight.m_shadowMatrix1[i - 4] = fu.f;
+						}
+					}
+				}
 			}
 
 			if (!m_punctualLightsShadowed.empty())
