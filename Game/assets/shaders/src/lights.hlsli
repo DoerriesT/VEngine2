@@ -27,10 +27,14 @@ struct PunctualLightShadowed
 	float4 shadowMatrix1;
 	float4 shadowMatrix2;
 	float4 shadowMatrix3;
-	float radius;
 	uint shadowTextureHandle;
-	float pad1;
-	float pad2;
+	float depthProjectionParam0;
+	float depthProjectionParam1;
+	float depthUnprojectParam0;
+	float depthUnprojectParam1;
+	float lightRadius;
+	float invLightRadius;
+	float pcfRadius;
 };
 
 #endif // LIGHTS_H

@@ -42,4 +42,7 @@ namespace util
 	float halton(size_t index, size_t base);
 
 	void findPieceWiseLinearCurveIndicesAndAlpha(size_t count, const float *keys, float lookupKey, bool wrap, size_t *index0, size_t *index1, float *alpha) noexcept;
+
+	float asfloat(uint32_t v) noexcept;
+	uint32_t asuint(float v) noexcept;
 }

@@ -206,9 +206,10 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			{
 				gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT),
 				gal::Initializers::staticLinearClampSampler(1, 0, gal::ShaderStageFlags::PIXEL_BIT),
+				gal::Initializers::staticLinearClampSampler(2, 0, gal::ShaderStageFlags::PIXEL_BIT),
 			};
-			staticSamplerDescs[1].m_compareEnable = true;
-			staticSamplerDescs[1].m_compareOp = CompareOp::LESS_OR_EQUAL;
+			staticSamplerDescs[2].m_compareEnable = true;
+			staticSamplerDescs[2].m_compareOp = CompareOp::GREATER_OR_EQUAL;
 
 			uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t) * 2;
 			pushConstSize += isSkinned ? sizeof(uint32_t) : 0;

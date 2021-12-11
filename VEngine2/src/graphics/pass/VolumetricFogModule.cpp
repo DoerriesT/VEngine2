@@ -58,7 +58,7 @@ VolumetricFogModule::VolumetricFogModule(gal::GraphicsDevice *device, gal::Descr
 			gal::Initializers::staticLinearClampSampler(1, 0, gal::ShaderStageFlags::COMPUTE_BIT),
 		};
 		staticSamplerDescs[1].m_compareEnable = true;
-		staticSamplerDescs[1].m_compareOp = CompareOp::LESS_OR_EQUAL;
+		staticSamplerDescs[1].m_compareOp = CompareOp::GREATER_OR_EQUAL;
 
 		ComputePipelineCreateInfo pipelineCreateInfo{};
 		ComputePipelineBuilder builder(pipelineCreateInfo);

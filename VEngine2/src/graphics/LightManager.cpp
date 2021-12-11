@@ -27,25 +27,39 @@ static constexpr float k_depthBinRange = 1.0f; // each bin covers a depth range 
 static constexpr uint32_t k_emptyBin = ((~0u & 0xFFFFu) << 16u);
 static constexpr uint32_t k_lightingTileSize = 8;
 
-namespace
+static float calculateMaxPenumbraPercentage(float bulbRadius = 0.1f) noexcept
 {
-	union FloatUint32Union
-	{
-		float f;
-		uint32_t ui;
-	};
+	constexpr float k_minPenumbra = 0.5f / 256.0f;
+	constexpr float k_minBulbRadius = 0.1f;
+	const float k_minBulbRadiusSqrt = sqrtf(k_minBulbRadius);
+
+	float clampedBulbRadius = fmaxf(bulbRadius, k_minBulbRadius);
+	float bulbPenumbraScale = sqrtf(clampedBulbRadius) / k_minBulbRadiusSqrt;
+	float maxPenumbraPercentage = bulbPenumbraScale * k_minPenumbra;
+
+	return maxPenumbraPercentage;
 }
+
+static float calculatePenumbraRadiusNDC(float maxPenumbraPercentage, float shadowHalfFov) noexcept
+{
+	constexpr float k_minPenumbra = 0.5f / 256.0f;
+	float fovScale = tanf(shadowHalfFov);
+	float clampedPenumbraPercentage = fmaxf(maxPenumbraPercentage, k_minPenumbra);
+
+	float penumbraRadiusNDC = (clampedPenumbraPercentage / fovScale);
+	return penumbraRadiusNDC;
+}
+
 
 static uint64_t computePunctualLightSortValue(const RenderWorld::PunctualLight &light, const glm::vec4 &viewMatDepthRow, size_t index) noexcept
 {
-	FloatUint32Union fu;
-	fu.f = -glm::dot(glm::vec4(light.m_position, 1.0f), viewMatDepthRow);
+	uint32_t depthUI = util::asuint(-glm::dot(glm::vec4(light.m_position, 1.0f), viewMatDepthRow));
 
 	uint64_t packedDepthAndIndex = 0;
 	packedDepthAndIndex |= static_cast<uint64_t>(index) & 0xFFFFFFFF; // index
 	// floats interpreted as integers keep the less-than ordering, so we can just put the depth
 	// in the most significant bits and use that to sort by depth
-	packedDepthAndIndex |= static_cast<uint64_t>(fu.ui) << 32ull;
+	packedDepthAndIndex |= static_cast<uint64_t>(depthUI) << 32ull;
 
 	return packedDepthAndIndex;
 }
@@ -74,9 +88,7 @@ static PunctualLightGPU createPunctualLightGPU(const RenderWorld::PunctualLight 
 
 static void insertPunctualLightIntoDepthBins(const RenderWorld::PunctualLight &light, size_t lightIndex, uint64_t sortIndex, uint32_t *depthBins) noexcept
 {
-	FloatUint32Union fu;
-	fu.ui = static_cast<uint32_t>(sortIndex >> 32ull);
-	float lightDepthVS = -fu.f;
+	float lightDepthVS = -util::asfloat(static_cast<uint32_t>(sortIndex >> 32ull));
 	float nearestPoint = -lightDepthVS - light.m_radius;
 	float farthestPoint = -lightDepthVS + light.m_radius;
 
@@ -107,7 +119,7 @@ static void calculateCascadeViewProjectionMatrices(const glm::vec3 &lightDir,
 	size_t cascadeCount,
 	glm::mat4 *viewProjectionMatrices,
 	glm::vec4 *cascadeParams,
-	glm::vec4 *viewMatrixDepthRows)
+	glm::vec4 *viewMatrixDepthRows) noexcept
 {
 	float splits[LightComponent::k_maxCascades];
 
@@ -175,7 +187,7 @@ static void calculateCascadeViewProjectionMatrices(const glm::vec3 &lightDir,
 
 		viewMatrixDepthRows[i] = glm::vec4(lightView[0][2], lightView[1][2], lightView[2][2], lightView[3][2]);
 
-		viewProjectionMatrices[i] = glm::ortho(-radius, radius, -radius, radius, 0.0f, depthRange) * lightView;
+		viewProjectionMatrices[i] = glm::ortho(-radius, radius, -radius, radius, depthRange, 0.1f) * lightView;
 
 		// depthNormalBiases[i] holds the depth/normal offset biases in texel units
 		const float unitsPerTexel = radius * 2.0f / shadowTextureSize;
@@ -198,10 +210,10 @@ static uint32_t calculateProjectedLightSize(const CommonViewData &viewData, cons
 
 	glm::vec4 positions[]
 	{
-		glm::vec4(-1.0f, -1.0f, 1.0f, 1.0f),
-		glm::vec4(1.0f, -1.0f, 1.0f, 1.0f),
-		glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f),
-		glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+		glm::vec4(-1.0f, -1.0f, 0.0f, 1.0f),
+		glm::vec4(1.0f, -1.0f, 0.0f, 1.0f),
+		glm::vec4(-1.0f, 1.0f, 0.0f, 1.0f),
+		glm::vec4(1.0f, 1.0f, 0.0f, 1.0f),
 	};
 
 	for (auto &pos : positions)
@@ -306,7 +318,7 @@ LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout
 
 			builder.setVertexBindingDescriptions(static_cast<uint32_t>(bindingDescs.size()), bindingDescs.data());
 			builder.setVertexAttributeDescriptions(static_cast<uint32_t>(attributeDescs.size()), attributeDescs.data());
-			builder.setDepthTest(true, true, CompareOp::LESS_OR_EQUAL);
+			builder.setDepthTest(true, true, CompareOp::GREATER);
 			builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
 			builder.setDepthStencilAttachmentFormat(Format::D16_UNORM);
 			builder.setPolygonModeCullMode(gal::PolygonMode::FILL, isAlphaTested ? gal::CullModeFlags::NONE : gal::CullModeFlags::BACK_BIT, gal::FrontFace::COUNTER_CLOCKWISE);
@@ -494,11 +506,19 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 			const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
 			const auto &light = renderWorld.m_punctualLightsShadowed[lightIndex];
 
+			constexpr float k_nearPlane = 0.5f;
+			glm::mat4 projection = glm::perspective(light.m_spotLight ? light.m_outerAngle : glm::radians(90.0f), 1.0f, light.m_radius, k_nearPlane);
+			glm::mat4 invProjection = glm::inverse(projection);
+
 			PunctualLightShadowedGPU punctualLight{};
 			punctualLight.m_light = createPunctualLightGPU(light);
-			punctualLight.m_radius = light.m_radius;
-
-			const float nearPlane = 0.1f;
+			punctualLight.m_depthProjectionParam0 = projection[2][2];
+			punctualLight.m_depthProjectionParam1 = projection[3][2];
+			punctualLight.m_depthUnprojectParam0 = invProjection[2][3];
+			punctualLight.m_depthUnprojectParam1 = invProjection[3][3];
+			punctualLight.m_lightRadius = light.m_radius;
+			punctualLight.m_invLightRadius = 1.0f / light.m_radius;
+			punctualLight.m_pcfRadius = calculatePenumbraRadiusNDC(calculateMaxPenumbraPercentage(0.5f), light.m_spotLight ? (0.5f * light.m_outerAngle) : glm::quarter_pi<float>());
 
 			// spot light
 			if (light.m_spotLight)
@@ -511,7 +531,7 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 				}
 
 				glm::mat4 shadowViewMatrix = glm::lookAt(light.m_position, light.m_position + light.m_direction, upDir);
-				glm::mat4 shadowMatrix = glm::perspective(light.m_outerAngle, 1.0f, nearPlane, light.m_radius) * shadowViewMatrix;
+				glm::mat4 shadowMatrix = projection * shadowViewMatrix;
 				glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
 
 				// project shadow far plane to screen space to get the optimal size of the shadow map
@@ -534,7 +554,6 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 			// point light
 			else
 			{
-				glm::mat4 projection = glm::perspective(glm::radians(90.0f), 1.0f, nearPlane, light.m_radius);
 				glm::mat4 viewMatrices[6];
 				viewMatrices[0] = glm::lookAt(light.m_position, light.m_position + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 				viewMatrices[1] = glm::lookAt(light.m_position, light.m_position + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -568,25 +587,16 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 					m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
 					m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
 
-					FloatUint32Union fu;
-					fu.ui = shadowMapViewHandle;
-
 					// we later correct these to be actual TextureViewHandles
 					if (i < 4)
 					{
-						punctualLight.m_shadowMatrix0[i] = fu.f;
+						punctualLight.m_shadowMatrix0[i] = util::asfloat(shadowMapViewHandle);
 					}
 					else
 					{
-						punctualLight.m_shadowMatrix1[i - 4] = fu.f;
+						punctualLight.m_shadowMatrix1[i - 4] = util::asfloat(shadowMapViewHandle);
 					}
 				}
-
-				// store depth projection params
-				float param0 = -light.m_radius / (light.m_radius - nearPlane);
-				float param1 = param0 * nearPlane;
-				punctualLight.m_shadowMatrix1.z = -param0;
-				punctualLight.m_shadowMatrix1.w = param1;
 			}
 
 			m_punctualLightsShadowed.push_back(punctualLight);
@@ -693,18 +703,13 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 				{
 					for (size_t i = 0; i < 6; ++i)
 					{
-						FloatUint32Union fu;
 						if (i < 4)
 						{
-							fu.f = punctualLight.m_shadowMatrix0[i];
-							fu.ui = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(fu.ui), DescriptorType::TEXTURE));
-							punctualLight.m_shadowMatrix0[i] = fu.f;
+							punctualLight.m_shadowMatrix0[i] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix0[i])), DescriptorType::TEXTURE));
 						}
 						else
 						{
-							fu.f = punctualLight.m_shadowMatrix1[i - 4];
-							fu.ui = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(fu.ui), DescriptorType::TEXTURE));
-							punctualLight.m_shadowMatrix1[i - 4] = fu.f;
+							punctualLight.m_shadowMatrix1[i - 4] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix1[i - 4])), DescriptorType::TEXTURE));
 						}
 					}
 				}
@@ -867,9 +872,9 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 {
 	eastl::fixed_vector<rg::ResourceUsageDesc, 32> usageDescs;
 
-	for (size_t i = 0; i < m_shadowMatrices.size(); ++i)
+	for (auto h : m_shadowTextureRenderHandles)
 	{
-		usageDescs.push_back({ m_shadowTextureRenderHandles[i], {ResourceState::WRITE_DEPTH_STENCIL} });
+		usageDescs.push_back({ h, {ResourceState::WRITE_DEPTH_STENCIL} });
 	}
 
 	graph->addPass("Shadows", rg::QueueType::GRAPHICS, usageDescs.size(), usageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
@@ -878,10 +883,15 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 			PROFILING_GPU_ZONE_SCOPED_N(m_device->getProfilingContext(), cmdList, "Shadows");
 			PROFILING_ZONE_SCOPED;
 
-			for (size_t i = 0; i < m_shadowMatrices.size(); ++i)
+			size_t curDepthBufferHandleOffset = 0;
+
+			// iterate over all shadow map jobs
+			for (auto &shadowMatrix : m_shadowMatrices)
 			{
-				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(m_shadowTextureRenderHandles[i]), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {1.0f} };
-				const auto &imageDesc = registry.getImage(m_shadowTextureRenderHandles[i])->getDescription();
+				auto shadowTextureHandle = m_shadowTextureRenderHandles[curDepthBufferHandleOffset++];
+
+				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(shadowTextureHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
+				const auto &imageDesc = registry.getImage(shadowTextureHandle)->getDescription();
 				Rect renderRect{ {0, 0}, {imageDesc.m_width, imageDesc.m_height} };
 
 				cmdList->beginRenderPass(0, nullptr, &depthBufferDesc, renderRect, false);
@@ -899,7 +909,7 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 					};
 
 					PassConstants passConsts;
-					memcpy(passConsts.viewProjectionMatrix, &m_shadowMatrices[i][0][0], sizeof(passConsts.viewProjectionMatrix));
+					memcpy(passConsts.viewProjectionMatrix, &shadowMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 

@@ -58,10 +58,14 @@ struct PunctualLightShadowedGPU
 	glm::vec4 m_shadowMatrix1; // aliased with last 2 point light shadow map indices. has depth projection params in zw components.
 	glm::vec4 m_shadowMatrix2;
 	glm::vec4 m_shadowMatrix3;
-	float m_radius;
 	uint32_t m_shadowTextureHandle;
-	float m_pad1;
-	float m_pad2;
+	float m_depthProjectionParam0;
+	float m_depthProjectionParam1;
+	float m_depthUnprojectParam0;
+	float m_depthUnprojectParam1;
+	float m_lightRadius;
+	float m_invLightRadius;
+	float m_pcfRadius;
 };
 
 struct GlobalParticipatingMediumGPU

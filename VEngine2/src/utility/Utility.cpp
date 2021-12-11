@@ -4,6 +4,15 @@
 #include <assert.h>
 #include <math.h>
 
+namespace
+{
+	union FloatUint32Union
+	{
+		float f;
+		uint32_t ui;
+	};
+}
+
 char *util::readBinaryFile(const char *filepath, size_t *fileSize)
 {
 	std::ifstream file(filepath, std::ios::binary | std::ios::ate);
@@ -219,4 +228,18 @@ void util::findPieceWiseLinearCurveIndicesAndAlpha(size_t count, const float *ke
 		*index0 = keyIdx0;
 		*index1 = keyIdx1;
 	}
+}
+
+float util::asfloat(uint32_t v) noexcept
+{
+	FloatUint32Union fu;
+	fu.ui = v;
+	return fu.f;
+}
+
+uint32_t util::asuint(float v) noexcept
+{
+	FloatUint32Union fu;
+	fu.f = v;
+	return fu.ui;
 }

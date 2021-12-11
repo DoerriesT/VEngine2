@@ -315,7 +315,7 @@ float4 inscattering(uint2 coord, float3 V, float3 worldSpacePos, float linearDep
 					const float3 L = normalize(unnormalizedLightVector);
 					float att = getDistanceAtt(unnormalizedLightVector, light.invSqrAttRadius);
 					
-					if (light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+					if (isSpotLight(light))
 					{
 						att *= getAngleAtt(L, light.direction, light.angleScale, light.angleOffset);
 					}
@@ -351,32 +351,18 @@ float4 inscattering(uint2 coord, float3 V, float3 worldSpacePos, float linearDep
 					const PunctualLightShadowed lightShadowed = punctualLights[index];
 					const PunctualLight light = lightShadowed.light;
 					
+					uint shadowMapIndex = 0;
+					float normalizedDistance = 0.0f;
+					float3 shadowPos = calculatePunctualLightShadowPos(lightShadowed, worldSpacePos, shadowMapIndex, normalizedDistance);
+					float shadow = g_Textures[NonUniformResourceIndex(shadowMapIndex)].SampleCmpLevelZero(g_ShadowSampler, shadowPos.xy, shadowPos.z).x;
+					
 					const float3 unnormalizedLightVector = light.position - worldSpacePos;
 					const float3 L = normalize(unnormalizedLightVector);
 					float att = getDistanceAtt(unnormalizedLightVector, light.invSqrAttRadius);
 					
-					float shadow;
-					
-					// spot light
-					if (lightShadowed.light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
+					if (isSpotLight(lightShadowed.light))
 					{
 						att *= getAngleAtt(L, light.direction, light.angleScale, light.angleOffset);
-						shadow = evaluateSpotLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, worldSpacePos, 0.0f, lightShadowed);
-					}
-					// point light
-					else
-					{
-						shadow = evaluatePointLightShadow(
-							g_Textures[asuint(lightShadowed.shadowMatrix0[0])], 
-							g_Textures[asuint(lightShadowed.shadowMatrix0[1])], 
-							g_Textures[asuint(lightShadowed.shadowMatrix0[2])], 
-							g_Textures[asuint(lightShadowed.shadowMatrix0[3])], 
-							g_Textures[asuint(lightShadowed.shadowMatrix1[0])], 
-							g_Textures[asuint(lightShadowed.shadowMatrix1[1])], 
-							g_ShadowSampler, 
-							worldSpacePos, 
-							0.0f, 
-							lightShadowed);
 					}
 					
 					const float3 radiance = light.color * att * shadow;

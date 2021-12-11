@@ -69,7 +69,8 @@ StructuredBuffer<PunctualLightShadowed> g_PunctualLightsShadowed[65536] : REGIST
 Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 10, 1);
 
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
-SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(1, 0, 2);
+SamplerState g_LinearClampSampler : REGISTER_SAMPLER(1, 0, 2);
+SamplerComparisonState g_ShadowSampler : REGISTER_SAMPLER(2, 0, 2);
 
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
 
@@ -96,6 +97,12 @@ float3 sampleCascadedShadowMaps(float3 posWS, float3 N, DirectionalLight light)
 	{
 		return 1.0f;
 	}
+}
+
+float interleavedGradientNoise(float2 v)
+{
+	float3 magic = float3(0.06711056, 0.00583715, 52.9829189);
+	return frac(magic.z * dot(v, magic.xy));
 }
 
 [earlydepthstencil]
@@ -171,7 +178,7 @@ PSOutput main(PSInput input)
 	{
 		for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)
 		{
-			result += evaluateDirectionalLight(lightingParams, g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i]);
+			result += evaluateDirectionalLight(lightingParams, g_DirectionalLights[g_PassConstants.directionalLightBufferIndex][i]) * exposure;
 		}
 	}
 	
@@ -208,10 +215,12 @@ PSOutput main(PSInput input)
 				const uint bitIndex = firstbitlow(mask);
 				const uint index = 32 * wordIndex + bitIndex;
 				mask ^= (1u << bitIndex);
-				result += evaluatePunctualLight(lightingParams, punctualLights[index]);
+				result += evaluatePunctualLight(lightingParams, punctualLights[index]) * exposure;
 			}
 		}
 	}
+	
+	float noise = interleavedGradientNoise(input.position.xy);
 	
 	// punctual lights shadowed
 	uint punctualLightShadowedCount = g_PassConstants.punctualLightShadowedCount;
@@ -236,48 +245,22 @@ PSOutput main(PSInput input)
 				
 				PunctualLightShadowed lightShadowed = punctualLights[index];
 				
-				float shadow = 1.0f;
+				float3 shadowPosWS = lightingParams.position + vertexNormal * 0.02f;
+				uint shadowMapIndex = 0;
+				float normalizedDistance = 0.0f;
+				float3 shadowPos = calculatePunctualLightShadowPos(lightShadowed, shadowPosWS, shadowMapIndex, normalizedDistance);
 				
-				float4 shadowPosWS = float4(lightingParams.position + vertexNormal * 0.05f, 1.0f);
+				float shadow = pcfShadowContactHardening(
+					lightShadowed, 
+					g_Textures[NonUniformResourceIndex(shadowMapIndex)], 
+					g_LinearClampSampler, 
+					shadowPos.xy, 
+					normalizedDistance, 
+					noise, 
+					8
+				);
 				
-				// spot light
-				if (lightShadowed.light.angleScale != -1.0f) // -1.0f is a special value that marks this light as a point light
-				{
-					shadow = evaluateSpotLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, lightingParams.position, vertexNormal, lightShadowed);
-				}
-				// point light
-				else
-				{
-					shadow = evaluatePointLightShadow(
-						g_Textures[asuint(lightShadowed.shadowMatrix0[0])], 
-						g_Textures[asuint(lightShadowed.shadowMatrix0[1])], 
-						g_Textures[asuint(lightShadowed.shadowMatrix0[2])], 
-						g_Textures[asuint(lightShadowed.shadowMatrix0[3])], 
-						g_Textures[asuint(lightShadowed.shadowMatrix1[0])], 
-						g_Textures[asuint(lightShadowed.shadowMatrix1[1])], 
-						g_ShadowSampler, 
-						lightingParams.position, 
-						vertexNormal, 
-						lightShadowed);
-					//float3 shadowPos;
-					//float3 lightToPoint = shadowPosWS.xyz - lightShadowed.light.position;
-					//int faceIdx = 0;
-					//shadowPos.xy = sampleCube(lightToPoint, faceIdx);
-					//shadowPos.x = 1.0f - shadowPos.x; // correct for handedness (cubemap coordinate system is left-handed, our world space is right-handed)
-					//
-					//const float depthProjParam0 = lightShadowed.shadowMatrix1.z;
-					//const float depthProjParam1 = lightShadowed.shadowMatrix1.w;
-					//const float dist = faceIdx < 2 ? abs(lightToPoint.x) : faceIdx < 4 ? abs(lightToPoint.y) : abs(lightToPoint.z);
-					//
-					//shadowPos.z = depthProjParam0 + depthProjParam1 / dist;
-					//
-					//uint shadowTextureHandle = asuint(faceIdx < 4 ? lightShadowed.shadowMatrix0[faceIdx] : lightShadowed.shadowMatrix1[faceIdx - 4]);
-					//
-					//shadow = g_Textures[NonUniformResourceIndex(shadowTextureHandle)].SampleCmpLevelZero(g_ShadowSampler, shadowPos.xy, shadowPos.z).x;
-				}
-				
-				//float shadow = evaluatePunctualLightShadow(g_Textures[lightShadowed.shadowTextureHandle], g_ShadowSampler, lightingParams.position, vertexNormal, lightShadowed);
-				result += evaluatePunctualLight(lightingParams, lightShadowed.light) * shadow;
+				result += evaluatePunctualLight(lightingParams, lightShadowed.light) * shadow * exposure;
 			}
 		}
 	}
