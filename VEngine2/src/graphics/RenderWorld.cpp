@@ -10,68 +10,27 @@
 #include <glm/gtx/transform.hpp>
 #include "Log.h"
 
-void RenderWorld::interpolate(float fractionalSimFrameTime) noexcept
+static Transform lerp(const Transform &x, const Transform &y, float alpha) noexcept
 {
-	// transforms
+	Transform result;
+	result.m_translation = glm::mix(x.m_translation, y.m_translation, alpha);
+	result.m_rotation = glm::normalize(glm::slerp(x.m_rotation, y.m_rotation, alpha));
+	result.m_scale = glm::mix(x.m_scale, y.m_scale, alpha);
+	return result;
+}
+
+void lerp(size_t count, const glm::mat4 *x, const glm::mat4 *y, float alpha, glm::mat4 *result) noexcept
+{
+	for (size_t i = 0; i < count; ++i)
 	{
-		const size_t transformCount = m_transforms.size();
-		m_interpolatedTransforms.clear();
-		m_interpolatedTransforms.resize(transformCount);
-
-		for (size_t i = 0; i < transformCount; ++i)
+		for (size_t j = 0; j < 16; ++j)
 		{
-			m_interpolatedTransforms[i].m_translation = glm::mix(m_prevTransforms[i].m_translation, m_transforms[i].m_translation, fractionalSimFrameTime);
-			m_interpolatedTransforms[i].m_rotation = glm::normalize(glm::slerp(m_prevTransforms[i].m_rotation, m_transforms[i].m_rotation, fractionalSimFrameTime));
-			m_interpolatedTransforms[i].m_scale = glm::mix(m_prevTransforms[i].m_scale, m_transforms[i].m_scale, fractionalSimFrameTime);
-		}
-	}
-
-	// lights
-	{
-		for (auto &directionalLight : m_directionalLights)
-		{
-			directionalLight.m_direction = glm::normalize(m_interpolatedTransforms[directionalLight.m_transformIndex].m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-
-		for (auto &directionalLight : m_directionalLightsShadowed)
-		{
-			directionalLight.m_direction = glm::normalize(m_interpolatedTransforms[directionalLight.m_transformIndex].m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-
-		for (auto &punctualLight : m_punctualLights)
-		{
-			punctualLight.m_position = m_interpolatedTransforms[punctualLight.m_transformIndex].m_translation;
-			punctualLight.m_direction = punctualLight.m_spotLight ? 
-				glm::normalize(m_interpolatedTransforms[punctualLight.m_transformIndex].m_rotation * glm::vec3(0.0f, -1.0f, 0.0f)) :
-				glm::vec3(0.0f, -1.0f, 0.0f);
-		}
-
-		for (auto &punctualLight : m_punctualLightsShadowed)
-		{
-			punctualLight.m_position = m_interpolatedTransforms[punctualLight.m_transformIndex].m_translation;
-			punctualLight.m_direction = punctualLight.m_spotLight ?
-				glm::normalize(m_interpolatedTransforms[punctualLight.m_transformIndex].m_rotation * glm::vec3(0.0f, -1.0f, 0.0f)) :
-				glm::vec3(0.0f, -1.0f, 0.0f);
-		}
-	}
-
-	// skinning matrices
-	{
-		const size_t skinningMatrixCount = m_skinningMatrices.size();
-		m_interpolatedSkinningMatrices.clear();
-		m_interpolatedSkinningMatrices.resize(skinningMatrixCount);
-
-		for (size_t i = 0; i < skinningMatrixCount; ++i)
-		{
-			for (size_t j = 0; j < 16; ++j)
-			{
-				(&m_interpolatedSkinningMatrices[i][0][0])[j] = glm::mix((&m_prevSkinningMatrices[i][0][0])[j], (&m_skinningMatrices[i][0][0])[j], fractionalSimFrameTime);
-			}
+			(&result[i][0][0])[j] = glm::mix((&x[i][0][0])[j], (&y[i][0][0])[j], alpha);
 		}
 	}
 }
 
-void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
+void RenderWorld::populate(ECS *ecs, EntityID cameraEntity, float fractionalSimFrameTime) noexcept
 {
 	m_cameras.clear();
 	m_directionalLights.clear();
@@ -80,8 +39,8 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 	m_punctualLightsShadowed.clear();
 	m_globalParticipatingMedia.clear();
 	m_meshes.clear();
-	m_transforms.clear();
-	m_prevTransforms.clear();
+	m_meshTransforms.clear();
+	m_prevMeshTransforms.clear();
 	m_skinningMatrices.clear();
 	m_prevSkinningMatrices.clear();
 
@@ -97,18 +56,18 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 						m_cameraIndex = m_cameras.size();
 					}
 
-					const auto &tc = transC[i];
+					auto &tc = transC[i];
 					const auto &cc = cameraC[i];
 
 					Camera camera{};
+					camera.m_transform = lerp(tc.m_prevTransform, tc.m_transform, fractionalSimFrameTime);
 					camera.m_aspectRatio = cc.m_aspectRatio;
 					camera.m_fovy = cc.m_fovy;
 					camera.m_near = cc.m_near;
 					camera.m_far = cc.m_far;
-					camera.m_transformIndex = m_transforms.size();
 
-					m_transforms.push_back(tc.m_transform);
-					m_prevTransforms.push_back(tc.m_prevTransform);
+					tc.m_lastRenderTransform = camera.m_transform;
+
 					m_cameras.push_back(camera);
 				}
 			});
@@ -122,14 +81,17 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 				auto &tc = transC[i];
 				auto &lc = lightC[i];
 
+				auto transform = lerp(tc.m_prevTransform, tc.m_transform, fractionalSimFrameTime);
+				tc.m_lastRenderTransform = transform;
+
 				switch (lc.m_type)
 				{
 				case LightComponent::Type::Point:
 				case LightComponent::Type::Spot:
 				{
 					PunctualLight punctualLight{};
-					//punctualLight.m_position = tc.m_translation;
-					//punctualLight.m_direction = glm::normalize(tc.m_rotation * glm::vec3(0.0f, -1.0f, 0.0f));
+					punctualLight.m_position = transform.m_translation;
+					punctualLight.m_direction = glm::normalize(transform.m_rotation * glm::vec3(0.0f, -1.0f, 0.0f));
 					punctualLight.m_color = lc.m_color;
 					punctualLight.m_intensity = lc.m_intensity;
 					punctualLight.m_radius = lc.m_radius;
@@ -137,7 +99,6 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 					punctualLight.m_innerAngle = lc.m_innerAngle;
 					punctualLight.m_shadowsEnabled = lc.m_shadows;
 					punctualLight.m_spotLight = lc.m_type == LightComponent::Type::Spot;
-					punctualLight.m_transformIndex = m_transforms.size();
 
 					if (lc.m_shadows)
 					{
@@ -152,7 +113,7 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 				case LightComponent::Type::Directional:
 				{
 					DirectionalLight directionalLight{};
-					//directionalLight.m_direction = glm::normalize(tc.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+					directionalLight.m_direction = glm::normalize(transform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
 					directionalLight.m_color = lc.m_color;
 					directionalLight.m_intensity = lc.m_intensity;
 					directionalLight.m_cascadeCount = lc.m_cascadeCount;
@@ -163,7 +124,6 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 					static_assert(sizeof(directionalLight.m_normalOffsetBias) == sizeof(lc.m_normalOffsetBias));
 					memcpy(directionalLight.m_normalOffsetBias, lc.m_normalOffsetBias, sizeof(directionalLight.m_normalOffsetBias));
 					directionalLight.m_shadowsEnabled = lc.m_shadows;
-					directionalLight.m_transformIndex = m_transforms.size();
 
 					if (lc.m_shadows)
 					{
@@ -179,9 +139,6 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 					assert(false);
 					break;
 				}
-
-				m_transforms.push_back(tc.m_transform);
-				m_prevTransforms.push_back(tc.m_prevTransform);
 			}
 		});
 
@@ -213,8 +170,6 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 			}
 		});
 
-	m_meshTransformsOffset = m_transforms.size();
-
 	// meshes
 	IterateQuery iterateQuery;
 	ecs->setIterateQueryRequiredComponents<TransformComponent>(iterateQuery);
@@ -239,9 +194,10 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 				}
 
 				// model transform
-				const auto transformIndex = m_transforms.size();
-				m_transforms.push_back(tc.m_transform);
-				m_prevTransforms.push_back(tc.m_prevTransform);
+				const auto transformIndex = m_meshTransforms.size();
+				m_prevMeshTransforms.push_back(tc.m_lastRenderTransform);
+				m_meshTransforms.push_back(lerp(tc.m_prevTransform, tc.m_transform, fractionalSimFrameTime));
+				tc.m_lastRenderTransform = m_meshTransforms.back();
 				
 				// skinning matrices
 				const auto skinningMatricesOffset = m_skinningMatrices.size();
@@ -249,10 +205,16 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 				{
 					const auto &palette = sMeshC[i].m_matrixPalette;
 					const auto &prevPalette = sMeshC[i].m_prevMatrixPalette;
+					auto &lastRenderPalette = sMeshC[i].m_lastRenderMatrixPalette;
 					assert(palette.size() == sMeshC[i].m_skeleton->getSkeleton()->getJointCount());
 					assert(palette.size() == prevPalette.size());
-					m_skinningMatrices.insert(m_skinningMatrices.end(), palette.data(), palette.data() + palette.size());
-					m_prevSkinningMatrices.insert(m_prevSkinningMatrices.end(), prevPalette.data(), prevPalette.data() + prevPalette.size());
+					assert(palette.size() == lastRenderPalette.size());
+					m_skinningMatrices.resize(m_skinningMatrices.size() + palette.size());
+					m_prevSkinningMatrices.reserve(m_prevSkinningMatrices.size() + palette.size());
+					lerp(palette.size(), prevPalette.data(), palette.data(), fractionalSimFrameTime, m_skinningMatrices.end() - palette.size());
+					m_prevSkinningMatrices.insert(m_prevSkinningMatrices.end(), lastRenderPalette.begin(), lastRenderPalette.end());
+					lastRenderPalette.clear();
+					lastRenderPalette.insert(lastRenderPalette.begin(), m_skinningMatrices.end() - palette.size(), m_skinningMatrices.end());
 				}
 
 				const auto &submeshhandles = meshAsset->getSubMeshhandles();
@@ -272,6 +234,4 @@ void RenderWorld::populate(ECS *ecs, EntityID cameraEntity) noexcept
 				}
 			}
 		});
-
-	m_meshTransformsCount = m_transforms.size() - m_meshTransformsOffset;
 }

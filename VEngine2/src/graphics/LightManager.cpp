@@ -327,7 +327,7 @@ LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout
 			DescriptorSetLayoutBinding usedBindlessBindings[] =
 			{
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // skinning matrices
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // model/skinning matrices
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 2, ShaderStageFlags::VERTEX_BIT), // material buffer
 			};
 
@@ -339,7 +339,7 @@ LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout
 
 			gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT);
 
-			uint32_t pushConstSize = sizeof(float) * 16;
+			uint32_t pushConstSize = sizeof(uint32_t);
 			pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
 			pushConstSize += isAlphaTested ? sizeof(uint32_t) : 0;
 			builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT, 1, &staticSamplerDesc, 2);
@@ -904,12 +904,14 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 					struct PassConstants
 					{
 						float viewProjectionMatrix[16];
+						uint32_t transformBufferIndex;
 						uint32_t skinningMatricesBufferIndex;
 						uint32_t materialBufferIndex;
 					};
 
 					PassConstants passConsts;
 					memcpy(passConsts.viewProjectionMatrix, &shadowMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					passConsts.transformBufferIndex = data.m_transformBufferHandle;
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
@@ -949,12 +951,12 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 						{
 							struct MeshConstants
 							{
-								float modelMatrix[16];
+								uint32_t transformIndex;
 								uint32_t uintData[2];
 							};
 
 							MeshConstants consts{};
-							memcpy(consts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
+							consts.transformIndex = instance.m_transformIndex;
 
 							size_t uintDataOffset = 0;
 							if (skinned)
@@ -966,7 +968,7 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 								consts.uintData[uintDataOffset++] = instance.m_materialHandle;
 							}
 
-							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(float) * 16 + sizeof(uint32_t) * uintDataOffset), &consts);
+							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
 
 
 							Buffer *vertexBuffers[]

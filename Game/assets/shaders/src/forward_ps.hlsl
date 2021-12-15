@@ -12,6 +12,8 @@ struct PSInput
 	float4 tangent : TANGENT;
 	float2 texCoord : TEXCOORD;
 	float3 worldSpacePosition : WORLD_SPACE_POS;
+	float4 curScreenPos : CUR_SCREEN_POS;
+	float4 prevScreenPos : PREV_SCREEN_POS;
 	bool frontFace : SV_IsFrontFace;
 };
 
@@ -26,9 +28,13 @@ struct PSOutput
 struct PassConstants
 {
 	float4x4 viewProjectionMatrix;
+	float4x4 prevViewProjectionMatrix;
 	float4 viewMatrixDepthRow;
 	float3 cameraPosition;
+	uint transformBufferIndex;
+	uint prevTransformBufferIndex;
 	uint skinningMatricesBufferIndex;
+	uint prevSkinningMatricesBufferIndex;
 	uint materialBufferIndex;
 	uint directionalLightCount;
 	uint directionalLightBufferIndex;
@@ -50,7 +56,7 @@ struct PassConstants
 
 struct DrawConstants
 {
-	float4x4 modelMatrix;
+	uint transformIndex;
 	uint materialIndex;
 	uint entityID;
 };
@@ -274,6 +280,11 @@ PSOutput main(PSInput input)
 	output.color = float4(result, 1.0f);
 	output.normalRoughness = float4(encodeOctahedron24(lightingParams.N), lightingParams.roughness);
 	output.albedoMetalness = float4(lightingParams.albedo, lightingParams.metalness);
+	
+	float2 prevUV = (input.prevScreenPos.xy / input.prevScreenPos.w) * float2(0.5f, -0.5f) + 0.5f;
+	float2 curUV = (input.curScreenPos.xy / input.curScreenPos.w) * float2(0.5f, -0.5f) + 0.5f;
+
+	output.velocity = curUV - prevUV;
 	
 	return output;
 }

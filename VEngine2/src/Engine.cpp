@@ -190,11 +190,9 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			m_animationSystem->update(k_stepSize);
 
 			ImGui::Render();
-
-			renderWorld.populate(m_ecs, m_cameraEntity);
 		}
 
-		renderWorld.interpolate(accumulator / k_stepSize);
+		renderWorld.populate(m_ecs, m_cameraEntity, accumulator / k_stepSize);
 
 		m_renderer->render(timeDelta, renderWorld);
 		m_pickedEntity = m_renderer->getPickedEntity();

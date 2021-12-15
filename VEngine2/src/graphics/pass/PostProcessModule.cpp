@@ -181,7 +181,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 			DescriptorSetLayoutBinding usedBindlessBindings[] =
 			{
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // skinning matrices
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // model/skinning matrices
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 2, ShaderStageFlags::VERTEX_BIT), // material buffer
 			};
 
@@ -193,7 +193,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 
 			gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT);
 
-			uint32_t pushConstSize = sizeof(float) * 16 + sizeof(uint32_t);
+			uint32_t pushConstSize = sizeof(uint32_t) * 2;
 			pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
 			pushConstSize += isAlphaTested ? sizeof(uint32_t) : 0;
 			builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT, 1, &staticSamplerDesc, 2);
@@ -303,7 +303,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 0, ShaderStageFlags::VERTEX_BIT), // skinning matrices
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 0, ShaderStageFlags::VERTEX_BIT), // model/skinning matrices
 		};
 
 
@@ -313,7 +313,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 
-		uint32_t pushConstSize = sizeof(float) * 16;
+		uint32_t pushConstSize = sizeof(uint32_t);
 		pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
 		builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT, 0, nullptr, -1);
 
@@ -545,12 +545,14 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					struct PassConstants
 					{
 						float viewProjectionMatrix[16];
+						uint32_t transformBufferIndex;
 						uint32_t skinningMatricesBufferIndex;
 						uint32_t materialBufferIndex;
 					};
 
 					PassConstants passConsts;
 					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					passConsts.transformBufferIndex = data.m_transformBufferHandle;
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
@@ -592,13 +594,13 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 						{
 							struct MeshConstants
 							{
-								float modelMatrix[16];
+								uint32_t transformIndex;
 								uint32_t outlineID;
 								uint32_t uintData[2];
 							};
 
 							MeshConstants consts{};
-							memcpy(consts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
+							consts.transformIndex = instance.m_transformIndex;
 							consts.outlineID = 1;// curOutlineID++;
 
 							size_t uintDataOffset = 0;
@@ -611,7 +613,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 								consts.uintData[uintDataOffset++] = instance.m_materialHandle;
 							}
 
-							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(float) * 16 + sizeof(uint32_t) * (uintDataOffset + 1)), &consts);
+							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * (uintDataOffset + 1)), &consts);
 
 
 							Buffer *vertexBuffers[]
@@ -728,12 +730,14 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					struct PassConstants
 					{
 						float viewProjectionMatrix[16];
+						uint32_t transformBufferIndex;
 						uint32_t skinningMatricesBufferIndex;
 						float normalsLength;
 					};
 
 					PassConstants passConsts;
 					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					passConsts.transformBufferIndex = data.m_transformBufferHandle;
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.normalsLength = 0.1f;
 
@@ -779,12 +783,12 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 						{
 							struct MeshConstants
 							{
-								float modelMatrix[16];
+								uint32_t transformIndex;
 							};
 
 							struct SkinnedMeshConstants
 							{
-								float modelMatrix[16];
+								uint32_t transformIndex;
 								uint32_t skinningMatricesOffset;
 							};
 
@@ -793,12 +797,12 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 							if (skinned)
 							{
-								memcpy(skinnedConsts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
+								skinnedConsts.transformIndex = instance.m_transformIndex;
 								skinnedConsts.skinningMatricesOffset = instance.m_skinningMatricesOffset;
 							}
 							else
 							{
-								memcpy(consts.modelMatrix, &data.m_modelMatrices[instance.m_transformIndex][0][0], sizeof(float) * 16);
+								consts.transformIndex = instance.m_transformIndex;
 							}
 
 							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);

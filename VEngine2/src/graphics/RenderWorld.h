@@ -23,7 +23,6 @@ struct RenderWorld
 		float m_depthBias[LightComponent::k_maxCascades] ;
 		float m_normalOffsetBias[LightComponent::k_maxCascades];
 		bool m_shadowsEnabled;
-		size_t m_transformIndex;
 	};
 
 	struct PunctualLight
@@ -37,7 +36,6 @@ struct RenderWorld
 		float m_innerAngle;
 		bool m_shadowsEnabled;
 		bool m_spotLight;
-		size_t m_transformIndex;
 	};
 
 	struct GlobalParticipatingMedium
@@ -69,15 +67,13 @@ struct RenderWorld
 
 	struct Camera
 	{
+		Transform m_transform;
 		float m_aspectRatio;
 		float m_fovy;
 		float m_near;
 		float m_far;
-		size_t m_transformIndex;
 	};
 
-	size_t m_meshTransformsOffset;
-	size_t m_meshTransformsCount;
 	size_t m_cameraIndex;
 	eastl::vector<Camera> m_cameras;
 	eastl::vector<DirectionalLight> m_directionalLights;
@@ -86,14 +82,11 @@ struct RenderWorld
 	eastl::vector<PunctualLight> m_punctualLightsShadowed;
 	eastl::vector<GlobalParticipatingMedium> m_globalParticipatingMedia;
 	eastl::vector<Mesh> m_meshes;
-	eastl::vector<Transform> m_transforms;
-	eastl::vector<Transform> m_prevTransforms;
+
+	eastl::vector<Transform> m_meshTransforms;
+	eastl::vector<Transform> m_prevMeshTransforms;
 	eastl::vector<glm::mat4> m_skinningMatrices;
 	eastl::vector<glm::mat4> m_prevSkinningMatrices;
 
-	eastl::vector<Transform> m_interpolatedTransforms;
-	eastl::vector<glm::mat4> m_interpolatedSkinningMatrices;
-
-	void populate(ECS *ecs, EntityID cameraEntity) noexcept;
-	void interpolate(float fractionalSimFrameTime) noexcept;
+	void populate(ECS *ecs, EntityID cameraEntity, float fractionalSimFrameTime) noexcept;
 };

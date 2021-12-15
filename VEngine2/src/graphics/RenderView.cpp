@@ -130,6 +130,7 @@ void RenderView::render(
 	rg::ResourceViewHandle pickingBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::createDefault("Picking Buffer", pickingBufferHandle, graph));
 
 	m_modelMatrices.clear();
+	m_prevModelMatrices.clear();
 	m_globalMedia.clear();
 	m_renderList.clear();
 	m_outlineRenderList.clear();
@@ -156,11 +157,15 @@ void RenderView::render(
 	}
 
 	// create transform matrices
-	for (size_t i = 0; i < renderWorld.m_meshTransformsCount; ++i)
+	for (const auto &transform : renderWorld.m_meshTransforms)
 	{
-		const auto &transform = renderWorld.m_interpolatedTransforms[i + renderWorld.m_meshTransformsOffset];
 		glm::mat4 modelMatrix = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale);
 		m_modelMatrices.push_back(modelMatrix);
+	}
+	for (const auto &transform : renderWorld.m_prevMeshTransforms)
+	{
+		glm::mat4 modelMatrix = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale);
+		m_prevModelMatrices.push_back(modelMatrix);
 	}
 
 	// fill mesh render lists
@@ -169,7 +174,7 @@ void RenderView::render(
 	{
 		SubMeshInstanceData instanceData{};
 		instanceData.m_subMeshHandle = mesh.m_subMeshHandle;
-		instanceData.m_transformIndex = static_cast<uint32_t>(mesh.m_transformIndex - renderWorld.m_meshTransformsOffset);
+		instanceData.m_transformIndex = static_cast<uint32_t>(mesh.m_transformIndex);
 		instanceData.m_skinningMatricesOffset = static_cast<uint32_t>(mesh.m_skinningMatricesOffset);
 		instanceData.m_materialHandle = mesh.m_materialHandle;
 		instanceData.m_entityID = mesh.m_entity;
@@ -225,7 +230,10 @@ void RenderView::render(
 			m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
 	};
 
+	StructuredBufferViewHandle transformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_modelMatrices);
+	StructuredBufferViewHandle prevTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_prevModelMatrices);
 	StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, renderWorld.m_skinningMatrices);
+	StructuredBufferViewHandle prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, renderWorld.m_prevSkinningMatrices);
 
 	StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
 
@@ -253,6 +261,7 @@ void RenderView::render(
 	m_lightManager->recordLightTileAssignment(graph, viewData);
 
 	LightManager::ShadowRecordData shadowRecordData{};
+	shadowRecordData.m_transformBufferHandle = transformsBufferViewHandle;
 	shadowRecordData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 	shadowRecordData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	shadowRecordData.m_renderList = &m_renderList;
@@ -276,7 +285,10 @@ void RenderView::render(
 	forwardModuleData.m_nearPlane = cameraComponent->m_near;
 	forwardModuleData.m_pickingPosX = pickingPosX;
 	forwardModuleData.m_pickingPosY = pickingPosY;
+	forwardModuleData.m_transformBufferHandle = transformsBufferViewHandle;
+	forwardModuleData.m_prevTransformBufferHandle = prevTransformsBufferViewHandle;
 	forwardModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
+	forwardModuleData.m_prevSkinningMatrixBufferHandle = prevSkinningMatricesBufferViewHandle;
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_globalMediaBufferHandle = globalMediaBufferViewHandle;
 	forwardModuleData.m_pickingBufferHandle = pickingBufferViewHandle;
@@ -286,6 +298,7 @@ void RenderView::render(
 	forwardModuleData.m_invViewProjectionMatrix = viewData.m_invViewProjectionMatrix;
 	forwardModuleData.m_viewMatrix = viewData.m_viewMatrix;
 	forwardModuleData.m_invProjectionMatrix = viewData.m_invProjectionMatrix;
+	forwardModuleData.m_prevViewProjectionMatrix = m_prevViewProjection;
 	forwardModuleData.m_cameraPosition = viewData.m_cameraPosition;
 	forwardModuleData.m_renderList = &m_renderList;
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
@@ -311,6 +324,7 @@ void RenderView::render(
 	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
 	postProcessModuleData.m_exposureBufferViewHandle = exposureBufferViewHandle;
+	postProcessModuleData.m_transformBufferHandle = transformsBufferViewHandle;
 	postProcessModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	postProcessModuleData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
@@ -358,6 +372,8 @@ void RenderView::render(
 			bufferCopy.m_size = sizeof(uint32_t) * 4;
 			cmdList->copyBuffer(registry.getBuffer(pickingBufferViewHandle), registry.getBuffer(pickingReadbackBufferViewHandle), 1, &bufferCopy);
 		});
+
+	m_prevViewProjection = viewData.m_viewProjectionMatrix;
 
 	++m_frame;
 }

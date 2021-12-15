@@ -62,6 +62,7 @@ private:
 	uint32_t m_height = 0;
 	uint32_t m_frame = 0;
 	EntityID m_pickedEntity = 0;
+	glm::mat4 m_prevViewProjection = {};
 	RendererResources *m_rendererResources = nullptr;
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle = {};
@@ -72,6 +73,7 @@ private:
 	GridPass *m_gridPass = nullptr;
 
 	eastl::vector<glm::mat4> m_modelMatrices;
+	eastl::vector<glm::mat4> m_prevModelMatrices;
 	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
 	RenderList m_renderList;
 	RenderList m_outlineRenderList;

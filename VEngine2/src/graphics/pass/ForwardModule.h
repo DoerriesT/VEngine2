@@ -30,7 +30,10 @@ public:
 		float m_nearPlane;
 		uint32_t m_pickingPosX;
 		uint32_t m_pickingPosY;
+		StructuredBufferViewHandle m_transformBufferHandle;
+		StructuredBufferViewHandle m_prevTransformBufferHandle;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
+		StructuredBufferViewHandle m_prevSkinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_globalMediaBufferHandle;
 		rg::ResourceViewHandle m_pickingBufferHandle;
@@ -40,6 +43,7 @@ public:
 		glm::mat4 m_invViewProjectionMatrix;
 		glm::mat4 m_viewMatrix;
 		glm::mat4 m_invProjectionMatrix;
+		glm::mat4 m_prevViewProjectionMatrix;
 		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;
 		const glm::mat4 *m_modelMatrices;

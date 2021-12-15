@@ -24,13 +24,14 @@ struct VSOutput
 struct PassConstants
 {
 	float4x4 viewProjectionMatrix;
+	uint transformBufferIndex;
 	uint skinningMatricesBufferIndex;
 	float normalsLength;
 };
 
 struct DrawConstants
 {
-	float4x4 modelMatrix;
+	uint transformIndex;
 #if SKINNED
 	uint skinningMatricesOffset;
 #endif
@@ -38,9 +39,7 @@ struct DrawConstants
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 PUSH_CONSTS(DrawConstants, g_DrawConstants);
-#if SKINNED
-StructuredBuffer<float4x4> g_SkinningMatrices[65536] : REGISTER_SRV(4, 0, 1);
-#endif
+StructuredBuffer<float4x4> g_Matrices[65536] : REGISTER_SRV(4, 0, 1);
 
 float3x3 inverse(float3x3 m)
 {
@@ -71,16 +70,17 @@ VSOutput main(VSInput input)
 	float4x4 skinningMat = 0.0f;
 	for (uint i = 0; i < 4; ++i)
 	{
-		skinningMat += g_SkinningMatrices[g_PassConstants.skinningMatricesBufferIndex][g_DrawConstants.skinningMatricesOffset + input.jointIndices[i]] * input.jointWeights[i];
+		skinningMat += g_Matrices[g_PassConstants.skinningMatricesBufferIndex][g_DrawConstants.skinningMatricesOffset + input.jointIndices[i]] * input.jointWeights[i];
 	}
 	
 	vertexPos = mul(skinningMat, float4(input.position, 1.0f)).xyz;
 	vertexNormal = normalize(mul(transpose(inverse((float3x3)skinningMat)), input.normal));
 #endif // SKINNED
 
-	float3x3 normalTransform = transpose(inverse((float3x3)g_DrawConstants.modelMatrix));
+	float4x4 modelMatrix = g_Matrices[g_PassConstants.transformBufferIndex][g_DrawConstants.transformIndex];
+	float3x3 normalTransform = transpose(inverse((float3x3)modelMatrix));
 
-	output.worldSpacePosition = mul(g_DrawConstants.modelMatrix, float4(vertexPos, 1.0f)).xyz;
+	output.worldSpacePosition = mul(modelMatrix, float4(vertexPos, 1.0f)).xyz;
 	output.position = mul(g_PassConstants.viewProjectionMatrix, float4(output.worldSpacePosition, 1.0f));
 	output.normal = normalize(mul(normalTransform, vertexNormal));
 

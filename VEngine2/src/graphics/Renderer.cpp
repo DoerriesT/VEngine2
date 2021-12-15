@@ -111,7 +111,7 @@ void Renderer::render(float deltaTime, const RenderWorld &renderWorld) noexcept
 			const RenderWorld::Camera &renderWorldCam = renderWorld.m_cameras[renderWorld.m_cameraIndex];
 
 			TransformComponent tc{};
-			tc.m_transform = renderWorld.m_interpolatedTransforms[renderWorldCam.m_transformIndex];
+			tc.m_transform = renderWorldCam.m_transform;
 			
 			CameraComponent cc{};
 			cc.m_aspectRatio = renderWorldCam.m_aspectRatio;

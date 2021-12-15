@@ -21,6 +21,7 @@ struct TransformComponent
 	Mobility m_mobility = Mobility::DYNAMIC;
 	Transform m_transform;
 	Transform m_prevTransform;
+	Transform m_lastRenderTransform;
 
 	static void onGUI(void *instance) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;

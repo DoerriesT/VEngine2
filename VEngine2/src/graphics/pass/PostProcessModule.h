@@ -29,6 +29,7 @@ public:
 		rg::ResourceViewHandle m_depthBufferImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
 		rg::ResourceViewHandle m_exposureBufferViewHandle;
+		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		glm::mat4 m_viewProjectionMatrix;

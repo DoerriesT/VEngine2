@@ -35,6 +35,7 @@ class LightManager
 public:
 	struct ShadowRecordData
 	{
+		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		const RenderList *m_renderList;

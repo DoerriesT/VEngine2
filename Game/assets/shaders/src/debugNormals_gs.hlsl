@@ -15,6 +15,7 @@ struct GSOutput
 struct PassConstants
 {
 	float4x4 viewProjectionMatrix;
+	uint transformBufferIndex;
 	uint skinningMatricesBufferIndex;
 	float normalsLength;
 };
