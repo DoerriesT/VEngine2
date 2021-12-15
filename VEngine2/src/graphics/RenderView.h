@@ -6,6 +6,7 @@
 #include <glm/mat4x4.hpp>
 #include "RenderData.h"
 #include "ecs/ECSCommon.h"
+#include "CommonViewData.h"
 
 struct RenderViewResources;
 class ResourceViewRegistry;
@@ -62,10 +63,11 @@ private:
 	uint32_t m_height = 0;
 	uint32_t m_frame = 0;
 	EntityID m_pickedEntity = 0;
-	glm::mat4 m_prevViewProjection = {};
 	RendererResources *m_rendererResources = nullptr;
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle = {};
+	float *m_haltonJitter = nullptr;
+	CommonViewData m_viewData[2] = {};
 
 	LightManager *m_lightManager = nullptr;
 	ForwardModule *m_forwardModule = nullptr;

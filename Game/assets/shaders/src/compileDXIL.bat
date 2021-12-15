@@ -47,4 +47,6 @@ dxc.exe -T cs_6_0 -E main volumetricFogScatter_cs.hlsl -Fo ./../volumetricFogSca
 dxc.exe -T cs_6_0 -E main volumetricFogFilter_cs.hlsl -Fo ./../volumetricFogFilter_cs.cso -Zi -Fd ./../volumetricFogFilter_cs.pdb
 dxc.exe -T cs_6_0 -E main volumetricFogIntegrate_cs.hlsl -Fo ./../volumetricFogIntegrate_cs.cso -Zi -Fd ./../volumetricFogIntegrate_cs.pdb
 
+dxc.exe -T cs_6_0 -E main temporalAA_cs.hlsl -Fo ./../temporalAA_cs.cso -Zi -Fd ./../temporalAA_cs.pdb
+
 pause

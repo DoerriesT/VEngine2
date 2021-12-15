@@ -421,14 +421,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 				struct PassConstants
 				{
-					float viewProjectionMatrix[16];
+					float jitteredViewProjectionMatrix[16];
 					uint32_t transformBufferIndex;
 					uint32_t skinningMatricesBufferIndex;
 					uint32_t materialBufferIndex;
 				};
 
 				PassConstants passConsts;
-				memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
 				passConsts.transformBufferIndex = data.m_transformBufferHandle;
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
@@ -599,6 +599,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 				struct PassConstants
 				{
+					float jitteredViewProjectionMatrix[16];
 					float viewProjectionMatrix[16];
 					float prevViewProjectionMatrix[16];
 					float viewMatrixDepthRow[4];
@@ -624,9 +625,11 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					uint32_t pickingBufferIndex;
 					uint32_t pickingPosX;
 					uint32_t pickingPosY;
+					float lodBias;
 				};
 
 				PassConstants passConsts{};
+				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
 				memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 				memcpy(passConsts.prevViewProjectionMatrix, &data.m_prevViewProjectionMatrix[0][0], sizeof(passConsts.prevViewProjectionMatrix));
 				passConsts.viewMatrixDepthRow[0] = data.m_viewMatrix[0][2];
@@ -655,6 +658,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.pickingBufferIndex = registry.getBindlessHandle(data.m_pickingBufferHandle, DescriptorType::RW_BYTE_BUFFER);
 				passConsts.pickingPosX = data.m_pickingPosX;
 				passConsts.pickingPosY = data.m_pickingPosY;
+				passConsts.lodBias = data.m_taaEnabled ? -0.5f : 0.0f;
 
 				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
@@ -778,7 +782,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					cmdList->bindDescriptorSets(m_skyPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
 
 					SkyPushConsts skyPushConsts{};
-					memcpy(skyPushConsts.invModelViewProjection, &data.m_invViewProjectionMatrix[0][0], sizeof(skyPushConsts.invModelViewProjection));
+					memcpy(skyPushConsts.invModelViewProjection, &data.m_invJitteredViewProjectionMatrix[0][0], sizeof(skyPushConsts.invModelViewProjection));
 					skyPushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 
 					cmdList->pushConstants(m_skyPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(skyPushConsts), &skyPushConsts);
@@ -822,7 +826,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 			GTAOConstants consts{};
 			consts.viewMatrix = data.m_viewMatrix;
-			consts.invProjectionMatrix = data.m_invProjectionMatrix;
+			consts.invProjectionMatrix = data.m_invJitteredProjectionMatrix;
 			consts.resolution[0] = data.m_width;
 			consts.resolution[1] = data.m_height;
 			consts.texelSize[0] = 1.0f / data.m_width;
@@ -933,8 +937,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				pushConsts.volumetricFogTexelSize = 1.0f / glm::vec3(240.0f, 135.0f, 128.0f);
 				pushConsts.volumetricFogNear = 0.5f;
 				pushConsts.volumetricFogFar = 64.0f;
-				pushConsts.depthUnprojectParams[0] = data.m_invProjectionMatrix[2][3];
-				pushConsts.depthUnprojectParams[1] = data.m_invProjectionMatrix[3][3];
+				pushConsts.depthUnprojectParams[0] = data.m_invJitteredProjectionMatrix[2][3];
+				pushConsts.depthUnprojectParams[1] = data.m_invJitteredProjectionMatrix[3][3];
 				pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 				pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);

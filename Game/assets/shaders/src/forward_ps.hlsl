@@ -27,6 +27,7 @@ struct PSOutput
 
 struct PassConstants
 {
+	float4x4 jitteredViewProjectionMatrix;
 	float4x4 viewProjectionMatrix;
 	float4x4 prevViewProjectionMatrix;
 	float4 viewMatrixDepthRow;
@@ -52,6 +53,7 @@ struct PassConstants
 	uint pickingBufferIndex;
 	uint pickingPosX;
 	uint pickingPosY;
+	float lodBias;
 };
 
 struct DrawConstants
@@ -131,7 +133,7 @@ PSOutput main(PSInput input)
 		lightingParams.albedo = unpackUnorm4x8(material.albedo).rgb;
 		if (material.albedoTextureHandle != 0)
 		{
-			lightingParams.albedo = g_Textures[material.albedoTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).rgb;
+			lightingParams.albedo = g_Textures[material.albedoTextureHandle].SampleBias(g_AnisoRepeatSampler, input.texCoord, g_PassConstants.lodBias).rgb;
 		}
 		lightingParams.albedo = accurateSRGBToLinear(lightingParams.albedo);
 	}
@@ -144,7 +146,7 @@ PSOutput main(PSInput input)
 		if (material.normalTextureHandle != 0)
 		{
 			float3 tangentSpaceNormal;
-			tangentSpaceNormal.xy = g_Textures[material.normalTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).xy * 2.0 - 1.0;
+			tangentSpaceNormal.xy = g_Textures[material.normalTextureHandle].SampleBias(g_AnisoRepeatSampler, input.texCoord, g_PassConstants.lodBias).xy * 2.0 - 1.0;
 			tangentSpaceNormal.z = sqrt(1.0 - tangentSpaceNormal.x * tangentSpaceNormal.x + tangentSpaceNormal.y * tangentSpaceNormal.y);
 
 			float3 bitangent = cross(input.normal, input.tangent.xyz) * input.tangent.w;
@@ -160,7 +162,7 @@ PSOutput main(PSInput input)
 		lightingParams.metalness = material.metalness;
 		if (material.metalnessTextureHandle != 0)
 		{
-			lightingParams.metalness = g_Textures[material.metalnessTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).z;
+			lightingParams.metalness = g_Textures[material.metalnessTextureHandle].SampleBias(g_AnisoRepeatSampler, input.texCoord, g_PassConstants.lodBias).z;
 		}
 	}
 	
@@ -169,7 +171,7 @@ PSOutput main(PSInput input)
 		lightingParams.roughness = material.roughness;
 		if (material.roughnessTextureHandle != 0)
 		{
-			lightingParams.roughness = g_Textures[material.roughnessTextureHandle].Sample(g_AnisoRepeatSampler, input.texCoord).y;
+			lightingParams.roughness = g_Textures[material.roughnessTextureHandle].SampleBias(g_AnisoRepeatSampler, input.texCoord, g_PassConstants.lodBias).y;
 		}
 	}
 	

@@ -22,9 +22,9 @@ VolumetricFogModule::VolumetricFogModule(gal::GraphicsDevice *device, gal::Descr
 {
 	for (size_t i = 0; i < k_haltonSampleCount; ++i)
 	{
-		m_haltonJitter[i * 3 + 0] = util::halton(i + 1, 2);
-		m_haltonJitter[i * 3 + 1] = util::halton(i + 1, 3);
-		m_haltonJitter[i * 3 + 2] = util::halton(i + 1, 5);
+		m_haltonJitter[i * 3 + 0] = util::halton(i + 1, 2) * 2.0f - 1.0f;
+		m_haltonJitter[i * 3 + 1] = util::halton(i + 1, 3) * 2.0f - 1.0f;
+		m_haltonJitter[i * 3 + 2] = util::halton(i + 1, 5) * 2.0f - 1.0f;
 	}
 
 	// scatter

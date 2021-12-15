@@ -27,6 +27,9 @@ public:
 		float m_deltaTime;
 		rg::ResourceViewHandle m_lightingImageView;
 		rg::ResourceViewHandle m_depthBufferImageViewHandle;
+		rg::ResourceViewHandle m_velocityImageViewHandle;
+		rg::ResourceViewHandle m_temporalAAResultImageViewHandle;
+		rg::ResourceViewHandle m_temporalAAHistoryImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
 		rg::ResourceViewHandle m_exposureBufferViewHandle;
 		StructuredBufferViewHandle m_transformBufferHandle;
@@ -41,6 +44,8 @@ public:
 		const SubMeshBufferHandles *m_meshBufferHandles;
 		bool m_debugNormals;
 		bool m_renderOutlines;
+		bool m_ignoreHistory;
+		bool m_taaEnabled;
 	};
 
 	struct ResultData
@@ -59,6 +64,7 @@ public:
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
+	gal::ComputePipeline *m_temporalAAPipeline = nullptr;
 	gal::ComputePipeline *m_luminanceHistogramPipeline = nullptr;
 	gal::ComputePipeline *m_autoExposurePipeline = nullptr;
 	gal::ComputePipeline *m_tonemapPipeline = nullptr;

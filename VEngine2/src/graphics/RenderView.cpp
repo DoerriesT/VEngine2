@@ -25,9 +25,13 @@
 #include <EASTL/numeric.h>
 #include <EASTL/sort.h>
 #include <glm/gtx/quaternion.hpp>
-#include "CommonViewData.h"
+#include "utility/Utility.h"
+
+bool g_taaEnabled = true;
 
 using namespace gal;
+
+static constexpr size_t k_haltonSampleCount = 16;
 
 RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *rendererResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept
 	:m_device(device),
@@ -36,8 +40,15 @@ RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRe
 	m_materialManager(materialManager),
 	m_rendererResources(rendererResources),
 	m_width(width),
-	m_height(height)
+	m_height(height),
+	m_haltonJitter(new float[k_haltonSampleCount * 2])
 {
+	for (size_t i = 0; i < k_haltonSampleCount; ++i)
+	{
+		m_haltonJitter[i * 2 + 0] = util::halton(i + 1, 2) * 2.0f - 1.0f;
+		m_haltonJitter[i * 2 + 1] = util::halton(i + 1, 3) * 2.0f - 1.0f;
+	}
+
 	m_renderViewResources = new RenderViewResources(m_device, viewRegistry, m_width, m_height);
 	m_lightManager = new LightManager(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_forwardModule = new ForwardModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
@@ -90,13 +101,32 @@ void RenderView::render(
 		buffer->unmap();
 	}
 
-	CommonViewData viewData{};
+	const size_t haltonIdx = m_frame % k_haltonSampleCount;
+	glm::mat4 jitterMatrix = g_taaEnabled ? glm::translate(glm::vec3(m_haltonJitter[haltonIdx * 2 + 0] / m_width, m_haltonJitter[haltonIdx * 2 + 1] / m_height, 0.0f)) : glm::identity<glm::mat4>();
+
+	auto &viewData = m_viewData[resIdx];
 	viewData.m_viewMatrix = glm::make_mat4(viewMatrix);
 	viewData.m_invViewMatrix = glm::inverse(viewData.m_viewMatrix);
 	viewData.m_projectionMatrix = glm::make_mat4(projectionMatrix);
 	viewData.m_invProjectionMatrix = glm::inverse(viewData.m_projectionMatrix);
+	viewData.m_jitteredProjectionMatrix = jitterMatrix * viewData.m_projectionMatrix;
+	viewData.m_invJitteredProjectionMatrix = glm::inverse(viewData.m_jitteredProjectionMatrix);
 	viewData.m_viewProjectionMatrix = viewData.m_projectionMatrix * viewData.m_viewMatrix;
 	viewData.m_invViewProjectionMatrix = glm::inverse(viewData.m_viewProjectionMatrix);
+	viewData.m_jitteredViewProjectionMatrix = viewData.m_jitteredProjectionMatrix * viewData.m_viewMatrix;
+	viewData.m_invJitteredViewProjectionMatrix = glm::inverse(viewData.m_jitteredViewProjectionMatrix);
+
+	viewData.m_prevViewMatrix = m_viewData[prevResIdx].m_viewMatrix;
+	viewData.m_prevInvViewMatrix = m_viewData[prevResIdx].m_invViewMatrix;
+	viewData.m_prevProjectionMatrix = m_viewData[prevResIdx].m_projectionMatrix;
+	viewData.m_prevInvProjectionMatrix = m_viewData[prevResIdx].m_invProjectionMatrix;
+	viewData.m_prevJitteredProjectionMatrix = m_viewData[prevResIdx].m_jitteredProjectionMatrix;
+	viewData.m_prevInvJitteredProjectionMatrix = m_viewData[prevResIdx].m_invJitteredProjectionMatrix;
+	viewData.m_prevViewProjectionMatrix = m_viewData[prevResIdx].m_viewProjectionMatrix;
+	viewData.m_prevInvViewProjectionMatrix = m_viewData[prevResIdx].m_invViewProjectionMatrix;
+	viewData.m_prevJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_jitteredViewProjectionMatrix;
+	viewData.m_prevInvJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_invJitteredViewProjectionMatrix;
+
 	viewData.m_viewMatrixDepthRow = glm::vec4(viewData.m_viewMatrix[0][2], viewData.m_viewMatrix[1][2], viewData.m_viewMatrix[2][2], viewData.m_viewMatrix[3][2]);
 	viewData.m_cameraPosition = glm::make_vec3(cameraPosition);
 	viewData.m_near = cameraComponent->m_near;
@@ -128,6 +158,14 @@ void RenderView::render(
 	// picking buffer
 	rg::ResourceHandle pickingBufferHandle = graph->createBuffer(rg::BufferDesc::create("Picking Buffer", sizeof(uint32_t) * 4, gal::BufferUsageFlags::RW_BYTE_BUFFER_BIT | gal::BufferUsageFlags::TRANSFER_SRC_BIT | gal::BufferUsageFlags::CLEAR_BIT));
 	rg::ResourceViewHandle pickingBufferViewHandle = graph->createBufferView(rg::BufferViewDesc::createDefault("Picking Buffer", pickingBufferHandle, graph));
+
+	// TAA result
+	rg::ResourceHandle taaResultImageHandle = graph->importImage(m_renderViewResources->m_temporalAAImages[resIdx], "Temporal AA Result", &m_renderViewResources->m_temporalAAImageStates[resIdx]);
+	rg::ResourceViewHandle taaResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Temporal AA Result", taaResultImageHandle, graph));
+
+	// TAA history
+	rg::ResourceHandle taaHistoryImageHandle = graph->importImage(m_renderViewResources->m_temporalAAImages[prevResIdx], "Temporal AA History", &m_renderViewResources->m_temporalAAImageStates[prevResIdx]);
+	rg::ResourceViewHandle taaHistoryImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Temporal AA History", taaHistoryImageHandle, graph));
 
 	m_modelMatrices.clear();
 	m_prevModelMatrices.clear();
@@ -294,11 +332,12 @@ void RenderView::render(
 	forwardModuleData.m_pickingBufferHandle = pickingBufferViewHandle;
 	forwardModuleData.m_exposureBufferHandle = exposureBufferViewHandle;
 	forwardModuleData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
-	forwardModuleData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
-	forwardModuleData.m_invViewProjectionMatrix = viewData.m_invViewProjectionMatrix;
+	forwardModuleData.m_jitteredViewProjectionMatrix = viewData.m_jitteredViewProjectionMatrix;
+	forwardModuleData.m_invJitteredViewProjectionMatrix = viewData.m_invJitteredViewProjectionMatrix;
 	forwardModuleData.m_viewMatrix = viewData.m_viewMatrix;
-	forwardModuleData.m_invProjectionMatrix = viewData.m_invProjectionMatrix;
-	forwardModuleData.m_prevViewProjectionMatrix = m_prevViewProjection;
+	forwardModuleData.m_invJitteredProjectionMatrix = viewData.m_invJitteredProjectionMatrix;
+	forwardModuleData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
+	forwardModuleData.m_prevViewProjectionMatrix = viewData.m_prevViewProjectionMatrix;
 	forwardModuleData.m_cameraPosition = viewData.m_cameraPosition;
 	forwardModuleData.m_renderList = &m_renderList;
 	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
@@ -306,6 +345,7 @@ void RenderView::render(
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	forwardModuleData.m_rendererResources = m_rendererResources;
 	forwardModuleData.m_lightRecordData = m_lightManager->getLightRecordData();
+	forwardModuleData.m_taaEnabled = g_taaEnabled;
 
 	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
 
@@ -322,6 +362,9 @@ void RenderView::render(
 	postProcessModuleData.m_time = time;
 	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
 	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
+	postProcessModuleData.m_velocityImageViewHandle = forwardModuleResultData.m_velocityImageViewHandle;
+	postProcessModuleData.m_temporalAAResultImageViewHandle = taaResultImageViewHandle;
+	postProcessModuleData.m_temporalAAHistoryImageViewHandle = taaHistoryImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
 	postProcessModuleData.m_exposureBufferViewHandle = exposureBufferViewHandle;
 	postProcessModuleData.m_transformBufferHandle = transformsBufferViewHandle;
@@ -336,6 +379,8 @@ void RenderView::render(
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	postProcessModuleData.m_debugNormals = false;
 	postProcessModuleData.m_renderOutlines = anyOutlines;
+	postProcessModuleData.m_ignoreHistory = m_frame == 0;
+	postProcessModuleData.m_taaEnabled = g_taaEnabled;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
 
@@ -372,8 +417,6 @@ void RenderView::render(
 			bufferCopy.m_size = sizeof(uint32_t) * 4;
 			cmdList->copyBuffer(registry.getBuffer(pickingBufferViewHandle), registry.getBuffer(pickingReadbackBufferViewHandle), 1, &bufferCopy);
 		});
-
-	m_prevViewProjection = viewData.m_viewProjectionMatrix;
 
 	++m_frame;
 }

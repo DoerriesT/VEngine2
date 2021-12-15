@@ -29,6 +29,8 @@
 #include "job/JobSystem.h"
 #include "graphics/RenderWorld.h"
 
+extern bool g_taaEnabled;
+
 // these are needed for EASTL
 
 void *__cdecl operator new[](size_t size, const char *name, int flags, unsigned debugFlags, const char *file, int line)
@@ -167,6 +169,12 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 
 			ImGui::ShowDemoWindow();
+
+			ImGui::Begin("Debug");
+			{
+				ImGui::Checkbox("TAA", &g_taaEnabled);
+			}
+			ImGui::End();
 
 			// swap transforms
 			m_ecs->iterate<TransformComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC)

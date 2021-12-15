@@ -29,6 +29,7 @@ struct VSOutput
 
 struct PassConstants
 {
+	float4x4 jitteredViewProjectionMatrix;
 	float4x4 viewProjectionMatrix;
 	float4x4 prevViewProjectionMatrix;
 	float4 viewMatrixDepthRow;
@@ -54,6 +55,7 @@ struct PassConstants
 	uint pickingBufferIndex;
 	uint pickingPosX;
 	uint pickingPosY;
+	float lodBias;
 };
 
 struct DrawConstants
@@ -127,12 +129,12 @@ VSOutput main(VSInput input)
 	float3x3 normalTransform = transpose(inverse((float3x3)modelMatrix));
 
 	output.worldSpacePosition = mul(modelMatrix, float4(vertexPos, 1.0f)).xyz;
-	output.position = mul(g_PassConstants.viewProjectionMatrix, float4(output.worldSpacePosition, 1.0f));
+	output.position = mul(g_PassConstants.jitteredViewProjectionMatrix, float4(output.worldSpacePosition, 1.0f));
 	output.normal = normalize(mul(normalTransform, vertexNormal));
 	output.tangent = float4(normalize(mul((float3x3)modelMatrix, vertexTangent)), input.tangent.w);
 	output.texCoord = input.texCoord;
 	
-	output.curScreenPos = output.position;
+	output.curScreenPos = mul(g_PassConstants.viewProjectionMatrix, mul(modelMatrix, float4(vertexPos, 1.0f)));
 	
 	float4x4 prevModelMatrix = g_Matrices[g_PassConstants.prevTransformBufferIndex][g_DrawConstants.transformIndex];
 	output.prevScreenPos = mul(g_PassConstants.prevViewProjectionMatrix, mul(prevModelMatrix, float4(prevVertexPos, 1.0f)));

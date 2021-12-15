@@ -55,6 +55,31 @@ namespace
 PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept
 	:m_device(device)
 {
+	// temporal AA
+	{
+		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::ALL_STAGES };
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 1),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::ALL_STAGES);
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/temporalAA_cs");
+		builder.setPipelineLayoutDescription(2, layoutDecls, 0, ShaderStageFlags::ALL_STAGES, 1, &staticSamplerDesc, 2);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_temporalAAPipeline);
+	}
+
 	// luminance histogram
 	{
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
@@ -359,6 +384,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 
 PostProcessModule::~PostProcessModule() noexcept
 {
+	m_device->destroyComputePipeline(m_temporalAAPipeline);
 	m_device->destroyComputePipeline(m_luminanceHistogramPipeline);
 	m_device->destroyComputePipeline(m_autoExposurePipeline);
 	m_device->destroyComputePipeline(m_tonemapPipeline);
@@ -377,6 +403,64 @@ PostProcessModule::~PostProcessModule() noexcept
 
 void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
 {
+	rg::ResourceViewHandle hdrSceneTextureViewHandle = data.m_taaEnabled ? data.m_temporalAAResultImageViewHandle : data.m_lightingImageView;
+
+	if (data.m_taaEnabled)
+	{
+		rg::ResourceUsageDesc temporalAAUsageDescs[] =
+		{
+			{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{data.m_lightingImageView, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{data.m_depthBufferImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{data.m_velocityImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{data.m_temporalAAHistoryImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{data.m_temporalAAResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		};
+		graph->addPass("Temporal AA", rg::QueueType::GRAPHICS, eastl::size(temporalAAUsageDescs), temporalAAUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				GAL_SCOPED_GPU_LABEL(cmdList, "Temporal AA");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Temporal AA");
+				PROFILING_ZONE_SCOPED;
+
+				struct TAAConstants
+				{
+					uint32_t width;
+					uint32_t height;
+					float bicubicSharpness;
+					float jitterOffsetWeight;
+					uint32_t ignoreHistory;
+					uint32_t resultTextureIndex;
+					uint32_t inputTextureIndex;
+					uint32_t historyTextureIndex;
+					uint32_t depthTextureIndex;
+					uint32_t velocityTextureIndex;
+					uint32_t exposureDataBufferIndex;
+				};
+
+				TAAConstants consts{};
+				consts.width = data.m_width;
+				consts.height = data.m_height;
+				consts.bicubicSharpness = 0.5f;
+				consts.jitterOffsetWeight = 1.0f;
+				consts.ignoreHistory = data.m_ignoreHistory;
+				consts.resultTextureIndex = registry.getBindlessHandle(data.m_temporalAAResultImageViewHandle, DescriptorType::RW_TEXTURE);
+				consts.inputTextureIndex = registry.getBindlessHandle(data.m_lightingImageView, DescriptorType::TEXTURE);
+				consts.historyTextureIndex = registry.getBindlessHandle(data.m_temporalAAHistoryImageViewHandle, DescriptorType::TEXTURE);
+				consts.depthTextureIndex = registry.getBindlessHandle(data.m_depthBufferImageViewHandle, DescriptorType::TEXTURE);
+				consts.velocityTextureIndex = registry.getBindlessHandle(data.m_velocityImageViewHandle, DescriptorType::TEXTURE);
+				consts.exposureDataBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
+
+				uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+
+				cmdList->bindPipeline(m_temporalAAPipeline);
+
+				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+				cmdList->bindDescriptorSets(m_temporalAAPipeline, 0, 2, sets, 1, &constsAddress);
+
+				cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+			});
+	}
+
 	constexpr uint32_t k_histogramSize = 256;
 
 	// histogram buffer
@@ -398,7 +482,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 	rg::ResourceUsageDesc luminanceHistogramUsageDescs[] =
 	{
-		{data.m_lightingImageView, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{histogramBufferViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
@@ -424,7 +508,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			pushConsts.width = data.m_width;
 			pushConsts.scale = 1.0f / (exposureHistogramLogMax - exposureHistogramLogMin);
 			pushConsts.bias = -exposureHistogramLogMin * pushConsts.scale;
-			pushConsts.inputTextureIndex = registry.getBindlessHandle(data.m_lightingImageView, DescriptorType::TEXTURE);
+			pushConsts.inputTextureIndex = registry.getBindlessHandle(hdrSceneTextureViewHandle, DescriptorType::TEXTURE);
 			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
 			pushConsts.resultLuminanceBufferIndex = registry.getBindlessHandle(histogramBufferViewHandle, DescriptorType::RW_BYTE_BUFFER);
 
@@ -481,7 +565,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 	rg::ResourceUsageDesc tonemapUsageDescs[] =
 	{
-		{data.m_lightingImageView, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
@@ -501,7 +585,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			pushConsts.texelSize[0] = 1.0f / data.m_width;
 			pushConsts.texelSize[1] = 1.0f / data.m_height;
 			pushConsts.time = data.m_time;
-			pushConsts.inputImageIndex = registry.getBindlessHandle(data.m_lightingImageView, DescriptorType::TEXTURE);
+			pushConsts.inputImageIndex = registry.getBindlessHandle(hdrSceneTextureViewHandle, DescriptorType::TEXTURE);
 			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
 			pushConsts.outputImageIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
 
