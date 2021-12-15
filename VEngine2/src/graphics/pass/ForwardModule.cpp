@@ -547,7 +547,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	volumetricFogData.m_localMediaCount = 0; // TODO
 	volumetricFogData.m_viewMatrix = data.m_viewMatrix;
 	volumetricFogData.m_cameraPosition = data.m_cameraPosition;
-	volumetricFogData.m_ignoreHistory = data.m_frame < 2;
+	volumetricFogData.m_ignoreHistory = data.m_frame < 2 || data.m_ignoreHistory;
 	volumetricFogData.m_lightRecordData = data.m_lightRecordData;
 
 	m_volumetricFogModule->record(graph, volumetricFogData, &volumetricFogResultData);

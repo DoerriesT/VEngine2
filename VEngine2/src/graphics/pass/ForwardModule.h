@@ -53,6 +53,7 @@ public:
 		RendererResources *m_rendererResources;
 		const LightRecordData *m_lightRecordData;
 		bool m_taaEnabled;
+		bool m_ignoreHistory;
 	};
 
 	struct ResultData

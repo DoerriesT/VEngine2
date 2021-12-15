@@ -68,6 +68,8 @@ private:
 	rg::ResourceViewHandle m_resultImageViewHandle = {};
 	float *m_haltonJitter = nullptr;
 	CommonViewData m_viewData[2] = {};
+	bool m_ignoreHistory = true;
+	uint32_t m_framesSinceLastResize = 0;
 
 	LightManager *m_lightManager = nullptr;
 	ForwardModule *m_forwardModule = nullptr;

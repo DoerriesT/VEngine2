@@ -276,9 +276,10 @@ void RenderView::render(
 	StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
 
 	// prepare data
+	const bool initializeExposureBuffer = m_frame < 2;
 	eastl::fixed_vector<rg::ResourceUsageDesc, 8> prepareFrameDataPassUsages;
 	prepareFrameDataPassUsages.push_back({ pickingBufferViewHandle, {gal::ResourceState::CLEAR_RESOURCE} });
-	if (m_frame == 0)
+	if (initializeExposureBuffer)
 	{
 		prepareFrameDataPassUsages.push_back({ exposureBufferViewHandle, {gal::ResourceState::WRITE_TRANSFER} });
 	}
@@ -288,7 +289,7 @@ void RenderView::render(
 			cmdList->fillBuffer(registry.getBuffer(pickingBufferViewHandle), 0, sizeof(uint32_t) * 4, 0);
 
 			// initialize exposure buffer
-			if (m_frame == 0)
+			if (initializeExposureBuffer)
 			{
 				float data[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 				cmdList->updateBuffer(registry.getBuffer(exposureBufferViewHandle), 0, sizeof(data), data);
@@ -346,6 +347,7 @@ void RenderView::render(
 	forwardModuleData.m_rendererResources = m_rendererResources;
 	forwardModuleData.m_lightRecordData = m_lightManager->getLightRecordData();
 	forwardModuleData.m_taaEnabled = g_taaEnabled;
+	forwardModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 
 	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
 
@@ -379,7 +381,7 @@ void RenderView::render(
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	postProcessModuleData.m_debugNormals = false;
 	postProcessModuleData.m_renderOutlines = anyOutlines;
-	postProcessModuleData.m_ignoreHistory = m_frame == 0;
+	postProcessModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 	postProcessModuleData.m_taaEnabled = g_taaEnabled;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
@@ -419,6 +421,8 @@ void RenderView::render(
 		});
 
 	++m_frame;
+	++m_framesSinceLastResize;
+	m_ignoreHistory = false;
 }
 
 void RenderView::resize(uint32_t width, uint32_t height) noexcept
@@ -428,6 +432,8 @@ void RenderView::resize(uint32_t width, uint32_t height) noexcept
 		m_width = width;
 		m_height = height;
 		m_renderViewResources->resize(width, height);
+		m_ignoreHistory = true;
+		m_framesSinceLastResize = 0;
 	}
 }
 
