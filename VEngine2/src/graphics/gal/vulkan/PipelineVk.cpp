@@ -24,7 +24,7 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 	uint32_t stageCount = 0;
 	VkShaderModule shaderModules[5] = {};
 	VkPipelineShaderStageCreateInfo shaderStages[5] = {};
-	VkRenderPass renderPass;
+	VkRenderPass renderPass = VK_NULL_HANDLE;
 
 	// create shaders and perform reflection
 	{
@@ -59,7 +59,26 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 		}
 	}
 
+	VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfoVk{ VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR };
+	VkFormat colorAttachmentFormats[8];
+
+	const bool dynamicRenderingEnabled = m_device->isDynamicRenderingExtensionSupported();
+
+	if (dynamicRenderingEnabled)
+	{
+		for (size_t i = 0; i < createInfo.m_attachmentFormats.m_colorAttachmentCount; ++i)
+		{
+			colorAttachmentFormats[i] = UtilityVk::translate(createInfo.m_attachmentFormats.m_colorAttachmentFormats[i]);
+		}
+
+		pipelineRenderingCreateInfoVk.viewMask = 0;
+		pipelineRenderingCreateInfoVk.colorAttachmentCount = createInfo.m_attachmentFormats.m_colorAttachmentCount;
+		pipelineRenderingCreateInfoVk.pColorAttachmentFormats = colorAttachmentFormats;
+		pipelineRenderingCreateInfoVk.depthAttachmentFormat = UtilityVk::translate(createInfo.m_attachmentFormats.m_depthStencilFormat);
+		pipelineRenderingCreateInfoVk.stencilAttachmentFormat = pipelineRenderingCreateInfoVk.depthAttachmentFormat;
+	}
 	// get compatible renderpass
+	else
 	{
 		RenderPassDescriptionVk::ColorAttachmentDescriptionVk colorAttachments[8];
 		RenderPassDescriptionVk::DepthStencilAttachmentDescriptionVk depthStencilAttachment;
@@ -255,7 +274,7 @@ gal::GraphicsPipelineVk::GraphicsPipelineVk(GraphicsDeviceVk &device, const Grap
 	dynamicState.pDynamicStates = dynamicStatesArray;
 	UtilityVk::translateDynamicStateFlags(createInfo.m_dynamicStateFlags, dynamicState.dynamicStateCount, dynamicStatesArray);
 
-	VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
+	VkGraphicsPipelineCreateInfo pipelineInfo = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, dynamicRenderingEnabled ? &pipelineRenderingCreateInfoVk : nullptr };
 	pipelineInfo.flags = 0;
 	pipelineInfo.stageCount = stageCount;
 	pipelineInfo.pStages = shaderStages;

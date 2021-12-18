@@ -70,6 +70,7 @@ namespace gal
 		VkRenderPass getRenderPass(const RenderPassDescriptionVk &renderPassDescription);
 		VkFramebuffer getFramebuffer(const FramebufferDescriptionVk &framebufferDescription);
 		const VkPhysicalDeviceProperties &getDeviceProperties() const;
+		bool isDynamicRenderingExtensionSupported() const;
 		
 	private:
 		VkInstance m_instance = VK_NULL_HANDLE;
@@ -101,6 +102,7 @@ namespace gal
 		DynamicPoolAllocator m_descriptorSetPoolMemoryPool;
 		DynamicPoolAllocator m_descriptorSetLayoutMemoryPool;
 		bool m_debugLayers = false;
+		bool m_dynamicRenderingExtensionSupport = false;
 		void *m_profilingContext = nullptr;
 	};
 }

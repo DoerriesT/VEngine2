@@ -190,10 +190,11 @@ void Renderer::render(float deltaTime, const RenderWorld &renderWorld) noexcept
 
 			// have the swapchain image be transitioned to PRESENT
 			rg::ResourceUsageDesc presentTransitionUsageDesc = { swapchainViewHandle, {gal::ResourceState::PRESENT} };
-			m_renderGraph->addPass("Present Transition", rg::QueueType::GRAPHICS, 1, &presentTransitionUsageDesc, [=](gal::CommandList *, const rg::Registry &){});
+			m_renderGraph->addPass("Present Transition", rg::QueueType::GRAPHICS, 1, &presentTransitionUsageDesc, [=](gal::CommandList *cmdList, const rg::Registry &)
+				{
+					PROFILING_GPU_COLLECT(m_device->getProfilingContext(), cmdList);
+				});
 		}
-
-		PROFILING_GPU_COLLECT(m_device->getProfilingContext(), cmdList);
 	}
 
 	m_renderGraph->execute();

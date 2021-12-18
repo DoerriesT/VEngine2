@@ -615,138 +615,197 @@ void gal::CommandListVk::beginRenderPass(uint32_t colorAttachmentCount, ColorAtt
 {
 	assert(colorAttachmentCount <= 8);
 
-	VkRenderPass renderPass = VK_NULL_HANDLE;
-	VkFramebuffer framebuffer = VK_NULL_HANDLE;
-
-	VkClearValue clearValues[9] = {};
-	VkImageView attachmentViews[9] = {};
-	RenderPassDescriptionVk::ColorAttachmentDescriptionVk colorAttachmentDescsVk[8] = {};
-	RenderPassDescriptionVk::DepthStencilAttachmentDescriptionVk depthStencilAttachmentDescVk = {};
-	FramebufferDescriptionVk::AttachmentInfoVk fbAttachmentInfoVk[9] = {};
-
-	uint32_t attachmentCount = 0;
-
-	uint32_t framebufferWidth = -1;
-	uint32_t framebufferHeight = -1;
-
-	// fill out color attachment info structs
-	for (uint32_t i = 0; i < colorAttachmentCount; ++i)
+	if (m_device->isDynamicRenderingExtensionSupported())
 	{
-		const auto &attachment = colorAttachments[i];
-		const auto *image = attachment.m_imageView->getImage();
-		const auto &imageDesc = image->getDescription();
+		eastl::fixed_vector<VkRenderingAttachmentInfoKHR, 8> colorAttachmentsVk;
+		for (size_t i = 0; i < colorAttachmentCount; ++i)
+		{
+			const auto &attachment = colorAttachments[i];
 
-		framebufferWidth = eastl::min(framebufferWidth, imageDesc.m_width);
-		framebufferHeight = eastl::min(framebufferHeight, imageDesc.m_height);
+			VkRenderingAttachmentInfoKHR attachmentVk{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
+			attachmentVk.imageView = static_cast<VkImageView>(attachment.m_imageView->getNativeHandle());
+			attachmentVk.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			attachmentVk.resolveMode = VK_RESOLVE_MODE_NONE;
+			attachmentVk.resolveImageView; // ignored due to VK_RESOLVE_MODE_NONE
+			attachmentVk.resolveImageLayout; // ignored due to VK_RESOLVE_MODE_NONE
+			attachmentVk.loadOp = UtilityVk::translate(attachment.m_loadOp);
+			attachmentVk.storeOp = UtilityVk::translate(attachment.m_storeOp);
+			attachmentVk.clearValue.color = *reinterpret_cast<const VkClearColorValue *>(&attachment.m_clearValue);
 
-		attachmentViews[i] = (VkImageView)attachment.m_imageView->getNativeHandle();
-		clearValues[i].color = *reinterpret_cast<const VkClearColorValue *>(&attachment.m_clearValue);
+			colorAttachmentsVk.push_back(attachmentVk);
+		}
 
-		auto &attachmentDesc = colorAttachmentDescsVk[i];
-		attachmentDesc = {};
-		attachmentDesc.m_format = UtilityVk::translate(imageDesc.m_format);
-		attachmentDesc.m_samples = static_cast<VkSampleCountFlagBits>(imageDesc.m_samples);
-		attachmentDesc.m_loadOp = UtilityVk::translate(attachment.m_loadOp);
-		attachmentDesc.m_storeOp = UtilityVk::translate(attachment.m_storeOp);
-
-		const auto &viewDesc = attachment.m_imageView->getDescription();
-
-		auto &fbAttachInfo = fbAttachmentInfoVk[i];
-		fbAttachInfo = {};
-		fbAttachInfo.m_flags = UtilityVk::translateImageCreateFlags(imageDesc.m_createFlags);
-		fbAttachInfo.m_usage = UtilityVk::translateImageUsageFlags(imageDesc.m_usageFlags);
-		fbAttachInfo.m_width = imageDesc.m_width;
-		fbAttachInfo.m_height = imageDesc.m_height;
-		fbAttachInfo.m_layerCount = viewDesc.m_layerCount;
-		fbAttachInfo.m_format = attachmentDesc.m_format;
-
-		++attachmentCount;
-	}
-
-	// fill out depth/stencil attachment info struct
-	if (depthStencilAttachment)
-	{
-		const auto &attachment = *depthStencilAttachment;
-		const auto *image = attachment.m_imageView->getImage();
-		const auto &imageDesc = image->getDescription();
-
-		framebufferWidth = eastl::min(framebufferWidth, imageDesc.m_width);
-		framebufferHeight = eastl::min(framebufferHeight, imageDesc.m_height);
-
-		attachmentViews[attachmentCount] = (VkImageView)attachment.m_imageView->getNativeHandle();
-		clearValues[attachmentCount].depthStencil = *reinterpret_cast<const VkClearDepthStencilValue *>(&attachment.m_clearValue);
-
-		auto &attachmentDesc = depthStencilAttachmentDescVk;
-		attachmentDesc = {};
-		attachmentDesc.m_format = UtilityVk::translate(imageDesc.m_format);
-		attachmentDesc.m_samples = static_cast<VkSampleCountFlagBits>(imageDesc.m_samples);
-		attachmentDesc.m_loadOp = UtilityVk::translate(attachment.m_loadOp);
-		attachmentDesc.m_storeOp = UtilityVk::translate(attachment.m_storeOp);
-		attachmentDesc.m_stencilLoadOp = UtilityVk::translate(attachment.m_stencilLoadOp);
-		attachmentDesc.m_stencilStoreOp = UtilityVk::translate(attachment.m_stencilStoreOp);
-		attachmentDesc.m_layout = attachment.m_readOnly ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		const auto &viewDesc = attachment.m_imageView->getDescription();
-
-		auto &fbAttachInfo = fbAttachmentInfoVk[attachmentCount];
-		fbAttachInfo = {};
-		fbAttachInfo.m_flags = UtilityVk::translateImageCreateFlags(imageDesc.m_createFlags);
-		fbAttachInfo.m_usage = UtilityVk::translateImageUsageFlags(imageDesc.m_usageFlags);
-		fbAttachInfo.m_width = imageDesc.m_width;
-		fbAttachInfo.m_height = imageDesc.m_height;
-		fbAttachInfo.m_layerCount = viewDesc.m_layerCount;
-		fbAttachInfo.m_format = attachmentDesc.m_format;
-
-		++attachmentCount;
-	}
-
-	// get renderpass
-	{
-		RenderPassDescriptionVk renderPassDescription;
-		renderPassDescription.setColorAttachments(colorAttachmentCount, colorAttachmentDescsVk);
+		VkRenderingAttachmentInfoKHR depthAttachmentVk{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
+		VkRenderingAttachmentInfoKHR stencilAttachmentVk{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR };
 		if (depthStencilAttachment)
 		{
-			renderPassDescription.setDepthStencilAttachment(depthStencilAttachmentDescVk);
+			depthAttachmentVk.imageView = static_cast<VkImageView>(depthStencilAttachment->m_imageView->getNativeHandle());
+			depthAttachmentVk.imageLayout = depthStencilAttachment->m_readOnly ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			depthAttachmentVk.resolveMode = VK_RESOLVE_MODE_NONE;
+			depthAttachmentVk.resolveImageView; // ignored due to VK_RESOLVE_MODE_NONE
+			depthAttachmentVk.resolveImageLayout; // ignored due to VK_RESOLVE_MODE_NONE
+			depthAttachmentVk.loadOp = UtilityVk::translate(depthStencilAttachment->m_loadOp);
+			depthAttachmentVk.storeOp = UtilityVk::translate(depthStencilAttachment->m_storeOp);
+			depthAttachmentVk.clearValue.depthStencil = *reinterpret_cast<const VkClearDepthStencilValue *>(&depthStencilAttachment->m_clearValue);
+
+			stencilAttachmentVk = depthAttachmentVk;
+			stencilAttachmentVk.loadOp = UtilityVk::translate(depthStencilAttachment->m_stencilLoadOp);
+			stencilAttachmentVk.storeOp = UtilityVk::translate(depthStencilAttachment->m_stencilStoreOp);
 		}
-		renderPassDescription.finalize();
 
-		renderPass = m_device->getRenderPass(renderPassDescription);
+		VkRenderingInfoKHR renderingInfoVk{ VK_STRUCTURE_TYPE_RENDERING_INFO_KHR };
+		renderingInfoVk.renderArea = *reinterpret_cast<const VkRect2D *>(&renderArea);
+		renderingInfoVk.layerCount = 1;
+		renderingInfoVk.viewMask = 0;
+		renderingInfoVk.colorAttachmentCount = colorAttachmentCount;
+		renderingInfoVk.pColorAttachments = colorAttachmentsVk.data();
+		renderingInfoVk.pDepthAttachment = depthStencilAttachment ? &depthAttachmentVk : nullptr;
+		renderingInfoVk.pStencilAttachment = depthStencilAttachment ? &stencilAttachmentVk : nullptr;
+
+		vkCmdBeginRenderingKHR(m_commandBuffer, &renderingInfoVk);
 	}
-
-	// get framebuffer
+	else
 	{
-		if (framebufferWidth == -1 || framebufferHeight == -1)
+		VkRenderPass renderPass = VK_NULL_HANDLE;
+		VkFramebuffer framebuffer = VK_NULL_HANDLE;
+
+		VkClearValue clearValues[9] = {};
+		VkImageView attachmentViews[9] = {};
+		RenderPassDescriptionVk::ColorAttachmentDescriptionVk colorAttachmentDescsVk[8] = {};
+		RenderPassDescriptionVk::DepthStencilAttachmentDescriptionVk depthStencilAttachmentDescVk = {};
+		FramebufferDescriptionVk::AttachmentInfoVk fbAttachmentInfoVk[9] = {};
+
+		uint32_t attachmentCount = 0;
+
+		uint32_t framebufferWidth = -1;
+		uint32_t framebufferHeight = -1;
+
+		// fill out color attachment info structs
+		for (uint32_t i = 0; i < colorAttachmentCount; ++i)
 		{
-			framebufferWidth = renderArea.m_offset.m_x + renderArea.m_extent.m_width;
-			framebufferHeight = renderArea.m_offset.m_y + renderArea.m_extent.m_height;
+			const auto &attachment = colorAttachments[i];
+			const auto *image = attachment.m_imageView->getImage();
+			const auto &imageDesc = image->getDescription();
+
+			framebufferWidth = eastl::min(framebufferWidth, imageDesc.m_width);
+			framebufferHeight = eastl::min(framebufferHeight, imageDesc.m_height);
+
+			attachmentViews[i] = (VkImageView)attachment.m_imageView->getNativeHandle();
+			clearValues[i].color = *reinterpret_cast<const VkClearColorValue *>(&attachment.m_clearValue);
+
+			auto &attachmentDesc = colorAttachmentDescsVk[i];
+			attachmentDesc = {};
+			attachmentDesc.m_format = UtilityVk::translate(imageDesc.m_format);
+			attachmentDesc.m_samples = static_cast<VkSampleCountFlagBits>(imageDesc.m_samples);
+			attachmentDesc.m_loadOp = UtilityVk::translate(attachment.m_loadOp);
+			attachmentDesc.m_storeOp = UtilityVk::translate(attachment.m_storeOp);
+
+			const auto &viewDesc = attachment.m_imageView->getDescription();
+
+			auto &fbAttachInfo = fbAttachmentInfoVk[i];
+			fbAttachInfo = {};
+			fbAttachInfo.m_flags = UtilityVk::translateImageCreateFlags(imageDesc.m_createFlags);
+			fbAttachInfo.m_usage = UtilityVk::translateImageUsageFlags(imageDesc.m_usageFlags);
+			fbAttachInfo.m_width = imageDesc.m_width;
+			fbAttachInfo.m_height = imageDesc.m_height;
+			fbAttachInfo.m_layerCount = viewDesc.m_layerCount;
+			fbAttachInfo.m_format = attachmentDesc.m_format;
+
+			++attachmentCount;
 		}
 
-		FramebufferDescriptionVk framebufferDescription;
-		framebufferDescription.setRenderPass(renderPass);
-		framebufferDescription.setAttachments(attachmentCount, fbAttachmentInfoVk);
-		framebufferDescription.setExtent(framebufferWidth, framebufferHeight, 1);
-		framebufferDescription.finalize();
+		// fill out depth/stencil attachment info struct
+		if (depthStencilAttachment)
+		{
+			const auto &attachment = *depthStencilAttachment;
+			const auto *image = attachment.m_imageView->getImage();
+			const auto &imageDesc = image->getDescription();
 
-		framebuffer = m_device->getFramebuffer(framebufferDescription);
+			framebufferWidth = eastl::min(framebufferWidth, imageDesc.m_width);
+			framebufferHeight = eastl::min(framebufferHeight, imageDesc.m_height);
+
+			attachmentViews[attachmentCount] = (VkImageView)attachment.m_imageView->getNativeHandle();
+			clearValues[attachmentCount].depthStencil = *reinterpret_cast<const VkClearDepthStencilValue *>(&attachment.m_clearValue);
+
+			auto &attachmentDesc = depthStencilAttachmentDescVk;
+			attachmentDesc = {};
+			attachmentDesc.m_format = UtilityVk::translate(imageDesc.m_format);
+			attachmentDesc.m_samples = static_cast<VkSampleCountFlagBits>(imageDesc.m_samples);
+			attachmentDesc.m_loadOp = UtilityVk::translate(attachment.m_loadOp);
+			attachmentDesc.m_storeOp = UtilityVk::translate(attachment.m_storeOp);
+			attachmentDesc.m_stencilLoadOp = UtilityVk::translate(attachment.m_stencilLoadOp);
+			attachmentDesc.m_stencilStoreOp = UtilityVk::translate(attachment.m_stencilStoreOp);
+			attachmentDesc.m_layout = attachment.m_readOnly ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			const auto &viewDesc = attachment.m_imageView->getDescription();
+
+			auto &fbAttachInfo = fbAttachmentInfoVk[attachmentCount];
+			fbAttachInfo = {};
+			fbAttachInfo.m_flags = UtilityVk::translateImageCreateFlags(imageDesc.m_createFlags);
+			fbAttachInfo.m_usage = UtilityVk::translateImageUsageFlags(imageDesc.m_usageFlags);
+			fbAttachInfo.m_width = imageDesc.m_width;
+			fbAttachInfo.m_height = imageDesc.m_height;
+			fbAttachInfo.m_layerCount = viewDesc.m_layerCount;
+			fbAttachInfo.m_format = attachmentDesc.m_format;
+
+			++attachmentCount;
+		}
+
+		// get renderpass
+		{
+			RenderPassDescriptionVk renderPassDescription;
+			renderPassDescription.setColorAttachments(colorAttachmentCount, colorAttachmentDescsVk);
+			if (depthStencilAttachment)
+			{
+				renderPassDescription.setDepthStencilAttachment(depthStencilAttachmentDescVk);
+			}
+			renderPassDescription.finalize();
+
+			renderPass = m_device->getRenderPass(renderPassDescription);
+		}
+
+		// get framebuffer
+		{
+			if (framebufferWidth == -1 || framebufferHeight == -1)
+			{
+				framebufferWidth = renderArea.m_offset.m_x + renderArea.m_extent.m_width;
+				framebufferHeight = renderArea.m_offset.m_y + renderArea.m_extent.m_height;
+			}
+
+			FramebufferDescriptionVk framebufferDescription;
+			framebufferDescription.setRenderPass(renderPass);
+			framebufferDescription.setAttachments(attachmentCount, fbAttachmentInfoVk);
+			framebufferDescription.setExtent(framebufferWidth, framebufferHeight, 1);
+			framebufferDescription.finalize();
+
+			framebuffer = m_device->getFramebuffer(framebufferDescription);
+		}
+
+		VkRenderPassAttachmentBeginInfo attachmentBeginInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO };
+		attachmentBeginInfo.attachmentCount = attachmentCount;
+		attachmentBeginInfo.pAttachments = attachmentViews;
+
+		VkRenderPassBeginInfo renderPassBeginInfoVk{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, &attachmentBeginInfo };
+		renderPassBeginInfoVk.renderPass = renderPass;
+		renderPassBeginInfoVk.framebuffer = framebuffer;
+		renderPassBeginInfoVk.renderArea = *reinterpret_cast<const VkRect2D *>(&renderArea);
+		renderPassBeginInfoVk.clearValueCount = attachmentCount;
+		renderPassBeginInfoVk.pClearValues = clearValues;
+
+		vkCmdBeginRenderPass(m_commandBuffer, &renderPassBeginInfoVk, VK_SUBPASS_CONTENTS_INLINE);
 	}
-
-	VkRenderPassAttachmentBeginInfo attachmentBeginInfo{ VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO };
-	attachmentBeginInfo.attachmentCount = attachmentCount;
-	attachmentBeginInfo.pAttachments = attachmentViews;
-
-	VkRenderPassBeginInfo renderPassBeginInfoVk{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, &attachmentBeginInfo };
-	renderPassBeginInfoVk.renderPass = renderPass;
-	renderPassBeginInfoVk.framebuffer = framebuffer;
-	renderPassBeginInfoVk.renderArea = *reinterpret_cast<const VkRect2D *>(&renderArea);
-	renderPassBeginInfoVk.clearValueCount = attachmentCount;
-	renderPassBeginInfoVk.pClearValues = clearValues;
-
-	vkCmdBeginRenderPass(m_commandBuffer, &renderPassBeginInfoVk, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void gal::CommandListVk::endRenderPass()
 {
-	vkCmdEndRenderPass(m_commandBuffer);
+	if (m_device->isDynamicRenderingExtensionSupported())
+	{
+		vkCmdEndRenderingKHR(m_commandBuffer);
+	}
+	else
+	{
+		vkCmdEndRenderPass(m_commandBuffer);
+	}
 }
 
 void gal::CommandListVk::insertDebugLabel(const char *label)

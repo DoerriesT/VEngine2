@@ -12,6 +12,7 @@
 #include "utility/Memory.h"
 #include "utility/allocator/DefaultAllocator.h"
 #include "utility/allocator/LinearAllocator.h"
+#include <EASTL/fixed_vector.h>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -148,7 +149,7 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 	}
 
 	const char *const deviceExtensions[]{ VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME };
-	const size_t deviceExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
+	constexpr size_t deviceExtensionCount = eastl::size(deviceExtensions);
 	//const char *const optionalExtensions[]{ VK_EXT_MEMORY_BUDGET_EXTENSION_NAME };
 	bool supportsMemoryBudgetExtension = false;
 
@@ -179,6 +180,7 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 			uint32_t m_transferQueueFamily;
 			bool m_computeQueuePresentable;
 			bool m_memoryBudgetExtensionSupported;
+			bool m_dynamicRenderingExtensionSupported;
 		};
 
 		size_t suitableDeviceCount = 0;
@@ -263,6 +265,7 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 			// test if all required extensions are supported by this physical device
 			bool extensionsSupported = false;
 			bool memoryBudgetExtensionSupported = false;
+			bool dynamicRenderingExtensionSupported = false;
 			{
 				uint32_t extensionCount;
 				vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
@@ -284,6 +287,10 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 					if (strcmp(availableExtensions[i].extensionName, VK_EXT_MEMORY_BUDGET_EXTENSION_NAME) == 0)
 					{
 						memoryBudgetExtensionSupported = true;
+					}
+					else if (strcmp(availableExtensions[i].extensionName, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME) == 0)
+					{
+						dynamicRenderingExtensionSupported = true;
 					}
 				}
 
@@ -312,7 +319,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 				swapChainAdequate = formatCount != 0 && presentModeCount != 0;
 			}
 
-			VkPhysicalDeviceVulkan12Features vulkan12Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+			VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR };
+			VkPhysicalDeviceVulkan12Features vulkan12Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, dynamicRenderingExtensionSupported ? &dynamicRenderingFeatures : nullptr };
 			VkPhysicalDeviceFeatures2 supportedFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &vulkan12Features };
 
 			vkGetPhysicalDeviceFeatures2(physicalDevice, &supportedFeatures2);
@@ -357,6 +365,7 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 				deviceInfo.m_transferQueueFamily = static_cast<uint32_t>(transferFamilyIndex);
 				deviceInfo.m_computeQueuePresentable = static_cast<bool>(computeFamilyPresentable);
 				deviceInfo.m_memoryBudgetExtensionSupported = memoryBudgetExtensionSupported;
+				deviceInfo.m_dynamicRenderingExtensionSupported = dynamicRenderingExtensionSupported && dynamicRenderingFeatures.dynamicRendering;
 
 				suitableDevices[suitableDeviceCount++] = deviceInfo;
 			}
@@ -429,6 +438,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		m_properties = selectedDevice.m_properties;
 		m_features = selectedDevice.m_features;
 
+		m_dynamicRenderingExtensionSupport = selectedDevice.m_dynamicRenderingExtensionSupported;
+
 		supportsMemoryBudgetExtension = selectedDevice.m_memoryBudgetExtensionSupported;
 	}
 
@@ -479,7 +490,10 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 
 		m_enabledFeatures = deviceFeatures;
 
-		VkPhysicalDeviceVulkan12Features vulkan12Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+		VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamicRenderingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR };
+		dynamicRenderingFeatures.dynamicRendering = true;
+
+		VkPhysicalDeviceVulkan12Features vulkan12Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, m_dynamicRenderingExtensionSupport ? &dynamicRenderingFeatures : nullptr };
 		vulkan12Features.timelineSemaphore = VK_TRUE;
 		vulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 		vulkan12Features.imagelessFramebuffer = VK_TRUE;
@@ -492,13 +506,19 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
 		vulkan12Features.descriptorBindingUpdateUnusedWhilePending = VK_TRUE;
 
-		constexpr size_t requiredDeviceExtensionCount = sizeof(deviceExtensions) / sizeof(deviceExtensions[0]);
-		const char *extensions[requiredDeviceExtensionCount + 1];
-		for (size_t i = 0; i < requiredDeviceExtensionCount; ++i)
+		eastl::fixed_vector<const char *, deviceExtensionCount + 2> enabledExtensions;
+		for (auto *deviceExt : deviceExtensions)
 		{
-			extensions[i] = deviceExtensions[i];
+			enabledExtensions.push_back(deviceExt);
 		}
-		extensions[requiredDeviceExtensionCount] = VK_EXT_MEMORY_BUDGET_EXTENSION_NAME;
+		if (supportsMemoryBudgetExtension)
+		{
+			enabledExtensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+		}
+		if (m_dynamicRenderingExtensionSupport)
+		{
+			enabledExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+		}
 
 		VkDeviceCreateInfo createInfo{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO, &vulkan12Features };
 		createInfo.queueCreateInfoCount = queueCreateInfoCount;
@@ -506,8 +526,8 @@ gal::GraphicsDeviceVk::GraphicsDeviceVk(void *windowHandle, bool debugLayer)
 		createInfo.enabledLayerCount = 0;
 		createInfo.ppEnabledLayerNames = nullptr;
 		createInfo.pEnabledFeatures = &deviceFeatures;
-		createInfo.enabledExtensionCount = requiredDeviceExtensionCount + (supportsMemoryBudgetExtension ? 1 : 0);
-		createInfo.ppEnabledExtensionNames = extensions;
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(enabledExtensions.size());
+		createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
 		if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS)
 		{
@@ -1165,4 +1185,9 @@ VkFramebuffer gal::GraphicsDeviceVk::getFramebuffer(const FramebufferDescription
 const VkPhysicalDeviceProperties &gal::GraphicsDeviceVk::getDeviceProperties() const
 {
 	return m_properties;
+}
+
+bool gal::GraphicsDeviceVk::isDynamicRenderingExtensionSupported() const
+{
+	return m_dynamicRenderingExtensionSupport;
 }
