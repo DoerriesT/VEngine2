@@ -4,6 +4,7 @@
 
 class BufferStackAllocator;
 class ResourceViewRegistry;
+class TextureLoader;
 
 struct ProxyMeshInfo
 {
@@ -32,6 +33,9 @@ public:
 	gal::Image *m_imguiFontTexture = nullptr;
 	gal::ImageView *m_imguiFontTextureView = nullptr;
 	TextureViewHandle m_imguiFontTextureViewHandle = {};
+	gal::Image *m_blueNoiseTexture = nullptr;
+	gal::ImageView *m_blueNoiseTextureView = nullptr;
+	TextureViewHandle m_blueNoiseTextureViewHandle = {};
 
 	gal::Buffer *m_proxyMeshVertexBuffer = {};
 	gal::Buffer *m_proxyMeshIndexBuffer = {};
@@ -51,6 +55,6 @@ public:
 	gal::DescriptorSetPool *m_offsetBufferDescriptorSetPool = nullptr;
 	gal::DescriptorSet *m_offsetBufferDescriptorSets[2] = {};
 
-	explicit RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry) noexcept;
+	explicit RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry, TextureLoader *textureLoader) noexcept;
 	~RendererResources();
 };

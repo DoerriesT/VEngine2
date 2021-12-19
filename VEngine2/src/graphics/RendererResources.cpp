@@ -7,8 +7,10 @@
 #include <assert.h>
 #include "Material.h"
 #include "ProxyMeshes.h"
+#include "TextureLoader.h"
+#include "filesystem/VirtualFileSystem.h"
 
-RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry) noexcept
+RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRegistry *resourceViewRegistry, TextureLoader *textureLoader) noexcept
 	:m_device(device),
 	m_resourceViewRegistry(resourceViewRegistry)
 {
@@ -178,14 +180,23 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		ImGui::GetIO().Fonts->SetTexID((ImTextureID)(size_t)m_imguiFontTextureViewHandle);
 	}
 
+	// blue noise texture
+	{
+		const char *k_filepath = "/assets/textures/blue_noise.dds";
+		eastl::vector<char> fileData(VirtualFileSystem::get().size(k_filepath));
+		VirtualFileSystem::get().readFile(k_filepath, fileData.size(), fileData.data(), true);
+		textureLoader->load(fileData.size(), fileData.data(), k_filepath, &m_blueNoiseTexture, &m_blueNoiseTextureView);
+		m_blueNoiseTextureViewHandle = m_resourceViewRegistry->createTextureViewHandle(m_blueNoiseTextureView);
+	}
+
 	// proxy mesh vertex/index buffer
 	{
 		gal::BufferCreateInfo vertexBufferInfo{};
-		vertexBufferInfo.m_size = IcoSphereProxyMesh::vertexDataSize 
-			+ Cone180ProxyMesh::vertexDataSize 
-			+ Cone135ProxyMesh::vertexDataSize 
-			+ Cone90ProxyMesh::vertexDataSize 
-			+ Cone45ProxyMesh::vertexDataSize 
+		vertexBufferInfo.m_size = IcoSphereProxyMesh::vertexDataSize
+			+ Cone180ProxyMesh::vertexDataSize
+			+ Cone135ProxyMesh::vertexDataSize
+			+ Cone90ProxyMesh::vertexDataSize
+			+ Cone45ProxyMesh::vertexDataSize
 			+ BoxProxyMesh::vertexDataSize;
 		vertexBufferInfo.m_createFlags = {};
 		vertexBufferInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_DST_BIT | gal::BufferUsageFlags::VERTEX_BUFFER_BIT;
@@ -193,7 +204,7 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->createBuffer(vertexBufferInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_proxyMeshVertexBuffer);
 
 		gal::BufferCreateInfo indexBufferInfo{};
-		indexBufferInfo.m_size = IcoSphereProxyMesh::indexDataSize 
+		indexBufferInfo.m_size = IcoSphereProxyMesh::indexDataSize
 			+ Cone180ProxyMesh::indexDataSize
 			+ Cone135ProxyMesh::indexDataSize
 			+ Cone90ProxyMesh::indexDataSize
@@ -378,6 +389,10 @@ RendererResources::~RendererResources()
 	m_resourceViewRegistry->destroyHandle(m_imguiFontTextureViewHandle);
 	m_device->destroyImageView(m_imguiFontTextureView);
 	m_device->destroyImage(m_imguiFontTexture);
+
+	m_resourceViewRegistry->destroyHandle(m_blueNoiseTextureViewHandle);
+	m_device->destroyImageView(m_blueNoiseTextureView);
+	m_device->destroyImage(m_blueNoiseTexture);
 
 	m_device->destroyBuffer(m_proxyMeshVertexBuffer);
 	m_device->destroyBuffer(m_proxyMeshIndexBuffer);

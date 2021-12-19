@@ -38,13 +38,12 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 	m_device->setDebugObjectName(gal::ObjectType::SEMAPHORE, m_semaphores[2], "Transfer Queue Semaphore");
 
 	m_viewRegistry = new ResourceViewRegistry(m_device);
-	m_rendererResources = new RendererResources(m_device, m_viewRegistry);
-
 	m_meshManager = new MeshManager(m_device, m_viewRegistry);
 	m_textureLoader = new TextureLoader(m_device);
 	m_textureManager = new TextureManager(m_device, m_viewRegistry);
+	m_rendererResources = new RendererResources(m_device, m_viewRegistry, m_textureLoader);
 	m_materialManager = new MaterialManager(m_device, m_textureManager, m_rendererResources->m_materialsBuffer);
-
+	
 	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
 
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);

@@ -17,6 +17,24 @@
 
 using namespace gal;
 
+namespace
+{
+	struct IndirectLightingPushConsts
+	{
+		glm::vec3 volumetricFogTexelSize;
+		float volumetricFogNear;
+		float depthUnprojectParams[2];
+		float volumetricFogFar;
+		uint32_t exposureBufferIndex;
+		uint32_t albedoTextureIndex;
+		uint32_t gtaoTextureIndex;
+		uint32_t depthBufferIndex;
+		uint32_t volumetricFogTextureIndex;
+		uint32_t blueNoiseTextureIndex;
+		uint32_t frame;
+	};
+}
+
 ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offsetBufferSetLayout, DescriptorSetLayout *bindlessSetLayout) noexcept
 	:m_device(device)
 {
@@ -331,6 +349,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 1, ShaderStageFlags::PIXEL_BIT), // 3d textures
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 2, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 3, ShaderStageFlags::PIXEL_BIT), // array textures
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -343,8 +362,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT),
 		};
 
-		uint32_t pushConstSize = 48;
-		builder.setPipelineLayoutDescription(1, layoutDecls, pushConstSize, ShaderStageFlags::PIXEL_BIT, 1, staticSamplerDescs, 1);
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(IndirectLightingPushConsts), ShaderStageFlags::PIXEL_BIT, 1, staticSamplerDescs, 1);
 
 		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_indirectLightingPipeline);
 	}
@@ -913,20 +931,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 				cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
-				struct PushConsts
-				{
-					glm::vec3 volumetricFogTexelSize;
-					float volumetricFogNear;
-					float depthUnprojectParams[2];
-					float volumetricFogFar;
-					uint32_t exposureBufferIndex;
-					uint32_t albedoTextureIndex;
-					uint32_t gtaoTextureIndex;
-					uint32_t depthBufferIndex;
-					uint32_t volumetricFogTextureIndex;
-				};
-
-				PushConsts pushConsts{};
+				IndirectLightingPushConsts pushConsts{};
 				pushConsts.volumetricFogTexelSize = 1.0f / glm::vec3(240.0f, 135.0f, 128.0f);
 				pushConsts.volumetricFogNear = 0.5f;
 				pushConsts.volumetricFogFar = 64.0f;
@@ -937,6 +942,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.depthBufferIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.volumetricFogTextureIndex = registry.getBindlessHandle(volumetricFogResultData.m_volumetricFogImageViewHandle, DescriptorType::TEXTURE);
+				pushConsts.blueNoiseTextureIndex = data.m_viewData->m_rendererResources->m_blueNoiseTextureViewHandle;
+				pushConsts.frame = data.m_viewData->m_frame;
 
 				cmdList->pushConstants(m_indirectLightingPipeline, ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
 

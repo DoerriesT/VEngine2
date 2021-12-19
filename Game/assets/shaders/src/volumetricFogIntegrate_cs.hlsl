@@ -53,6 +53,11 @@ ConstantBuffer<Constants> g_Constants : REGISTER_CBV(0, 0, 0);
 Texture3D<float4> g_Textures3D[65536] : REGISTER_SRV(0, 0, 1);
 RWTexture3D<float4> g_RWTextures3D[65536] : REGISTER_UAV(1, 1, 1);
 
+float3 simpleTonemap(float3 color)
+{
+	float luma = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
+	return color / max(1.0f + luma, 1e-6f);
+}
 
 float3 calcWorldSpacePos(float3 texelCoord)
 {
@@ -99,7 +104,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		float4 slice = g_Textures3D[g_Constants.integrateInputTextureIndex].Load(pos);
 		accum = scatterStep(accum.rgb, accum.a, slice.rgb, slice.a, stepLength);
 		float4 result = accum;
-		//result.rgb = simpleTonemap(result.rgb);
+		result.rgb = simpleTonemap(result.rgb);
 		g_RWTextures3D[g_Constants.integrateResultTextureIndex][pos.xyz] = result;
 	}
 }
