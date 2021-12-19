@@ -1,5 +1,6 @@
 #include "bindings.hlsli"
 #include "srgb.hlsli"
+#include "dither.hlsli"
 
 struct PushConsts
 {
@@ -8,6 +9,7 @@ struct PushConsts
 	float time;
 	uint applyBloom;
 	float bloomStrength;
+	uint applyGammaAndDither;
 	uint inputImageIndex;
 	uint bloomImageIndex;
 	uint exposureBufferIndex;
@@ -21,30 +23,6 @@ RWTexture2D<float4> g_RWTextures[65536] : REGISTER_UAV(1, 0, 0);
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 1);
 
 PUSH_CONSTS(PushConsts, g_PushConsts);
-
-// n must be normalized in [0..1] (e.g. texture coordinates)
-float triangleNoise(float2 n)
-{
-    // triangle noise, in [-1.0..1.0[ range
-    n  = frac(n * float2(5.3987, 5.4421));
-    n += dot(n.yx, n.xy + float2(21.5351, 14.3137));
-
-    float xy = n.x * n.y;
-    // compute in [0..2[ and remap to [-1.0..1.0[
-    return frac(xy * 95.4307) + frac(xy * 75.04961) - 1.0;
-}
-
-float3 ditherTriangleNoise(float3 rgb, float2 uv, float time)
-{
-    // Gjøl 2016, "Banding in Games: A Noisy Rant"
-    uv += 0.07 * frac(time);
-
-    float noise = triangleNoise(uv);
-
-    // noise is in [-1..1[
-
-    return rgb + (noise / 255.0);
-}
 
 // Uchimura 2017, "HDR theory and practice"
 // Math: https://www.desmos.com/calculator/gslcdxvipg
@@ -103,8 +81,12 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	const float prevToCurExposure = asfloat(g_ByteAddressBuffers[g_PushConsts.exposureBufferIndex].Load(4));
 	color *= prevToCurExposure; 
 	color = uchimura(color);
-	color = accurateLinearToSRGB(color);
-	color = ditherTriangleNoise(color, texCoord, g_PushConsts.time);
+	
+	if (g_PushConsts.applyGammaAndDither)
+	{
+		color = accurateLinearToSRGB(color);
+		color = ditherTriangleNoise(color, texCoord, g_PushConsts.time);
+	}
 	
 	g_RWTextures[g_PushConsts.outputImageIndex][threadID.xy] = float4(color, 1.0f);
 }

@@ -30,6 +30,7 @@
 #include "graphics/RenderWorld.h"
 
 extern bool g_taaEnabled;
+extern bool g_sharpenEnabled;
 
 // these are needed for EASTL
 
@@ -173,6 +174,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			ImGui::Begin("Debug");
 			{
 				ImGui::Checkbox("TAA", &g_taaEnabled);
+				ImGui::Checkbox("Sharpen", &g_sharpenEnabled);
 			}
 			ImGui::End();
 

@@ -12,6 +12,9 @@
 #include <glm/packing.hpp>
 #include "graphics/CommonViewData.h"
 #include "graphics/RendererResources.h"
+#define A_CPU 1
+#include <ffx_a.h>
+#include <ffx_cas.h>
 
 using namespace gal;
 
@@ -71,10 +74,21 @@ namespace
 		float time;
 		uint32_t applyBloom;
 		float bloomStrength;
+		uint32_t applyGammaAndDither;
 		uint32_t inputImageIndex;
 		uint32_t bloomImageIndex;
 		uint32_t exposureBufferIndex;
 		uint32_t outputImageIndex;
+	};
+
+	struct SharpenPushConsts
+	{
+		uint32_t const0[4];
+		uint32_t const1[4];
+		float texelSize[2];
+		float time;
+		uint32_t inputTextureIndex;
+		uint32_t resultTextureIndex;
 	};
 }
 
@@ -214,6 +228,27 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(TonemapPushConsts), ShaderStageFlags::COMPUTE_BIT, 1, &staticSamplerDesc, 1);
 
 		device->createComputePipelines(1, &pipelineCreateInfo, &m_tonemapPipeline);
+	}
+
+	// sharpen
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/fidelityFxSharpen_cs");
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(SharpenPushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_sharpenPipeline);
 	}
 
 	// outline ID
@@ -461,6 +496,7 @@ PostProcessModule::~PostProcessModule() noexcept
 	m_device->destroyComputePipeline(m_luminanceHistogramPipeline);
 	m_device->destroyComputePipeline(m_autoExposurePipeline);
 	m_device->destroyComputePipeline(m_tonemapPipeline);
+	m_device->destroyComputePipeline(m_sharpenPipeline);
 	m_device->destroyGraphicsPipeline(m_outlineIDPipeline);
 	m_device->destroyGraphicsPipeline(m_outlineIDSkinnedPipeline);
 	m_device->destroyGraphicsPipeline(m_outlineIDAlphaTestedPipeline);
@@ -820,10 +856,15 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			cmdList->dispatch(1, 1, 1);
 		});
 
+
+
+	rg::ResourceHandle tonemapResultImageHandle = graph->createImage(rg::ImageDesc::create("Tonemap Result Image", Format::R16G16B16A16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
+	rg::ResourceViewHandle tonemapResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Tonemap Result Image", tonemapResultImageHandle, graph));
+
 	eastl::fixed_vector<rg::ResourceUsageDesc, 4> tonemapUsageDescs;
 	tonemapUsageDescs.push_back({ hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	tonemapUsageDescs.push_back({ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
-	tonemapUsageDescs.push_back({ data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	tonemapUsageDescs.push_back({ data.m_sharpenEnabled ? tonemapResultImageViewHandle : data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	if (bloomEnabled)
 	{
 		tonemapUsageDescs.push_back({ bloomResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
@@ -846,15 +887,51 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			pushConsts.time = data.m_viewData->m_time;
 			pushConsts.applyBloom = bloomEnabled;
 			pushConsts.bloomStrength = 0.04f;
+			pushConsts.applyGammaAndDither = !data.m_sharpenEnabled; // sharpen filter expects linear input
 			pushConsts.inputImageIndex = registry.getBindlessHandle(hdrSceneTextureViewHandle, DescriptorType::TEXTURE);
 			pushConsts.bloomImageIndex = bloomEnabled ? registry.getBindlessHandle(bloomResultImageViewHandle, DescriptorType::TEXTURE) : 0;
 			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
-			pushConsts.outputImageIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
+			pushConsts.outputImageIndex = registry.getBindlessHandle(data.m_sharpenEnabled ? tonemapResultImageViewHandle : data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
 
 			cmdList->pushConstants(m_tonemapPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
 
 			cmdList->dispatch((width + 7) / 8, (height + 7) / 8, 1);
 		});
+
+	if (data.m_sharpenEnabled)
+	{
+		rg::ResourceUsageDesc sharpenUsageDescs[]
+		{
+			{ tonemapResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} },
+			{ data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} }
+		};
+
+		graph->addPass("FidelityFx Sharpen", rg::QueueType::GRAPHICS, eastl::size(sharpenUsageDescs), sharpenUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				GAL_SCOPED_GPU_LABEL(cmdList, "FidelityFx Sharpen");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "FidelityFx Sharpen");
+				PROFILING_ZONE_SCOPED;
+
+				cmdList->bindPipeline(m_sharpenPipeline);
+
+				cmdList->bindDescriptorSets(m_sharpenPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
+
+				const float sharpness = 0.8f;
+
+				SharpenPushConsts pushConsts;
+				CasSetup(pushConsts.const0, pushConsts.const1, sharpness, AF1(width), AF1(height), AF1(width), AF1(height));
+				pushConsts.texelSize[0] = 1.0f / width;
+				pushConsts.texelSize[1] = 1.0f / height;
+				pushConsts.time = data.m_viewData->m_time;
+				pushConsts.inputTextureIndex = registry.getBindlessHandle(tonemapResultImageViewHandle, DescriptorType::TEXTURE);
+				pushConsts.resultTextureIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
+				
+
+				cmdList->pushConstants(m_sharpenPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+				cmdList->dispatch((width + 15) / 16, (height + 15) / 16, 1);
+			});
+	}
 
 	if (data.m_renderOutlines)
 	{

@@ -35,6 +35,7 @@ public:
 		bool m_renderOutlines;
 		bool m_ignoreHistory;
 		bool m_taaEnabled;
+		bool m_sharpenEnabled;
 		bool m_bloomEnabled;
 	};
 
@@ -60,6 +61,7 @@ private:
 	gal::ComputePipeline *m_luminanceHistogramPipeline = nullptr;
 	gal::ComputePipeline *m_autoExposurePipeline = nullptr;
 	gal::ComputePipeline *m_tonemapPipeline = nullptr;
+	gal::ComputePipeline *m_sharpenPipeline = nullptr;
 	gal::GraphicsPipeline *m_outlineIDPipeline = nullptr;
 	gal::GraphicsPipeline *m_outlineIDSkinnedPipeline = nullptr;
 	gal::GraphicsPipeline *m_outlineIDAlphaTestedPipeline = nullptr;

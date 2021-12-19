@@ -52,4 +52,6 @@ dxc.exe -T cs_6_0 -E main temporalAA_cs.hlsl -Fo ./../temporalAA_cs.cso -Zi -Fd 
 dxc.exe -T cs_6_0 -E main bloomDownsample_cs.hlsl -Fo ./../bloomDownsample_cs.cso -Zi -Fd ./../bloomDownsample_cs.pdb
 dxc.exe -T cs_6_0 -E main bloomUpsample_cs.hlsl -Fo ./../bloomUpsample_cs.cso -Zi -Fd ./../bloomUpsample_cs.pdb
 
+dxc.exe -T cs_6_0 -E main fidelityFxSharpen_cs.hlsl -Fo ./../fidelityFxSharpen_cs.cso -Zi -Fd ./../fidelityFxSharpen_cs.pdb
+
 pause

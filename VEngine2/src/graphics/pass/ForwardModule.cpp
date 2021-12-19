@@ -849,7 +849,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 		{gtaoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{gtaoResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
-	graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+	graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoBlurUsageDescs), gtaoBlurUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "GTAO Blur");
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "GTAO Blur");
