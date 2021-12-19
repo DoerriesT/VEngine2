@@ -80,6 +80,21 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 
 		m_temporalAAImageStates[i] = {};
 	}
+
+	// GTAO images
+	for (size_t i = 0; i < 2; ++i)
+	{
+		gal::ImageCreateInfo createInfo{};
+		createInfo.m_width = width;
+		createInfo.m_height = height;
+		createInfo.m_format = gal::Format::R16G16_SFLOAT;
+		createInfo.m_usageFlags = gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::RW_TEXTURE_BIT;
+
+		m_device->createImage(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_gtaoImages[i]);
+		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_gtaoImages[i], i == 0 ? "GTAO Image 0" : "GTAO Image 1");
+
+		m_gtaoImageStates[i] = {};
+	}
 }
 
 void RenderViewResources::destroy() noexcept
@@ -102,5 +117,10 @@ void RenderViewResources::destroy() noexcept
 	for (size_t i = 0; i < 2; ++i)
 	{
 		m_device->destroyImage(m_temporalAAImages[i]);
+	}
+
+	for (size_t i = 0; i < 2; ++i)
+	{
+		m_device->destroyImage(m_gtaoImages[i]);
 	}
 }

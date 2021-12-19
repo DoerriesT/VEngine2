@@ -27,6 +27,9 @@ struct RenderViewResources
 	gal::Image *m_temporalAAImages[2] = {};
 	rg::ResourceStateData m_temporalAAImageStates[2] = {};
 
+	gal::Image *m_gtaoImages[2] = {};
+	rg::ResourceStateData m_gtaoImageStates[2] = {};
+
 	explicit RenderViewResources(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, uint32_t width, uint32_t height) noexcept;
 	~RenderViewResources();
 	void resize(uint32_t width, uint32_t height) noexcept;

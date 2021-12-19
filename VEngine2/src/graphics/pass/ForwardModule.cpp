@@ -10,6 +10,7 @@
 #include <EASTL/fixed_vector.h>
 #include "graphics/RenderData.h"
 #include "graphics/RendererResources.h"
+#include "graphics/RenderViewResources.h"
 #include <glm/trigonometric.hpp>
 #include "VolumetricFogModule.h"
 #include "graphics/LightManager.h"
@@ -19,6 +20,17 @@ using namespace gal;
 
 namespace
 {
+	struct GTAOBlurPushConsts
+	{
+		uint32_t resolution[2];
+		float texelSize[2];
+		uint32_t inputTextureIndex;
+		uint32_t historyTextureIndex;
+		uint32_t velocityTextureIndex;
+		uint32_t resultTextureIndex;
+		uint32_t ignoreHistory;
+	};
+
 	struct IndirectLightingPushConsts
 	{
 		glm::vec3 volumetricFogTexelSize;
@@ -309,15 +321,15 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 
 		gal::StaticSamplerDescription staticSamplerDescs[]
 		{
-			gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::ALL_STAGES),
+			gal::Initializers::staticPointClampSampler(0, 0, gal::ShaderStageFlags::ALL_STAGES),
+			gal::Initializers::staticLinearClampSampler(1, 0, gal::ShaderStageFlags::ALL_STAGES),
 		};
 
 		ComputePipelineCreateInfo pipelineCreateInfo{};
 		ComputePipelineBuilder builder(pipelineCreateInfo);
 		builder.setComputeShader("assets/shaders/gtaoBlur_cs");
 
-		uint32_t pushConstSize = sizeof(uint32_t) * 6;
-		builder.setPipelineLayoutDescription((uint32_t)eastl::size(layoutDecls), layoutDecls, pushConstSize, ShaderStageFlags::ALL_STAGES, 1, staticSamplerDescs, 1);
+		builder.setPipelineLayoutDescription((uint32_t)eastl::size(layoutDecls), layoutDecls, sizeof(GTAOBlurPushConsts), ShaderStageFlags::ALL_STAGES, 2, staticSamplerDescs, 1);
 
 		device->createComputePipelines(1, &pipelineCreateInfo, &m_gtaoBlurPipeline);
 	}
@@ -390,6 +402,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	const uint32_t width = data.m_viewData->m_width;
 	const uint32_t height = data.m_viewData->m_height;
 
+	auto *viewResources = data.m_viewData->m_viewResources;
+
 	// depth buffer
 	rg::ResourceHandle depthBufferImageHandle = graph->createImage(rg::ImageDesc::create("Depth Buffer", Format::D32_SFLOAT, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle depthBufferImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Depth Buffer", depthBufferImageHandle, graph));
@@ -419,8 +433,12 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	rg::ResourceHandle gtaoImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle gtaoImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Image", gtaoImageHandle, graph));
 
+	// gtao history
+	rg::ResourceHandle gtaoHistoryImageHandle = graph->importImage(viewResources->m_gtaoImages[data.m_viewData->m_prevResIdx], "GTAO History Image", &viewResources->m_gtaoImageStates[data.m_viewData->m_prevResIdx]);
+	rg::ResourceViewHandle gtaoHistoryImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO History Image", gtaoHistoryImageHandle, graph));
+
 	// gtao result
-	rg::ResourceHandle gtaoResultImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Result Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
+	rg::ResourceHandle gtaoResultImageHandle = graph->importImage(viewResources->m_gtaoImages[data.m_viewData->m_resIdx], "GTAO Result Image", &viewResources->m_gtaoImageStates[data.m_viewData->m_resIdx]);
 	rg::ResourceViewHandle gtaoResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Result Image", gtaoResultImageHandle, graph));
 
 	// depth prepass
@@ -847,7 +865,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			consts.falloffBias = -0.75f;
 			consts.maxTexelRadius = 256.0f;
 			consts.sampleCount = 12;
-			consts.frame = 0;// data.m_frame;
+			consts.frame = data.m_viewData->m_frame;
 			consts.depthTextureIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
 			consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
 			consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
@@ -865,6 +883,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	rg::ResourceUsageDesc gtaoBlurUsageDescs[] =
 	{
 		{gtaoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{gtaoHistoryImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{velocityImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{gtaoResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
 	graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoBlurUsageDescs), gtaoBlurUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
@@ -873,21 +893,18 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "GTAO Blur");
 			PROFILING_ZONE_SCOPED;
 
-			struct GTAOPushConsts
-			{
-				uint32_t resolution[2];
-				float texelSize[2];
-				uint32_t inputTextureIndex;
-				uint32_t resultTextureIndex;
-			};
+			
 
-			GTAOPushConsts consts{};
+			GTAOBlurPushConsts consts{};
 			consts.resolution[0] = width;
 			consts.resolution[1] = height;
 			consts.texelSize[0] = 1.0f / width;
 			consts.texelSize[1] = 1.0f / height;
 			consts.inputTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::TEXTURE);
+			consts.historyTextureIndex = registry.getBindlessHandle(gtaoHistoryImageViewHandle, DescriptorType::TEXTURE);
+			consts.velocityTextureIndex = registry.getBindlessHandle(velocityImageViewHandle, DescriptorType::TEXTURE);
 			consts.resultTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::RW_TEXTURE);
+			consts.ignoreHistory = data.m_ignoreHistory;
 
 			cmdList->bindPipeline(m_gtaoBlurPipeline);
 

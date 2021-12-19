@@ -6,6 +6,7 @@
 class BufferStackAllocator;
 class ResourceViewRegistry;
 class RendererResources;
+struct RenderViewResources;
 namespace gal
 {
 	class GraphicsDevice;
@@ -48,6 +49,7 @@ struct CommonViewData
 	float m_deltaTime;
 	gal::GraphicsDevice *m_device;
 	RendererResources *m_rendererResources;
+	RenderViewResources *m_viewResources;
 	ResourceViewRegistry *m_viewRegistry;
 	uint32_t m_resIdx;
 	uint32_t m_prevResIdx;

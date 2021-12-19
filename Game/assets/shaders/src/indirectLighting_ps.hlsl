@@ -44,7 +44,7 @@ float4 main(PSInput input) : SV_Target0
 	
 	float4 albedoMetalness = g_Textures[g_PushConsts.albedoTextureIndex].Load(uint3(input.position.xy, 0));
 	
-	float gtao = albedoMetalness.a != 1.0f ? g_Textures[g_PushConsts.gtaoTextureIndex].Load(uint3(input.position.xy, 0)).x : 0.0f;
+	float gtao = g_Textures[g_PushConsts.gtaoTextureIndex].Load(uint3(input.position.xy, 0)).x;
 	
 	float intensity = 1.0f;
 	float3 result = Diffuse_Lambert(albedoMetalness.rgb) * intensity * (1.0f - albedoMetalness.a) * gtao * exposure;

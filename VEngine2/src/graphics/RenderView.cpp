@@ -171,6 +171,7 @@ void RenderView::render(
 	viewData.m_deltaTime = deltaTime;
 	viewData.m_device = m_device;
 	viewData.m_rendererResources = m_rendererResources;
+	viewData.m_viewResources = m_renderViewResources;
 	viewData.m_viewRegistry = m_viewRegistry;
 	viewData.m_resIdx = static_cast<uint32_t>(resIdx);
 	viewData.m_prevResIdx = static_cast<uint32_t>(prevResIdx);
