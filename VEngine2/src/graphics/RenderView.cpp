@@ -361,6 +361,7 @@ void RenderView::render(
 	postProcessModuleData.m_renderOutlines = anyOutlines;
 	postProcessModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 	postProcessModuleData.m_taaEnabled = g_taaEnabled;
+	postProcessModuleData.m_bloomEnabled = true;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
 

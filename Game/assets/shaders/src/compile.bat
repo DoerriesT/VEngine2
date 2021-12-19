@@ -51,4 +51,7 @@ dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main volumetr
 
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main temporalAA_cs.hlsl -Fo ./../temporalAA_cs.spv
 
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main bloomDownsample_cs.hlsl -Fo ./../bloomDownsample_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main bloomUpsample_cs.hlsl -Fo ./../bloomUpsample_cs.spv
+
 pause

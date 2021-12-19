@@ -35,6 +35,7 @@ public:
 		bool m_renderOutlines;
 		bool m_ignoreHistory;
 		bool m_taaEnabled;
+		bool m_bloomEnabled;
 	};
 
 	struct ResultData
@@ -54,6 +55,8 @@ public:
 private:
 	gal::GraphicsDevice *m_device = nullptr;
 	gal::ComputePipeline *m_temporalAAPipeline = nullptr;
+	gal::ComputePipeline *m_bloomDownsamplePipeline = nullptr;
+	gal::ComputePipeline *m_bloomUpsamplePipeline = nullptr;
 	gal::ComputePipeline *m_luminanceHistogramPipeline = nullptr;
 	gal::ComputePipeline *m_autoExposurePipeline = nullptr;
 	gal::ComputePipeline *m_tonemapPipeline = nullptr;

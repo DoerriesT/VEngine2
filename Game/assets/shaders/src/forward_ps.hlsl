@@ -182,6 +182,8 @@ PSOutput main(PSInput input)
 	
 	float3 result = 0.0f;
 	
+	result += material.emissive * exposure;
+	
 	// directional lights
 	{
 		for (uint i = 0; i < g_PassConstants.directionalLightCount; ++i)

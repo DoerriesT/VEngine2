@@ -6,7 +6,10 @@ struct PushConsts
 	uint2 resolution;
 	float2 texelSize;
 	float time;
+	uint applyBloom;
+	float bloomStrength;
 	uint inputImageIndex;
+	uint bloomImageIndex;
 	uint exposureBufferIndex;
 	uint outputImageIndex;
 };
@@ -14,6 +17,9 @@ struct PushConsts
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 0);
 ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 1, 0);
 RWTexture2D<float4> g_RWTextures[65536] : REGISTER_UAV(1, 0, 0);
+
+SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 1);
+
 PUSH_CONSTS(PushConsts, g_PushConsts);
 
 // n must be normalized in [0..1] (e.g. texture coordinates)
@@ -86,9 +92,16 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	
 	const float2 texCoord = float2(float2(threadID.xy) + 0.5) * g_PushConsts.texelSize;
 	
-	const float prevToCurExposure = asfloat(g_ByteAddressBuffers[g_PushConsts.exposureBufferIndex].Load(4));
+	float3 color = g_Textures[g_PushConsts.inputImageIndex].Load(int3(threadID.xy, 0)).rgb;
 	
-	float3 color = g_Textures[g_PushConsts.inputImageIndex].Load(int3(threadID.xy, 0)).rgb * prevToCurExposure; 
+	if (g_PushConsts.applyBloom)
+	{
+		float3 bloom = g_Textures[g_PushConsts.bloomImageIndex].SampleLevel(g_LinearClampSampler, texCoord, 0.0f).rgb;
+		color = lerp(color, bloom, g_PushConsts.bloomStrength);
+	}
+
+	const float prevToCurExposure = asfloat(g_ByteAddressBuffers[g_PushConsts.exposureBufferIndex].Load(4));
+	color *= prevToCurExposure; 
 	color = uchimura(color);
 	color = accurateLinearToSRGB(color);
 	color = ditherTriangleNoise(color, texCoord, g_PushConsts.time);

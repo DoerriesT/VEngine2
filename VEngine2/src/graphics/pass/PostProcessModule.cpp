@@ -17,6 +17,27 @@ using namespace gal;
 
 namespace
 {
+	struct BloomDownsamplePushConsts
+	{
+		float texelSize[2];
+		uint32_t width;
+		uint32_t height;
+		uint32_t doWeightedAverage;
+		uint32_t inputImageIndex;
+		uint32_t resultImageIndex;
+	};
+
+	struct BloomUpsamplePushConsts
+	{
+		float texelSize[2];
+		uint32_t width;
+		uint32_t height;
+		uint32_t addPrevious;
+		uint32_t inputImageIndex;
+		uint32_t prevResultImageIndex;
+		uint32_t resultImageIndex;
+	};
+
 	struct LuminanceHistogramPushConsts
 	{
 		uint32_t width;
@@ -48,7 +69,10 @@ namespace
 		uint32_t resolution[2];
 		float texelSize[2];
 		float time;
+		uint32_t applyBloom;
+		float bloomStrength;
 		uint32_t inputImageIndex;
+		uint32_t bloomImageIndex;
 		uint32_t exposureBufferIndex;
 		uint32_t outputImageIndex;
 	};
@@ -80,6 +104,50 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		builder.setPipelineLayoutDescription(2, layoutDecls, 0, ShaderStageFlags::ALL_STAGES, 1, &staticSamplerDesc, 2);
 
 		device->createComputePipelines(1, &pipelineCreateInfo, &m_temporalAAPipeline);
+	}
+
+	// bloom downsample
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::ALL_STAGES);
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/bloomDownsample_cs");
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(BloomDownsamplePushConsts), ShaderStageFlags::COMPUTE_BIT, 1, &staticSamplerDesc, 1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_bloomDownsamplePipeline);
+	}
+
+	// bloom upsample
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 0),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::ALL_STAGES);
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/bloomUpsample_cs");
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(BloomUpsamplePushConsts), ShaderStageFlags::COMPUTE_BIT, 1, &staticSamplerDesc, 1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_bloomUpsamplePipeline);
 	}
 
 	// luminance histogram
@@ -138,11 +206,12 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		{
 			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
+		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::ALL_STAGES);
 
 		ComputePipelineCreateInfo pipelineCreateInfo{};
 		ComputePipelineBuilder builder(pipelineCreateInfo);
 		builder.setComputeShader("assets/shaders/tonemap_cs");
-		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(TonemapPushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(TonemapPushConsts), ShaderStageFlags::COMPUTE_BIT, 1, &staticSamplerDesc, 1);
 
 		device->createComputePipelines(1, &pipelineCreateInfo, &m_tonemapPipeline);
 	}
@@ -387,6 +456,8 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 PostProcessModule::~PostProcessModule() noexcept
 {
 	m_device->destroyComputePipeline(m_temporalAAPipeline);
+	m_device->destroyComputePipeline(m_bloomDownsamplePipeline);
+	m_device->destroyComputePipeline(m_bloomUpsamplePipeline);
 	m_device->destroyComputePipeline(m_luminanceHistogramPipeline);
 	m_device->destroyComputePipeline(m_autoExposurePipeline);
 	m_device->destroyComputePipeline(m_tonemapPipeline);
@@ -464,6 +535,187 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 				cmdList->dispatch((width + 7) / 8, (height + 7) / 8, 1);
 			});
+	}
+
+	// bloom
+	rg::ResourceViewHandle bloomResultImageViewHandle = {};
+	constexpr uint32_t k_desiredBloomMipCount = 5;
+	uint32_t bloomMipCount = 0;
+	if (data.m_bloomEnabled)
+	{
+		// compute number of bloom mips
+		uint32_t bloomRes = eastl::max(width / 2, height / 2);
+		while (bloomRes > 0)
+		{
+			++bloomMipCount;
+			bloomRes /= 2;
+		}
+
+		bloomMipCount = eastl::min(bloomMipCount, k_desiredBloomMipCount);
+	}
+	const bool bloomEnabled = data.m_bloomEnabled && bloomMipCount > 1;
+	if (bloomEnabled)
+	{
+		// bloom downsample texture
+		uint32_t bloomWidth = eastl::max<uint32_t>(1, width / 2);
+		uint32_t bloomHeight = eastl::max<uint32_t>(1, height / 2);
+		rg::ResourceHandle bloomDownsampleImageHandle = graph->createImage(rg::ImageDesc::create("Bloom Downsample Image", Format::R16G16B16A16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, bloomWidth, bloomHeight, 1, 1, bloomMipCount));
+		rg::ResourceHandle bloomUpsampleImageHandle = graph->createImage(rg::ImageDesc::create("Bloom Upsample Image", Format::R16G16B16A16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, bloomWidth, bloomHeight, 1, 1, bloomMipCount - 1));
+
+		eastl::fixed_vector<rg::ResourceViewHandle, k_desiredBloomMipCount> bloomDownsampleImageMipViewHandles;
+		eastl::fixed_vector<rg::ResourceViewHandle, k_desiredBloomMipCount> bloomUpsampleImageMipViewHandles;
+		for (uint32_t mipLevel = 0; mipLevel < bloomMipCount; ++mipLevel)
+		{
+			bloomDownsampleImageMipViewHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Bloom Downsample Image", bloomDownsampleImageHandle, { mipLevel, 1, 0, 1 })));
+			// upsample texture has one mip less
+			if ((mipLevel + 1) < bloomMipCount)
+			{
+				bloomUpsampleImageMipViewHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Bloom Upsample Image", bloomUpsampleImageHandle, { mipLevel, 1, 0, 1 })));
+			}
+		}
+
+		bloomResultImageViewHandle = bloomUpsampleImageMipViewHandles[0];
+
+
+		// downsample pass
+		{
+			eastl::fixed_vector<rg::ResourceUsageDesc, k_desiredBloomMipCount + 1> downsampleUsageDescs;
+			downsampleUsageDescs.push_back({ hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+
+			for (uint32_t mipLevel = 0; mipLevel < bloomMipCount; ++mipLevel)
+			{
+				// last level isnt read from in this pass
+				if ((mipLevel + 1) == bloomMipCount)
+				{
+					downsampleUsageDescs.push_back({ bloomDownsampleImageMipViewHandles[mipLevel], {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+				}
+				else
+				{
+					downsampleUsageDescs.push_back({ bloomDownsampleImageMipViewHandles[mipLevel], {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+				}
+			}
+
+			graph->addPass("Bloom Downsample", rg::QueueType::GRAPHICS, downsampleUsageDescs.size(), downsampleUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
+				{
+					GAL_SCOPED_GPU_LABEL(cmdList, "Bloom Downsample");
+					PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Bloom Downsample");
+					PROFILING_ZONE_SCOPED;
+
+					cmdList->bindPipeline(m_bloomDownsamplePipeline);
+					cmdList->bindDescriptorSets(m_bloomDownsamplePipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
+
+					uint32_t mipWidth = eastl::max(width / 2u, 1u);
+					uint32_t mipHeight = eastl::max(height / 2u, 1u);
+
+					for (uint32_t i = 0; i < bloomMipCount; ++i)
+					{
+						BloomDownsamplePushConsts pushConsts;
+						pushConsts.texelSize[0] = 1.0f / mipWidth;
+						pushConsts.texelSize[1] = 1.0f / mipHeight;
+						pushConsts.width = mipWidth;
+						pushConsts.height = mipHeight;
+						pushConsts.doWeightedAverage = i == 0;
+						pushConsts.inputImageIndex = registry.getBindlessHandle(i == 0 ? hdrSceneTextureViewHandle : bloomDownsampleImageMipViewHandles[i - 1], DescriptorType::TEXTURE);
+						pushConsts.resultImageIndex = registry.getBindlessHandle(bloomDownsampleImageMipViewHandles[i], DescriptorType::RW_TEXTURE);
+
+						cmdList->pushConstants(m_bloomDownsamplePipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+						cmdList->dispatch((mipWidth + 7) / 8, (mipHeight + 7) / 8, 1);
+
+						mipWidth = glm::max(mipWidth / 2u, 1u);
+						mipHeight = glm::max(mipHeight / 2u, 1u);
+
+
+						// dont insert a barrier after the last iteration: we dont know the next resource state, so let the RenderGraph figure it out
+						if (i < (bloomMipCount - 1))
+						{
+							Barrier barrier = Initializers::imageBarrier(registry.getImage(bloomDownsampleImageMipViewHandles[i]),
+								PipelineStageFlags::COMPUTE_SHADER_BIT,
+								PipelineStageFlags::COMPUTE_SHADER_BIT,
+								gal::ResourceState::RW_RESOURCE_WRITE_ONLY,
+								gal::ResourceState::READ_RESOURCE,
+								{ i, 1, 0, 1 });
+
+							cmdList->barrier(1, &barrier);
+						}
+					}
+				});
+		}
+
+		// upsample pass
+		{
+			// E' = E
+			// D' = D + blur(E')
+			// C' = C + blur(D')
+			// B' = B + blur(C')
+			// A' = A + blur(B')
+
+			eastl::fixed_vector<rg::ResourceUsageDesc, k_desiredBloomMipCount * 2> upsampleUsageDescs;
+			for (uint32_t mipLevel = 0; mipLevel < bloomMipCount; ++mipLevel)
+			{
+				// upsample texture has one mip less
+				if ((mipLevel + 1) < bloomMipCount)
+				{
+					// first level isnt read from in this pass
+					if (mipLevel == 0)
+					{
+						upsampleUsageDescs.push_back({ bloomUpsampleImageMipViewHandles[mipLevel], {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+					}
+					else
+					{
+						upsampleUsageDescs.push_back({ bloomUpsampleImageMipViewHandles[mipLevel], {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+					}
+				}
+				upsampleUsageDescs.push_back({ bloomDownsampleImageMipViewHandles[mipLevel], {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+			}
+
+			graph->addPass("Bloom Upsample", rg::QueueType::GRAPHICS, upsampleUsageDescs.size(), upsampleUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
+				{
+					GAL_SCOPED_GPU_LABEL(cmdList, "Bloom Downsample");
+					PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Bloom Downsample");
+					PROFILING_ZONE_SCOPED;
+
+					cmdList->bindPipeline(m_bloomUpsamplePipeline);
+					cmdList->bindDescriptorSets(m_bloomUpsamplePipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
+
+					bool smallestMip = true;
+					for (uint32_t i = (bloomMipCount - 1); i-- > 0;) // count down to zero, skipping the smallest mip
+					{
+						const uint32_t mipWidth = eastl::max(width / 2u / (1 << i), 1u);
+						const uint32_t mipHeight = eastl::max(height / 2u / (1 << i), 1u);
+
+						BloomUpsamplePushConsts pushConsts;
+						pushConsts.texelSize[0] = 1.0f / mipWidth;
+						pushConsts.texelSize[1] = 1.0f / mipHeight;
+						pushConsts.width = mipWidth;
+						pushConsts.height = mipHeight;
+						pushConsts.addPrevious = true;
+						pushConsts.inputImageIndex = registry.getBindlessHandle(smallestMip ? bloomDownsampleImageMipViewHandles[i + 1] : bloomUpsampleImageMipViewHandles[i + 1], DescriptorType::TEXTURE);
+						pushConsts.prevResultImageIndex = registry.getBindlessHandle(bloomDownsampleImageMipViewHandles[i], DescriptorType::TEXTURE);
+						pushConsts.resultImageIndex = registry.getBindlessHandle(bloomUpsampleImageMipViewHandles[i], DescriptorType::RW_TEXTURE);
+
+						cmdList->pushConstants(m_bloomUpsamplePipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+						cmdList->dispatch((mipWidth + 7) / 8, (mipHeight + 7) / 8, 1);
+
+
+						// dont insert a barrier after the last iteration: we dont know the next resource state, so let the RenderGraph figure it out
+						if (i > 0)
+						{
+							Barrier barrier = Initializers::imageBarrier(registry.getImage(bloomUpsampleImageMipViewHandles[i]),
+								PipelineStageFlags::COMPUTE_SHADER_BIT,
+								PipelineStageFlags::COMPUTE_SHADER_BIT,
+								gal::ResourceState::RW_RESOURCE_WRITE_ONLY,
+								gal::ResourceState::READ_RESOURCE,
+								{ i, 1, 0, 1 });
+
+							cmdList->barrier(1, &barrier);
+						}
+
+						smallestMip = false;
+					}
+				});
+		}
 	}
 
 	constexpr uint32_t k_histogramSize = 256;
@@ -568,13 +820,15 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			cmdList->dispatch(1, 1, 1);
 		});
 
-	rg::ResourceUsageDesc tonemapUsageDescs[] =
+	eastl::fixed_vector<rg::ResourceUsageDesc, 4> tonemapUsageDescs;
+	tonemapUsageDescs.push_back({ hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	tonemapUsageDescs.push_back({ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	tonemapUsageDescs.push_back({ data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	if (bloomEnabled)
 	{
-		{hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		{data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		{data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-	};
-	graph->addPass("Tonemap", rg::QueueType::GRAPHICS, eastl::size(tonemapUsageDescs), tonemapUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		tonemapUsageDescs.push_back({ bloomResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	}
+	graph->addPass("Tonemap", rg::QueueType::GRAPHICS, tonemapUsageDescs.size(), tonemapUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Tonemap");
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Tonemap");
@@ -590,7 +844,10 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			pushConsts.texelSize[0] = 1.0f / width;
 			pushConsts.texelSize[1] = 1.0f / height;
 			pushConsts.time = data.m_viewData->m_time;
+			pushConsts.applyBloom = bloomEnabled;
+			pushConsts.bloomStrength = 0.04f;
 			pushConsts.inputImageIndex = registry.getBindlessHandle(hdrSceneTextureViewHandle, DescriptorType::TEXTURE);
+			pushConsts.bloomImageIndex = bloomEnabled ? registry.getBindlessHandle(bloomResultImageViewHandle, DescriptorType::TEXTURE) : 0;
 			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 			pushConsts.outputImageIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
 

@@ -49,4 +49,7 @@ dxc.exe -T cs_6_0 -E main volumetricFogIntegrate_cs.hlsl -Fo ./../volumetricFogI
 
 dxc.exe -T cs_6_0 -E main temporalAA_cs.hlsl -Fo ./../temporalAA_cs.cso -Zi -Fd ./../temporalAA_cs.pdb
 
+dxc.exe -T cs_6_0 -E main bloomDownsample_cs.hlsl -Fo ./../bloomDownsample_cs.cso -Zi -Fd ./../bloomDownsample_cs.pdb
+dxc.exe -T cs_6_0 -E main bloomUpsample_cs.hlsl -Fo ./../bloomUpsample_cs.cso -Zi -Fd ./../bloomUpsample_cs.pdb
+
 pause
