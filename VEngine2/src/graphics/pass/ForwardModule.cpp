@@ -13,6 +13,7 @@
 #include <glm/trigonometric.hpp>
 #include "VolumetricFogModule.h"
 #include "graphics/LightManager.h"
+#include "graphics/CommonViewData.h"
 
 using namespace gal;
 
@@ -368,37 +369,40 @@ ForwardModule::~ForwardModule() noexcept
 
 void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
 {
+	const uint32_t width = data.m_viewData->m_width;
+	const uint32_t height = data.m_viewData->m_height;
+
 	// depth buffer
-	rg::ResourceHandle depthBufferImageHandle = graph->createImage(rg::ImageDesc::create("Depth Buffer", Format::D32_SFLOAT, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle depthBufferImageHandle = graph->createImage(rg::ImageDesc::create("Depth Buffer", Format::D32_SFLOAT, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle depthBufferImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Depth Buffer", depthBufferImageHandle, graph));
 	resultData->m_depthBufferImageViewHandle = depthBufferImageViewHandle;
 
 	// lighting texture
-	rg::ResourceHandle lightingImageHandle = graph->createImage(rg::ImageDesc::create("Lighting Image", Format::R16G16B16A16_SFLOAT, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle lightingImageHandle = graph->createImage(rg::ImageDesc::create("Lighting Image", Format::R16G16B16A16_SFLOAT, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle lightingImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Lighting Image", lightingImageHandle, graph));
 	resultData->m_lightingImageViewHandle = lightingImageViewHandle;
 
 	// normal/roughness
-	rg::ResourceHandle normalImageHandle = graph->createImage(rg::ImageDesc::create("Normal/Roughness Image", Format::R8G8B8A8_UNORM, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle normalImageHandle = graph->createImage(rg::ImageDesc::create("Normal/Roughness Image", Format::R8G8B8A8_UNORM, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle normalImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Normal/Roughness Image", normalImageHandle, graph));
 	resultData->m_normalRoughnessImageViewHandle = normalImageViewHandle;
 
 	// albedo/metalness
-	rg::ResourceHandle albedoImageHandle = graph->createImage(rg::ImageDesc::create("Albedo/Metalness Image", Format::R8G8B8A8_SRGB, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle albedoImageHandle = graph->createImage(rg::ImageDesc::create("Albedo/Metalness Image", Format::R8G8B8A8_SRGB, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle albedoImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Albedo/Metalness Image", albedoImageHandle, graph));
 	resultData->m_albedoMetalnessImageViewHandle = albedoImageViewHandle;
 
 	// velocity
-	rg::ResourceHandle velocityImageHandle = graph->createImage(rg::ImageDesc::create("Velocity Image", Format::R16G16_SFLOAT, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle velocityImageHandle = graph->createImage(rg::ImageDesc::create("Velocity Image", Format::R16G16_SFLOAT, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle velocityImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Velocity Image", velocityImageHandle, graph));
 	resultData->m_velocityImageViewHandle = velocityImageViewHandle;
 
 	// gtao
-	rg::ResourceHandle gtaoImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle gtaoImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle gtaoImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Image", gtaoImageHandle, graph));
 
 	// gtao result
-	rg::ResourceHandle gtaoResultImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Result Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+	rg::ResourceHandle gtaoResultImageHandle = graph->createImage(rg::ImageDesc::create("GTAO Result Image", Format::R16G16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 	rg::ResourceViewHandle gtaoResultImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("GTAO Result Image", gtaoResultImageHandle, graph));
 
 	// depth prepass
@@ -406,17 +410,17 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	graph->addPass("Depth Prepass", rg::QueueType::GRAPHICS, eastl::size(prepassUsageDescs), prepassUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Depth Prepass");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Depth Prepass");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Depth Prepass");
 			PROFILING_ZONE_SCOPED;
 
 			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
-			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+			Rect renderRect{ {0, 0}, {width, height} };
 
 			cmdList->beginRenderPass(0, nullptr, &depthBufferDesc, renderRect, false);
 			{
-				Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+				Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 				cmdList->setViewport(0, 1, &viewport);
-				Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+				Rect scissor{ {0, 0}, {width, height} };
 				cmdList->setScissor(0, 1, &scissor);
 
 				struct PassConstants
@@ -428,12 +432,12 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				};
 
 				PassConstants passConsts;
-				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
+				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_viewData->m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
 				passConsts.transformBufferIndex = data.m_transformBufferHandle;
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 				const eastl::vector<SubMeshInstanceData> *instancesArr[]
 				{
@@ -462,7 +466,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 					cmdList->bindPipeline(pipeline);
 
-					gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+					gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 					cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
 					for (const auto &instance : *instancesArr[listType])
@@ -529,25 +533,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 	VolumetricFogModule::ResultData volumetricFogResultData{};
 	VolumetricFogModule::Data volumetricFogData{};
-	volumetricFogData.m_profilingCtx = data.m_profilingCtx;
-	volumetricFogData.m_bufferAllocator = data.m_bufferAllocator;
-	volumetricFogData.m_offsetBufferSet = data.m_offsetBufferSet;
-	volumetricFogData.m_bindlessSet = data.m_bindlessSet;
-	volumetricFogData.m_width = data.m_width;
-	volumetricFogData.m_height = data.m_height;
-	volumetricFogData.m_frame = data.m_frame;
-	volumetricFogData.m_fovy = data.m_fovy;
-	volumetricFogData.m_nearPlane = data.m_nearPlane;
+	volumetricFogData.m_viewData = data.m_viewData;
 	volumetricFogData.m_globalMediaBufferHandle = data.m_globalMediaBufferHandle;
 	volumetricFogData.m_localMediaBufferHandle = {}; // TODO;
 	volumetricFogData.m_localMediaDepthBinsBufferHandle = {}; // TODO
 	volumetricFogData.m_localMediaTileTextureViewHandle = {}; // TODO
-	volumetricFogData.m_exposureBufferHandle = data.m_exposureBufferHandle;
 	volumetricFogData.m_globalMediaCount = data.m_globalMediaCount;
 	volumetricFogData.m_localMediaCount = 0; // TODO
-	volumetricFogData.m_viewMatrix = data.m_viewMatrix;
-	volumetricFogData.m_cameraPosition = data.m_cameraPosition;
-	volumetricFogData.m_ignoreHistory = data.m_frame < 2 || data.m_ignoreHistory;
+	volumetricFogData.m_ignoreHistory = data.m_viewData->m_frame < 2 || data.m_ignoreHistory;
 	volumetricFogData.m_lightRecordData = data.m_lightRecordData;
 
 	m_volumetricFogModule->record(graph, volumetricFogData, &volumetricFogResultData);
@@ -559,8 +552,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	forwardUsageDescs.push_back({ albedoImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
 	forwardUsageDescs.push_back({ velocityImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} });
 	forwardUsageDescs.push_back({ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL} });
-	forwardUsageDescs.push_back({ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
-	forwardUsageDescs.push_back({ data.m_pickingBufferHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	forwardUsageDescs.push_back({ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+	forwardUsageDescs.push_back({ data.m_viewData->m_pickingBufferHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	if (data.m_lightRecordData->m_punctualLightCount > 0)
 	{
 		forwardUsageDescs.push_back({ data.m_lightRecordData->m_punctualLightsTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
@@ -577,7 +570,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	graph->addPass("Forward", rg::QueueType::GRAPHICS, forwardUsageDescs.size(), forwardUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Forward");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Forward");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Forward");
 			PROFILING_ZONE_SCOPED;
 
 			ColorAttachmentDescription attachmentDescs[]
@@ -588,13 +581,13 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				 { registry.getImageView(velocityImageViewHandle), AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::STORE },
 			};
 			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
-			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+			Rect renderRect{ {0, 0}, {width, height} };
 
 			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
 			{
-				Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+				Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 				cmdList->setViewport(0, 1, &viewport);
-				Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+				Rect scissor{ {0, 0}, {width, height} };
 				cmdList->setScissor(0, 1, &scissor);
 
 				struct PassConstants
@@ -629,14 +622,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				};
 
 				PassConstants passConsts{};
-				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
-				memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
-				memcpy(passConsts.prevViewProjectionMatrix, &data.m_prevViewProjectionMatrix[0][0], sizeof(passConsts.prevViewProjectionMatrix));
-				passConsts.viewMatrixDepthRow[0] = data.m_viewMatrix[0][2];
-				passConsts.viewMatrixDepthRow[1] = data.m_viewMatrix[1][2];
-				passConsts.viewMatrixDepthRow[2] = data.m_viewMatrix[2][2];
-				passConsts.viewMatrixDepthRow[3] = data.m_viewMatrix[3][2];
-				memcpy(passConsts.cameraPosition, &data.m_cameraPosition[0], sizeof(passConsts.cameraPosition));
+				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_viewData->m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
+				memcpy(passConsts.viewProjectionMatrix, &data.m_viewData->m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+				memcpy(passConsts.prevViewProjectionMatrix, &data.m_viewData->m_prevViewProjectionMatrix[0][0], sizeof(passConsts.prevViewProjectionMatrix));
+				passConsts.viewMatrixDepthRow[0] = data.m_viewData->m_viewMatrixDepthRow[0];
+				passConsts.viewMatrixDepthRow[1] = data.m_viewData->m_viewMatrixDepthRow[1];
+				passConsts.viewMatrixDepthRow[2] = data.m_viewData->m_viewMatrixDepthRow[2];
+				passConsts.viewMatrixDepthRow[3] = data.m_viewData->m_viewMatrixDepthRow[3];
+				memcpy(passConsts.cameraPosition, &data.m_viewData->m_cameraPosition[0], sizeof(passConsts.cameraPosition));
 				passConsts.transformBufferIndex = data.m_transformBufferHandle;
 				passConsts.prevTransformBufferIndex = data.m_prevTransformBufferHandle;
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
@@ -654,13 +647,13 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.punctualLightShadowedBufferIndex = data.m_lightRecordData->m_punctualLightsShadowedBufferViewHandle;
 				passConsts.punctualLightShadowedTileTextureIndex = data.m_lightRecordData->m_punctualLightShadowedCount > 0 ? registry.getBindlessHandle(data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
 				passConsts.punctualLightShadowedDepthBinsBufferIndex = data.m_lightRecordData->m_punctualLightsShadowedDepthBinsBufferViewHandle;
-				passConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
-				passConsts.pickingBufferIndex = registry.getBindlessHandle(data.m_pickingBufferHandle, DescriptorType::RW_BYTE_BUFFER);
-				passConsts.pickingPosX = data.m_pickingPosX;
-				passConsts.pickingPosY = data.m_pickingPosY;
+				passConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+				passConsts.pickingBufferIndex = registry.getBindlessHandle(data.m_viewData->m_pickingBufferHandle, DescriptorType::RW_BYTE_BUFFER);
+				passConsts.pickingPosX = data.m_viewData->m_pickingPosX;
+				passConsts.pickingPosY = data.m_viewData->m_pickingPosY;
 				passConsts.lodBias = data.m_taaEnabled ? -0.5f : 0.0f;
 
-				uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 				const eastl::vector<SubMeshInstanceData> *instancesArr[]
 				{
@@ -692,7 +685,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					{
 						cmdList->bindPipeline(pipeline);
 
-						gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+						gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
 						prevPipeline = pipeline;
@@ -779,11 +772,11 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					};
 
 					cmdList->bindPipeline(m_skyPipeline);
-					cmdList->bindDescriptorSets(m_skyPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+					cmdList->bindDescriptorSets(m_skyPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 					SkyPushConsts skyPushConsts{};
-					memcpy(skyPushConsts.invModelViewProjection, &data.m_invJitteredViewProjectionMatrix[0][0], sizeof(skyPushConsts.invModelViewProjection));
-					skyPushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+					memcpy(skyPushConsts.invModelViewProjection, &data.m_viewData->m_invJitteredViewProjectionMatrix[0][0], sizeof(skyPushConsts.invModelViewProjection));
+					skyPushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 
 					cmdList->pushConstants(m_skyPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(skyPushConsts), &skyPushConsts);
 
@@ -802,7 +795,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	graph->addPass("GTAO", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "GTAO");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "GTAO");
 			PROFILING_ZONE_SCOPED;
 
 			struct GTAOConstants
@@ -825,13 +818,13 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			const float radius = 2.0f;
 
 			GTAOConstants consts{};
-			consts.viewMatrix = data.m_viewMatrix;
-			consts.invProjectionMatrix = data.m_invJitteredProjectionMatrix;
-			consts.resolution[0] = data.m_width;
-			consts.resolution[1] = data.m_height;
-			consts.texelSize[0] = 1.0f / data.m_width;
-			consts.texelSize[1] = 1.0f / data.m_height;
-			consts.radiusScale = 0.5f * radius * (1.0f / tanf(glm::radians(data.m_fovy) * 0.5f) * (data.m_height / static_cast<float>(data.m_width)));
+			consts.viewMatrix = data.m_viewData->m_viewMatrix;
+			consts.invProjectionMatrix = data.m_viewData->m_invJitteredProjectionMatrix;
+			consts.resolution[0] = width;
+			consts.resolution[1] = height;
+			consts.texelSize[0] = 1.0f / width;
+			consts.texelSize[1] = 1.0f / height;
+			consts.radiusScale = 0.5f * radius * (1.0f / tanf(glm::radians(data.m_viewData->m_fovy) * 0.5f) * (height / static_cast<float>(width)));
 			consts.falloffScale = 1.0f / radius;
 			consts.falloffBias = -0.75f;
 			consts.maxTexelRadius = 256.0f;
@@ -841,14 +834,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
 			consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
 
-			uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+			uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			cmdList->bindPipeline(m_gtaoPipeline);
 
-			gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+			gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 			cmdList->bindDescriptorSets(m_gtaoPipeline, 0, 2, sets, 1, &constsAddress);
 
-			cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+			cmdList->dispatch((width + 7) / 8, (height + 7) / 8, 1);
 		});
 
 	rg::ResourceUsageDesc gtaoBlurUsageDescs[] =
@@ -859,7 +852,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	graph->addPass("GTAO Blur", rg::QueueType::GRAPHICS, eastl::size(gtaoUsageDescs), gtaoUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "GTAO Blur");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "GTAO Blur");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "GTAO Blur");
 			PROFILING_ZONE_SCOPED;
 
 			struct GTAOPushConsts
@@ -871,27 +864,27 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			};
 
 			GTAOPushConsts consts{};
-			consts.resolution[0] = data.m_width;
-			consts.resolution[1] = data.m_height;
-			consts.texelSize[0] = 1.0f / data.m_width;
-			consts.texelSize[1] = 1.0f / data.m_height;
+			consts.resolution[0] = width;
+			consts.resolution[1] = height;
+			consts.texelSize[0] = 1.0f / width;
+			consts.texelSize[1] = 1.0f / height;
 			consts.inputTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::TEXTURE);
 			consts.resultTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::RW_TEXTURE);
 
 			cmdList->bindPipeline(m_gtaoBlurPipeline);
 
-			cmdList->bindDescriptorSets(m_gtaoBlurPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+			cmdList->bindDescriptorSets(m_gtaoBlurPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 			cmdList->pushConstants(m_gtaoBlurPipeline, ShaderStageFlags::ALL_STAGES, 0, sizeof(consts), &consts);
 
-			cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+			cmdList->dispatch((width + 7) / 8, (height + 7) / 8, 1);
 		});
 
 	rg::ResourceUsageDesc indirectLightingUsageDescs[]
 	{
 		{ albedoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ gtaoResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
-		{ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		{ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ volumetricFogResultData.m_volumetricFogImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ lightingImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT} },
 		{ depthBufferImageViewHandle, {ResourceState::READ_DEPTH_STENCIL | ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
@@ -899,7 +892,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	graph->addPass("Indirect Lighting", rg::QueueType::GRAPHICS, eastl::size(indirectLightingUsageDescs), indirectLightingUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Indirect Lighting");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Indirect Lighting");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Indirect Lighting");
 			PROFILING_ZONE_SCOPED;
 
 			ColorAttachmentDescription attachmentDescs[]
@@ -907,18 +900,18 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				 { registry.getImageView(lightingImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE },
 			};
 			DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
-			Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+			Rect renderRect{ {0, 0}, {width, height} };
 
 			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
 			{
 				cmdList->bindPipeline(m_indirectLightingPipeline);
 
-				gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+				gal::Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 				cmdList->setViewport(0, 1, &viewport);
-				gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+				gal::Rect scissor{ {0, 0}, {width, height} };
 				cmdList->setScissor(0, 1, &scissor);
 
-				cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+				cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 				struct PushConsts
 				{
@@ -937,9 +930,9 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				pushConsts.volumetricFogTexelSize = 1.0f / glm::vec3(240.0f, 135.0f, 128.0f);
 				pushConsts.volumetricFogNear = 0.5f;
 				pushConsts.volumetricFogFar = 64.0f;
-				pushConsts.depthUnprojectParams[0] = data.m_invJitteredProjectionMatrix[2][3];
-				pushConsts.depthUnprojectParams[1] = data.m_invJitteredProjectionMatrix[3][3];
-				pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+				pushConsts.depthUnprojectParams[0] = data.m_viewData->m_invJitteredProjectionMatrix[2][3];
+				pushConsts.depthUnprojectParams[1] = data.m_viewData->m_invJitteredProjectionMatrix[3][3];
+				pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 				pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.depthBufferIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);

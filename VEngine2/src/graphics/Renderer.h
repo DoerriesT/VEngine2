@@ -67,9 +67,6 @@ private:
 	uint32_t m_swapchainHeight = 1;
 	uint32_t m_width = 1;
 	uint32_t m_height = 1;
-	uint32_t m_pickingPosX = -1;
-	uint32_t m_pickingPosY = -1;
-	uint64_t m_pickedEntity = 0;
 	float m_time = 0.0f;
 	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;

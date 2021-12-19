@@ -26,6 +26,7 @@
 #include <EASTL/sort.h>
 #include <glm/gtx/quaternion.hpp>
 #include "utility/Utility.h"
+#include "graphics/Camera.h"
 
 bool g_taaEnabled = true;
 
@@ -70,14 +71,8 @@ void RenderView::render(
 	float time,
 	const RenderWorld &renderWorld,
 	rg::RenderGraph *graph,
-	BufferStackAllocator *bufferAllocator,
-	gal::DescriptorSet *offsetBufferSet,
-	const float *viewMatrix,
-	const float *projectionMatrix,
-	const float *cameraPosition,
-	const CameraComponent *cameraComponent,
-	uint32_t pickingPosX,
-	uint32_t pickingPosY
+	const Transform *cameraTransform,
+	const CameraComponent *cameraComponent
 ) noexcept
 {
 	if (m_width == 0 || m_height == 0)
@@ -100,47 +95,6 @@ void RenderView::render(
 		}
 		buffer->unmap();
 	}
-
-	const size_t haltonIdx = m_frame % k_haltonSampleCount;
-	glm::mat4 jitterMatrix = g_taaEnabled ? glm::translate(glm::vec3(m_haltonJitter[haltonIdx * 2 + 0] / m_width, m_haltonJitter[haltonIdx * 2 + 1] / m_height, 0.0f)) : glm::identity<glm::mat4>();
-
-	auto &viewData = m_viewData[resIdx];
-	viewData.m_viewMatrix = glm::make_mat4(viewMatrix);
-	viewData.m_invViewMatrix = glm::inverse(viewData.m_viewMatrix);
-	viewData.m_projectionMatrix = glm::make_mat4(projectionMatrix);
-	viewData.m_invProjectionMatrix = glm::inverse(viewData.m_projectionMatrix);
-	viewData.m_jitteredProjectionMatrix = jitterMatrix * viewData.m_projectionMatrix;
-	viewData.m_invJitteredProjectionMatrix = glm::inverse(viewData.m_jitteredProjectionMatrix);
-	viewData.m_viewProjectionMatrix = viewData.m_projectionMatrix * viewData.m_viewMatrix;
-	viewData.m_invViewProjectionMatrix = glm::inverse(viewData.m_viewProjectionMatrix);
-	viewData.m_jitteredViewProjectionMatrix = viewData.m_jitteredProjectionMatrix * viewData.m_viewMatrix;
-	viewData.m_invJitteredViewProjectionMatrix = glm::inverse(viewData.m_jitteredViewProjectionMatrix);
-
-	viewData.m_prevViewMatrix = m_viewData[prevResIdx].m_viewMatrix;
-	viewData.m_prevInvViewMatrix = m_viewData[prevResIdx].m_invViewMatrix;
-	viewData.m_prevProjectionMatrix = m_viewData[prevResIdx].m_projectionMatrix;
-	viewData.m_prevInvProjectionMatrix = m_viewData[prevResIdx].m_invProjectionMatrix;
-	viewData.m_prevJitteredProjectionMatrix = m_viewData[prevResIdx].m_jitteredProjectionMatrix;
-	viewData.m_prevInvJitteredProjectionMatrix = m_viewData[prevResIdx].m_invJitteredProjectionMatrix;
-	viewData.m_prevViewProjectionMatrix = m_viewData[prevResIdx].m_viewProjectionMatrix;
-	viewData.m_prevInvViewProjectionMatrix = m_viewData[prevResIdx].m_invViewProjectionMatrix;
-	viewData.m_prevJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_jitteredViewProjectionMatrix;
-	viewData.m_prevInvJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_invJitteredViewProjectionMatrix;
-
-	viewData.m_viewMatrixDepthRow = glm::vec4(viewData.m_viewMatrix[0][2], viewData.m_viewMatrix[1][2], viewData.m_viewMatrix[2][2], viewData.m_viewMatrix[3][2]);
-	viewData.m_cameraPosition = glm::make_vec3(cameraPosition);
-	viewData.m_near = cameraComponent->m_near;
-	viewData.m_far = cameraComponent->m_far;
-	viewData.m_fovy = cameraComponent->m_fovy;
-	viewData.m_width = m_width;
-	viewData.m_height = m_height;
-	viewData.m_aspectRatio = cameraComponent->m_aspectRatio;
-	viewData.m_frame = m_frame;
-	viewData.m_device = m_device;
-	viewData.m_rendererResources = m_rendererResources;
-	viewData.m_viewRegistry = m_viewRegistry;
-	viewData.m_resIdx = static_cast<uint32_t>(resIdx);
-	viewData.m_prevResIdx = static_cast<uint32_t>(prevResIdx);
 
 	// result image
 	rg::ResourceHandle resultImageHandle = graph->importImage(m_renderViewResources->m_resultImage, "Render View Result", m_renderViewResources->m_resultImageState);
@@ -167,13 +121,70 @@ void RenderView::render(
 	rg::ResourceHandle taaHistoryImageHandle = graph->importImage(m_renderViewResources->m_temporalAAImages[prevResIdx], "Temporal AA History", &m_renderViewResources->m_temporalAAImageStates[prevResIdx]);
 	rg::ResourceViewHandle taaHistoryImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Temporal AA History", taaHistoryImageHandle, graph));
 
+	const size_t haltonIdx = m_frame % k_haltonSampleCount;
+	glm::mat4 jitterMatrix = g_taaEnabled ? glm::translate(glm::vec3(m_haltonJitter[haltonIdx * 2 + 0] / m_width, m_haltonJitter[haltonIdx * 2 + 1] / m_height, 0.0f)) : glm::identity<glm::mat4>();
+
+	
+	auto &viewData = m_viewData[resIdx];
+	{
+		CameraComponent cc = *cameraComponent;
+		TransformComponent tc{};
+		tc.m_transform = *cameraTransform;
+
+		Camera camera(tc, cc);
+		viewData.m_viewMatrix = camera.getViewMatrix();
+		viewData.m_projectionMatrix = camera.getProjectionMatrix();
+	}
+	viewData.m_invViewMatrix = glm::inverse(viewData.m_viewMatrix);
+	viewData.m_invProjectionMatrix = glm::inverse(viewData.m_projectionMatrix);
+	viewData.m_jitteredProjectionMatrix = jitterMatrix * viewData.m_projectionMatrix;
+	viewData.m_invJitteredProjectionMatrix = glm::inverse(viewData.m_jitteredProjectionMatrix);
+	viewData.m_viewProjectionMatrix = viewData.m_projectionMatrix * viewData.m_viewMatrix;
+	viewData.m_invViewProjectionMatrix = glm::inverse(viewData.m_viewProjectionMatrix);
+	viewData.m_jitteredViewProjectionMatrix = viewData.m_jitteredProjectionMatrix * viewData.m_viewMatrix;
+	viewData.m_invJitteredViewProjectionMatrix = glm::inverse(viewData.m_jitteredViewProjectionMatrix);
+
+	viewData.m_prevViewMatrix = m_viewData[prevResIdx].m_viewMatrix;
+	viewData.m_prevInvViewMatrix = m_viewData[prevResIdx].m_invViewMatrix;
+	viewData.m_prevProjectionMatrix = m_viewData[prevResIdx].m_projectionMatrix;
+	viewData.m_prevInvProjectionMatrix = m_viewData[prevResIdx].m_invProjectionMatrix;
+	viewData.m_prevJitteredProjectionMatrix = m_viewData[prevResIdx].m_jitteredProjectionMatrix;
+	viewData.m_prevInvJitteredProjectionMatrix = m_viewData[prevResIdx].m_invJitteredProjectionMatrix;
+	viewData.m_prevViewProjectionMatrix = m_viewData[prevResIdx].m_viewProjectionMatrix;
+	viewData.m_prevInvViewProjectionMatrix = m_viewData[prevResIdx].m_invViewProjectionMatrix;
+	viewData.m_prevJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_jitteredViewProjectionMatrix;
+	viewData.m_prevInvJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_invJitteredViewProjectionMatrix;
+
+	viewData.m_viewMatrixDepthRow = glm::vec4(viewData.m_viewMatrix[0][2], viewData.m_viewMatrix[1][2], viewData.m_viewMatrix[2][2], viewData.m_viewMatrix[3][2]);
+	viewData.m_cameraPosition = cameraTransform->m_translation;
+	viewData.m_near = cameraComponent->m_near;
+	viewData.m_far = cameraComponent->m_far;
+	viewData.m_fovy = cameraComponent->m_fovy;
+	viewData.m_width = m_width;
+	viewData.m_height = m_height;
+	viewData.m_pickingPosX = m_pickingPosX;
+	viewData.m_pickingPosY = m_pickingPosY;
+	viewData.m_aspectRatio = cameraComponent->m_aspectRatio;
+	viewData.m_frame = m_frame;
+	viewData.m_time = time;
+	viewData.m_deltaTime = deltaTime;
+	viewData.m_device = m_device;
+	viewData.m_rendererResources = m_rendererResources;
+	viewData.m_viewRegistry = m_viewRegistry;
+	viewData.m_resIdx = static_cast<uint32_t>(resIdx);
+	viewData.m_prevResIdx = static_cast<uint32_t>(prevResIdx);
+	viewData.m_gpuProfilingCtx = m_device->getProfilingContext();
+	viewData.m_cbvAllocator = m_rendererResources->m_constantBufferStackAllocators[resIdx];
+	viewData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[resIdx];
+	viewData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+	viewData.m_pickingBufferHandle = pickingBufferViewHandle;
+	viewData.m_exposureBufferHandle = exposureBufferViewHandle;
+
 	m_modelMatrices.clear();
 	m_prevModelMatrices.clear();
 	m_globalMedia.clear();
 	m_renderList.clear();
 	m_outlineRenderList.clear();
-
-	const glm::mat4 invViewMatrix = glm::inverse(glm::make_mat4(viewMatrix));
 
 	// process global participating media
 	for (const auto &pm : renderWorld.m_globalParticipatingMedia)
@@ -313,38 +324,17 @@ void RenderView::render(
 
 	ForwardModule::ResultData forwardModuleResultData;
 	ForwardModule::Data forwardModuleData{};
-	forwardModuleData.m_profilingCtx = m_device->getProfilingContext();
-	forwardModuleData.m_bufferAllocator = bufferAllocator;
-	forwardModuleData.m_offsetBufferSet = offsetBufferSet;
-	forwardModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
-	forwardModuleData.m_width = m_width;
-	forwardModuleData.m_height = m_height;
-	forwardModuleData.m_frame = m_frame;
-	forwardModuleData.m_fovy = cameraComponent->m_fovy;
-	forwardModuleData.m_nearPlane = cameraComponent->m_near;
-	forwardModuleData.m_pickingPosX = pickingPosX;
-	forwardModuleData.m_pickingPosY = pickingPosY;
+	forwardModuleData.m_viewData = &viewData;
 	forwardModuleData.m_transformBufferHandle = transformsBufferViewHandle;
 	forwardModuleData.m_prevTransformBufferHandle = prevTransformsBufferViewHandle;
 	forwardModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 	forwardModuleData.m_prevSkinningMatrixBufferHandle = prevSkinningMatricesBufferViewHandle;
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_globalMediaBufferHandle = globalMediaBufferViewHandle;
-	forwardModuleData.m_pickingBufferHandle = pickingBufferViewHandle;
-	forwardModuleData.m_exposureBufferHandle = exposureBufferViewHandle;
 	forwardModuleData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
-	forwardModuleData.m_jitteredViewProjectionMatrix = viewData.m_jitteredViewProjectionMatrix;
-	forwardModuleData.m_invJitteredViewProjectionMatrix = viewData.m_invJitteredViewProjectionMatrix;
-	forwardModuleData.m_viewMatrix = viewData.m_viewMatrix;
-	forwardModuleData.m_invJitteredProjectionMatrix = viewData.m_invJitteredProjectionMatrix;
-	forwardModuleData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
-	forwardModuleData.m_prevViewProjectionMatrix = viewData.m_prevViewProjectionMatrix;
-	forwardModuleData.m_cameraPosition = viewData.m_cameraPosition;
 	forwardModuleData.m_renderList = &m_renderList;
-	forwardModuleData.m_modelMatrices = m_modelMatrices.data();
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
-	forwardModuleData.m_rendererResources = m_rendererResources;
 	forwardModuleData.m_lightRecordData = m_lightManager->getLightRecordData();
 	forwardModuleData.m_taaEnabled = g_taaEnabled;
 	forwardModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
@@ -353,30 +343,18 @@ void RenderView::render(
 
 
 	PostProcessModule::Data postProcessModuleData{};
-	postProcessModuleData.m_profilingCtx = m_device->getProfilingContext();
-	postProcessModuleData.m_bufferAllocator = bufferAllocator;
-	postProcessModuleData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[resIdx];
-	postProcessModuleData.m_offsetBufferSet = offsetBufferSet;
-	postProcessModuleData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
-	postProcessModuleData.m_width = m_width;
-	postProcessModuleData.m_height = m_height;
-	postProcessModuleData.m_deltaTime = deltaTime;
-	postProcessModuleData.m_time = time;
+	postProcessModuleData.m_viewData = &viewData;
 	postProcessModuleData.m_lightingImageView = forwardModuleResultData.m_lightingImageViewHandle;
 	postProcessModuleData.m_depthBufferImageViewHandle = forwardModuleResultData.m_depthBufferImageViewHandle;
 	postProcessModuleData.m_velocityImageViewHandle = forwardModuleResultData.m_velocityImageViewHandle;
 	postProcessModuleData.m_temporalAAResultImageViewHandle = taaResultImageViewHandle;
 	postProcessModuleData.m_temporalAAHistoryImageViewHandle = taaHistoryImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
-	postProcessModuleData.m_exposureBufferViewHandle = exposureBufferViewHandle;
 	postProcessModuleData.m_transformBufferHandle = transformsBufferViewHandle;
 	postProcessModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	postProcessModuleData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
-	postProcessModuleData.m_cameraPosition = viewData.m_cameraPosition;
 	postProcessModuleData.m_renderList = &m_renderList;
 	postProcessModuleData.m_outlineRenderList = &m_outlineRenderList;
-	postProcessModuleData.m_modelMatrices = m_modelMatrices.data();
 	postProcessModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	postProcessModuleData.m_debugNormals = false;
@@ -389,8 +367,8 @@ void RenderView::render(
 
 	GridPass::Data gridPassData{};
 	gridPassData.m_profilingCtx = m_device->getProfilingContext();
-	gridPassData.m_bufferAllocator = bufferAllocator;
-	gridPassData.m_offsetBufferSet = offsetBufferSet;
+	gridPassData.m_bufferAllocator = viewData.m_cbvAllocator;
+	gridPassData.m_offsetBufferSet = viewData.m_offsetBufferSet;
 	gridPassData.m_width = m_width;
 	gridPassData.m_height = m_height;
 	gridPassData.m_colorAttachment = resultImageViewHandle;
@@ -435,6 +413,12 @@ void RenderView::resize(uint32_t width, uint32_t height) noexcept
 		m_ignoreHistory = true;
 		m_framesSinceLastResize = 0;
 	}
+}
+
+void RenderView::setPickingPos(uint32_t x, uint32_t y) noexcept
+{
+	m_pickingPosX = x;
+	m_pickingPosY = y;
 }
 
 gal::Image *RenderView::getResultImage() const noexcept

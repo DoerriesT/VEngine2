@@ -5,7 +5,6 @@
 #include "RenderGraph.h"
 #include <glm/mat4x4.hpp>
 #include "RenderData.h"
-#include "ecs/ECSCommon.h"
 #include "CommonViewData.h"
 
 struct RenderViewResources;
@@ -21,6 +20,7 @@ struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
 enum MaterialHandle : uint32_t;
 class RendererResources;
+struct Transform;
 struct CameraComponent;
 struct RenderWorld;
 class LightManager;
@@ -35,16 +35,11 @@ public:
 		float time,
 		const RenderWorld &renderWorld,
 		rg::RenderGraph *graph,
-		BufferStackAllocator *bufferAllocator, 
-		gal::DescriptorSet *offsetBufferSet,
-		const float *viewMatrix, 
-		const float *projectionMatrix, 
-		const float *cameraPosition, 
-		const CameraComponent *cameraComponent,
-		uint32_t pickingPosX,
-		uint32_t pickingPosY
+		const Transform *cameraTransform,
+		const CameraComponent *cameraComponent
 	) noexcept;
 	void resize(uint32_t width, uint32_t height) noexcept;
+	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	gal::Image *getResultImage() const noexcept;
 	gal::ImageView *getResultImageView() const noexcept;
 	TextureViewHandle getResultTextureViewHandle() const noexcept;
@@ -62,7 +57,9 @@ private:
 	uint32_t m_width = 0;
 	uint32_t m_height = 0;
 	uint32_t m_frame = 0;
-	EntityID m_pickedEntity = 0;
+	uint32_t m_pickingPosX = -1;
+	uint32_t m_pickingPosY = -1;
+	uint64_t m_pickedEntity = 0;
 	RendererResources *m_rendererResources = nullptr;
 	RenderViewResources *m_renderViewResources = nullptr;
 	rg::ResourceViewHandle m_resultImageViewHandle = {};

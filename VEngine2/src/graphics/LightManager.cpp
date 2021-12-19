@@ -590,11 +590,11 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 					// we later correct these to be actual TextureViewHandles
 					if (i < 4)
 					{
-						punctualLight.m_shadowMatrix0[i] = util::asfloat(shadowMapViewHandle);
+						punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(shadowMapViewHandle);
 					}
 					else
 					{
-						punctualLight.m_shadowMatrix1[i - 4] = util::asfloat(shadowMapViewHandle);
+						punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(shadowMapViewHandle);
 					}
 				}
 			}
@@ -705,11 +705,11 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 					{
 						if (i < 4)
 						{
-							punctualLight.m_shadowMatrix0[i] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix0[i])), DescriptorType::TEXTURE));
+							punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix0[(int)i])), DescriptorType::TEXTURE));
 						}
 						else
 						{
-							punctualLight.m_shadowMatrix1[i - 4] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix1[i - 4])), DescriptorType::TEXTURE));
+							punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix1[(int)i - 4])), DescriptorType::TEXTURE));
 						}
 					}
 				}

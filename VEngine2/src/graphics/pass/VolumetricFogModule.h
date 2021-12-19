@@ -12,30 +12,20 @@ struct SubMeshBufferHandles;
 struct PunctualLightGPU;
 class RendererResources;
 struct LightRecordData;
+struct CommonViewData;
 
 class VolumetricFogModule
 {
 public:
 	struct Data
 	{
-		void *m_profilingCtx;
-		BufferStackAllocator *m_bufferAllocator;
-		gal::DescriptorSet *m_offsetBufferSet;
-		gal::DescriptorSet *m_bindlessSet;
-		uint32_t m_width;
-		uint32_t m_height;
-		uint32_t m_frame;
-		float m_fovy;
-		float m_nearPlane;
+		const CommonViewData *m_viewData;
 		StructuredBufferViewHandle m_globalMediaBufferHandle;
 		StructuredBufferViewHandle m_localMediaBufferHandle;
 		ByteBufferViewHandle m_localMediaDepthBinsBufferHandle;
 		rg::ResourceViewHandle m_localMediaTileTextureViewHandle;
-		rg::ResourceViewHandle m_exposureBufferHandle;
 		uint32_t m_globalMediaCount;
 		uint32_t m_localMediaCount;
-		glm::mat4 m_viewMatrix;
-		glm::vec3 m_cameraPosition;
 		bool m_ignoreHistory;
 		const LightRecordData *m_lightRecordData;
 	};

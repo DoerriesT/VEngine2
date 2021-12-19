@@ -5,52 +5,29 @@
 #include "utility/DeletedCopyMove.h"
 #include "Handles.h"
 
-class BufferStackAllocator;
 struct SubMeshDrawInfo;
 struct RenderList;
 struct SubMeshBufferHandles;
-struct PunctualLightGPU;
-class RendererResources;
 class VolumetricFogModule;
 struct LightRecordData;
+struct CommonViewData;
 
 class ForwardModule
 {
 public:
 	struct Data
 	{
-		void *m_profilingCtx;
-		BufferStackAllocator *m_bufferAllocator;
-		gal::DescriptorSet *m_offsetBufferSet;
-		gal::DescriptorSet *m_bindlessSet;
-		uint32_t m_width;
-		uint32_t m_height;
-		uint32_t m_frame;
-		float m_fovy;
-		float m_nearPlane;
-		uint32_t m_pickingPosX;
-		uint32_t m_pickingPosY;
+		const CommonViewData *m_viewData;
 		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_prevTransformBufferHandle;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_prevSkinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_globalMediaBufferHandle;
-		rg::ResourceViewHandle m_pickingBufferHandle;
-		rg::ResourceViewHandle m_exposureBufferHandle;
 		uint32_t m_globalMediaCount;
-		glm::mat4 m_jitteredViewProjectionMatrix;
-		glm::mat4 m_invJitteredViewProjectionMatrix;
-		glm::mat4 m_viewMatrix;
-		glm::mat4 m_invJitteredProjectionMatrix;
-		glm::mat4 m_viewProjectionMatrix;
-		glm::mat4 m_prevViewProjectionMatrix;
-		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;
-		const glm::mat4 *m_modelMatrices;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
-		RendererResources *m_rendererResources;
 		const LightRecordData *m_lightRecordData;
 		bool m_taaEnabled;
 		bool m_ignoreHistory;

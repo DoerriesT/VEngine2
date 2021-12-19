@@ -10,6 +10,8 @@
 #include "profiling/Profiling.h"
 #include "graphics/RenderData.h"
 #include <glm/packing.hpp>
+#include "graphics/CommonViewData.h"
+#include "graphics/RendererResources.h"
 
 using namespace gal;
 
@@ -403,13 +405,16 @@ PostProcessModule::~PostProcessModule() noexcept
 
 void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
 {
+	const uint32_t width = data.m_viewData->m_width;
+	const uint32_t height = data.m_viewData->m_height;
+
 	rg::ResourceViewHandle hdrSceneTextureViewHandle = data.m_taaEnabled ? data.m_temporalAAResultImageViewHandle : data.m_lightingImageView;
 
 	if (data.m_taaEnabled)
 	{
 		rg::ResourceUsageDesc temporalAAUsageDescs[] =
 		{
-			{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+			{data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 			{data.m_lightingImageView, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 			{data.m_depthBufferImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 			{data.m_velocityImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
@@ -419,7 +424,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		graph->addPass("Temporal AA", rg::QueueType::GRAPHICS, eastl::size(temporalAAUsageDescs), temporalAAUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Temporal AA");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Temporal AA");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Temporal AA");
 				PROFILING_ZONE_SCOPED;
 
 				struct TAAConstants
@@ -438,8 +443,8 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				};
 
 				TAAConstants consts{};
-				consts.width = data.m_width;
-				consts.height = data.m_height;
+				consts.width = width;
+				consts.height = height;
 				consts.bicubicSharpness = 0.5f;
 				consts.jitterOffsetWeight = 1.0f;
 				consts.ignoreHistory = data.m_ignoreHistory;
@@ -448,16 +453,16 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				consts.historyTextureIndex = registry.getBindlessHandle(data.m_temporalAAHistoryImageViewHandle, DescriptorType::TEXTURE);
 				consts.depthTextureIndex = registry.getBindlessHandle(data.m_depthBufferImageViewHandle, DescriptorType::TEXTURE);
 				consts.velocityTextureIndex = registry.getBindlessHandle(data.m_velocityImageViewHandle, DescriptorType::TEXTURE);
-				consts.exposureDataBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
+				consts.exposureDataBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 
-				uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+				uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 				cmdList->bindPipeline(m_temporalAAPipeline);
 
-				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+				gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 				cmdList->bindDescriptorSets(m_temporalAAPipeline, 0, 2, sets, 1, &constsAddress);
 
-				cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+				cmdList->dispatch((width + 7) / 8, (height + 7) / 8, 1);
 			});
 	}
 
@@ -483,13 +488,13 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 	rg::ResourceUsageDesc luminanceHistogramUsageDescs[] =
 	{
 		{hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{histogramBufferViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
 	graph->addPass("Luminance Histogram", rg::QueueType::GRAPHICS, eastl::size(luminanceHistogramUsageDescs), luminanceHistogramUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Luminance Histogram");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Luminance Histogram");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Luminance Histogram");
 			PROFILING_ZONE_SCOPED;
 
 			// clear histogram
@@ -502,43 +507,43 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 			cmdList->bindPipeline(m_luminanceHistogramPipeline);
 
-			cmdList->bindDescriptorSets(m_luminanceHistogramPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+			cmdList->bindDescriptorSets(m_luminanceHistogramPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 			LuminanceHistogramPushConsts pushConsts;
-			pushConsts.width = data.m_width;
+			pushConsts.width = width;
 			pushConsts.scale = 1.0f / (exposureHistogramLogMax - exposureHistogramLogMin);
 			pushConsts.bias = -exposureHistogramLogMin * pushConsts.scale;
 			pushConsts.inputTextureIndex = registry.getBindlessHandle(hdrSceneTextureViewHandle, DescriptorType::TEXTURE);
-			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
+			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 			pushConsts.resultLuminanceBufferIndex = registry.getBindlessHandle(histogramBufferViewHandle, DescriptorType::RW_BYTE_BUFFER);
 
 			cmdList->pushConstants(m_luminanceHistogramPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
 
-			cmdList->dispatch(data.m_height, 1, 1);
+			cmdList->dispatch(height, 1, 1);
 		});
 
 	rg::ResourceUsageDesc autoExposureUsageDescs[] =
 	{
 		{histogramBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		{data.m_exposureBufferViewHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{data.m_viewData->m_exposureBufferHandle, {ResourceState::RW_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
 	graph->addPass("Auto Exposure", rg::QueueType::GRAPHICS, eastl::size(autoExposureUsageDescs), autoExposureUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Auto Exposure");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Auto Exposure");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Auto Exposure");
 			PROFILING_ZONE_SCOPED;
 
 			cmdList->bindPipeline(m_autoExposurePipeline);
 
-			cmdList->bindDescriptorSets(m_autoExposurePipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+			cmdList->bindDescriptorSets(m_autoExposurePipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 			AutoExposurePushConsts pushConsts;
-			pushConsts.precomputedTermUp = 1.0f - expf(-data.m_deltaTime * exposureSpeedUp);
-			pushConsts.precomputedTermDown = 1.0f - expf(-data.m_deltaTime * exposureSpeedDown);
+			pushConsts.precomputedTermUp = 1.0f - expf(-data.m_viewData->m_deltaTime * exposureSpeedUp);
+			pushConsts.precomputedTermDown = 1.0f - expf(-data.m_viewData->m_deltaTime * exposureSpeedDown);
 			pushConsts.invScale = exposureHistogramLogMax - exposureHistogramLogMin;
 			pushConsts.bias = -exposureHistogramLogMin * (1.0f / pushConsts.invScale);
-			pushConsts.lowerBound = static_cast<uint32_t>(data.m_width * data.m_height * exposureLowPercentage);
-			pushConsts.upperBound = static_cast<uint32_t>(data.m_width * data.m_height * exposureHighPercentage);
+			pushConsts.lowerBound = static_cast<uint32_t>(width * height * exposureLowPercentage);
+			pushConsts.upperBound = static_cast<uint32_t>(width * height * exposureHighPercentage);
 
 			// ensure at least one pixel passes
 			if (pushConsts.lowerBound == pushConsts.upperBound)
@@ -556,7 +561,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 			pushConsts.exposureMin = eastl::clamp(pushConsts.exposureMin, 1e-7f, pushConsts.exposureMax);
 			pushConsts.fixExposureToMax = exposureFixed;
 			pushConsts.inputHistogramBufferIndex = registry.getBindlessHandle(histogramBufferViewHandle, DescriptorType::BYTE_BUFFER);
-			pushConsts.resultExposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::RW_BYTE_BUFFER);
+			pushConsts.resultExposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::RW_BYTE_BUFFER);
 
 			cmdList->pushConstants(m_autoExposurePipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
 
@@ -566,42 +571,42 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 	rg::ResourceUsageDesc tonemapUsageDescs[] =
 	{
 		{hdrSceneTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-		{data.m_exposureBufferViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
+		{data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 		{data.m_resultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}},
 	};
 	graph->addPass("Tonemap", rg::QueueType::GRAPHICS, eastl::size(tonemapUsageDescs), tonemapUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Tonemap");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Tonemap");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Tonemap");
 			PROFILING_ZONE_SCOPED;
 
 			cmdList->bindPipeline(m_tonemapPipeline);
 
-			cmdList->bindDescriptorSets(m_tonemapPipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+			cmdList->bindDescriptorSets(m_tonemapPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 			TonemapPushConsts pushConsts;
-			pushConsts.resolution[0] = data.m_width;
-			pushConsts.resolution[1] = data.m_height;
-			pushConsts.texelSize[0] = 1.0f / data.m_width;
-			pushConsts.texelSize[1] = 1.0f / data.m_height;
-			pushConsts.time = data.m_time;
+			pushConsts.resolution[0] = width;
+			pushConsts.resolution[1] = height;
+			pushConsts.texelSize[0] = 1.0f / width;
+			pushConsts.texelSize[1] = 1.0f / height;
+			pushConsts.time = data.m_viewData->m_time;
 			pushConsts.inputImageIndex = registry.getBindlessHandle(hdrSceneTextureViewHandle, DescriptorType::TEXTURE);
-			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferViewHandle, DescriptorType::BYTE_BUFFER);
+			pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 			pushConsts.outputImageIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
 
 			cmdList->pushConstants(m_tonemapPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
 
-			cmdList->dispatch((data.m_width + 7) / 8, (data.m_height + 7) / 8, 1);
+			cmdList->dispatch((width + 7) / 8, (height + 7) / 8, 1);
 		});
 
 	if (data.m_renderOutlines)
 	{
 		// outline depth buffer
-		rg::ResourceHandle outlineDepthBufferImageHandle = graph->createImage(rg::ImageDesc::create("Outline Depth Buffer", Format::D32_SFLOAT, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+		rg::ResourceHandle outlineDepthBufferImageHandle = graph->createImage(rg::ImageDesc::create("Outline Depth Buffer", Format::D32_SFLOAT, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 		rg::ResourceViewHandle outlineDepthBufferImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Outline Depth Buffer", outlineDepthBufferImageHandle, graph));
 
 		// outline ID texture
-		rg::ResourceHandle outlineIDImageHandle = graph->createImage(rg::ImageDesc::create("Outline ID Image", Format::R8_UNORM, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, data.m_width, data.m_height));
+		rg::ResourceHandle outlineIDImageHandle = graph->createImage(rg::ImageDesc::create("Outline ID Image", Format::R8_UNORM, ImageUsageFlags::COLOR_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, width, height));
 		rg::ResourceViewHandle outlineIDImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Outline ID Image", outlineIDImageHandle, graph));
 
 		rg::ResourceUsageDesc outlineIDUsageDescs[]
@@ -612,18 +617,18 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		graph->addPass("Outline IDs", rg::QueueType::GRAPHICS, eastl::size(outlineIDUsageDescs), outlineIDUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Outline IDs");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Outline IDs");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Outline IDs");
 				PROFILING_ZONE_SCOPED;
 
 				ColorAttachmentDescription attachmentDescs[]{ { registry.getImageView(outlineIDImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE } };
 				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(outlineDepthBufferImageViewHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
-				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+				Rect renderRect{ {0, 0}, {width, height} };
 
 				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
 				{
-					Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 					cmdList->setViewport(0, 1, &viewport);
-					Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					Rect scissor{ {0, 0}, {width, height} };
 					cmdList->setScissor(0, 1, &scissor);
 
 					struct PassConstants
@@ -635,12 +640,12 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					};
 
 					PassConstants passConsts;
-					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					memcpy(passConsts.viewProjectionMatrix, &data.m_viewData->m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 					passConsts.transformBufferIndex = data.m_transformBufferHandle;
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-					uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
@@ -671,7 +676,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 						cmdList->bindPipeline(pipeline);
 
-						gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+						gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
 						for (const auto &instance : *instancesArr[listType])
@@ -748,22 +753,22 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		graph->addPass("Outline Blend", rg::QueueType::GRAPHICS, eastl::size(outlineBlendUsageDescs), outlineBlendUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Outline Blend");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Outline Blend");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Outline Blend");
 				PROFILING_ZONE_SCOPED;
 
 				ColorAttachmentDescription attachmentDescs[]{ { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE } };
-				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+				Rect renderRect{ {0, 0}, {width, height} };
 
 				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, nullptr, renderRect, false);
 				{
 					cmdList->bindPipeline(m_outlinePipeline);
 
-					gal::Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					gal::Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 					cmdList->setViewport(0, 1, &viewport);
-					gal::Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					gal::Rect scissor{ {0, 0}, {width, height} };
 					cmdList->setScissor(0, 1, &scissor);
 
-					cmdList->bindDescriptorSets(m_outlinePipeline, 0, 1, &data.m_bindlessSet, 0, nullptr);
+					cmdList->bindDescriptorSets(m_outlinePipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
 
 					struct PushConsts
 					{
@@ -797,18 +802,18 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		graph->addPass("Debug Normals", rg::QueueType::GRAPHICS, eastl::size(debugNormalsUsageDescs), debugNormalsUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Debug Normals");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Debug Normals");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Debug Normals");
 				PROFILING_ZONE_SCOPED;
 
 				ColorAttachmentDescription attachmentDescs[]{ { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE } };
 				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
-				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+				Rect renderRect{ {0, 0}, {width, height} };
 
 				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
 				{
-					Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 					cmdList->setViewport(0, 1, &viewport);
-					Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					Rect scissor{ {0, 0}, {width, height} };
 					cmdList->setScissor(0, 1, &scissor);
 
 					struct PassConstants
@@ -820,12 +825,12 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					};
 
 					PassConstants passConsts;
-					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					memcpy(passConsts.viewProjectionMatrix, &data.m_viewData->m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 					passConsts.transformBufferIndex = data.m_transformBufferHandle;
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.normalsLength = 0.1f;
 
-					uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
@@ -857,7 +862,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 						{
 							cmdList->bindPipeline(pipeline);
 
-							gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+							gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 							cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
 							prevPipeline = pipeline;
@@ -941,6 +946,8 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 	if (anyDebugDraws)
 	{
+		auto *vertexBufferAllocator = data.m_viewData->m_rendererResources->m_vertexBufferStackAllocators[data.m_viewData->m_resIdx];
+
 		// compute vertex buffer size requirements
 		size_t debugVertexCount = 0;
 		for (const auto &vertices : m_debugDrawVertices)
@@ -953,7 +960,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		uint64_t vertexBufferByteOffset;
 		{
 			uint64_t allocSize = (sizeof(float) * 4) * static_cast<uint64_t>(debugVertexCount);
-			auto *mappedPtr = data.m_vertexBufferAllocator->allocate(sizeof(float) * 4, &allocSize, &vertexBufferByteOffset);
+			auto *mappedPtr = vertexBufferAllocator->allocate(sizeof(float) * 4, &allocSize, &vertexBufferByteOffset);
 			assert(mappedPtr);
 			if (mappedPtr)
 			{
@@ -981,18 +988,18 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		graph->addPass("Debug Draws", rg::QueueType::GRAPHICS, eastl::size(debugDrawsUsageDescs), debugDrawsUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Debug Draws");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Debug Draws");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Debug Draws");
 				PROFILING_ZONE_SCOPED;
 
 				ColorAttachmentDescription attachmentDescs[]{ { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE } };
 				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE, {}, true };
-				Rect renderRect{ {0, 0}, {data.m_width, data.m_height} };
+				Rect renderRect{ {0, 0}, {width, height} };
 
 				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
 				{
-					Viewport viewport{ 0.0f, 0.0f, (float)data.m_width, (float)data.m_height, 0.0f, 1.0f };
+					Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 					cmdList->setViewport(0, 1, &viewport);
-					Rect scissor{ {0, 0}, {data.m_width, data.m_height} };
+					Rect scissor{ {0, 0}, {width, height} };
 					cmdList->setScissor(0, 1, &scissor);
 
 					struct PassConstants
@@ -1001,9 +1008,9 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					};
 
 					PassConstants passConsts;
-					memcpy(passConsts.viewProjectionMatrix, &data.m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+					memcpy(passConsts.viewProjectionMatrix, &data.m_viewData->m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 
-					uint32_t passConstsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					for (size_t i = 0; i < 6; ++i)
 					{
@@ -1013,9 +1020,9 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 						}
 
 						cmdList->bindPipeline(m_debugDrawPipelines[i]);
-						cmdList->bindDescriptorSets(m_debugDrawPipelines[i], 0, 1, &data.m_offsetBufferSet, 1, &passConstsAddress);
-						
-						Buffer *vertexBuffer = data.m_vertexBufferAllocator->getBuffer();
+						cmdList->bindDescriptorSets(m_debugDrawPipelines[i], 0, 1, &data.m_viewData->m_offsetBufferSet, 1, &passConstsAddress);
+
+						Buffer *vertexBuffer = vertexBufferAllocator->getBuffer();
 						uint64_t vertexBufferOffset = vertexBufferByteOffset;
 						cmdList->bindVertexBuffers(0, 1, &vertexBuffer, &vertexBufferOffset);
 

@@ -14,7 +14,6 @@
 #include "MaterialManager.h"
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
-#include "Camera.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "RenderGraph.h"
@@ -29,7 +28,7 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 
 	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::D3D12);
 	m_device->createSwapChain(m_device->getGraphicsQueue(), m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::V_SYNC, &m_swapChain);
-	
+
 	m_device->createSemaphore(0, &m_semaphores[0]);
 	m_device->createSemaphore(0, &m_semaphores[1]);
 	m_device->createSemaphore(0, &m_semaphores[2]);
@@ -103,40 +102,20 @@ void Renderer::render(float deltaTime, const RenderWorld &renderWorld) noexcept
 				m_textureLoader->flushUploadCopies(cmdList, m_frame);
 				m_meshManager->flushUploadCopies(cmdList, m_frame);
 			});
-		
+
 
 		// render views
 		if (renderWorld.m_cameraIndex != -1)
 		{
 			const RenderWorld::Camera &renderWorldCam = renderWorld.m_cameras[renderWorld.m_cameraIndex];
 
-			TransformComponent tc{};
-			tc.m_transform = renderWorldCam.m_transform;
-			
 			CameraComponent cc{};
 			cc.m_aspectRatio = renderWorldCam.m_aspectRatio;
 			cc.m_fovy = renderWorldCam.m_fovy;
 			cc.m_near = renderWorldCam.m_near;
 			cc.m_far = renderWorldCam.m_far;
 
-			Camera camera(tc, cc);
-			auto viewMatrix = camera.getViewMatrix();
-			auto projMatrix = camera.getProjectionMatrix();
-
-			m_renderView->render(
-				deltaTime,
-				m_time,
-				renderWorld,
-				m_renderGraph,
-				m_rendererResources->m_constantBufferStackAllocators[m_frame & 1],
-				m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1],
-				&viewMatrix[0][0],
-				&projMatrix[0][0],
-				&tc.m_transform.m_translation.x,
-				&cc,
-				m_pickingPosX,
-				m_pickingPosY);
-			m_pickedEntity = m_renderView->getPickedEntity();
+			m_renderView->render(deltaTime, m_time, renderWorld, m_renderGraph, &renderWorldCam.m_transform, &cc);
 		}
 
 
@@ -262,7 +241,7 @@ TextureHandle Renderer::loadTexture(size_t fileSize, const char *fileData, const
 	{
 		return TextureHandle();
 	}
-	
+
 	return m_textureManager->add(image, view);
 }
 
@@ -320,8 +299,7 @@ bool Renderer::isEditorMode() const noexcept
 
 void Renderer::setPickingPos(uint32_t x, uint32_t y) noexcept
 {
-	m_pickingPosX = x;
-	m_pickingPosY = y;
+	m_renderView->setPickingPos(x, y);
 }
 
 uint64_t Renderer::getPickedEntity() const noexcept

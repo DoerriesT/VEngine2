@@ -8,6 +8,7 @@
 #include "utility/Utility.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "graphics/LightManager.h"
+#include "graphics/CommonViewData.h"
 
 using namespace gal;
 
@@ -151,8 +152,8 @@ VolumetricFogModule::~VolumetricFogModule() noexcept
 
 void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, ResultData *resultData) noexcept
 {
-	const size_t resIdx = data.m_frame & 1;
-	const size_t prevResIdx = (data.m_frame + 1) & 1;
+	const size_t resIdx = data.m_viewData->m_frame & 1;
+	const size_t prevResIdx = (data.m_viewData->m_frame + 1) & 1;
 
 	// scatter result image
 	rg::ResourceHandle scatterResultImageHandle = graph->createImage(rg::ImageDesc::create("Volumetric Fog Scatter Result", Format::R16G16B16A16_SFLOAT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, k_imageWidth, k_imageHeight, k_imageDepth / 2, 1, 1, ImageType::_3D));
@@ -172,14 +173,14 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 	resultData->m_volumetricFogImageViewHandle = integrateImageViewHandle;
 
 
-	const size_t haltonIdx = data.m_frame % k_haltonSampleCount;
+	const size_t haltonIdx = data.m_viewData->m_frame % k_haltonSampleCount;
 	const float jitterX = m_haltonJitter[haltonIdx * 3 + 0];
 	const float jitterY = m_haltonJitter[haltonIdx * 3 + 1];
 	const float jitterZ = m_haltonJitter[haltonIdx * 3 + 2];
 
 
-	auto proj = glm::perspective(data.m_fovy, data.m_width / float(data.m_height), data.m_nearPlane, 64.0f);
-	auto invViewProj = glm::inverse(proj * data.m_viewMatrix);
+	auto proj = glm::perspective(data.m_viewData->m_fovy, data.m_viewData->m_width / float(data.m_viewData->m_height), data.m_viewData->m_near, 64.0f);
+	auto invViewProj = glm::inverse(proj * data.m_viewData->m_viewMatrix);
 	glm::vec4 frustumCorners[4];
 	frustumCorners[0] = invViewProj * glm::vec4(-1.0f, 1.0f, 1.0f, 1.0f); // top left
 	frustumCorners[1] = invViewProj * glm::vec4(1.0f, 1.0f, 1.0f, 1.0f); // top right
@@ -189,20 +190,18 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 	for (auto &c : frustumCorners)
 	{
 		c /= c.w;
-		c -= glm::vec4(data.m_cameraPosition, 0.0f);
+		c -= glm::vec4(data.m_viewData->m_cameraPosition, 0.0f);
 	}
 
 	glm::mat4 prevProjMat = m_prevProjMatrix;
-	glm::mat4 prevViewMat = m_prevViewMatrix;
 	m_prevProjMatrix = proj;
-	m_prevViewMatrix = data.m_viewMatrix;
 
 	eastl::fixed_vector<rg::ResourceUsageDesc, 32 + 5> usageDescs;
 	usageDescs.push_back({ scatterResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	usageDescs.push_back({ filterHistoryImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	usageDescs.push_back({ filterResultImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT}, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	usageDescs.push_back({ integrateImageViewHandle, {ResourceState::RW_RESOURCE_WRITE_ONLY, PipelineStageFlags::COMPUTE_SHADER_BIT} });
-	usageDescs.push_back({ data.m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+	usageDescs.push_back({ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	if (data.m_localMediaCount > 0)
 	{
 		usageDescs.push_back({ data.m_localMediaTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
@@ -270,10 +269,10 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			};
 
 			Constants consts{};
-			consts.prevViewMatrix = prevViewMat;
+			consts.prevViewMatrix = data.m_viewData->m_prevViewMatrix;
 			consts.prevProjMatrix = prevProjMat;
-			consts.volumeResResultRes = glm::vec4(k_imageWidth, k_imageHeight, data.m_width, data.m_height);
-			consts.viewMatrixDepthRow = glm::vec4(data.m_viewMatrix[0][2], data.m_viewMatrix[1][2], data.m_viewMatrix[2][2], data.m_viewMatrix[3][2]);
+			consts.volumeResResultRes = glm::vec4(k_imageWidth, k_imageHeight, data.m_viewData->m_width, data.m_viewData->m_height);
+			consts.viewMatrixDepthRow = data.m_viewData->m_viewMatrixDepthRow;
 			consts.frustumCornerTL = frustumCorners[0];
 			consts.frustumCornerTR = frustumCorners[1];
 			consts.frustumCornerBL = frustumCorners[2];
@@ -284,7 +283,7 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			consts.jitterX = jitterX;
 			consts.jitterY = jitterY;
 			consts.jitterZ = jitterZ;
-			consts.cameraPos = data.m_cameraPosition;
+			consts.cameraPos = data.m_viewData->m_cameraPosition;
 			consts.volumeTexelSize[0] = 1.0f / k_imageWidth;
 			consts.volumeTexelSize[1] = 1.0f / k_imageHeight;
 			consts.directionalLightCount = data.m_lightRecordData->m_directionalLightCount;
@@ -305,7 +304,7 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			consts.localMediaBufferIndex = data.m_localMediaBufferHandle;
 			consts.localMediaTileTextureIndex = consts.localMediaCount > 0 ? registry.getBindlessHandle(data.m_localMediaTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
 			consts.localMediaDepthBinsBufferIndex = data.m_localMediaDepthBinsBufferHandle;
-			consts.exposureBufferIndex = registry.getBindlessHandle(data.m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+			consts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 			consts.scatterResultTextureIndex = registry.getBindlessHandle(scatterResultImageViewHandle, DescriptorType::RW_TEXTURE);
 			consts.filterInputTextureIndex = registry.getBindlessHandle(scatterResultImageViewHandle, DescriptorType::TEXTURE);
 			consts.filterHistoryTextureIndex = registry.getBindlessHandle(filterHistoryImageViewHandle, DescriptorType::TEXTURE);
@@ -313,19 +312,19 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			consts.integrateInputTextureIndex = registry.getBindlessHandle(filterResultImageViewHandle, DescriptorType::TEXTURE);
 			consts.integrateResultTextureIndex = registry.getBindlessHandle(integrateImageViewHandle, DescriptorType::RW_TEXTURE);
 			consts.filterAlpha = 0.05f;
-			consts.checkerBoardCondition = data.m_frame & 1;
+			consts.checkerBoardCondition = data.m_viewData->m_frame & 1;
 			consts.ignoreHistory = data.m_ignoreHistory;
 
-			uint32_t constsAddress = (uint32_t)data.m_bufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+			uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			// scatter
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Volumetric Fog Scatter");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Volumetric Fog Scatter");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Volumetric Fog Scatter");
 				PROFILING_ZONE_SCOPED;
 
 				cmdList->bindPipeline(m_scatterPipeline);
-				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+				gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 				cmdList->bindDescriptorSets(m_scatterPipeline, 0, 2, sets, 1, &constsAddress);
 
 				cmdList->dispatch((k_imageWidth + 3) / 4, (k_imageHeight + 3) / 4, ((k_imageDepth / 2) + 3) / 4);
@@ -342,11 +341,11 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			// filter
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Volumetric Fog Filter");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Volumetric Fog Filter");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Volumetric Fog Filter");
 				PROFILING_ZONE_SCOPED;
 
 				cmdList->bindPipeline(m_filterPipeline);
-				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+				gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 				cmdList->bindDescriptorSets(m_filterPipeline, 0, 2, sets, 1, &constsAddress);
 
 				cmdList->dispatch((k_imageWidth + 3) / 4, (k_imageHeight + 3) / 4, (k_imageDepth + 3) / 4);
@@ -363,11 +362,11 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			// integrate
 			{
 				GAL_SCOPED_GPU_LABEL(cmdList, "Volumetric Fog Integrate");
-				PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "Volumetric Fog Integrate");
+				PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Volumetric Fog Integrate");
 				PROFILING_ZONE_SCOPED;
 
 				cmdList->bindPipeline(m_integratePipeline);
-				gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, data.m_bindlessSet };
+				gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
 				cmdList->bindDescriptorSets(m_integratePipeline, 0, 2, sets, 1, &constsAddress);
 
 				cmdList->dispatch((k_imageWidth + 7) / 8, (k_imageHeight + 7) / 8, 1);

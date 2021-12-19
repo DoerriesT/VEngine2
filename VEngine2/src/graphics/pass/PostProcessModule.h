@@ -10,36 +10,25 @@ class BufferStackAllocator;
 struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
 struct RenderList;
+struct CommonViewData;
 
 class PostProcessModule
 {
 public:
 	struct Data
 	{
-		void *m_profilingCtx;
-		BufferStackAllocator *m_bufferAllocator;
-		BufferStackAllocator *m_vertexBufferAllocator;
-		gal::DescriptorSet *m_offsetBufferSet;
-		gal::DescriptorSet *m_bindlessSet;
-		uint32_t m_width;
-		uint32_t m_height;
-		float m_time;
-		float m_deltaTime;
+		const CommonViewData *m_viewData;
 		rg::ResourceViewHandle m_lightingImageView;
 		rg::ResourceViewHandle m_depthBufferImageViewHandle;
 		rg::ResourceViewHandle m_velocityImageViewHandle;
 		rg::ResourceViewHandle m_temporalAAResultImageViewHandle;
 		rg::ResourceViewHandle m_temporalAAHistoryImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
-		rg::ResourceViewHandle m_exposureBufferViewHandle;
 		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
-		glm::mat4 m_viewProjectionMatrix;
-		glm::vec3 m_cameraPosition;
 		const RenderList *m_renderList;
 		const RenderList *m_outlineRenderList;
-		const glm::mat4 *m_modelMatrices;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 		bool m_debugNormals;
