@@ -10,6 +10,7 @@
 #include "ScriptComponent.h"
 #include "OutlineComponent.h"
 #include "ParticipatingMediumComponent.h"
+#include "ReflectionProbeComponent.h"
 #include "RawInputStateComponent.h"
 #include "InputStateComponent.h"
 #include "ecs/ECS.h"
@@ -37,6 +38,7 @@ void ComponentRegistration::registerAllComponents(ECS *ecs) noexcept
 	registerComponent<OutlineComponent>(ecs);
 	registerComponent<EditorOutlineComponent>(ecs);
 	registerComponent<ParticipatingMediumComponent>(ecs);
+	registerComponent<ReflectionProbeComponent>(ecs);
 
 	// singleton components
 	ecs->registerSingletonComponent<RawInputStateComponent>(RawInputStateComponent{});

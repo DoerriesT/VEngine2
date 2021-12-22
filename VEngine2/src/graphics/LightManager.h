@@ -5,7 +5,6 @@
 #include "RenderData.h"
 #include "RenderGraph.h"
 
-struct RenderWorld;
 struct CommonViewData;
 class RenderGraph;
 struct SubMeshDrawInfo;
@@ -50,7 +49,7 @@ public:
 
 	explicit LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept;
 	DELETED_COPY_MOVE(LightManager);
-	~LightManager();
+	~LightManager() noexcept;
 	void update(const CommonViewData &viewData, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept;
 	void recordLightTileAssignment(rg::RenderGraph *graph, const CommonViewData &viewData) noexcept;
 	void recordShadows(rg::RenderGraph *graph, const CommonViewData &viewData, const ShadowRecordData &data) noexcept;

@@ -255,6 +255,7 @@
     <ClInclude Include="src\component\MeshComponent.h" />
     <ClInclude Include="src\component\PhysicsComponent.h" />
     <ClInclude Include="src\component\CharacterMovementComponent.h" />
+    <ClInclude Include="src\component\ReflectionProbeComponent.h" />
     <ClInclude Include="src\component\ScriptComponent.h" />
     <ClInclude Include="src\component\SkinnedMeshComponent.h" />
     <ClInclude Include="src\component\TransformComponent.h" />
@@ -327,6 +328,7 @@
     <ClInclude Include="src\graphics\pass\PostProcessModule.h" />
     <ClInclude Include="src\graphics\pass\VolumetricFogModule.h" />
     <ClInclude Include="src\graphics\ProxyMeshes.h" />
+    <ClInclude Include="src\graphics\ReflectionProbeManager.h" />
     <ClInclude Include="src\graphics\RenderData.h" />
     <ClInclude Include="src\graphics\Renderer.h" />
     <ClInclude Include="src\graphics\RendererResources.h" />
@@ -433,6 +435,7 @@
     <ClCompile Include="src\component\ParticipatingMediumComponent.cpp" />
     <ClCompile Include="src\component\PhysicsComponent.cpp" />
     <ClCompile Include="src\component\CharacterMovementComponent.cpp" />
+    <ClCompile Include="src\component\ReflectionProbeComponent.cpp" />
     <ClCompile Include="src\component\ScriptComponent.cpp" />
     <ClCompile Include="src\component\SkinnedMeshComponent.cpp" />
     <ClCompile Include="src\component\TransformComponent.cpp" />
@@ -494,6 +497,7 @@
     <ClCompile Include="src\graphics\pass\ImGuiPass.cpp" />
     <ClCompile Include="src\graphics\pass\PostProcessModule.cpp" />
     <ClCompile Include="src\graphics\pass\VolumetricFogModule.cpp" />
+    <ClCompile Include="src\graphics\ReflectionProbeManager.cpp" />
     <ClCompile Include="src\graphics\Renderer.cpp" />
     <ClCompile Include="src\graphics\RendererResources.cpp" />
     <ClCompile Include="src\graphics\RenderGraph.cpp" />
