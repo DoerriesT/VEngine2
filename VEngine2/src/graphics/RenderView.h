@@ -22,22 +22,15 @@ enum MaterialHandle : uint32_t;
 class RendererResources;
 struct Transform;
 struct CameraComponent;
-struct RenderWorld;
 class LightManager;
+class ECS;
 
 class RenderView
 {
 public:
 	explicit RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
 	~RenderView();
-	void render(
-		float deltaTime,
-		float time,
-		const RenderWorld &renderWorld,
-		rg::RenderGraph *graph,
-		const Transform *cameraTransform,
-		const CameraComponent *cameraComponent
-	) noexcept;
+	void render(float deltaTime, float time, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept;
 	void resize(uint32_t width, uint32_t height) noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	gal::Image *getResultImage() const noexcept;
@@ -75,6 +68,8 @@ private:
 
 	eastl::vector<glm::mat4> m_modelMatrices;
 	eastl::vector<glm::mat4> m_prevModelMatrices;
+	eastl::vector<glm::mat4> m_skinningMatrices;
+	eastl::vector<glm::mat4> m_prevSkinningMatrices;
 	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
 	RenderList m_renderList;
 	RenderList m_outlineRenderList;

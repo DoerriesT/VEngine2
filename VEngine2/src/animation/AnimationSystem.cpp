@@ -52,7 +52,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 						{
 							smc.m_matrixPalette.resize(jointCount);
 							smc.m_prevMatrixPalette.resize(jointCount);
-							smc.m_lastRenderMatrixPalette.resize(jointCount);
+							smc.m_prevRenderMatrixPalette.resize(jointCount);
 							firstTimePalette = true;
 						}
 

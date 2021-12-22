@@ -17,7 +17,29 @@
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "RenderGraph.h"
-#include "RenderWorld.h"
+#include "ecs/ECS.h"
+#include "component/TransformComponent.h"
+#include "component/SkinnedMeshComponent.h"
+
+static Transform lerp(const Transform &x, const Transform &y, float alpha) noexcept
+{
+	Transform result;
+	result.m_translation = glm::mix(x.m_translation, y.m_translation, alpha);
+	result.m_rotation = glm::normalize(glm::slerp(x.m_rotation, y.m_rotation, alpha));
+	result.m_scale = glm::mix(x.m_scale, y.m_scale, alpha);
+	return result;
+}
+
+static void lerp(size_t count, const glm::mat4 *x, const glm::mat4 *y, float alpha, glm::mat4 *result) noexcept
+{
+	for (size_t i = 0; i < count; ++i)
+	{
+		for (size_t j = 0; j < 16; ++j)
+		{
+			(&result[i][0][0])[j] = glm::mix((&x[i][0][0])[j], (&y[i][0][0])[j], alpha);
+		}
+	}
+}
 
 Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 {
@@ -43,7 +65,7 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 	m_textureManager = new TextureManager(m_device, m_viewRegistry);
 	m_rendererResources = new RendererResources(m_device, m_viewRegistry, m_textureLoader);
 	m_materialManager = new MaterialManager(m_device, m_textureManager, m_rendererResources->m_materialsBuffer);
-	
+
 	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
 
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
@@ -74,9 +96,52 @@ Renderer::~Renderer() noexcept
 	gal::GraphicsDevice::destroy(m_device);
 }
 
-void Renderer::render(float deltaTime, const RenderWorld &renderWorld) noexcept
+void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fractionalSimFrameTime) noexcept
 {
 	PROFILING_ZONE_SCOPED;
+
+	// interpolate transforms
+	{
+		PROFILING_ZONE_SCOPED_N("Transform Interpolation");
+
+		IterateQuery iterateQuery;
+		ecs->setIterateQueryRequiredComponents<TransformComponent>(iterateQuery);
+		ecs->setIterateQueryOptionalComponents<SkinnedMeshComponent>(iterateQuery);
+		ecs->iterate<TransformComponent, SkinnedMeshComponent>(iterateQuery, [&](size_t count, const EntityID *entities, TransformComponent *transC, SkinnedMeshComponent *skinnedMeshC)
+			{
+				for (size_t i = 0; i < count; ++i)
+				{
+					auto &tc = transC[i];
+					tc.m_prevTransform = tc.m_curRenderTransform;
+					tc.m_curRenderTransform = lerp(tc.m_prevTransform, tc.m_transform, fractionalSimFrameTime);
+
+					if (skinnedMeshC)
+					{
+						auto &sc = skinnedMeshC[i];
+						assert(sc.m_matrixPalette.size() == sc.m_skeleton->getSkeleton()->getJointCount());
+						assert(sc.m_matrixPalette.size() == sc.m_prevMatrixPalette.size());
+						assert(sc.m_matrixPalette.size() == sc.m_prevRenderMatrixPalette.size());
+
+						bool hasPrevRenderPalette = !sc.m_curRenderMatrixPalette.empty();
+
+						if (hasPrevRenderPalette)
+						{
+							sc.m_prevRenderMatrixPalette = eastl::move(sc.m_curRenderMatrixPalette);
+						}
+
+						// interpolate palette
+						sc.m_curRenderMatrixPalette.resize(sc.m_matrixPalette.size());
+						lerp(sc.m_matrixPalette.size(), sc.m_prevMatrixPalette.data(), sc.m_matrixPalette.data(), fractionalSimFrameTime, sc.m_curRenderMatrixPalette.data());
+
+						if (!hasPrevRenderPalette)
+						{
+							sc.m_prevRenderMatrixPalette = sc.m_curRenderMatrixPalette;
+						}
+					}
+				}
+			});
+	}
+	
 
 	m_renderGraph->nextFrame();
 	m_time += deltaTime;
@@ -104,17 +169,9 @@ void Renderer::render(float deltaTime, const RenderWorld &renderWorld) noexcept
 
 
 		// render views
-		if (renderWorld.m_cameraIndex != -1)
+		if (cameraEntity != k_nullEntity)
 		{
-			const RenderWorld::Camera &renderWorldCam = renderWorld.m_cameras[renderWorld.m_cameraIndex];
-
-			CameraComponent cc{};
-			cc.m_aspectRatio = renderWorldCam.m_aspectRatio;
-			cc.m_fovy = renderWorldCam.m_fovy;
-			cc.m_near = renderWorldCam.m_near;
-			cc.m_far = renderWorldCam.m_far;
-
-			m_renderView->render(deltaTime, m_time, renderWorld, m_renderGraph, &renderWorldCam.m_transform, &cc);
+			m_renderView->render(deltaTime, m_time, ecs, cameraEntity, m_renderGraph);
 		}
 
 

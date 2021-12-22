@@ -7,7 +7,7 @@
 #include <EASTL/fixed_vector.h>
 #include "gal/Initializers.h"
 #include "component/LightComponent.h"
-#include "RenderWorld.h"
+#include "component/TransformComponent.h"
 #include "RenderData.h"
 #include "RenderGraph.h"
 #include "Mesh.h"
@@ -18,6 +18,7 @@
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "utility/Utility.h"
+#include "ecs/ECS.h"
 
 
 using namespace gal;
@@ -50,10 +51,9 @@ static float calculatePenumbraRadiusNDC(float maxPenumbraPercentage, float shado
 	return penumbraRadiusNDC;
 }
 
-
-static uint64_t computePunctualLightSortValue(const RenderWorld::PunctualLight &light, const glm::vec4 &viewMatDepthRow, size_t index) noexcept
+static uint64_t computePunctualLightSortValue(const glm::vec3 &lightPos, const glm::vec4 &viewMatDepthRow, size_t index) noexcept
 {
-	uint32_t depthUI = util::asuint(-glm::dot(glm::vec4(light.m_position, 1.0f), viewMatDepthRow));
+	uint32_t depthUI = util::asuint(-glm::dot(glm::vec4(lightPos, 1.0f), viewMatDepthRow));
 
 	uint64_t packedDepthAndIndex = 0;
 	packedDepthAndIndex |= static_cast<uint64_t>(index) & 0xFFFFFFFF; // index
@@ -64,19 +64,21 @@ static uint64_t computePunctualLightSortValue(const RenderWorld::PunctualLight &
 	return packedDepthAndIndex;
 }
 
-static PunctualLightGPU createPunctualLightGPU(const RenderWorld::PunctualLight &light) noexcept
+static PunctualLightGPU createPunctualLightGPU(const TransformComponent &tc, const LightComponent &lc) noexcept
 {
-	float intensity = light.m_spotLight ? (1.0f / (glm::pi<float>())) : (1.0f / (4.0f * glm::pi<float>()));
-	intensity *= light.m_intensity;
+	const bool isSpotLight = lc.m_type == LightComponent::Type::Spot;
+
+	float intensity = isSpotLight ? (1.0f / (glm::pi<float>())) : (1.0f / (4.0f * glm::pi<float>()));
+	intensity *= lc.m_intensity;
 	PunctualLightGPU punctualLight{};
-	punctualLight.m_color = glm::vec3(glm::unpackUnorm4x8(light.m_color)) * intensity;
-	punctualLight.m_invSqrAttRadius = 1.0f / (light.m_radius * light.m_radius);
-	punctualLight.m_position = light.m_position;
-	if (light.m_spotLight)
+	punctualLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * intensity;
+	punctualLight.m_invSqrAttRadius = 1.0f / (lc.m_radius * lc.m_radius);
+	punctualLight.m_position = tc.m_curRenderTransform.m_translation;
+	if (isSpotLight)
 	{
-		punctualLight.m_angleScale = 1.0f / fmaxf(0.001f, cosf(light.m_innerAngle * 0.5f) - cosf(light.m_outerAngle * 0.5f));
-		punctualLight.m_angleOffset = -cosf(light.m_outerAngle * 0.5f) * punctualLight.m_angleScale;
-		punctualLight.m_direction = light.m_direction;
+		punctualLight.m_angleScale = 1.0f / fmaxf(0.001f, cosf(lc.m_innerAngle * 0.5f) - cosf(lc.m_outerAngle * 0.5f));
+		punctualLight.m_angleOffset = -cosf(lc.m_outerAngle * 0.5f) * punctualLight.m_angleScale;
+		punctualLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, -1.0f, 0.0f));
 	}
 	else
 	{
@@ -86,11 +88,11 @@ static PunctualLightGPU createPunctualLightGPU(const RenderWorld::PunctualLight 
 	return punctualLight;
 }
 
-static void insertPunctualLightIntoDepthBins(const RenderWorld::PunctualLight &light, size_t lightIndex, uint64_t sortIndex, uint32_t *depthBins) noexcept
+static void insertPunctualLightIntoDepthBins(float lightRadius, size_t lightIndex, uint64_t sortIndex, uint32_t *depthBins) noexcept
 {
 	float lightDepthVS = -util::asfloat(static_cast<uint32_t>(sortIndex >> 32ull));
-	float nearestPoint = -lightDepthVS - light.m_radius;
-	float farthestPoint = -lightDepthVS + light.m_radius;
+	float nearestPoint = -lightDepthVS - lightRadius;
+	float farthestPoint = -lightDepthVS + lightRadius;
 
 	size_t minBin = eastl::min<size_t>(static_cast<size_t>(fmaxf(nearestPoint / k_depthBinRange, 0.0f)), size_t(k_numDepthBins - 1));
 	size_t maxBin = eastl::min<size_t>(static_cast<size_t>(fmaxf(farthestPoint / k_depthBinRange, 0.0f)), size_t(k_numDepthBins - 1));
@@ -381,7 +383,7 @@ LightManager::~LightManager()
 	m_device->destroyGraphicsPipeline(m_shadowSkinnedAlphaTestedPipeline);
 }
 
-void LightManager::update(const CommonViewData &viewData, const RenderWorld &renderWorld, rg::RenderGraph *graph) noexcept
+void LightManager::update(const CommonViewData &viewData, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept
 {
 	m_shadowMatrices.clear();
 	m_shadowTextureRenderHandles.clear();
@@ -392,227 +394,57 @@ void LightManager::update(const CommonViewData &viewData, const RenderWorld &ren
 	m_punctualLightsShadowed.clear();
 	m_lightTransforms.clear();
 
-	// process directional lights
-	for (const auto &dirLight : renderWorld.m_directionalLights)
-	{
-		DirectionalLightGPU directionalLight{};
-		directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(dirLight.m_color)) * dirLight.m_intensity;
-		directionalLight.m_direction = dirLight.m_direction;
-		directionalLight.m_cascadeCount = dirLight.m_shadowsEnabled ? dirLight.m_cascadeCount : 0;
 
-		m_directionalLights.push_back(directionalLight);
-	}
 
-	// process shadowed directional lights
-	for (const auto &dirLight : renderWorld.m_directionalLightsShadowed)
-	{
-		DirectionalLightGPU directionalLight{};
-		directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(dirLight.m_color)) * dirLight.m_intensity;
-		directionalLight.m_direction = dirLight.m_direction;
-		directionalLight.m_cascadeCount = dirLight.m_shadowsEnabled ? dirLight.m_cascadeCount : 0;
+	eastl::vector<LightPointers> directionalLightPtrs;
+	eastl::vector<LightPointers> shadowedDirectionalLightPtrs;
+	eastl::vector<LightPointers> punctualLightPtrs;
+	eastl::vector<LightPointers> shadowedPunctualLightPtrs;
 
-		glm::vec4 cascadeParams[LightComponent::k_maxCascades];
-		glm::vec4 depthRows[LightComponent::k_maxCascades];
-
-		assert(dirLight.m_cascadeCount <= LightComponent::k_maxCascades);
-
-		for (size_t j = 0; j < dirLight.m_cascadeCount; ++j)
+	ecs->iterate<TransformComponent, LightComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, LightComponent *lightC)
 		{
-			cascadeParams[j].x = dirLight.m_depthBias[j];
-			cascadeParams[j].y = dirLight.m_normalOffsetBias[j];
-		}
-
-		calculateCascadeViewProjectionMatrices(directionalLight.m_direction,
-			viewData.m_near,
-			viewData.m_far,
-			viewData.m_fovy,
-			viewData.m_invViewMatrix,
-			viewData.m_width,
-			viewData.m_height,
-			dirLight.m_maxShadowDistance,
-			dirLight.m_splitLambda,
-			2048.0f,
-			dirLight.m_cascadeCount,
-			directionalLight.m_shadowMatrices,
-			cascadeParams,
-			depthRows);
-
-		rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Cascaded Shadow Maps", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, 2048, 2048, 1, dirLight.m_cascadeCount));
-		rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Cascaded Shadow Maps", shadowMapHandle, { 0, 1, 0, dirLight.m_cascadeCount }, ImageViewType::_2D_ARRAY));
-		static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
-		directionalLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(shadowMapViewHandle); // we later correct these to be actual TextureViewHandles
-		m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
-
-		for (size_t j = 0; j < dirLight.m_cascadeCount; ++j)
-		{
-			m_shadowMatrices.push_back(directionalLight.m_shadowMatrices[j]);
-			m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Shadow Cascade", shadowMapHandle, { 0, 1, static_cast<uint32_t>(j), 1 }, ImageViewType::_2D)));
-		}
-
-		m_shadowedDirectionalLights.push_back(directionalLight);
-	}
-
-	// process punctual lights
-	{
-		eastl::vector<uint64_t> punctualLightsOrder;
-		for (size_t i = 0; i < renderWorld.m_punctualLights.size(); ++i)
-		{
-			// TODO: cull lights here
-			punctualLightsOrder.push_back(computePunctualLightSortValue(renderWorld.m_punctualLights[i], viewData.m_viewMatrixDepthRow, i));
-		}
-
-		// sort by distance to camera
-		eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
-
-		// clear depth bins
-		m_punctualLightsDepthBins.resize(k_numDepthBins);
-		eastl::fill(m_punctualLightsDepthBins.begin(), m_punctualLightsDepthBins.end(), k_emptyBin);
-
-		for (auto sortIndex : punctualLightsOrder)
-		{
-			const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
-			const auto &light = renderWorld.m_punctualLights[lightIndex];
-
-			PunctualLightGPU punctualLight = createPunctualLightGPU(light);
-			m_punctualLights.push_back(punctualLight);
-
-			if (light.m_spotLight)
+			for (size_t i = 0; i < count; ++i)
 			{
-				m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(light.m_position) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), light.m_direction)) * glm::scale(glm::vec3(light.m_radius)));
-			}
-			else
-			{
-				m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(light.m_position) * glm::scale(glm::vec3(light.m_radius)));
-			}
+				auto &tc = transC[i];
+				auto &lc = lightC[i];
 
-			insertPunctualLightIntoDepthBins(light, lightIndex, sortIndex, m_punctualLightsDepthBins.data());
-		}
-	}
+				LightPointers lp = { &tc, &lc };
 
-	// process shadowed punctual lights
-	{
-		eastl::vector<uint64_t> punctualLightsOrder;
-		for (size_t i = 0; i < renderWorld.m_punctualLightsShadowed.size(); ++i)
-		{
-			// TODO: cull lights here
-			punctualLightsOrder.push_back(computePunctualLightSortValue(renderWorld.m_punctualLightsShadowed[i], viewData.m_viewMatrixDepthRow, i));
-		}
-
-		// sort by distance to camera
-		eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
-
-		for (auto sortIndex : punctualLightsOrder)
-		{
-			const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
-			const auto &light = renderWorld.m_punctualLightsShadowed[lightIndex];
-
-			constexpr float k_nearPlane = 0.5f;
-			glm::mat4 projection = glm::perspective(light.m_spotLight ? light.m_outerAngle : glm::radians(90.0f), 1.0f, light.m_radius, k_nearPlane);
-			glm::mat4 invProjection = glm::inverse(projection);
-
-			PunctualLightShadowedGPU punctualLight{};
-			punctualLight.m_light = createPunctualLightGPU(light);
-			punctualLight.m_depthProjectionParam0 = projection[2][2];
-			punctualLight.m_depthProjectionParam1 = projection[3][2];
-			punctualLight.m_depthUnprojectParam0 = invProjection[2][3];
-			punctualLight.m_depthUnprojectParam1 = invProjection[3][3];
-			punctualLight.m_lightRadius = light.m_radius;
-			punctualLight.m_invLightRadius = 1.0f / light.m_radius;
-			punctualLight.m_pcfRadius = calculatePenumbraRadiusNDC(calculateMaxPenumbraPercentage(0.5f), light.m_spotLight ? (0.5f * light.m_outerAngle) : glm::quarter_pi<float>());
-
-			// spot light
-			if (light.m_spotLight)
-			{
-				glm::vec3 upDir(0.0f, 1.0f, 0.0f);
-				// choose different up vector if light direction would be linearly dependent otherwise
-				if (fabsf(light.m_direction.x) < 0.001f && fabsf(light.m_direction.z) < 0.001f)
+				switch (lc.m_type)
 				{
-					upDir = glm::vec3(1.0f, 0.0f, 0.0f);
-				}
-
-				glm::mat4 shadowViewMatrix = glm::lookAt(light.m_position, light.m_position + light.m_direction, upDir);
-				glm::mat4 shadowMatrix = projection * shadowViewMatrix;
-				glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
-
-				// project shadow far plane to screen space to get the optimal size of the shadow map
-				uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
-
-				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
-				rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle));
-				static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
-
-				m_shadowMatrices.push_back(shadowMatrix);
-				m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
-				m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle)));
-
-				punctualLight.m_shadowMatrix0 = shadowMatrixTransposed[0];
-				punctualLight.m_shadowMatrix1 = shadowMatrixTransposed[1];
-				punctualLight.m_shadowMatrix2 = shadowMatrixTransposed[2];
-				punctualLight.m_shadowMatrix3 = shadowMatrixTransposed[3];
-				punctualLight.m_shadowTextureHandle = shadowMapViewHandle; // we later correct these to be actual TextureViewHandles
-			}
-			// point light
-			else
-			{
-				glm::mat4 viewMatrices[6];
-				viewMatrices[0] = glm::lookAt(light.m_position, light.m_position + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-				viewMatrices[1] = glm::lookAt(light.m_position, light.m_position + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-				viewMatrices[2] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-				viewMatrices[3] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-				viewMatrices[4] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-				viewMatrices[5] = glm::lookAt(light.m_position, light.m_position + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-				constexpr const char *resourceNames[]
+				case LightComponent::Type::Directional:
 				{
-					"Point Light Shadow Map +X",
-					"Point Light Shadow Map -X",
-					"Point Light Shadow Map +Y",
-					"Point Light Shadow Map -Y",
-					"Point Light Shadow Map +Z",
-					"Point Light Shadow Map -Z",
-				};
-
-				for (size_t i = 0; i < 6; ++i)
-				{
-					glm::mat4 shadowMatrix = projection * viewMatrices[i];
-
-					// project shadow far plane to screen space to get the optimal size of the shadow map
-					uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
-
-					rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create(resourceNames[i], Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
-					rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle));
-					static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
-
-					m_shadowMatrices.push_back(shadowMatrix);
-					m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
-					m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
-
-					// we later correct these to be actual TextureViewHandles
-					if (i < 4)
+					if (lc.m_shadows)
 					{
-						punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(shadowMapViewHandle);
+						shadowedDirectionalLightPtrs.push_back(lp);
 					}
 					else
 					{
-						punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(shadowMapViewHandle);
+						directionalLightPtrs.push_back(lp);
 					}
+					break;
+				}
+				case LightComponent::Type::Point:
+				case LightComponent::Type::Spot:
+				{
+					if (lc.m_shadows)
+					{
+						shadowedPunctualLightPtrs.push_back(lp);
+					}
+					else
+					{
+						punctualLightPtrs.push_back(lp);
+					}
+					break;
+				}
 				}
 			}
+		});
 
-			m_punctualLightsShadowed.push_back(punctualLight);
-
-			if (light.m_spotLight)
-			{
-				m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(light.m_position) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), light.m_direction)) * glm::scale(glm::vec3(light.m_radius)));
-			}
-			else
-			{
-				m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(light.m_position) * glm::scale(glm::vec3(light.m_radius)));
-			}
-
-			insertPunctualLightIntoDepthBins(light, lightIndex, sortIndex, m_punctualLightsDepthBins.data());
-		}
-	}
+	processDirectionalLights(viewData, graph, directionalLightPtrs);
+	processShadowedDirectionalLights(viewData, graph, shadowedDirectionalLightPtrs);
+	processPunctualLights(viewData, graph, punctualLightPtrs);
+	processShadowedPunctualLights(viewData, graph, shadowedPunctualLightPtrs);
 
 	auto createShaderResourceBuffer = [&](DescriptorType descriptorType, auto dataAsVector, bool copyNow = true, void **resultBufferPtr = nullptr)
 	{
@@ -1014,4 +846,247 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 const LightRecordData *LightManager::getLightRecordData() const noexcept
 {
 	return &m_lightRecordData;
+}
+
+void LightManager::processDirectionalLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
+{
+	for (const auto &lp : lightPtrs)
+	{
+		auto &tc = *lp.m_tc;
+		auto &lc = *lp.m_lc;
+
+		DirectionalLightGPU directionalLight{};
+		directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
+		directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+		directionalLight.m_cascadeCount = 0;
+
+		m_directionalLights.push_back(directionalLight);
+	}
+}
+
+void LightManager::processShadowedDirectionalLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
+{
+	for (const auto &lp : lightPtrs)
+	{
+		auto &tc = *lp.m_tc;
+		auto &lc = *lp.m_lc;
+
+		DirectionalLightGPU directionalLight{};
+		directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
+		directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+		directionalLight.m_cascadeCount = lc.m_cascadeCount;
+
+		glm::vec4 cascadeParams[LightComponent::k_maxCascades];
+		glm::vec4 depthRows[LightComponent::k_maxCascades];
+
+		assert(lc.m_cascadeCount <= LightComponent::k_maxCascades);
+
+		for (size_t j = 0; j < lc.m_cascadeCount; ++j)
+		{
+			cascadeParams[j].x = lc.m_depthBias[j];
+			cascadeParams[j].y = lc.m_normalOffsetBias[j];
+		}
+
+		calculateCascadeViewProjectionMatrices(directionalLight.m_direction,
+			viewData.m_near,
+			viewData.m_far,
+			viewData.m_fovy,
+			viewData.m_invViewMatrix,
+			viewData.m_width,
+			viewData.m_height,
+			lc.m_maxShadowDistance,
+			lc.m_splitLambda,
+			2048.0f,
+			lc.m_cascadeCount,
+			directionalLight.m_shadowMatrices,
+			cascadeParams,
+			depthRows);
+
+		rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Cascaded Shadow Maps", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, 2048, 2048, 1, lc.m_cascadeCount));
+		rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Cascaded Shadow Maps", shadowMapHandle, { 0, 1, 0, lc.m_cascadeCount }, ImageViewType::_2D_ARRAY));
+		static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+		directionalLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(shadowMapViewHandle); // we later correct these to be actual TextureViewHandles
+		m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
+
+		for (size_t j = 0; j < lc.m_cascadeCount; ++j)
+		{
+			m_shadowMatrices.push_back(directionalLight.m_shadowMatrices[j]);
+			m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Shadow Cascade", shadowMapHandle, { 0, 1, static_cast<uint32_t>(j), 1 }, ImageViewType::_2D)));
+		}
+
+		m_shadowedDirectionalLights.push_back(directionalLight);
+	}
+}
+
+void LightManager::processPunctualLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
+{
+	eastl::vector<uint64_t> punctualLightsOrder;
+	punctualLightsOrder.reserve(lightPtrs.size());
+	for (size_t i = 0; i < lightPtrs.size(); ++i)
+	{
+		auto &tc = *lightPtrs[i].m_tc;
+
+		// TODO: cull lights here
+		punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, viewData.m_viewMatrixDepthRow, i));
+	}
+
+	// sort by distance to camera
+	eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
+
+	// clear depth bins
+	m_punctualLightsDepthBins.resize(k_numDepthBins);
+	eastl::fill(m_punctualLightsDepthBins.begin(), m_punctualLightsDepthBins.end(), k_emptyBin);
+
+	for (auto sortIndex : punctualLightsOrder)
+	{
+		const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
+		const auto &lp = lightPtrs[lightIndex];
+		const auto &tc = *lp.m_tc;
+		const auto &lc = *lp.m_lc;
+
+		PunctualLightGPU punctualLight = createPunctualLightGPU(tc, lc);
+		if (lc.m_type == LightComponent::Type::Spot)
+		{
+			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), punctualLight.m_direction)) * glm::scale(glm::vec3(lc.m_radius)));
+		}
+		else
+		{
+			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::scale(glm::vec3(lc.m_radius)));
+		}
+
+		m_punctualLights.push_back(punctualLight);
+
+		insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_punctualLightsDepthBins.data());
+	}
+}
+
+void LightManager::processShadowedPunctualLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
+{
+	eastl::vector<uint64_t> punctualLightsOrder;
+	punctualLightsOrder.reserve(lightPtrs.size());
+	for (size_t i = 0; i < lightPtrs.size(); ++i)
+	{
+		auto &tc = *lightPtrs[i].m_tc;
+
+		// TODO: cull lights here
+		punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, viewData.m_viewMatrixDepthRow, i));
+	}
+
+	// sort by distance to camera
+	eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
+
+	// clear depth bins
+	m_punctualLightsShadowedDepthBins.resize(k_numDepthBins);
+	eastl::fill(m_punctualLightsShadowedDepthBins.begin(), m_punctualLightsShadowedDepthBins.end(), k_emptyBin);
+
+	for (auto sortIndex : punctualLightsOrder)
+	{
+		const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
+		const auto &lp = lightPtrs[lightIndex];
+		const auto &tc = *lp.m_tc;
+		const auto &lc = *lp.m_lc;
+
+		const bool isSpotLight = lc.m_type == LightComponent::Type::Spot;
+
+		constexpr float k_nearPlane = 0.5f;
+		glm::mat4 projection = glm::perspective(isSpotLight ? lc.m_outerAngle : glm::radians(90.0f), 1.0f, lc.m_radius, k_nearPlane);
+		glm::mat4 invProjection = glm::inverse(projection);
+
+		PunctualLightShadowedGPU punctualLight{};
+		punctualLight.m_light = createPunctualLightGPU(tc, lc);
+		punctualLight.m_depthProjectionParam0 = projection[2][2];
+		punctualLight.m_depthProjectionParam1 = projection[3][2];
+		punctualLight.m_depthUnprojectParam0 = invProjection[2][3];
+		punctualLight.m_depthUnprojectParam1 = invProjection[3][3];
+		punctualLight.m_lightRadius = lc.m_radius;
+		punctualLight.m_invLightRadius = 1.0f / lc.m_radius;
+		punctualLight.m_pcfRadius = calculatePenumbraRadiusNDC(calculateMaxPenumbraPercentage(0.5f), isSpotLight ? (0.5f * lc.m_outerAngle) : glm::quarter_pi<float>());
+
+		// spot light
+		if (isSpotLight)
+		{
+			glm::vec3 upDir(0.0f, 1.0f, 0.0f);
+			// choose different up vector if light direction would be linearly dependent otherwise
+			if (fabsf(punctualLight.m_light.m_direction.x) < 0.001f && fabsf(punctualLight.m_light.m_direction.z) < 0.001f)
+			{
+				upDir = glm::vec3(1.0f, 0.0f, 0.0f);
+			}
+
+			glm::mat4 shadowViewMatrix = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + punctualLight.m_light.m_direction, upDir);
+			glm::mat4 shadowMatrix = projection * shadowViewMatrix;
+			glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
+
+			// project shadow far plane to screen space to get the optimal size of the shadow map
+			uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
+
+			rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
+			rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle));
+			static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+
+			m_shadowMatrices.push_back(shadowMatrix);
+			m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
+			m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle)));
+
+			punctualLight.m_shadowMatrix0 = shadowMatrixTransposed[0];
+			punctualLight.m_shadowMatrix1 = shadowMatrixTransposed[1];
+			punctualLight.m_shadowMatrix2 = shadowMatrixTransposed[2];
+			punctualLight.m_shadowMatrix3 = shadowMatrixTransposed[3];
+			punctualLight.m_shadowTextureHandle = shadowMapViewHandle; // we later correct these to be actual TextureViewHandles
+
+			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), punctualLight.m_light.m_direction)) * glm::scale(glm::vec3(lc.m_radius)));
+		}
+		// point light
+		else
+		{
+			glm::mat4 viewMatrices[6];
+			viewMatrices[0] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			viewMatrices[1] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			viewMatrices[2] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+			viewMatrices[3] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			viewMatrices[4] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			viewMatrices[5] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+			constexpr const char *resourceNames[]
+			{
+				"Point Light Shadow Map +X",
+				"Point Light Shadow Map -X",
+				"Point Light Shadow Map +Y",
+				"Point Light Shadow Map -Y",
+				"Point Light Shadow Map +Z",
+				"Point Light Shadow Map -Z",
+			};
+
+			for (size_t i = 0; i < 6; ++i)
+			{
+				glm::mat4 shadowMatrix = projection * viewMatrices[i];
+
+				// project shadow far plane to screen space to get the optimal size of the shadow map
+				uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
+
+				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create(resourceNames[i], Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
+				rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle));
+				static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+
+				m_shadowMatrices.push_back(shadowMatrix);
+				m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
+				m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
+
+				// we later correct these to be actual TextureViewHandles
+				if (i < 4)
+				{
+					punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(shadowMapViewHandle);
+				}
+				else
+				{
+					punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(shadowMapViewHandle);
+				}
+			}
+
+			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::scale(glm::vec3(lc.m_radius)));
+		}
+
+		m_punctualLightsShadowed.push_back(punctualLight);
+
+		insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_punctualLightsShadowedDepthBins.data());
+	}
 }

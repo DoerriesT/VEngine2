@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "utility/Utility.h"
 
-BufferStackAllocator::BufferStackAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer)
+BufferStackAllocator::BufferStackAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer) noexcept
 	:m_device(device),
 	m_bufferSize(buffer->getDescription().m_size),
 	m_buffer(buffer)
@@ -11,12 +11,12 @@ BufferStackAllocator::BufferStackAllocator(gal::GraphicsDevice *device, gal::Buf
 	m_buffer->map((void **)&m_mappedPtr);
 }
 
-BufferStackAllocator::~BufferStackAllocator()
+BufferStackAllocator::~BufferStackAllocator() noexcept
 {
 	m_buffer->unmap();
 }
 
-uint8_t *BufferStackAllocator::allocate(uint64_t alignment, uint64_t *size, uint64_t *offset)
+uint8_t *BufferStackAllocator::allocate(uint64_t alignment, uint64_t *size, uint64_t *offset) noexcept
 {
 	assert(size && offset);
 	assert(*size > 0);
@@ -39,12 +39,17 @@ uint8_t *BufferStackAllocator::allocate(uint64_t alignment, uint64_t *size, uint
 	}
 }
 
-gal::Buffer *BufferStackAllocator::getBuffer() const
+gal::Buffer *BufferStackAllocator::getBuffer() const noexcept
 {
 	return m_buffer;
 }
 
-void BufferStackAllocator::reset()
+void BufferStackAllocator::reset() noexcept
 {
 	m_currentOffset = 0;
+}
+
+uint64_t BufferStackAllocator::getCurrentOffset() const noexcept
+{
+	return m_currentOffset;
 }

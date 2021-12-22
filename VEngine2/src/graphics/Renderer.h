@@ -21,7 +21,7 @@ class TextureLoader;
 class TextureManager;
 class MaterialManager;
 class ImGuiPass;
-struct RenderWorld;
+class ECS;
 
 typedef void *ImTextureID;
 
@@ -35,7 +35,7 @@ class Renderer
 public:
 	explicit Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept;
 	~Renderer() noexcept;
-	void render(float deltaTime, const RenderWorld &renderWorld) noexcept;
+	void render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fractionalSimFrameTime) noexcept;
 	void resize(uint32_t swapchainWidth, uint32_t swapchainHeight, uint32_t width, uint32_t height) noexcept;
 	void getResolution(uint32_t *swapchainWidth, uint32_t *swapchainHeight, uint32_t *width, uint32_t *height) noexcept;
 	void createSubMeshes(uint32_t count, SubMeshCreateInfo *subMeshes, SubMeshHandle *handles) noexcept;

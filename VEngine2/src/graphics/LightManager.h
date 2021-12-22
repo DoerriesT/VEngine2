@@ -11,6 +11,9 @@ class RenderGraph;
 struct SubMeshDrawInfo;
 struct RenderList;
 struct SubMeshBufferHandles;
+class ECS;
+struct TransformComponent;
+struct LightComponent;
 
 struct LightRecordData
 {
@@ -48,12 +51,18 @@ public:
 	explicit LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept;
 	DELETED_COPY_MOVE(LightManager);
 	~LightManager();
-	void update(const CommonViewData &viewData, const RenderWorld &renderWorld, rg::RenderGraph *graph) noexcept;
+	void update(const CommonViewData &viewData, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept;
 	void recordLightTileAssignment(rg::RenderGraph *graph, const CommonViewData &viewData) noexcept;
 	void recordShadows(rg::RenderGraph *graph, const CommonViewData &viewData, const ShadowRecordData &data) noexcept;
 	const LightRecordData *getLightRecordData() const noexcept;
 
 private:
+	struct LightPointers
+	{
+		TransformComponent *m_tc;
+		LightComponent *m_lc;
+	};
+
 	gal::GraphicsDevice *m_device;
 	eastl::vector<glm::mat4> m_shadowMatrices;
 	eastl::vector<rg::ResourceViewHandle> m_shadowTextureRenderHandles;
@@ -74,4 +83,9 @@ private:
 	gal::GraphicsPipeline *m_shadowSkinnedPipeline = nullptr;
 	gal::GraphicsPipeline *m_shadowAlphaTestedPipeline = nullptr;
 	gal::GraphicsPipeline *m_shadowSkinnedAlphaTestedPipeline = nullptr;
+
+	void processDirectionalLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept;
+	void processShadowedDirectionalLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept;
+	void processPunctualLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept;
+	void processShadowedPunctualLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept;
 };

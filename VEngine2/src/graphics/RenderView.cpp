@@ -10,9 +10,9 @@
 #include "component/TransformComponent.h"
 #include "component/MeshComponent.h"
 #include "component/SkinnedMeshComponent.h"
-#include "component/LightComponent.h"
 #include "component/CameraComponent.h"
 #include "component/OutlineComponent.h"
+#include "component/ParticipatingMediumComponent.h"
 #include <glm/gtx/transform.hpp>
 #include "MeshManager.h"
 #include "MaterialManager.h"
@@ -20,13 +20,13 @@
 #include "RenderGraph.h"
 #include "RendererResources.h"
 #include "BufferStackAllocator.h"
-#include "RenderWorld.h"
 #include <EASTL/fixed_vector.h>
 #include <EASTL/numeric.h>
 #include <EASTL/sort.h>
 #include <glm/gtx/quaternion.hpp>
 #include "utility/Utility.h"
 #include "graphics/Camera.h"
+#include "ecs/ECS.h"
 
 bool g_taaEnabled = true;
 bool g_sharpenEnabled = true;
@@ -67,14 +67,7 @@ RenderView::~RenderView()
 	delete m_renderViewResources;
 }
 
-void RenderView::render(
-	float deltaTime,
-	float time,
-	const RenderWorld &renderWorld,
-	rg::RenderGraph *graph,
-	const Transform *cameraTransform,
-	const CameraComponent *cameraComponent
-) noexcept
+void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept
 {
 	if (m_width == 0 || m_height == 0)
 	{
@@ -125,14 +118,13 @@ void RenderView::render(
 	const size_t haltonIdx = m_frame % k_haltonSampleCount;
 	glm::mat4 jitterMatrix = g_taaEnabled ? glm::translate(glm::vec3(m_haltonJitter[haltonIdx * 2 + 0] / m_width, m_haltonJitter[haltonIdx * 2 + 1] / m_height, 0.0f)) : glm::identity<glm::mat4>();
 
-	
+
+	auto *cameraComponent = ecs->getComponent<CameraComponent>(cameraEntity);
+	auto cameraTransformComponent = *ecs->getComponent<TransformComponent>(cameraEntity);
+	cameraTransformComponent.m_transform = cameraTransformComponent.m_curRenderTransform;
 	auto &viewData = m_viewData[resIdx];
 	{
-		CameraComponent cc = *cameraComponent;
-		TransformComponent tc{};
-		tc.m_transform = *cameraTransform;
-
-		Camera camera(tc, cc);
+		Camera camera(cameraTransformComponent, *cameraComponent);
 		viewData.m_viewMatrix = camera.getViewMatrix();
 		viewData.m_projectionMatrix = camera.getProjectionMatrix();
 	}
@@ -157,7 +149,7 @@ void RenderView::render(
 	viewData.m_prevInvJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_invJitteredViewProjectionMatrix;
 
 	viewData.m_viewMatrixDepthRow = glm::vec4(viewData.m_viewMatrix[0][2], viewData.m_viewMatrix[1][2], viewData.m_viewMatrix[2][2], viewData.m_viewMatrix[3][2]);
-	viewData.m_cameraPosition = cameraTransform->m_translation;
+	viewData.m_cameraPosition = cameraTransformComponent.m_transform.m_translation;
 	viewData.m_near = cameraComponent->m_near;
 	viewData.m_far = cameraComponent->m_far;
 	viewData.m_fovy = cameraComponent->m_fovy;
@@ -184,81 +176,121 @@ void RenderView::render(
 
 	m_modelMatrices.clear();
 	m_prevModelMatrices.clear();
+	m_skinningMatrices.clear();
+	m_prevSkinningMatrices.clear();
 	m_globalMedia.clear();
 	m_renderList.clear();
 	m_outlineRenderList.clear();
 
 	// process global participating media
-	for (const auto &pm : renderWorld.m_globalParticipatingMedia)
-	{
-		GlobalParticipatingMediumGPU medium{};
-		medium.emissive = glm::unpackUnorm4x8(pm.m_emissiveColor) * pm.m_emissiveIntensity;
-		medium.extinction = pm.m_extinction;
-		medium.scattering = glm::unpackUnorm4x8(pm.m_albedo) * pm.m_extinction;
-		medium.phase = pm.m_phaseAnisotropy;
-		medium.heightFogEnabled = pm.m_heightFogEnabled;
-		medium.heightFogStart = pm.m_heightFogStart;
-		medium.heightFogFalloff = pm.m_heightFogFalloff;
-		medium.maxHeight = pm.m_maxHeight;
-		medium.textureScale = pm.m_textureScale;
-		medium.textureBias = glm::make_vec3(pm.m_textureBias);
-		medium.densityTexture = pm.m_densityTextureHandle;
+	ecs->iterate<ParticipatingMediumComponent>([&](size_t count, const EntityID *entities, ParticipatingMediumComponent *mediaC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &mc = mediaC[i];
 
-		m_globalMedia.push_back(medium);
-	}
+				if (mc.m_type == ParticipatingMediumComponent::Type::Global)
+				{
+					GlobalParticipatingMediumGPU medium{};
+					medium.emissive = glm::unpackUnorm4x8(mc.m_emissiveColor) * mc.m_emissiveIntensity;
+					medium.extinction = mc.m_extinction;
+					medium.scattering = glm::unpackUnorm4x8(mc.m_albedo) * mc.m_extinction;
+					medium.phase = mc.m_phaseAnisotropy;
+					medium.heightFogEnabled = mc.m_heightFogEnabled;
+					medium.heightFogStart = mc.m_heightFogStart;
+					medium.heightFogFalloff = mc.m_heightFogFalloff;
+					medium.maxHeight = mc.m_maxHeight;
+					medium.textureScale = mc.m_textureScale;
+					medium.textureBias = glm::make_vec3(mc.m_textureBias);
+					medium.densityTexture = mc.m_densityTexture.isLoaded() ? mc.m_densityTexture->getTextureHandle() : TextureHandle{};
 
-	// create transform matrices
-	for (const auto &transform : renderWorld.m_meshTransforms)
-	{
-		glm::mat4 modelMatrix = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale);
-		m_modelMatrices.push_back(modelMatrix);
-	}
-	for (const auto &transform : renderWorld.m_prevMeshTransforms)
-	{
-		glm::mat4 modelMatrix = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale);
-		m_prevModelMatrices.push_back(modelMatrix);
-	}
+					m_globalMedia.push_back(medium);
+				}
+			}
+		});
+
+
+	bool anyOutlines = false;
 
 	// fill mesh render lists
-	bool anyOutlines = false;
-	for (const auto &mesh : renderWorld.m_meshes)
-	{
-		SubMeshInstanceData instanceData{};
-		instanceData.m_subMeshHandle = mesh.m_subMeshHandle;
-		instanceData.m_transformIndex = static_cast<uint32_t>(mesh.m_transformIndex);
-		instanceData.m_skinningMatricesOffset = static_cast<uint32_t>(mesh.m_skinningMatricesOffset);
-		instanceData.m_materialHandle = mesh.m_materialHandle;
-		instanceData.m_entityID = mesh.m_entity;
-
-		const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
-		const bool skinned = mesh.m_skinningMatricesCount != 0;
-
-		if (alphaTested)
-			if (skinned)
-				m_renderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-			else
-				m_renderList.m_opaqueAlphaTested.push_back(instanceData);
-		else
-			if (skinned)
-				m_renderList.m_opaqueSkinned.push_back(instanceData);
-			else
-				m_renderList.m_opaque.push_back(instanceData);
-
-		if (mesh.m_outlined)
+	IterateQuery meshIterateQuery;
+	ecs->setIterateQueryRequiredComponents<TransformComponent>(meshIterateQuery);
+	ecs->setIterateQueryOptionalComponents<MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(meshIterateQuery);
+	ecs->iterate<TransformComponent, MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(
+		meshIterateQuery,
+		[&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC, SkinnedMeshComponent *sMeshC, OutlineComponent *outlineC, EditorOutlineComponent *editorOutlineC)
 		{
-			anyOutlines = true;
-			if (alphaTested)
+			// we need either one of these
+			if (!meshC && !sMeshC)
+			{
+				return;
+			}
+			const bool skinned = sMeshC != nullptr;
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				const auto &meshAsset = skinned ? sMeshC[i].m_mesh : meshC[i].m_mesh;
+				if (!meshAsset.get())
+				{
+					continue;
+				}
+
+				// model transform
+				const auto transformIndex = m_modelMatrices.size();
+				m_modelMatrices.push_back(glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(tc.m_curRenderTransform.m_rotation) * glm::scale(tc.m_curRenderTransform.m_scale));
+				m_prevModelMatrices.push_back(glm::translate(tc.m_prevRenderTransform.m_translation) * glm::mat4_cast(tc.m_prevRenderTransform.m_rotation) * glm::scale(tc.m_prevRenderTransform.m_scale));
+
+				// skinning matrices
+				const auto skinningMatricesOffset = m_skinningMatrices.size();
 				if (skinned)
-					m_outlineRenderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-				else
-					m_outlineRenderList.m_opaqueAlphaTested.push_back(instanceData);
-			else
-				if (skinned)
-					m_outlineRenderList.m_opaqueSkinned.push_back(instanceData);
-				else
-					m_outlineRenderList.m_opaque.push_back(instanceData);
-		}
-	}
+				{
+					m_skinningMatrices.insert(m_skinningMatrices.end(), sMeshC[i].m_curRenderMatrixPalette.begin(), sMeshC[i].m_curRenderMatrixPalette.end());
+					m_prevSkinningMatrices.insert(m_prevSkinningMatrices.end(), sMeshC[i].m_prevRenderMatrixPalette.begin(), sMeshC[i].m_prevRenderMatrixPalette.end());
+				}
+
+				const bool outlined = (outlineC && outlineC[i].m_outlined) || (editorOutlineC && editorOutlineC[i].m_outlined);
+
+				const auto &submeshhandles = meshAsset->getSubMeshhandles();
+				const auto &materialAssets = meshAsset->getMaterials();
+				for (size_t j = 0; j < submeshhandles.size(); ++j)
+				{
+					SubMeshInstanceData instanceData{};
+					instanceData.m_subMeshHandle = submeshhandles[j];
+					instanceData.m_transformIndex = static_cast<uint32_t>(transformIndex);
+					instanceData.m_skinningMatricesOffset = static_cast<uint32_t>(skinningMatricesOffset);
+					instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
+					instanceData.m_entityID = entities[i];
+
+					const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
+
+					if (alphaTested)
+						if (skinned)
+							m_renderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
+						else
+							m_renderList.m_opaqueAlphaTested.push_back(instanceData);
+					else
+						if (skinned)
+							m_renderList.m_opaqueSkinned.push_back(instanceData);
+						else
+							m_renderList.m_opaque.push_back(instanceData);
+
+					if (outlined)
+					{
+						anyOutlines = true;
+						if (alphaTested)
+							if (skinned)
+								m_outlineRenderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
+							else
+								m_outlineRenderList.m_opaqueAlphaTested.push_back(instanceData);
+						else
+							if (skinned)
+								m_outlineRenderList.m_opaqueSkinned.push_back(instanceData);
+							else
+								m_outlineRenderList.m_opaque.push_back(instanceData);
+					}
+				}
+			}
+		});
 
 	auto createShaderResourceBuffer = [&](DescriptorType descriptorType, auto dataAsVector)
 	{
@@ -277,14 +309,14 @@ void RenderView::render(
 
 		// create a transient bindless handle
 		return descriptorType == DescriptorType::STRUCTURED_BUFFER ?
-			m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) : 
+			m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) :
 			m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
 	};
 
 	StructuredBufferViewHandle transformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_modelMatrices);
 	StructuredBufferViewHandle prevTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_prevModelMatrices);
-	StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, renderWorld.m_skinningMatrices);
-	StructuredBufferViewHandle prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, renderWorld.m_prevSkinningMatrices);
+	StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_skinningMatrices);
+	StructuredBufferViewHandle prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_prevSkinningMatrices);
 
 	StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
 
@@ -309,7 +341,7 @@ void RenderView::render(
 			}
 		});
 
-	m_lightManager->update(viewData, renderWorld, graph);
+	m_lightManager->update(viewData, ecs, cameraEntity, graph);
 	m_lightManager->recordLightTileAssignment(graph, viewData);
 
 	LightManager::ShadowRecordData shadowRecordData{};

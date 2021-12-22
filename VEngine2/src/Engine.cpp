@@ -27,7 +27,6 @@
 #include "utility/allocator/DefaultAllocator.h"
 #include "script/ScriptSystem.h"
 #include "job/JobSystem.h"
-#include "graphics/RenderWorld.h"
 
 extern bool g_taaEnabled;
 extern bool g_sharpenEnabled;
@@ -129,8 +128,6 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 
 	PROFILING_ZONE_END(engineInitZone);
 
-	RenderWorld renderWorld;
-
 	Timer timer;
 
 	constexpr float k_stepSize = 1.0f / 60.0f;
@@ -202,9 +199,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			ImGui::Render();
 		}
 
-		renderWorld.populate(m_ecs, m_cameraEntity, accumulator / k_stepSize);
-
-		m_renderer->render(timeDelta, renderWorld);
+		m_renderer->render(timeDelta, m_ecs, m_cameraEntity, accumulator / k_stepSize);
 		m_pickedEntity = m_renderer->getPickedEntity();
 	}
 
