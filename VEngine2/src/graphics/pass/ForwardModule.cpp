@@ -218,13 +218,12 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1, ShaderStageFlags::VERTEX_BIT), // model/skinning matrices
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 2, ShaderStageFlags::PIXEL_BIT), // material buffer
 				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // directional lights
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 4, ShaderStageFlags::PIXEL_BIT), // shadowed directional lights
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 5, ShaderStageFlags::PIXEL_BIT), // array textures
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // exposure buffer, depth bins buffers
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 7, ShaderStageFlags::PIXEL_BIT), // picking buffer
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 8, ShaderStageFlags::PIXEL_BIT), // punctual lights
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 9, ShaderStageFlags::PIXEL_BIT), // punctual lights shadowed
-				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 10, ShaderStageFlags::PIXEL_BIT), // array textures UI
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 4, ShaderStageFlags::PIXEL_BIT), // array textures
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 5, ShaderStageFlags::PIXEL_BIT), // exposure buffer, depth bins buffers
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_BYTE_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // picking buffer
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 7, ShaderStageFlags::PIXEL_BIT), // punctual lights
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 8, ShaderStageFlags::PIXEL_BIT), // punctual lights shadowed
+				Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 9, ShaderStageFlags::PIXEL_BIT), // array textures UI
 			};
 
 			DescriptorSetLayoutDeclaration layoutDecls[]

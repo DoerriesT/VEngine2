@@ -54,4 +54,10 @@ dxc.exe -T cs_6_0 -E main bloomUpsample_cs.hlsl -Fo ./../bloomUpsample_cs.cso -Z
 
 dxc.exe -T cs_6_0 -E main fidelityFxSharpen_cs.hlsl -Fo ./../fidelityFxSharpen_cs.cso -Zi -Fd ./../fidelityFxSharpen_cs.pdb
 
+dxc.exe -T vs_6_0 -E main reflectionProbeGBuffer_vs.hlsl -Fo ./../reflectionProbeGBuffer_vs.cso -Zi -Fd ./../reflectionProbeGBuffer_vs.pdb
+dxc.exe -T ps_6_0 -E main reflectionProbeGBuffer_ps.hlsl -Fo ./../reflectionProbeGBuffer_ps.cso -Zi -Fd ./../reflectionProbeGBuffer_ps.pdb
+dxc.exe -T ps_6_0 -E main -D ALPHA_TESTED=1 reflectionProbeGBuffer_ps.hlsl -Fo ./../reflectionProbeGBuffer_alpha_tested_ps.cso -Zi -Fd ./../reflectionProbeGBuffer_alpha_tested_ps.pdb
+
+dxc.exe -T cs_6_0 -E main reflectionProbeRelight_cs.hlsl -Fo ./../reflectionProbeRelight_cs.cso -Zi -Fd ./../reflectionProbeRelight_cs.pdb
+
 pause

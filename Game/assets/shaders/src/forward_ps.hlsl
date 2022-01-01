@@ -68,13 +68,12 @@ ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);
 Texture2D<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
 StructuredBuffer<Material> g_Materials[65536] : REGISTER_SRV(4, 2, 1);
 StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 3, 1);
-StructuredBuffer<DirectionalLight> g_DirectionalLightsShadowed[65536] : REGISTER_SRV(4, 4, 1);
-Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 5, 1);
-ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 6, 1);
-RWByteAddressBuffer g_RWByteAddressBuffers[65536] : REGISTER_UAV(5, 7, 1);
-StructuredBuffer<PunctualLight> g_PunctualLights[65536] : REGISTER_SRV(4, 8, 1);
-StructuredBuffer<PunctualLightShadowed> g_PunctualLightsShadowed[65536] : REGISTER_SRV(4, 9, 1);
-Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 10, 1);
+Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 4, 1);
+ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 5, 1);
+RWByteAddressBuffer g_RWByteAddressBuffers[65536] : REGISTER_UAV(5, 6, 1);
+StructuredBuffer<PunctualLight> g_PunctualLights[65536] : REGISTER_SRV(4, 7, 1);
+StructuredBuffer<PunctualLightShadowed> g_PunctualLightsShadowed[65536] : REGISTER_SRV(4, 8, 1);
+Texture2DArray<uint4> g_ArrayTexturesUI[65536] : REGISTER_SRV(0, 9, 1);
 
 SamplerState g_AnisoRepeatSampler : REGISTER_SAMPLER(0, 0, 2);
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(1, 0, 2);
@@ -197,7 +196,7 @@ PSOutput main(PSInput input)
 	{
 		for (uint i = 0; i < g_PassConstants.directionalLightShadowedCount; ++i)
 		{
-			DirectionalLight light = g_DirectionalLightsShadowed[g_PassConstants.directionalLightShadowedBufferIndex][i];
+			DirectionalLight light = g_DirectionalLights[g_PassConstants.directionalLightShadowedBufferIndex][i];
 			result += evaluateDirectionalLight(lightingParams, light)
 				* sampleCascadedShadowMaps(input.worldSpacePosition, lightingParams.N, light) * exposure;
 		}
@@ -283,7 +282,7 @@ PSOutput main(PSInput input)
 	PSOutput output = (PSOutput)0;
 	output.color = float4(result, 1.0f);
 	output.normalRoughness = float4(encodeOctahedron24(lightingParams.N), lightingParams.roughness);
-	output.albedoMetalness = float4(lightingParams.albedo, lightingParams.metalness);
+	output.albedoMetalness = float4(accurateLinearToSRGB(lightingParams.albedo), lightingParams.metalness);
 	
 	float2 prevUV = (input.prevScreenPos.xy / input.prevScreenPos.w) * float2(0.5f, -0.5f) + 0.5f;
 	float2 curUV = (input.curScreenPos.xy / input.curScreenPos.w) * float2(0.5f, -0.5f) + 0.5f;

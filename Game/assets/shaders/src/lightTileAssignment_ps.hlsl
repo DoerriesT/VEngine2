@@ -69,7 +69,7 @@ void main(PSInput input)
 #endif // VULKAN
 	
 	// branch only for first occurrence of unique key within subgroup
-	if (idx == 0)
+	//if (idx == 0)
 	{
 		InterlockedOr(g_RWArrayTextures[g_PassConstants.resultTextureIndex][uint3(tile, word)], lightBit);
 	}
