@@ -96,7 +96,7 @@ PSOutput main(PSInput input)
 	}
 	
 	PSOutput output = (PSOutput)0;
-	output.colorRoughness = float4(accurateLinearToSRGB(albedo), roughness);
+	output.colorRoughness = float4(albedo, roughness);
 	output.normalDepth = float4(encodeOctahedron(N), input.position.z, 0.0f);
 
 	

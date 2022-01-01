@@ -44,7 +44,6 @@ float4 main(PSInput input) : SV_Target0
 	const float exposure = asfloat(g_ByteAddressBuffers[g_PushConsts.exposureBufferIndex].Load(0));
 	
 	float4 albedoMetalness = g_Textures[g_PushConsts.albedoTextureIndex].Load(uint3(input.position.xy, 0));
-	albedoMetalness.rgb = accurateSRGBToLinear(albedoMetalness.rgb);
 	
 	float gtao = g_Textures[g_PushConsts.gtaoTextureIndex].Load(uint3(input.position.xy, 0)).x;
 	

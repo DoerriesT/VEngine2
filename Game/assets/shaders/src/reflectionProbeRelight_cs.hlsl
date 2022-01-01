@@ -56,7 +56,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	
 	float3 N = decodeOctahedron(normalDepth.xy);
 	float4 albedoRoughness = g_Textures[g_Constants.albedoRoughnessTextureIndex].Load(int4(threadID, 0));
-	float3 albedo = accurateSRGBToLinear(albedoRoughness.rgb);
+	float3 albedo = albedoRoughness.rgb;
 	float roughness = albedoRoughness.w;
 	
 	float3 result = 0.0f;
