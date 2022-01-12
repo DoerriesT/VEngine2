@@ -23,6 +23,7 @@ class RendererResources;
 struct Transform;
 struct CameraComponent;
 class LightManager;
+class ReflectionProbeManager;
 class ECS;
 
 class RenderView
@@ -62,6 +63,7 @@ private:
 	uint32_t m_framesSinceLastResize = 0;
 
 	LightManager *m_lightManager = nullptr;
+	ReflectionProbeManager *m_reflectionProbeManager = nullptr;
 	ForwardModule *m_forwardModule = nullptr;
 	PostProcessModule *m_postProcessModule = nullptr;
 	GridPass *m_gridPass = nullptr;

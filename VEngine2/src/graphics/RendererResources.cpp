@@ -22,6 +22,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		gal::BufferCreateInfo createInfo{ 1024 * 1024 * 4, {}, gal::BufferUsageFlags::CONSTANT_BUFFER_BIT };
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableConstantBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableConstantBuffers[1]);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableConstantBuffers[0], "Mappable Constant Buffer 0");
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableConstantBuffers[1], "Mappable Constant Buffer 1");
 
 		m_constantBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableConstantBuffers[0]);
 		m_constantBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableConstantBuffers[1]);
@@ -44,6 +46,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		gal::BufferCreateInfo createInfo{ 8 * 1024 * 1024, {}, gal::BufferUsageFlags::TYPED_BUFFER_BIT | gal::BufferUsageFlags::BYTE_BUFFER_BIT | gal::BufferUsageFlags::STRUCTURED_BUFFER_BIT };
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableShaderResourceBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableShaderResourceBuffers[1]);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableShaderResourceBuffers[0], "Mappable Shader Resource Buffer 0");
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableShaderResourceBuffers[1], "Mappable Shader Resource Buffer 1");
 
 		m_shaderResourceBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableShaderResourceBuffers[0]);
 		m_shaderResourceBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableShaderResourceBuffers[1]);
@@ -54,6 +58,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		gal::BufferCreateInfo createInfo{ 1024 * 1024 * 4, {}, gal::BufferUsageFlags::INDEX_BUFFER_BIT };
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableIndexBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableIndexBuffers[1]);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableIndexBuffers[0], "Mappable Index Buffer 0");
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableIndexBuffers[1], "Mappable Index Buffer 1");
 
 		m_indexBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableIndexBuffers[0]);
 		m_indexBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableIndexBuffers[1]);
@@ -64,6 +70,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		gal::BufferCreateInfo createInfo{ 1024 * 1024 * 4, {}, gal::BufferUsageFlags::VERTEX_BUFFER_BIT };
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableVertexBuffers[0]);
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_mappableVertexBuffers[1]);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableVertexBuffers[0], "Mappable Vertex Buffer 0");
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableVertexBuffers[1], "Mappable Vertex Buffer 1");
 
 		m_vertexBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableVertexBuffers[0]);
 		m_vertexBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableVertexBuffers[1]);
@@ -104,6 +112,7 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 			imageCreateInfo.m_optimizedClearValue.m_color = {};
 
 			m_device->createImage(imageCreateInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_imguiFontTexture);
+			m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_imguiFontTexture, "ImGui Font Texture");
 
 			// create view
 			m_device->createImageView(m_imguiFontTexture, &m_imguiFontTextureView);
@@ -202,6 +211,7 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		vertexBufferInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_DST_BIT | gal::BufferUsageFlags::VERTEX_BUFFER_BIT;
 
 		m_device->createBuffer(vertexBufferInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_proxyMeshVertexBuffer);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_proxyMeshVertexBuffer, "Proxy Mesh Vertex Buffer");
 
 		gal::BufferCreateInfo indexBufferInfo{};
 		indexBufferInfo.m_size = IcoSphereProxyMesh::indexDataSize
@@ -214,6 +224,7 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		indexBufferInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_DST_BIT | gal::BufferUsageFlags::INDEX_BUFFER_BIT;
 
 		m_device->createBuffer(indexBufferInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_proxyMeshIndexBuffer);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_proxyMeshIndexBuffer, "Proxy Mesh Index Buffer");
 
 		gal::Buffer *stagingBuffer = nullptr;
 		{
@@ -354,10 +365,110 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_boxProxyMeshInfo.m_vertexOffset = m_cone45ProxyMeshInfo.m_vertexOffset + static_cast<uint32_t>(Cone45ProxyMesh::vertexDataSize / (sizeof(float) * 3));
 	}
 
+	// brdf LUT
+	{
+		// create image
+		gal::ImageCreateInfo imageCreateInfo{};
+		imageCreateInfo.m_width = k_brdfLUTResolution;
+		imageCreateInfo.m_height = k_brdfLUTResolution;
+		imageCreateInfo.m_depth = 1;
+		imageCreateInfo.m_levels = 1;
+		imageCreateInfo.m_layers = 1;
+		imageCreateInfo.m_samples = gal::SampleCount::_1;
+		imageCreateInfo.m_imageType = gal::ImageType::_2D;
+		imageCreateInfo.m_format = gal::Format::R16G16_SFLOAT;
+		imageCreateInfo.m_createFlags = {};
+		imageCreateInfo.m_usageFlags = gal::ImageUsageFlags::RW_TEXTURE_BIT | gal::ImageUsageFlags::TEXTURE_BIT;
+		imageCreateInfo.m_optimizedClearValue.m_color = {};
+
+		m_device->createImage(imageCreateInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_brdfLUT);
+		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_brdfLUT, "BRDF LUT");
+
+		// create view
+		m_device->createImageView(m_brdfLUT, &m_brdfLUTView);
+
+		m_brdfLUTTextureViewHandle = m_resourceViewRegistry->createTextureViewHandle(m_brdfLUTView);
+		m_brdfLUTRWTextureViewHandle = m_resourceViewRegistry->createRWTextureViewHandle(m_brdfLUTView);
+
+		m_resourceViewRegistry->flushChanges();
+
+		struct BRDFLUTPushConsts
+		{
+			uint32_t resolution;
+			float texelSize;
+			uint32_t resultTextureIndex;
+		};
+
+		// create pipeline
+		gal::ComputePipeline *brdfLUTPipeline = nullptr;
+		{
+			gal::DescriptorSetLayoutBinding usedBindlessBindings[] =
+			{
+				gal::Initializers::bindlessDescriptorSetLayoutBinding(gal::DescriptorType::RW_TEXTURE, 0), // result
+			};
+
+			gal::DescriptorSetLayoutDeclaration layoutDecls[]
+			{
+				{ resourceViewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+			};
+			gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::COMPUTE_BIT);
+
+			gal::ComputePipelineCreateInfo pipelineCreateInfo{};
+			gal::ComputePipelineBuilder builder(pipelineCreateInfo);
+			builder.setComputeShader("assets/shaders/brdfLUT_cs");
+			builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(BRDFLUTPushConsts), gal::ShaderStageFlags::COMPUTE_BIT, 1, &staticSamplerDesc, 1);
+
+			device->createComputePipelines(1, &pipelineCreateInfo, &brdfLUTPipeline);
+		}
+
+		m_commandListPool->reset();
+		m_commandList->begin();
+		{
+			// transition image to RW_RESOURCE
+			{
+				gal::Barrier barrier = gal::Initializers::imageBarrier(m_brdfLUT,
+					gal::PipelineStageFlags::TOP_OF_PIPE_BIT,
+					gal::PipelineStageFlags::COMPUTE_SHADER_BIT,
+					gal::ResourceState::UNDEFINED,
+					gal::ResourceState::RW_RESOURCE_WRITE_ONLY);
+				m_commandList->barrier(1, &barrier);
+			}
+
+			m_commandList->bindPipeline(brdfLUTPipeline);
+			auto *set = resourceViewRegistry->getCurrentFrameDescriptorSet();
+			m_commandList->bindDescriptorSets(brdfLUTPipeline, 0, 1, &set, 0, nullptr);
+
+			BRDFLUTPushConsts pushConsts{};
+			pushConsts.resolution = k_brdfLUTResolution;
+			pushConsts.texelSize = 1.0f / pushConsts.resolution;
+			pushConsts.resultTextureIndex = m_brdfLUTRWTextureViewHandle;
+
+			m_commandList->pushConstants(brdfLUTPipeline, gal::ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+			m_commandList->dispatch((pushConsts.resolution + 7) / 8, (pushConsts.resolution + 7) / 8, 1);
+
+			// transition image to READ_RESOURCE
+			{
+				gal::Barrier barrier = gal::Initializers::imageBarrier(m_brdfLUT,
+					gal::PipelineStageFlags::COMPUTE_SHADER_BIT,
+					gal::PipelineStageFlags::PIXEL_SHADER_BIT | gal::PipelineStageFlags::COMPUTE_SHADER_BIT,
+					gal::ResourceState::RW_RESOURCE_WRITE_ONLY,
+					gal::ResourceState::READ_RESOURCE);
+				m_commandList->barrier(1, &barrier);
+			}
+		}
+		m_commandList->end();
+		gal::Initializers::submitSingleTimeCommands(m_device->getGraphicsQueue(), m_commandList);
+
+		// destroy pipeline
+		device->destroyComputePipeline(brdfLUTPipeline);
+	}
+
 	// materials buffer
 	{
 		gal::BufferCreateInfo createInfo{ sizeof(MaterialGPU) * 1024 * 32, {}, gal::BufferUsageFlags::STRUCTURED_BUFFER_BIT };
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_COHERENT_BIT, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, false, &m_materialsBuffer);
+		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_materialsBuffer, "Material Buffer");
 		gal::DescriptorBufferInfo bufferInfo{};
 		bufferInfo.m_buffer = m_materialsBuffer;
 		bufferInfo.m_range = createInfo.m_size;
@@ -385,6 +496,11 @@ RendererResources::~RendererResources()
 	m_device->destroyBuffer(m_mappableIndexBuffers[1]);
 	m_device->destroyBuffer(m_mappableVertexBuffers[0]);
 	m_device->destroyBuffer(m_mappableVertexBuffers[1]);
+
+	m_resourceViewRegistry->destroyHandle(m_brdfLUTRWTextureViewHandle);
+	m_resourceViewRegistry->destroyHandle(m_brdfLUTTextureViewHandle);
+	m_device->destroyImageView(m_brdfLUTView);
+	m_device->destroyImage(m_brdfLUT);
 
 	m_resourceViewRegistry->destroyHandle(m_imguiFontTextureViewHandle);
 	m_device->destroyImageView(m_imguiFontTextureView);

@@ -86,6 +86,23 @@ struct GlobalParticipatingMediumGPU
 	float pad2;
 };
 
+struct ReflectionProbeGPU
+{
+	glm::vec4 m_worldToLocal0;
+	glm::vec4 m_worldToLocal1;
+	glm::vec4 m_worldToLocal2;
+	glm::vec3 m_capturePosition;
+	float m_arraySlot;
+	float m_boxInvFadeDist0;
+	float m_boxInvFadeDist1;
+	float m_boxInvFadeDist2;
+	float m_boxInvFadeDist3;
+	float m_boxInvFadeDist4;
+	float m_boxInvFadeDist5;
+	float m_pad0;
+	float m_pad1;
+};
+
 enum class DebugDrawVisibility
 {
 	Always = 0, Visible = 1, Occluded = 2

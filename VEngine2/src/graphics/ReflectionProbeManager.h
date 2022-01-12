@@ -1,19 +1,98 @@
 #pragma once
+#include <EASTL/fixed_vector.h>
 #include "utility/DeletedCopyMove.h"
 #include "RenderData.h"
 #include "RenderGraph.h"
 
 struct CommonViewData;
 class ECS;
+class RendererResources;
+struct SubMeshDrawInfo;
+struct RenderList;
+struct SubMeshBufferHandles;
+struct LightRecordData;
 
 class ReflectionProbeManager
 {
 public:
-	explicit ReflectionProbeManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept;
+	static constexpr size_t k_cacheSize = 128;
+	static constexpr size_t k_resolution = 256;
+	static constexpr size_t k_numPrefilterMips = 5;
+	static constexpr size_t k_numMips = 5;
+
+	struct Data
+	{
+		const CommonViewData *m_viewData;
+		ECS *m_ecs;
+		StructuredBufferViewHandle m_transformBufferHandle;
+		StructuredBufferViewHandle m_materialsBufferHandle;
+		const LightRecordData *m_lightRecordData;
+		const RenderList *m_renderList;
+		const SubMeshDrawInfo *m_meshDrawInfo;
+		const SubMeshBufferHandles *m_meshBufferHandles;
+	};
+
+	explicit ReflectionProbeManager(gal::GraphicsDevice *device, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept;
 	DELETED_COPY_MOVE(ReflectionProbeManager);
 	~ReflectionProbeManager() noexcept;
 	
-	void update(const CommonViewData &viewData, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept;
+	void update(rg::RenderGraph *graph, const Data &data) noexcept;
+	TextureViewHandle getReflectionProbeArrayTextureViewHandle() const noexcept;
+	StructuredBufferViewHandle getReflectionProbeDataBufferhandle() const noexcept;
+	uint32_t getReflectionProbeCount() const noexcept;
 
 private:
+	gal::GraphicsDevice *m_device = nullptr;
+	RendererResources *m_rendererResources = nullptr;
+	gal::GraphicsPipeline *m_probeGbufferPipeline = nullptr;
+	gal::GraphicsPipeline *m_probeGbufferAlphaTestedPipeline = nullptr;
+	gal::ComputePipeline *m_probeRelightPipeline = nullptr;
+	gal::ComputePipeline *m_ffxDownsamplePipeline = nullptr;
+	gal::ComputePipeline *m_probeFilterPipeline = nullptr;
+
+	gal::Image *m_probeDepthBufferImage = nullptr;
+	gal::ImageView *m_probeDepthArrayView = {};
+	gal::ImageView *m_probeDepthSliceViews[6] = {};
+
+	gal::Image *m_probeAlbedoRoughnessArrayImage = nullptr;
+	gal::ImageView *m_probeAlbedoRoughnessArrayView = {};
+	gal::ImageView *m_probeAlbedoRoughnessSliceViews[k_cacheSize * 6] = {};
+	TextureViewHandle m_probeAlbedoRoughnessTextureViewHandle = {};
+
+	gal::Image *m_probeNormalDepthArrayImage = nullptr;
+	gal::ImageView *m_probeNormalDepthArrayView = {};
+	gal::ImageView *m_probeNormalDepthSliceViews[k_cacheSize * 6] = {};
+	TextureViewHandle m_probeNormalDepthTextureViewHandle = {};
+
+	gal::Image *m_probeTmpLitImage;
+	gal::ImageView *m_probeTmpLitArrayViews[k_numPrefilterMips] = {}; // one per mip
+	TextureViewHandle m_probeTmpLitArrayMip0TextureViewHandle = {};
+	RWTextureViewHandle m_probeTmpLitArrayRWTextureViewHandles[k_numPrefilterMips] = {}; // one per mip
+	gal::ImageView *m_probeTmpLitCubeView = {};
+	TextureViewHandle m_probeTmpLitCubeTextureViewHandle = {};
+
+	gal::Image *m_probeArrayImage;
+	gal::ImageView *m_probeArrayView = {};
+	gal::ImageView *m_probeArrayCubeView = {};
+	TextureViewHandle m_probeArrayCubeTextureViewHandle = {};
+	RWTextureViewHandle m_probeArrayRWTextureViewHandle = {};
+	gal::ImageView *m_probeArrayMipViews[k_cacheSize][k_numMips] = {};
+	RWTextureViewHandle m_probeArrayMipRWTextureViewHandles[k_cacheSize][k_numMips] = {};
+
+	gal::Buffer *m_spdCounterBuffer = {};
+	RWByteBufferViewHandle m_spdCounterBufferViewHandle = {};
+
+	StructuredBufferViewHandle m_reflectionProbesBufferHandle = {};
+	uint32_t m_reflectionProbeCount = 0;
+
+	eastl::fixed_vector<uint32_t, k_cacheSize> m_freeCacheSlots;
+	eastl::bitset<k_cacheSize> m_occupiedCacheSlots;
+	glm::mat4 m_currentRenderProbeViewProjMatrices[6] = {};
+	glm::mat4 m_currentRelightProbeWorldToLocalTransposed = {};
+	glm::vec3 m_currentRelightProbePosition = {};
+	float m_currentRelightProbeNearPlane = 0.5f;
+	float m_currentRelightProbeFarPlane = 50.0f;
+
+	void renderProbeGBuffer(rg::RenderGraph *graph, const Data &data, size_t probeIdx) const noexcept;
+	void relightProbe(rg::RenderGraph *graph, const Data &data, size_t probeIdx) const noexcept;
 };

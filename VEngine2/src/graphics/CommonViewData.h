@@ -59,4 +59,5 @@ struct CommonViewData
 	gal::DescriptorSet *m_bindlessSet;
 	rg::ResourceViewHandle m_pickingBufferHandle;
 	rg::ResourceViewHandle m_exposureBufferHandle;
+	TextureViewHandle m_reflectionProbeArrayTextureViewHandle;
 };

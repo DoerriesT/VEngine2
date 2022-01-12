@@ -30,21 +30,6 @@ namespace
 		uint32_t resultTextureIndex;
 		uint32_t ignoreHistory;
 	};
-
-	struct IndirectLightingPushConsts
-	{
-		glm::vec3 volumetricFogTexelSize;
-		float volumetricFogNear;
-		float depthUnprojectParams[2];
-		float volumetricFogFar;
-		uint32_t exposureBufferIndex;
-		uint32_t albedoTextureIndex;
-		uint32_t gtaoTextureIndex;
-		uint32_t depthBufferIndex;
-		uint32_t volumetricFogTextureIndex;
-		uint32_t blueNoiseTextureIndex;
-		uint32_t frame;
-	};
 }
 
 ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offsetBufferSetLayout, DescriptorSetLayout *bindlessSetLayout) noexcept
@@ -355,16 +340,20 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
 		builder.setColorAttachmentFormat(Format::R16G16B16A16_SFLOAT);
 
+		DescriptorSetLayoutBinding usedOffsetBufferBinding = { DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, ShaderStageFlags::PIXEL_BIT };
 		DescriptorSetLayoutBinding usedBindlessBindings[]
 		{
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT), // textures
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 1, ShaderStageFlags::PIXEL_BIT), // 3d textures
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 2, ShaderStageFlags::PIXEL_BIT), // exposure buffer
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 3, ShaderStageFlags::PIXEL_BIT), // array textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 2, ShaderStageFlags::PIXEL_BIT), // cube array textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // exposure buffer
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 4, ShaderStageFlags::PIXEL_BIT), // array textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 5, ShaderStageFlags::PIXEL_BIT), // reflection probe data
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
 		{
+			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
 			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 
@@ -373,7 +362,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT),
 		};
 
-		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(IndirectLightingPushConsts), ShaderStageFlags::PIXEL_BIT, 1, staticSamplerDescs, 1);
+		builder.setPipelineLayoutDescription(2, layoutDecls, 0, ShaderStageFlags::ALL_STAGES, 1, staticSamplerDescs, 2);
 
 		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_indirectLightingPipeline);
 	}
@@ -917,6 +906,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	rg::ResourceUsageDesc indirectLightingUsageDescs[]
 	{
 		{ albedoImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		{ normalImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ gtaoResultImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
 		{ volumetricFogResultData.m_volumetricFogImageViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
@@ -938,30 +928,62 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 			cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, true);
 			{
-				cmdList->bindPipeline(m_indirectLightingPipeline);
+				struct IndirectLightingConstants
+				{
+					glm::mat4 invViewProjectionMatrix;
+					glm::vec3 volumetricFogTexelSize;
+					float volumetricFogNear;
+					glm::vec2 depthUnprojectParams;
+					glm::vec2 texelSize;
+					glm::vec3 cameraPosition;
+					float volumetricFogFar;
+					uint32_t exposureBufferIndex;
+					uint32_t albedoTextureIndex;
+					uint32_t normalTextureIndex;
+					uint32_t gtaoTextureIndex;
+					uint32_t depthBufferIndex;
+					uint32_t volumetricFogTextureIndex;
+					uint32_t reflectionProbeTextureIndex;
+					uint32_t brdfLUTIndex;
+					uint32_t blueNoiseTextureIndex;
+					uint32_t reflectionProbeDataBufferIndex;
+					uint32_t frame;
+					uint32_t reflectionProbeCount;
+				};
+
+				IndirectLightingConstants consts{};
+				consts.invViewProjectionMatrix = data.m_viewData->m_invJitteredViewProjectionMatrix;
+				consts.volumetricFogTexelSize = 1.0f / glm::vec3(240.0f, 135.0f, 128.0f);
+				consts.volumetricFogNear = 0.5f;
+				consts.depthUnprojectParams[0] = data.m_viewData->m_invJitteredProjectionMatrix[2][3];
+				consts.depthUnprojectParams[1] = data.m_viewData->m_invJitteredProjectionMatrix[3][3];
+				consts.texelSize = 1.0f / glm::vec2(data.m_viewData->m_width, data.m_viewData->m_height);
+				consts.cameraPosition = data.m_viewData->m_cameraPosition;
+				consts.volumetricFogFar = 64.0f;
+				consts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+				consts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
+				consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
+				consts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
+				consts.depthBufferIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
+				consts.volumetricFogTextureIndex = registry.getBindlessHandle(volumetricFogResultData.m_volumetricFogImageViewHandle, DescriptorType::TEXTURE);
+				consts.reflectionProbeTextureIndex = data.m_viewData->m_reflectionProbeArrayTextureViewHandle;
+				consts.brdfLUTIndex = data.m_viewData->m_rendererResources->m_brdfLUTTextureViewHandle;
+				consts.blueNoiseTextureIndex = data.m_viewData->m_rendererResources->m_blueNoiseTextureViewHandle;
+				consts.reflectionProbeDataBufferIndex = data.m_reflectionProbeDataBufferHandle;
+				consts.frame = data.m_viewData->m_frame;
+				consts.reflectionProbeCount = data.m_reflectionProbeCount;
+
+				uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 				gal::Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 				cmdList->setViewport(0, 1, &viewport);
 				gal::Rect scissor{ {0, 0}, {width, height} };
 				cmdList->setScissor(0, 1, &scissor);
 
-				cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
+				cmdList->bindPipeline(m_indirectLightingPipeline);
 
-				IndirectLightingPushConsts pushConsts{};
-				pushConsts.volumetricFogTexelSize = 1.0f / glm::vec3(240.0f, 135.0f, 128.0f);
-				pushConsts.volumetricFogNear = 0.5f;
-				pushConsts.volumetricFogFar = 64.0f;
-				pushConsts.depthUnprojectParams[0] = data.m_viewData->m_invJitteredProjectionMatrix[2][3];
-				pushConsts.depthUnprojectParams[1] = data.m_viewData->m_invJitteredProjectionMatrix[3][3];
-				pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
-				pushConsts.albedoTextureIndex = registry.getBindlessHandle(albedoImageViewHandle, DescriptorType::TEXTURE);
-				pushConsts.gtaoTextureIndex = registry.getBindlessHandle(gtaoResultImageViewHandle, DescriptorType::TEXTURE);
-				pushConsts.depthBufferIndex = registry.getBindlessHandle(depthBufferImageViewHandle, DescriptorType::TEXTURE);
-				pushConsts.volumetricFogTextureIndex = registry.getBindlessHandle(volumetricFogResultData.m_volumetricFogImageViewHandle, DescriptorType::TEXTURE);
-				pushConsts.blueNoiseTextureIndex = data.m_viewData->m_rendererResources->m_blueNoiseTextureViewHandle;
-				pushConsts.frame = data.m_viewData->m_frame;
-
-				cmdList->pushConstants(m_indirectLightingPipeline, ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
+				gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
+				cmdList->bindDescriptorSets(m_indirectLightingPipeline, 0, 2, sets, 1, &constsAddress);
 
 				cmdList->draw(3, 1, 0, 0);
 			}

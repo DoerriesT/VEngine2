@@ -60,4 +60,8 @@ dxc.exe -T ps_6_0 -E main -D ALPHA_TESTED=1 reflectionProbeGBuffer_ps.hlsl -Fo .
 
 dxc.exe -T cs_6_0 -E main reflectionProbeRelight_cs.hlsl -Fo ./../reflectionProbeRelight_cs.cso -Zi -Fd ./../reflectionProbeRelight_cs.pdb
 
+dxc.exe -T cs_6_0 -E main fidelityFxDownsample_cs.hlsl -Fo ./../fidelityFxDownsample_cs.cso -Zi -Fd ./../fidelityFxDownsample_cs.pdb
+dxc.exe -T cs_6_0 -E main reflectionProbeFilter_cs.hlsl -Fo ./../reflectionProbeFilter_cs.cso -Zi -Fd ./../reflectionProbeFilter_cs.pdb
+dxc.exe -T cs_6_0 -E main brdfLUT_cs.hlsl -Fo ./../brdfLUT_cs.cso -Zi -Fd ./../brdfLUT_cs.pdb
+
 pause

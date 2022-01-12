@@ -6,9 +6,13 @@
 struct Constants
 {
 	float4x4 probeFaceToWorldSpace[6];
+	float4 worldToLocal0;
+	float4 worldToLocal1;
+	float4 worldToLocal2;
 	float3 probePosition;
 	float texelSize;
 	uint resolution;
+	uint probeArraySlot;
 	uint directionalLightCount;
 	uint directionalLightBufferIndex;
 	uint directionalLightShadowedCount;
@@ -25,6 +29,36 @@ RWTexture2DArray<float4> g_RWTextures[65536] : REGISTER_UAV(1, 2, 1);
 
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 2);
 
+float getApproxShadow(float3 rayOrigin, float3 rayDir)
+{
+	// Intersection with OBB convert to unit box space
+	// Transform in local unit parallax cube space (scaled and rotated)
+	const float3 positionLS = float3(dot(g_Constants.worldToLocal0, float4(rayOrigin, 1.0f)),
+									dot(g_Constants.worldToLocal1, float4(rayOrigin, 1.0f)),
+									dot(g_Constants.worldToLocal2, float4(rayOrigin, 1.0f)));
+
+	const float3 rayLS = float3(dot(g_Constants.worldToLocal0.xyz, rayDir), 
+							dot(g_Constants.worldToLocal1.xyz, rayDir), 
+							dot(g_Constants.worldToLocal2.xyz, rayDir));
+	const float3 invRayLS = rcp(rayLS);
+	
+	float3 firstPlaneIntersect  = (1.0f - positionLS) * invRayLS;
+	float3 secondPlaneIntersect = (-1.0f - positionLS) * invRayLS;
+	float3 furthestPlane = max(firstPlaneIntersect, secondPlaneIntersect);
+	float dist = min(furthestPlane.x, min(furthestPlane.y, furthestPlane.z));
+	
+	// Use distance in WS directly to recover intersection
+	float3 intersectPositionWS = rayOrigin + rayDir * dist;
+	
+	float3 sampleDir = intersectPositionWS - g_Constants.probePosition;
+	
+	int faceIdx = 0;
+	float2 uv = sampleCube(sampleDir, faceIdx);
+	float arraySlice = g_Constants.probeArraySlot * 6 + faceIdx;
+	
+	return g_Textures[g_Constants.normalDepthTextureIndex].SampleLevel(g_LinearClampSampler, float3(uv, arraySlice), 0.0f).z == 0.0f;
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 threadID : SV_DispatchThreadID)
 {
@@ -33,7 +67,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		return;
 	}
 	
-	float3 normalDepth = g_Textures[g_Constants.normalDepthTextureIndex].Load(int4(threadID, 0)).xyz;
+	float3 normalDepth = g_Textures[g_Constants.normalDepthTextureIndex].Load(int4(int3(threadID.xy, threadID.z + g_Constants.probeArraySlot * 6), 0)).xyz;
 	float depth = normalDepth.z;
 	
 	float2 uv = (threadID.xy + 0.5f) * g_Constants.texelSize;
@@ -55,7 +89,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	}
 	
 	float3 N = decodeOctahedron(normalDepth.xy);
-	float4 albedoRoughness = g_Textures[g_Constants.albedoRoughnessTextureIndex].Load(int4(threadID, 0));
+	float4 albedoRoughness = g_Textures[g_Constants.albedoRoughnessTextureIndex].Load(int4(int3(threadID.xy, threadID.z + g_Constants.probeArraySlot * 6), 0));
 	float3 albedo = albedoRoughness.rgb;
 	float roughness = albedoRoughness.w;
 	
@@ -77,7 +111,8 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		for (uint i = 0; i < g_Constants.directionalLightShadowedCount; ++i)
 		{
 			DirectionalLight light = g_DirectionalLights[g_Constants.directionalLightShadowedBufferIndex][i];
-			result += Diffuse_Lambert(albedo) * light.color * saturate(dot(N, light.direction));
+			float shadow = getApproxShadow(worldSpacePos, light.direction);
+			result += Diffuse_Lambert(albedo) * light.color * saturate(dot(N, light.direction)) * shadow;
 		}
 	}
 

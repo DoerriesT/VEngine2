@@ -16,6 +16,8 @@ struct ProxyMeshInfo
 class RendererResources
 {
 public:
+	static constexpr uint32_t k_brdfLUTResolution = 128;
+
 	gal::GraphicsDevice *m_device = nullptr;
 	ResourceViewRegistry *m_resourceViewRegistry = nullptr;
 
@@ -36,6 +38,10 @@ public:
 	gal::Image *m_blueNoiseTexture = nullptr;
 	gal::ImageView *m_blueNoiseTextureView = nullptr;
 	TextureViewHandle m_blueNoiseTextureViewHandle = {};
+	gal::Image *m_brdfLUT = nullptr;
+	gal::ImageView *m_brdfLUTView = nullptr;
+	TextureViewHandle m_brdfLUTTextureViewHandle = {};
+	RWTextureViewHandle m_brdfLUTRWTextureViewHandle = {};
 
 	gal::Buffer *m_proxyMeshVertexBuffer = {};
 	gal::Buffer *m_proxyMeshIndexBuffer = {};

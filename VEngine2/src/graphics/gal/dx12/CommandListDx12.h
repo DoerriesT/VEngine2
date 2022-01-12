@@ -81,7 +81,7 @@ namespace gal
 
 
 	private:
-		static constexpr size_t k_scratchMemorySize = 1024 * 16;
+		static constexpr size_t k_scratchMemorySize = 1024 * 256;
 		ID3D12GraphicsCommandList5 *m_commandList = nullptr;
 		ID3D12CommandAllocator *m_commandAllocator = nullptr;
 		const CommandListRecordContextDx12 *m_recordContext = nullptr;

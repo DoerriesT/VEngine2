@@ -56,4 +56,14 @@ dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main bloomUps
 
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main fidelityFxSharpen_cs.hlsl -Fo ./../fidelityFxSharpen_cs.spv
 
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -fvk-invert-y -T vs_6_0 -E main reflectionProbeGBuffer_vs.hlsl -Fo ./../reflectionProbeGBuffer_vs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main reflectionProbeGBuffer_ps.hlsl -Fo ./../reflectionProbeGBuffer_ps.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T ps_6_0 -E main -D ALPHA_TESTED=1 reflectionProbeGBuffer_ps.hlsl -Fo ./../reflectionProbeGBuffer_alpha_tested_ps.spv
+
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main reflectionProbeRelight_cs.hlsl -Fo ./../reflectionProbeRelight_cs.spv
+
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main fidelityFxDownsample_cs.hlsl -Fo ./../fidelityFxDownsample_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main reflectionProbeFilter_cs.hlsl -Fo ./../reflectionProbeFilter_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main brdfLUT_cs.hlsl -Fo ./../brdfLUT_cs.spv
+
 pause

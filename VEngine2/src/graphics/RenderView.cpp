@@ -1,5 +1,6 @@
 #include "RenderView.h"
 #include "LightManager.h"
+#include "ReflectionProbeManager.h"
 #include "pass/ForwardModule.h"
 #include "pass/PostProcessModule.h"
 #include "pass/GridPass.h"
@@ -53,6 +54,7 @@ RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRe
 
 	m_renderViewResources = new RenderViewResources(m_device, viewRegistry, m_width, m_height);
 	m_lightManager = new LightManager(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
+	m_reflectionProbeManager = new ReflectionProbeManager(m_device, m_rendererResources, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_forwardModule = new ForwardModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_postProcessModule = new PostProcessModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_gridPass = new GridPass(m_device, offsetBufferSetLayout);
@@ -61,6 +63,7 @@ RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRe
 RenderView::~RenderView()
 {
 	delete m_lightManager;
+	delete m_reflectionProbeManager;
 	delete m_forwardModule;
 	delete m_postProcessModule;
 	delete m_gridPass;
@@ -173,6 +176,7 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 	viewData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	viewData.m_pickingBufferHandle = pickingBufferViewHandle;
 	viewData.m_exposureBufferHandle = exposureBufferViewHandle;
+	viewData.m_reflectionProbeArrayTextureViewHandle = m_reflectionProbeManager->getReflectionProbeArrayTextureViewHandle();
 
 	m_modelMatrices.clear();
 	m_prevModelMatrices.clear();
@@ -355,6 +359,18 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 
 	m_lightManager->recordShadows(graph, viewData, shadowRecordData);
 
+	ReflectionProbeManager::Data reflectionProbeManagerData{};
+	reflectionProbeManagerData.m_viewData = &viewData;
+	reflectionProbeManagerData.m_ecs = ecs;
+	reflectionProbeManagerData.m_transformBufferHandle = transformsBufferViewHandle;
+	reflectionProbeManagerData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+	reflectionProbeManagerData.m_lightRecordData = m_lightManager->getLightRecordData();
+	reflectionProbeManagerData.m_renderList = &m_renderList;
+	reflectionProbeManagerData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
+	reflectionProbeManagerData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
+
+	m_reflectionProbeManager->update(graph, reflectionProbeManagerData);
+
 
 	ForwardModule::ResultData forwardModuleResultData;
 	ForwardModule::Data forwardModuleData{};
@@ -365,7 +381,9 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 	forwardModuleData.m_prevSkinningMatrixBufferHandle = prevSkinningMatricesBufferViewHandle;
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_globalMediaBufferHandle = globalMediaBufferViewHandle;
+	forwardModuleData.m_reflectionProbeDataBufferHandle = m_reflectionProbeManager->getReflectionProbeDataBufferhandle();
 	forwardModuleData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
+	forwardModuleData.m_reflectionProbeCount = m_reflectionProbeManager->getReflectionProbeCount();
 	forwardModuleData.m_renderList = &m_renderList;
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();

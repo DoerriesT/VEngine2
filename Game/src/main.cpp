@@ -17,6 +17,7 @@
 #include <component/CharacterMovementComponent.h>
 #include <component/InputStateComponent.h>
 #include <component/RawInputStateComponent.h>
+#include <component/ReflectionProbeComponent.h>
 #include <asset/AssetManager.h>
 #include <Editor.h>
 #include <graphics/Renderer.h>
@@ -153,6 +154,7 @@ public:
 			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza.mesh"));
 
 			TransformComponent transC{};
+			transC.m_transform.m_translation = glm::vec3(0.65f, 0.0f, 0.35f);
 
 			MeshComponent meshC{ m_sponzaAsset };
 
@@ -222,6 +224,45 @@ public:
 
 			auto entity = m_engine->getECS()->createEntity<TransformComponent, LightComponent>(transC, lightC);
 			m_engine->getLevel()->addEntity(entity, "Directional Light");
+		}
+
+		// reflection probes
+		{
+			auto createReflectionProbe = [&](const glm::vec3 &bboxMin, const glm::vec3 &bboxMax, bool manualOffset = false, const glm::vec3 &capturePos = glm::vec3(0.0f))
+			{
+				glm::vec3 probeCenter = (bboxMin + bboxMax) * 0.5f;
+				glm::vec3 captureOffset = manualOffset ? capturePos - probeCenter : glm::vec3(0.0f);
+
+				TransformComponent transC{};
+				transC.m_transform.m_translation = probeCenter;
+				transC.m_transform.m_scale = bboxMax - probeCenter;
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_captureOffset = captureOffset;
+
+				auto reflectionProbeEntity = m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC);
+				m_engine->getLevel()->addEntity(reflectionProbeEntity, "Reflection Probe");
+				return reflectionProbeEntity;
+			};
+
+			// center
+			createReflectionProbe(glm::vec3(-9.5f, -0.05f, -2.4f), glm::vec3(9.5f, 13.0f, 2.4f), true, glm::vec3(0.0f, 2.0f, 0.0f));
+
+			// lower halls
+			createReflectionProbe(glm::vec3(-9.5, -0.05, 2.4), glm::vec3(9.5, 3.9, 6.1));
+			createReflectionProbe(glm::vec3(-9.5, -0.05, -6.1), glm::vec3(9.5, 3.9, -2.4));
+
+			// lower end
+			createReflectionProbe(glm::vec3(-13.7, -0.05, -6.1), glm::vec3(-9.5, 3.9, 6.1));
+			createReflectionProbe(glm::vec3(9.5, -0.05, -6.1), glm::vec3(13.65, 3.9, 6.1));
+
+			// upper halls
+			createReflectionProbe(glm::vec3(-9.8, 4.15, 2.8), glm::vec3(9.8, 8.7, 6.15));
+			createReflectionProbe(glm::vec3(-9.8, 4.15, -6.1), glm::vec3(9.8, 8.7, -2.8));
+
+			// upper ends
+			createReflectionProbe(glm::vec3(-13.7, 4.15, -6.1), glm::vec3(-9.8, 8.7, 6.15));
+			createReflectionProbe(glm::vec3(9.8, 4.15, -6.1), glm::vec3(13.65, 8.7, 6.15));
 		}
 	}
 

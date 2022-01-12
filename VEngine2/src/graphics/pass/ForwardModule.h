@@ -24,7 +24,9 @@ public:
 		StructuredBufferViewHandle m_prevSkinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_globalMediaBufferHandle;
+		StructuredBufferViewHandle m_reflectionProbeDataBufferHandle;
 		uint32_t m_globalMediaCount;
+		uint32_t m_reflectionProbeCount;
 		const RenderList *m_renderList;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
