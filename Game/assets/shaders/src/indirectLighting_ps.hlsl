@@ -121,21 +121,23 @@ float4 main(PSInput input) : SV_Target0
 	const float exposure = asfloat(g_ByteAddressBuffers[g_Constants.exposureBufferIndex].Load(0));
 	
 	const float4 albedoMetalness = g_Textures[g_Constants.albedoTextureIndex].Load(uint3(input.position.xy, 0));
+	const float3 albedo = albedoMetalness.rgb;
+	const float metalness = approximateSRGBToLinear(albedoMetalness.w);
 	const float4 normalRoughness = g_Textures[g_Constants.normalTextureIndex].Load(uint3(input.position.xy, 0));
 	const float3 N = decodeOctahedron24(normalRoughness.xyz);
-	const float roughness = normalRoughness.w;
+	const float roughness = approximateSRGBToLinear(normalRoughness.w);
 	const float3 V = normalize(g_Constants.cameraPosition - worldSpacePos);
-	const float3 F0 = lerp(0.04f, albedoMetalness.rgb, albedoMetalness.a);
+	const float3 F0 = lerp(0.04f, albedo, metalness);
 	
 	const float gtao = g_Textures[g_Constants.gtaoTextureIndex].Load(uint3(input.position.xy, 0)).x;
 	
 	float intensity = 1.0f;
-	float3 result = Diffuse_Lambert(albedoMetalness.rgb) * intensity * (1.0f - albedoMetalness.a) * gtao * exposure;
+	float3 result = Diffuse_Lambert(albedo) * intensity * (1.0f - metalness) * gtao * exposure;
 	
 	// reflection probe
 	if (g_Constants.reflectionProbeCount > 0)
 	{
-		const float maxMip = 4.0f;
+		const float maxMip = 3.0f;
 		const float brdfLUTRes = 128.0f;
 		const float brdfLUTMinUV = 0.5f / brdfLUTRes;
 		const float brdfLUTMaxUV = (brdfLUTRes - 0.5f) / brdfLUTRes;
@@ -178,6 +180,7 @@ float4 main(PSInput input) : SV_Target0
 	}
 	
 	// volumetric fog
+	float fogAttenuation = 1.0f;
 	{
 		float4 noise = g_ArrayTextures[g_Constants.blueNoiseTextureIndex].Load(int4(int2(input.position.xy) & 63, g_Constants.frame & 63, 0));
 		noise = (noise * 2.0f - 1.0f) * 1.5f;
@@ -197,7 +200,8 @@ float4 main(PSInput input) : SV_Target0
 		fog.rgb = inverseSimpleTonemap(fog.rgb);
 		
 		result = result * fog.a + fog.rgb;
+		fogAttenuation = fog.a;
 	}
 	
-	return float4(result, 0.0f);
+	return float4(result, fogAttenuation);
 }

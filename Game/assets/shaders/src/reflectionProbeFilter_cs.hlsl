@@ -67,7 +67,7 @@ float3 integrateCubeLDOnly(float3 N, float roughness)
 	const float a2 = a * a;
 	
 	// solid angle of cubemap pixel
-	const float omegaP = 4.0f * PI / (6.0f * g_PushConsts.mip0Resolution * g_PushConsts.mip0Resolution);
+	const float rcpOmegaP = 1.0f / (4.0f * PI / (6.0f * g_PushConsts.mip0Resolution * g_PushConsts.mip0Resolution));
 	
 	float3 sum = 0.0f;
 	float weightSum = 0.0f;
@@ -89,7 +89,7 @@ float3 integrateCubeLDOnly(float3 N, float roughness)
 			// solid angle of sample
 			const float omegaS = 1.0f / (k_numSamples * pdf);
 			
-			const float mipLevel = clamp(0.5f * log2(omegaS / omegaP), 0.0f, g_PushConsts.mipCount);
+			const float mipLevel = clamp(0.5f * log2(omegaS * rcpOmegaP), 0.0f, g_PushConsts.mipCount);
 			const float3 Li = g_CubeTextures[g_PushConsts.inputTextureIndex].SampleLevel(g_LinearClampSampler, L, mipLevel).rgb;
 			
 			sum += Li * NdotL;

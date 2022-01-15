@@ -7,6 +7,12 @@
 #include <component/OutlineComponent.h>
 #include <component/TransformComponent.h>
 #include <component/LightComponent.h>
+#include <component/ParticipatingMediumComponent.h>
+#include <component/ReflectionProbeComponent.h>
+
+#ifdef DELETE
+#undef DELETE
+#endif
 
 SceneGraphWindow::SceneGraphWindow(Engine *engine) noexcept
 	:m_engine(engine)
@@ -64,6 +70,22 @@ void SceneGraphWindow::draw(bool viewportHasFocus) noexcept
 				lc.m_type = LightComponent::Type::Directional;
 				auto entity = ecs.createEntity<TransformComponent, LightComponent>(tc, lc);
 				level->addEntity(entity, "Directional Light");
+				m_selectedEntity = entity;
+			}
+			if (ImGui::Selectable("Participating Medium"))
+			{
+				TransformComponent tc{};
+				ParticipatingMediumComponent pmc{};
+				auto entity = ecs.createEntity<TransformComponent, ParticipatingMediumComponent>(tc, pmc);
+				level->addEntity(entity, "Participating Medium");
+				m_selectedEntity = entity;
+			}
+			if (ImGui::Selectable("Reflection Probe"))
+			{
+				TransformComponent tc{};
+				ReflectionProbeComponent pc{};
+				auto entity = ecs.createEntity<TransformComponent, ReflectionProbeComponent>(tc, pc);
+				level->addEntity(entity, "Reflection Probe");
 				m_selectedEntity = entity;
 			}
 

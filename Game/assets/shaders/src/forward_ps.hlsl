@@ -162,6 +162,7 @@ PSOutput main(PSInput input)
 		if (material.metalnessTextureHandle != 0)
 		{
 			lightingParams.metalness = g_Textures[material.metalnessTextureHandle].SampleBias(g_AnisoRepeatSampler, input.texCoord, g_PassConstants.lodBias).z;
+			lightingParams.metalness = approximateSRGBToLinear(lightingParams.metalness);
 		}
 	}
 	
@@ -171,6 +172,7 @@ PSOutput main(PSInput input)
 		if (material.roughnessTextureHandle != 0)
 		{
 			lightingParams.roughness = g_Textures[material.roughnessTextureHandle].SampleBias(g_AnisoRepeatSampler, input.texCoord, g_PassConstants.lodBias).y;
+			lightingParams.roughness = approximateSRGBToLinear(lightingParams.roughness);
 		}
 	}
 	
@@ -281,8 +283,8 @@ PSOutput main(PSInput input)
 	
 	PSOutput output = (PSOutput)0;
 	output.color = float4(result, 1.0f);
-	output.normalRoughness = float4(encodeOctahedron24(lightingParams.N), lightingParams.roughness);
-	output.albedoMetalness = float4(lightingParams.albedo, lightingParams.metalness);
+	output.normalRoughness = float4(encodeOctahedron24(lightingParams.N), approximateLinearToSRGB(lightingParams.roughness));
+	output.albedoMetalness = float4(lightingParams.albedo, approximateLinearToSRGB(lightingParams.metalness));
 	
 	float2 prevUV = (input.prevScreenPos.xy / input.prevScreenPos.w) * float2(0.5f, -0.5f) + 0.5f;
 	float2 curUV = (input.curScreenPos.xy / input.curScreenPos.w) * float2(0.5f, -0.5f) + 0.5f;

@@ -65,7 +65,6 @@ float2 integrateDFGOnly(float NdotV, float roughness)
 	V.z = NdotV; // cos;
 	
 	float2 sum = 0.0f;
-	float weightSum = 0.0f;
 	
 	for (uint i = 0; i < k_numSamples; ++i)
 	{
@@ -80,15 +79,14 @@ float2 integrateDFGOnly(float NdotV, float roughness)
 		if (NdotL > 0.0f)
 		{
 			const float Vis = V_SmithGGXCorrelated(NdotV, NdotL, a2);
-			const float NdotL_Vis_PDF = NdotL * Vis * 4.0f * VdotH / NdotH;
+			const float NdotL_Vis_PDF = NdotL * Vis * (4.0f * VdotH / NdotH);
 			const float Fc = pow5(1.0f - VdotH);
 			sum.x += (1.0f - Fc) * NdotL_Vis_PDF;
 			sum.y += Fc * NdotL_Vis_PDF;
-			weightSum += 1.0f;
 		}
 	}
 	
-	return sum / weightSum;
+	return sum / k_numSamples;
 }
 
 [numthreads(8, 8, 1)]

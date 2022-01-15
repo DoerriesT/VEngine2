@@ -91,7 +91,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	float3 N = decodeOctahedron(normalDepth.xy);
 	float4 albedoRoughness = g_Textures[g_Constants.albedoRoughnessTextureIndex].Load(int4(int3(threadID.xy, threadID.z + g_Constants.probeArraySlot * 6), 0));
 	float3 albedo = albedoRoughness.rgb;
-	float roughness = albedoRoughness.w;
+	float roughness = approximateSRGBToLinear(albedoRoughness.w);
 	
 	float3 result = 0.0f;
 	

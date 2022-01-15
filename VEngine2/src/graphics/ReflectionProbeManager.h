@@ -18,7 +18,7 @@ public:
 	static constexpr size_t k_cacheSize = 128;
 	static constexpr size_t k_resolution = 256;
 	static constexpr size_t k_numPrefilterMips = 5;
-	static constexpr size_t k_numMips = 5;
+	static constexpr size_t k_numMips = 4;
 
 	struct Data
 	{

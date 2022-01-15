@@ -323,7 +323,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 		gal::PipelineColorBlendAttachmentState additiveBlendState{};
 		additiveBlendState.m_blendEnable = true;
 		additiveBlendState.m_srcColorBlendFactor = gal::BlendFactor::ONE;
-		additiveBlendState.m_dstColorBlendFactor = gal::BlendFactor::ONE;
+		additiveBlendState.m_dstColorBlendFactor = gal::BlendFactor::SRC_ALPHA;
 		additiveBlendState.m_colorBlendOp = gal::BlendOp::ADD;
 		additiveBlendState.m_srcAlphaBlendFactor = gal::BlendFactor::ZERO;
 		additiveBlendState.m_dstAlphaBlendFactor = gal::BlendFactor::ONE;
