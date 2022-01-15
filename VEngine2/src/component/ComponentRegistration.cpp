@@ -17,30 +17,30 @@
 #include "ecs/ECSComponentInfoTable.h"
 
 template<typename T>
-static void registerComponent(ECS *ecs)
+static void registerComponent()
 {
-	ecs->registerComponent<T>();
+	ECS::registerComponent<T>();
 	ECSComponentInfoTable::registerType<T>();
 }
 
-void ComponentRegistration::registerAllComponents(ECS *ecs) noexcept
+void ComponentRegistration::registerAllComponents() noexcept
 {
 	// regular components
-	registerComponent<TransformComponent>(ecs);
-	registerComponent<CameraComponent>(ecs);
-	registerComponent<LightComponent>(ecs);
-	registerComponent<MeshComponent>(ecs);
-	registerComponent<PhysicsComponent>(ecs);
-	registerComponent<CharacterControllerComponent>(ecs);
-	registerComponent<CharacterMovementComponent>(ecs);
-	registerComponent<SkinnedMeshComponent>(ecs);
-	registerComponent<ScriptComponent>(ecs);
-	registerComponent<OutlineComponent>(ecs);
-	registerComponent<EditorOutlineComponent>(ecs);
-	registerComponent<ParticipatingMediumComponent>(ecs);
-	registerComponent<ReflectionProbeComponent>(ecs);
+	registerComponent<TransformComponent>();
+	registerComponent<CameraComponent>();
+	registerComponent<LightComponent>();
+	registerComponent<MeshComponent>();
+	registerComponent<PhysicsComponent>();
+	registerComponent<CharacterControllerComponent>();
+	registerComponent<CharacterMovementComponent>();
+	registerComponent<SkinnedMeshComponent>();
+	registerComponent<ScriptComponent>();
+	registerComponent<OutlineComponent>();
+	registerComponent<EditorOutlineComponent>();
+	registerComponent<ParticipatingMediumComponent>();
+	registerComponent<ReflectionProbeComponent>();
 
 	// singleton components
-	ecs->registerSingletonComponent<RawInputStateComponent>(RawInputStateComponent{});
-	ecs->registerSingletonComponent<InputStateComponent>(InputStateComponent{});
+	ECS::registerSingletonComponent<RawInputStateComponent>();
+	ECS::registerSingletonComponent<InputStateComponent>();
 }

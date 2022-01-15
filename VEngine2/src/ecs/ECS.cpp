@@ -4,6 +4,9 @@
 
 ComponentID ComponentIDGenerator::m_idCount = 0;
 
+ErasedType ECS::s_componentInfo[k_ecsMaxComponentTypes];
+eastl::bitset<k_ecsMaxComponentTypes> ECS::s_singletonComponentsBitset;
+
 EntityID ECS::createEntity() noexcept
 {
 	EntityID id = m_nextFreeEntityId++;
@@ -139,7 +142,7 @@ ComponentMask ECS::getRegisteredComponentMask() const noexcept
 
 	for (size_t i = 0; i < mask.kSize; ++i)
 	{
-		mask[i] = m_componentInfo[i].m_defaultConstructor != nullptr && !m_singletonComponentsBitset[i];
+		mask[i] = s_componentInfo[i].m_defaultConstructor != nullptr && !s_singletonComponentsBitset[i];
 	}
 
 	return mask;
@@ -151,17 +154,17 @@ ComponentMask ECS::getRegisteredComponentMaskWithSingletons() const noexcept
 
 	for (size_t i = 0; i < mask.kSize; ++i)
 	{
-		mask[i] = m_componentInfo[i].m_defaultConstructor != nullptr;
+		mask[i] = s_componentInfo[i].m_defaultConstructor != nullptr;
 	}
 
 	return mask;
 }
 
-bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) const noexcept
+bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept
 {
 	for (size_t i = 0; i < count; ++i)
 	{
-		if (!m_componentInfo[componentIDs[i]].m_defaultConstructor)
+		if (!s_componentInfo[componentIDs[i]].m_defaultConstructor)
 		{
 			return false;
 		}
@@ -169,16 +172,34 @@ bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) c
 	return true;
 }
 
-bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs) const noexcept
+bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept
 {
 	for (size_t i = 0; i < count; ++i)
 	{
-		if (m_singletonComponentsBitset[componentIDs[i]])
+		if (s_singletonComponentsBitset[componentIDs[i]])
 		{
 			return false;
 		}
 	}
 	return true;
+}
+
+void ECS::clear() noexcept
+{
+	m_nextFreeEntityId = 1;
+	for (auto archetype : m_archetypes)
+	{
+		archetype->clear(false);
+	}
+	m_entityRecords.clear();
+	for (auto &sc : m_singletonComponents)
+	{
+		if (sc)
+		{
+			delete[] reinterpret_cast<char *>(sc);
+			sc = nullptr;
+		}
+	}
 }
 
 EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept
@@ -211,7 +232,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 	{
 		for (size_t j = 0; j < componentCount; ++j)
 		{
-			m_componentInfo[componentIDs[j]].m_defaultConstructor(archetype->getComponentMemory(slot, componentIDs[j]));
+			s_componentInfo[componentIDs[j]].m_defaultConstructor(archetype->getComponentMemory(slot, componentIDs[j]));
 		}
 		break;
 	}
@@ -219,7 +240,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 	{
 		for (size_t j = 0; j < componentCount; ++j)
 		{
-			m_componentInfo[componentIDs[j]].m_copyConstructor(archetype->getComponentMemory(slot, componentIDs[j]), componentData[j]);
+			s_componentInfo[componentIDs[j]].m_copyConstructor(archetype->getComponentMemory(slot, componentIDs[j]), componentData[j]);
 		}
 		break;
 	}
@@ -228,7 +249,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 		for (size_t j = 0; j < componentCount; ++j)
 		{
 			// const_cast is legal assuming that componentData is an array of non-const void * in the move constructor case
-			m_componentInfo[componentIDs[j]].m_moveConstructor(archetype->getComponentMemory(slot, componentIDs[j]), const_cast<void *>(componentData[j]));
+			s_componentInfo[componentIDs[j]].m_moveConstructor(archetype->getComponentMemory(slot, componentIDs[j]), const_cast<void *>(componentData[j]));
 		}
 		break;
 	}
@@ -286,14 +307,14 @@ void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const Co
 			switch (constructorType)
 			{
 			case ECS::ComponentConstructorType::DEFAULT:
-				m_componentInfo[componentIDs[j]].m_defaultConstructor(componentMem);
+				s_componentInfo[componentIDs[j]].m_defaultConstructor(componentMem);
 				break;
 			case ECS::ComponentConstructorType::COPY:
-				m_componentInfo[componentIDs[j]].m_copyConstructor(componentMem, componentData[j]);
+				s_componentInfo[componentIDs[j]].m_copyConstructor(componentMem, componentData[j]);
 				break;
 			case ECS::ComponentConstructorType::MOVE:
 				// const_cast is legal assuming that componentData is an array of non-const void * in the move constructor case
-				m_componentInfo[componentIDs[j]].m_moveConstructor(componentMem, const_cast<void *>(componentData[j]));
+				s_componentInfo[componentIDs[j]].m_moveConstructor(componentMem, const_cast<void *>(componentData[j]));
 				break;
 			default:
 				assert(false);
@@ -309,15 +330,15 @@ void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const Co
 			{
 			case ECS::ComponentConstructorType::DEFAULT:
 				// call destructor first for clean default construction
-				m_componentInfo[componentIDs[j]].m_destructor(componentMem);
-				m_componentInfo[componentIDs[j]].m_defaultConstructor(componentMem);
+				s_componentInfo[componentIDs[j]].m_destructor(componentMem);
+				s_componentInfo[componentIDs[j]].m_defaultConstructor(componentMem);
 				break;
 			case ECS::ComponentConstructorType::COPY:
-				m_componentInfo[componentIDs[j]].m_copyAssign(componentMem, componentData[j]);
+				s_componentInfo[componentIDs[j]].m_copyAssign(componentMem, componentData[j]);
 				break;
 			case ECS::ComponentConstructorType::MOVE:
 				// const_cast is legal assuming that componentData is an array of non-const void * in the move assign case
-				m_componentInfo[componentIDs[j]].m_moveAssign(componentMem, const_cast<void *>(componentData[j]));
+				s_componentInfo[componentIDs[j]].m_moveAssign(componentMem, const_cast<void *>(componentData[j]));
 				break;
 			default:
 				assert(false);
@@ -396,7 +417,7 @@ Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
 	// create new archetype
 	if (!archetype)
 	{
-		archetype = new Archetype(this, mask, m_componentInfo);
+		archetype = new Archetype(this, mask, s_componentInfo);
 		m_archetypes.push_back(archetype);
 	}
 

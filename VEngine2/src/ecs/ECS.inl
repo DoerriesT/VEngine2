@@ -5,15 +5,14 @@
 template<typename T>
 inline void ECS::registerComponent() noexcept
 {
-	m_componentInfo[ComponentIDGenerator::getID<T>()] = ErasedType::create<T>();
+	s_componentInfo[ComponentIDGenerator::getID<T>()] = ErasedType::create<T>();
 }
 
 template<typename T>
-inline void ECS::registerSingletonComponent(const T &component) noexcept
+inline void ECS::registerSingletonComponent() noexcept
 {
-	m_componentInfo[ComponentIDGenerator::getID<T>()] = ErasedType::create<T>();
-	m_singletonComponents[ComponentIDGenerator::getID<T>()] = new T{ component };
-	m_singletonComponentsBitset[ComponentIDGenerator::getID<T>()] = true;
+	s_componentInfo[ComponentIDGenerator::getID<T>()] = ErasedType::create<T>();
+	s_singletonComponentsBitset[ComponentIDGenerator::getID<T>()] = true;
 }
 
 template<typename ...T>
@@ -437,6 +436,14 @@ inline T *ECS::getSingletonComponent() noexcept
 	assert(isRegisteredComponent<T>());
 	assert(!isNotSingletonComponent<T>());
 
+	if (!m_singletonComponents[componentID])
+	{
+		const size_t size = s_componentInfo[componentID].m_size;
+		void *componentMem = new char[size];
+		s_componentInfo[componentID].m_defaultConstructor(componentMem);
+		m_singletonComponents[componentID] = componentMem;
+	}
+
 	return reinterpret_cast<T *>(m_singletonComponents[componentID]);
 }
 
@@ -448,17 +455,25 @@ inline const T *ECS::getSingletonComponent() const noexcept
 	assert(isRegisteredComponent<T>());
 	assert(!isNotSingletonComponent<T>());
 
+	if (!m_singletonComponents[componentID])
+	{
+		const size_t size = s_componentInfo[componentID].m_size;
+		void *componentMem = new char[size];
+		s_componentInfo[componentID].m_defaultConstructor(componentMem);
+		m_singletonComponents[componentID] = componentMem;
+	}
+
 	return reinterpret_cast<const T *>(m_singletonComponents[componentID]);
 }
 
 template<typename ...T>
-inline bool ECS::isRegisteredComponent() const noexcept
+inline bool ECS::isRegisteredComponent() noexcept
 {
-	return (... && (m_componentInfo[ComponentIDGenerator::getID<T>()].m_defaultConstructor != nullptr));
+	return (... && (s_componentInfo[ComponentIDGenerator::getID<T>()].m_defaultConstructor != nullptr));
 }
 
 template<typename ...T>
-inline bool ECS::isNotSingletonComponent() const noexcept
+inline bool ECS::isNotSingletonComponent() noexcept
 {
-	return (... && (!m_singletonComponentsBitset[ComponentIDGenerator::getID<T>()]));
+	return (... && (!s_singletonComponentsBitset[ComponentIDGenerator::getID<T>()]));
 }

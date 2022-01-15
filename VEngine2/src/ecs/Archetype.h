@@ -149,6 +149,12 @@ public:
 	/// <returns>A pointer to the memory of the component of the given entity.</returns>
 	const uint8_t *getComponentMemory(const ArchetypeSlot &slot, ComponentID componentID) const noexcept;
 
+	/// <summary>
+	/// Clears all entities/components in this archetype, calling all required destructors.
+	/// </summary>
+	/// <param name="clearReferenceInECS">If true, clears the EntityRecord in the ECS of all entities in this archetype.</param>
+	void clear(bool clearReferenceInECS = true) noexcept;
+
 private:
 	ECS *m_ecs = nullptr;
 	ComponentMask m_componentMask = {};

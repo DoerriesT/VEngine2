@@ -97,9 +97,9 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 		//ImGui_ImplGlfw_InitForVulkan((GLFWwindow *)m_window->getWindowHandle(), true);
 	}
 
-	m_ecs = new ECS();
+	ComponentRegistration::registerAllComponents();
 
-	ComponentRegistration::registerAllComponents(m_ecs);
+	m_ecs = new ECS();
 
 	Renderer renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_renderer = &renderer;

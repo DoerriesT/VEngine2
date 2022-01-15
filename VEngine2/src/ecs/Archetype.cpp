@@ -184,7 +184,7 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 				uint8_t *oldComp = oldChunk->m_memory + oldRecord.m_archetype->getComponentArrayOffset(componentID) + compInfo.m_size * oldChunkSlotIdx;
 				// move it to its new location
 				compInfo.m_moveConstructor(newComp, oldComp);
-				
+
 				// the destructor for the old memory location is called later
 			}
 			// old archetype does not share this component -> default construct it
@@ -243,4 +243,40 @@ const uint8_t *Archetype::getComponentMemory(const ArchetypeSlot &slot, Componen
 	}
 
 	return m_memoryChunks[slot.m_chunkIdx].m_memory + getComponentArrayOffset(componentID) + m_componentInfo[componentID].m_size * slot.m_chunkSlotIdx;
+}
+
+void Archetype::clear(bool clearReferenceInECS) noexcept
+{
+	// call all destructors and reset the size of each memory chunk
+	const size_t numChunks = m_memoryChunks.size();
+	for (uint32_t chunkIdx = 0; chunkIdx < numChunks; ++chunkIdx)
+	{
+		auto &chunk = m_memoryChunks[chunkIdx];
+
+		// call destructors on all components
+		if (chunk.m_size > 0)
+		{
+			forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
+				{
+					const auto &compInfo = m_componentInfo[componentID];
+
+					for (uint32_t i = 0; i < chunk.m_size; ++i)
+					{
+						uint8_t *compMem = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * i;
+						compInfo.m_destructor(compMem);
+					}
+				});
+
+			if (clearReferenceInECS)
+			{
+				// clear EntityRecords in ECS
+				for (size_t i = 0; i < chunk.m_size; ++i)
+				{
+					m_ecs->m_entityRecords[reinterpret_cast<EntityID *>(chunk.m_memory)[i]] = {};
+				}
+			}
+
+			chunk.m_size = 0;
+		}
+	}
 }

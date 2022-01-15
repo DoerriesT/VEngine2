@@ -40,16 +40,15 @@ public:
 	/// </summary>
 	/// <typeparam name="T">The type of the component to register.</typeparam>
 	template<typename T>
-	inline void registerComponent() noexcept;
+	static inline void registerComponent() noexcept;
 
 	/// <summary>
-	/// Registers a singleton component. This call allocates the component and copy-constructs it with the given argument.
+	/// Registers a singleton component. This call schedules a lazy allocation of the component.
 	/// After this call, it can be accessed with getSingletonComponent().
 	/// </summary>
 	/// <typeparam name="T">The type of the singleton component to register.</typeparam>
-	/// <param name="component">An instance of the singleton component to copy-construct the ECS internal instance.</param>
 	template<typename T>
-	inline void registerSingletonComponent(const T &component) noexcept;
+	static inline void registerSingletonComponent() noexcept;
 
 	/// <summary>
 	/// Creates a new empty entity with no attached components.
@@ -155,7 +154,7 @@ public:
 	/// <param name="componentCount">The number of component types to add.</param>
 	/// <param name="componentIDs">A pointer to an array of ComponentIDs to add.</param>
 	void addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
-	
+
 	/// <summary>
 	/// Adds one or more copy constructed components to an entity.
 	/// </summary>
@@ -344,25 +343,31 @@ public:
 	template<typename T>
 	inline const T *getSingletonComponent() const noexcept;
 
+	/// <summary>
+	/// Clears the entire ECS, calling destructors on all components.
+	/// </summary>
+	void clear() noexcept;
+
 private:
 	enum class ComponentConstructorType
 	{
 		DEFAULT, COPY, MOVE
 	};
 
+	static ErasedType s_componentInfo[k_ecsMaxComponentTypes];
+	static eastl::bitset<k_ecsMaxComponentTypes> s_singletonComponentsBitset;
+
 	EntityID m_nextFreeEntityId = 1;
 	eastl::vector<Archetype *> m_archetypes;
 	eastl::hash_map<EntityID, EntityRecord> m_entityRecords;
-	ErasedType m_componentInfo[k_ecsMaxComponentTypes] = {};
-	eastl::bitset<k_ecsMaxComponentTypes> m_singletonComponentsBitset = {};
-	void *m_singletonComponents[k_ecsMaxComponentTypes] = {};
+	mutable void *m_singletonComponents[k_ecsMaxComponentTypes] = {}; // mutable so that lazy construction of singleton components works even if the const version getSingletonComponent() is called
 
 	template<typename ...T>
-	inline bool isRegisteredComponent() const noexcept;
+	static inline bool isRegisteredComponent() noexcept;
 	template<typename ...T>
-	inline bool isNotSingletonComponent() const noexcept;
-	bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) const noexcept;
-	bool isNotSingletonComponent(size_t count, const ComponentID *componentIDs) const noexcept;
+	static inline bool isNotSingletonComponent() noexcept;
+	static bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept;
+	static bool isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept;
 
 	EntityID createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	void addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
