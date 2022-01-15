@@ -454,7 +454,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 
 		m_device->createBuffer(createInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_spdCounterBuffer);
 		m_device->setDebugObjectName(ObjectType::IMAGE, m_probeAlbedoRoughnessArrayImage, "FidelityFX SPD Counter Buffer");
-		
+
 		DescriptorBufferInfo bufferInfo{};
 		bufferInfo.m_buffer = m_spdCounterBuffer;
 		bufferInfo.m_offset = 0;
@@ -569,11 +569,9 @@ ReflectionProbeManager::~ReflectionProbeManager() noexcept
 
 void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) noexcept
 {
-	// TODO: handle the case where an enitity gets deleted -> cache slot needs to be freed
-
-
 	struct ProbeSortData
 	{
+		EntityID m_entity;
 		TransformComponent *m_transformComp;
 		ReflectionProbeComponent *m_probeComp;
 		glm::vec3 m_capturePosition;
@@ -582,6 +580,8 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		float m_cameraDist2;
 	};
 
+	// keep track of which slots were legitimately claimed by entities. all missing slots then belong to deleted entitites and we can free them.
+	eastl::bitset<k_cacheSize> claimedSlots = 0;
 	eastl::vector<ProbeSortData> sortData;
 
 	data.m_ecs->iterate<TransformComponent, ReflectionProbeComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, ReflectionProbeComponent *probeC)
@@ -600,6 +600,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 				glm::vec3 cameraProbePosDiff = data.m_viewData->m_cameraPosition - tc.m_curRenderTransform.m_translation;
 
 				ProbeSortData probeSortData{};
+				probeSortData.m_entity = entities[i];
 				probeSortData.m_transformComp = &tc;
 				probeSortData.m_probeComp = &pc;
 				probeSortData.m_capturePosition = tc.m_curRenderTransform.m_translation + pc.m_captureOffset;
@@ -608,8 +609,34 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 				probeSortData.m_cameraDist2 = glm::dot(cameraProbePosDiff, cameraProbePosDiff);
 
 				sortData.push_back(probeSortData);
+
+				// check if this entity actually owns the slot and correct the component data if it does not own the slot
+				if (pc.m_cacheSlot != UINT32_MAX)
+				{
+					assert(pc.m_cacheSlot < k_cacheSize);
+					if (m_cacheSlotOwners[pc.m_cacheSlot] == entities[i])
+					{
+						claimedSlots[pc.m_cacheSlot] = true;
+					}
+					else
+					{
+						// reset internal data: this entity does not own the slot it claims to own
+						pc.m_cacheSlot = UINT32_MAX;
+						pc.m_rendered = false;
+						pc.m_lastLit = UINT32_MAX;
+					}
+				}
 			}
 		});
+
+	// free all unclaimed slots
+	for (size_t i = 0; i < k_cacheSize; ++i)
+	{
+		if (m_cacheSlotOwners[i] != k_nullEntity && !claimedSlots[i])
+		{
+			freeCacheSlot(static_cast<uint32_t>(i));
+		}
+	}
 
 	// sort by distance to camera
 	eastl::sort(sortData.begin(), sortData.end(), [&](const auto &lhs, const auto &rhs) { return lhs.m_cameraDist2 < rhs.m_cameraDist2; });
@@ -624,7 +651,8 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		if (cacheSlot != UINT32_MAX)
 		{
 			// mark slot as free
-			m_freeCacheSlots.push_back(cacheSlot);
+			freeCacheSlot(cacheSlot);
+
 			// reset internal data
 			sData.m_probeComp->m_cacheSlot = UINT32_MAX;
 			sData.m_probeComp->m_rendered = false;
@@ -647,11 +675,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		// probe not yet in cache
 		if (cacheSlot == UINT32_MAX)
 		{
-			// there should always be a slot available because we remove far away probes past the cache size
-			assert(!m_freeCacheSlots.empty());
-			const uint32_t slot = m_freeCacheSlots.back();
-			sData.m_probeComp->m_cacheSlot = slot;
-			m_freeCacheSlots.pop_back();
+			sData.m_probeComp->m_cacheSlot = allocateCacheSlot(sData.m_entity);
 		}
 
 		// evaluate relighting score
@@ -711,7 +735,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		m_currentRelightProbeNearPlane = sData.m_nearPlane;
 		m_currentRelightProbeFarPlane = sData.m_farPlane;
 
-		m_currentRelightProbeWorldToLocalTransposed = 
+		m_currentRelightProbeWorldToLocalTransposed =
 			glm::transpose(glm::scale(1.0f / sData.m_transformComp->m_curRenderTransform.m_scale)
 				* glm::mat4_cast(glm::inverse(sData.m_transformComp->m_curRenderTransform.m_rotation))
 				* glm::translate(-sData.m_transformComp->m_curRenderTransform.m_translation));
@@ -786,6 +810,25 @@ StructuredBufferViewHandle ReflectionProbeManager::getReflectionProbeDataBufferh
 uint32_t ReflectionProbeManager::getReflectionProbeCount() const noexcept
 {
 	return m_reflectionProbeCount;
+}
+
+uint32_t ReflectionProbeManager::allocateCacheSlot(EntityID entity) noexcept
+{
+	assert(!m_freeCacheSlots.empty());
+	uint32_t slot = m_freeCacheSlots.back();
+	m_freeCacheSlots.pop_back();
+	m_cacheSlotOwners[slot] = entity;
+	return slot;
+}
+
+void ReflectionProbeManager::freeCacheSlot(uint32_t slot) noexcept
+{
+	if (slot < k_cacheSize && m_cacheSlotOwners[slot] != k_nullEntity)
+	{
+		assert(m_freeCacheSlots.size() < k_cacheSize);
+		m_freeCacheSlots.push_back(slot);
+		m_cacheSlotOwners[slot] = k_nullEntity;
+	}
 }
 
 void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Data &data, size_t probeIdx) const noexcept

@@ -86,12 +86,15 @@ private:
 	uint32_t m_reflectionProbeCount = 0;
 
 	eastl::fixed_vector<uint32_t, k_cacheSize> m_freeCacheSlots;
-	eastl::bitset<k_cacheSize> m_occupiedCacheSlots;
+	EntityID m_cacheSlotOwners[k_cacheSize] = {};
 	glm::mat4 m_currentRenderProbeViewProjMatrices[6] = {};
 	glm::mat4 m_currentRelightProbeWorldToLocalTransposed = {};
 	glm::vec3 m_currentRelightProbePosition = {};
 	float m_currentRelightProbeNearPlane = 0.5f;
 	float m_currentRelightProbeFarPlane = 50.0f;
+
+	uint32_t allocateCacheSlot(EntityID entity) noexcept;
+	void freeCacheSlot(uint32_t slot) noexcept;
 
 	void renderProbeGBuffer(rg::RenderGraph *graph, const Data &data, size_t probeIdx) const noexcept;
 	void relightProbe(rg::RenderGraph *graph, const Data &data, size_t probeIdx) const noexcept;
