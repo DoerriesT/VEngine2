@@ -54,7 +54,7 @@ bool AssetImporter::importAsset(const ImportOptions &importOptions, Physics *phy
 	{
 		eastl::vector<AssetID> materialAssetIDs(model.m_materials.size());
 		bool matRes = MaterialImporter::importMaterials(model.m_materials.size(), model.m_materials.data(), dstPath, nativeSrcPath, materialAssetIDs.data());
-		bool res = MeshImporter::importMeshes(1, &model, dstPath, nativeSrcPath, physics, materialAssetIDs.data());
+		bool res = MeshImporter::importMeshes(1, &model, dstPath, nativeSrcPath, physics, materialAssetIDs.data(), importOptions.m_cookConvexPhysicsMesh, importOptions.m_cookTrianglePhysicsMesh);
 	}
 
 	return true;

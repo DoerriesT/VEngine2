@@ -194,6 +194,8 @@ static IndexedMesh<T> generateOptimizedMesh(size_t faceCount, const glm::vec3 *p
 
 static bool cookPhysicsMeshes(
 	const LoadedModel &model,
+	bool cookConvexPhysicsMesh, 
+	bool cookTrianglePhysicsMesh,
 	Physics *physics,
 	eastl::vector<char> *dataSegment,
 	uint32_t *physicsConvexMeshDataOffset,
@@ -206,6 +208,7 @@ static bool cookPhysicsMeshes(
 	eastl::vector<uint32_t> indices;
 	uint32_t vertexCount = 0;
 	uint32_t indexCount = 0;
+	if (cookConvexPhysicsMesh || cookTrianglePhysicsMesh)
 	{
 		eastl::vector<float> positions;
 		for (auto &mesh : model.m_meshes)
@@ -243,10 +246,16 @@ static bool cookPhysicsMeshes(
 	char *physicsTriangleMeshData = nullptr;
 	uint32_t physicsTriangleMeshSize = 0;
 
-	bool res = physics->cookConvexMesh(vertexCount, indexedPositions.data(), &physicsConvexMeshSize, &physicsConvexMeshData);
-	assert(res);
-	res = physics->cookTriangleMesh(indexCount, indices.data(), vertexCount, indexedPositions.data(), &physicsTriangleMeshSize, &physicsTriangleMeshData);
-	assert(res);
+	if (cookConvexPhysicsMesh)
+	{
+		bool res = physics->cookConvexMesh(vertexCount, indexedPositions.data(), &physicsConvexMeshSize, &physicsConvexMeshData);
+		assert(res);
+	}
+	if (cookTrianglePhysicsMesh)
+	{
+		bool res = physics->cookTriangleMesh(indexCount, indices.data(), vertexCount, indexedPositions.data(), &physicsTriangleMeshSize, &physicsTriangleMeshData);
+		assert(res);
+	}
 
 	// write to file
 	*physicsConvexMeshDataOffset = static_cast<uint32_t>(dataSegment->size());
@@ -264,7 +273,7 @@ static bool cookPhysicsMeshes(
 	return true;
 }
 
-bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *baseDstPath, const char *sourcePath, Physics *physics, const AssetID *materialAssetIDs) noexcept
+bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *baseDstPath, const char *sourcePath, Physics *physics, const AssetID *materialAssetIDs, bool cookConvexPhysicsMesh, bool cookTrianglePhysicsMesh) noexcept
 {
 	SMikkTSpaceInterface mikkTSpaceInterface = {};
 	mikkTSpaceInterface.m_getNumFaces = mikktGetNumFaces;
@@ -304,7 +313,7 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 		}
 
 		// cook physics meshes
-		cookPhysicsMeshes(model, physics, &dataSegment, &header.m_physicsConvexMeshDataOffset, &header.m_physicsConvexMeshDataSize, &header.m_physicsTriangleMeshDataOffset, &header.m_physicsTriangleMeshDataSize);
+		cookPhysicsMeshes(model, cookConvexPhysicsMesh, cookTrianglePhysicsMesh, physics, &dataSegment, &header.m_physicsConvexMeshDataOffset, &header.m_physicsConvexMeshDataSize, &header.m_physicsTriangleMeshDataOffset, &header.m_physicsTriangleMeshDataSize);
 
 		for (auto &mesh : model.m_meshes)
 		{

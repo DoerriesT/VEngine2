@@ -142,6 +142,8 @@ void AssetBrowserWindow::importButton() noexcept
 			ImGui::Checkbox("Import Meshes", &m_importAssetTask.m_importOptions.m_importMeshes);
 			ImGui::Checkbox("Import Skeletons", &m_importAssetTask.m_importOptions.m_importSkeletons);
 			ImGui::Checkbox("Import Animations", &m_importAssetTask.m_importOptions.m_importAnimations);
+			ImGui::Checkbox("Cook Convex Physics Mesh", &m_importAssetTask.m_importOptions.m_cookConvexPhysicsMesh);
+			ImGui::Checkbox("Cook Triangle Physics Mesh", &m_importAssetTask.m_importOptions.m_cookTrianglePhysicsMesh);
 
 			if (ImGui::Button("OK", ImVec2(120, 0)))
 			{

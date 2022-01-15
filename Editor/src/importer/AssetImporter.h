@@ -18,6 +18,8 @@ namespace AssetImporter
 		bool m_importMeshes;
 		bool m_importSkeletons;
 		bool m_importAnimations;
+		bool m_cookConvexPhysicsMesh;
+		bool m_cookTrianglePhysicsMesh;
 	};
 
 	bool importAsset(const ImportOptions &importOptions, Physics *physics, const char *nativeSrcPath, const char *dstPath) noexcept;
