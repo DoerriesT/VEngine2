@@ -8,6 +8,8 @@
 
 class AnimationGraph;
 struct lua_State;
+struct TransformComponent;
+class Renderer;
 
 struct SkinnedMeshComponent
 {
@@ -19,7 +21,7 @@ struct SkinnedMeshComponent
 	eastl::vector<glm::mat4> m_curRenderMatrixPalette;
 	eastl::vector<glm::mat4> m_prevRenderMatrixPalette;
 
-	static void onGUI(void *instance) noexcept;
+	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "SkinnedMeshComponent"; }

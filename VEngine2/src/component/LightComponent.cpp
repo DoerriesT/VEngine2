@@ -3,8 +3,10 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include <EASTL/algorithm.h>
+#include "TransformComponent.h"
+#include "graphics/Renderer.h"
 
-void LightComponent::onGUI(void *instance) noexcept
+void LightComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	LightComponent &c = *reinterpret_cast<LightComponent *>(instance);
 
@@ -64,6 +66,24 @@ void LightComponent::onGUI(void *instance) noexcept
 			ImGui::DragFloat("Inner Spot Angle", &innerAngleDegrees, 1.0f, 1.0f, outerAngleDegrees);
 			c.m_innerAngle = glm::radians(innerAngleDegrees);
 			ImGuiHelpers::Tooltip("The inner angle of the spot light cone.");
+		}
+	}
+
+	if (renderer && transformComponent)
+	{
+		const glm::vec4 k_visibleLightDebugColor = glm::vec4(1.0f, 0.5f, 0.0f, 1.0f);
+		const glm::vec4 k_occludedLightDebugColor = glm::vec4(0.5f, 0.25f, 0.0f, 1.0f);
+
+		const auto &transform = transformComponent->m_transform;
+
+		switch (c.m_type)
+		{
+		case Type::Point: renderer->drawDebugSphere(transform.m_translation, transform.m_rotation, glm::vec3(c.m_radius), k_visibleLightDebugColor, k_occludedLightDebugColor, true); break;
+		case Type::Spot: renderer->drawDebugCappedCone(transform.m_translation, transform.m_rotation, c.m_radius, c.m_outerAngle, k_visibleLightDebugColor, k_occludedLightDebugColor, true); break;
+		case Type::Directional: renderer->drawDebugArrow(transform.m_translation, transform.m_rotation, 3.0f, k_visibleLightDebugColor, k_occludedLightDebugColor, true); break;
+		default:
+			assert(false);
+			break;
 		}
 	}
 }

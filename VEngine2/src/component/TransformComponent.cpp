@@ -3,7 +3,7 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
 
-void TransformComponent::onGUI(void *instance) noexcept
+void TransformComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	TransformComponent &c = *reinterpret_cast<TransformComponent *>(instance);
 

@@ -2,6 +2,8 @@
 #include <stdint.h>
 
 struct lua_State;
+struct TransformComponent;
+class Renderer;
 
 struct LightComponent
 {
@@ -25,7 +27,7 @@ struct LightComponent
 	float m_normalOffsetBias[k_maxCascades] = {};
 	float m_maxShadowDistance = 100.0f;
 
-	static void onGUI(void *instance) noexcept;
+	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "LightComponent"; }

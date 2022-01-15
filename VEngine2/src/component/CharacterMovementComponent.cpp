@@ -3,7 +3,7 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
 
-void CharacterMovementComponent::onGUI(void *instance) noexcept
+void CharacterMovementComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	CharacterMovementComponent &c = *reinterpret_cast<CharacterMovementComponent *>(instance);
 

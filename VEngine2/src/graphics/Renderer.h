@@ -4,6 +4,7 @@
 #include "Handles.h"
 #include "Mesh.h"
 #include <glm/vec4.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include "RenderData.h"
 
 #ifdef OPAQUE
@@ -55,6 +56,10 @@ public:
 	void clearDebugGeometry() noexcept;
 	void drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept;
 	void drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept;
+	void drawDebugBox(const glm::mat4 &transform, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded, bool wireframe = true) noexcept;
+	void drawDebugSphere(const glm::vec3 &position, const glm::quat &rotation, const glm::vec3 &scale, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
+	void drawDebugCappedCone(glm::vec3 position, glm::quat rotation, float coneLength, float coneAngle, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
+	void drawDebugArrow(glm::vec3 position, glm::quat rotation, float scale, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;

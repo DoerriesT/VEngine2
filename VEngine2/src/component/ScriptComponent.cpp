@@ -57,7 +57,7 @@ ScriptComponent::~ScriptComponent() noexcept
 	}
 }
 
-void ScriptComponent::onGUI(void *instance) noexcept
+void ScriptComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	ScriptComponent &c = *reinterpret_cast<ScriptComponent *>(instance);
 

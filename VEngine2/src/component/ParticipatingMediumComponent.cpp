@@ -4,7 +4,7 @@
 #include "asset/AssetManager.h"
 #include "script/LuaUtil.h"
 
-void ParticipatingMediumComponent::onGUI(void *instance) noexcept
+void ParticipatingMediumComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	ParticipatingMediumComponent &c = *reinterpret_cast<ParticipatingMediumComponent *>(instance);
 

@@ -3,7 +3,7 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "asset/AssetManager.h"
 
-void SkinnedMeshComponent::onGUI(void *instance) noexcept
+void SkinnedMeshComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	SkinnedMeshComponent &c = *reinterpret_cast<SkinnedMeshComponent *>(instance);
 

@@ -3,7 +3,7 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "asset/AssetManager.h"
 
-void MeshComponent::onGUI(void *instance) noexcept
+void MeshComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	MeshComponent &c = *reinterpret_cast<MeshComponent *>(instance);
 

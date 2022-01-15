@@ -2,6 +2,8 @@
 #include <stdint.h>
 
 struct lua_State;
+struct TransformComponent;
+class Renderer;
 
 enum class CrouchState : uint32_t
 {
@@ -30,7 +32,7 @@ struct CharacterMovementComponent
 	bool m_enterCrouchInputAction;
 	bool m_exitCrouchInputAction;
 
-	static void onGUI(void *instance) noexcept;
+	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "CharacterMovementComponent"; }

@@ -119,7 +119,7 @@ PhysicsComponent::~PhysicsComponent() noexcept
 	}
 }
 
-void PhysicsComponent::onGUI(void *instance) noexcept
+void PhysicsComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	PhysicsComponent &c = *reinterpret_cast<PhysicsComponent *>(instance);
 

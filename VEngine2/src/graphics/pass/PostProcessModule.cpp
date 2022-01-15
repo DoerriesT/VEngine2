@@ -459,6 +459,16 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 			bool isTriangle = triangle != 0;
 			DebugDrawVisibility visibility = static_cast<DebugDrawVisibility>(visType);
 
+			gal::PipelineColorBlendAttachmentState blendState{};
+			blendState.m_blendEnable = true;
+			blendState.m_srcColorBlendFactor = gal::BlendFactor::SRC_ALPHA;
+			blendState.m_dstColorBlendFactor = gal::BlendFactor::ONE;
+			blendState.m_colorBlendOp = gal::BlendOp::ADD;
+			blendState.m_srcAlphaBlendFactor = gal::BlendFactor::ZERO;
+			blendState.m_dstAlphaBlendFactor = gal::BlendFactor::ONE;
+			blendState.m_alphaBlendOp = gal::BlendOp::ADD;
+			blendState.m_colorWriteMask = gal::ColorComponentFlags::ALL_BITS;
+
 			VertexInputAttributeDescription attributeDesc = { "POSITION_AND_COLOR", 0, 0, Format::R32G32B32A32_SFLOAT, 0 };
 			VertexInputBindingDescription bindingDesc = { 0, sizeof(float) * 4, VertexInputRate::VERTEX };
 
@@ -469,7 +479,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 			builder.setInputAssemblyState(isTriangle ? PrimitiveTopology::TRIANGLE_LIST : PrimitiveTopology::LINE_LIST, false);
 			builder.setVertexBindingDescription(bindingDesc);
 			builder.setVertexAttributeDescription(attributeDesc);
-			builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
+			builder.setColorBlendAttachment(isTriangle ? blendState : GraphicsPipelineBuilder::s_defaultBlendAttachment);
 			if (visibility != DebugDrawVisibility::Always)
 			{
 				builder.setDepthTest(true, false, visibility == DebugDrawVisibility::Visible ? CompareOp::GREATER_OR_EQUAL : CompareOp::LESS);

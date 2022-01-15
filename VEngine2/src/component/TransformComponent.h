@@ -3,6 +3,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 struct lua_State;
+class Renderer;
 
 struct Transform
 {
@@ -24,7 +25,7 @@ struct TransformComponent
 	Transform m_curRenderTransform;
 	Transform m_prevRenderTransform;
 
-	static void onGUI(void *instance) noexcept;
+	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "TransformComponent"; }

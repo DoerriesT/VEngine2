@@ -2,6 +2,8 @@
 #include "utility/Enum.h"
 
 struct lua_State;
+struct TransformComponent;
+class Renderer;
 
 enum class CharacterControllerCollisionFlags
 {
@@ -43,7 +45,7 @@ struct CharacterControllerComponent
 	CharacterControllerComponent &operator=(CharacterControllerComponent && other) noexcept;
 	~CharacterControllerComponent() noexcept;
 
-	static void onGUI(void *instance) noexcept;
+	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "CharacterControllerComponent"; }

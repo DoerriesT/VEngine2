@@ -100,7 +100,7 @@ CharacterControllerComponent::~CharacterControllerComponent() noexcept
 	}
 }
 
-void CharacterControllerComponent::onGUI(void *instance) noexcept
+void CharacterControllerComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	CharacterControllerComponent &c = *reinterpret_cast<CharacterControllerComponent *>(instance);
 

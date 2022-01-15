@@ -2,11 +2,13 @@
 #include "ECS.h"
 
 struct lua_State;
+struct TransformComponent;
+class Renderer;
 
 struct ECSComponentInfo
 {
 	ErasedType m_erasedType;
-	void (*m_onGUI)(void *instance) noexcept;
+	void (*m_onGUI)(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	void (*m_toLua)(lua_State *L, void *instance) noexcept;
 	void (*m_fromLua)(lua_State *L, void *instance) noexcept;
 	const char *m_name;

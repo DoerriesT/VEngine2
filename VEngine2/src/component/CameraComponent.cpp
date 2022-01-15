@@ -4,7 +4,7 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
 
-void CameraComponent::onGUI(void *instance) noexcept
+void CameraComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	CameraComponent &cc = *reinterpret_cast<CameraComponent *>(instance);
 
