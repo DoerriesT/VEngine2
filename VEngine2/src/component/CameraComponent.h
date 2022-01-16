@@ -4,6 +4,8 @@
 struct lua_State;
 struct TransformComponent;
 class Renderer;
+class SerializationWriteStream;
+class SerializationReadStream;
 
 struct CameraComponent
 {
@@ -15,6 +17,8 @@ struct CameraComponent
 	glm::mat4 m_projectionMatrix;
 
 	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
+	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;
+	static bool onDeserialize(void *instance, SerializationReadStream &stream) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "CameraComponent"; }

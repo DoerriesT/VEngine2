@@ -1,9 +1,12 @@
 #pragma once
 #include "Handles.h"
+#include "asset/MeshAsset.h"
 
 struct lua_State;
 struct TransformComponent;
 class Renderer;
+class SerializationWriteStream;
+class SerializationReadStream;
 
 enum class PhysicsMobility : uint32_t
 {
@@ -24,20 +27,19 @@ struct PhysicsComponent
 {
 	PhysicsMobility m_mobility = PhysicsMobility::STATIC;
 	PhysicsShapeType m_physicsShapeType = PhysicsShapeType::SPHERE;
+	Asset<MeshAssetData> m_physicsMesh;
 	float m_sphereRadius = 1.0f;
 	float m_planeNx = 0.0f;
 	float m_planeNy = 1.0f;
 	float m_planeNz = 0.0f;
 	float m_planeDistance = 0.0f;
-	PhysicsConvexMeshHandle m_convexMeshHandle = {};
-	PhysicsTriangleMeshHandle m_triangleMeshHandle = {};
 	float m_linearDamping = 0.05f;
 	float m_angularDamping = 0.05f;
 	float m_density = 10.0f;
 	float m_initialVelocityX = 0.0f;
 	float m_initialVelocityY = 0.0f;
 	float m_initialVelocityZ = 0.0f;
-	PhysicsMaterialHandle m_materialHandle = {};
+	//PhysicsMaterialHandle m_materialHandle = {};
 	void *m_internalPhysicsActorHandle = nullptr;
 
 	PhysicsComponent() = default;
@@ -48,6 +50,8 @@ struct PhysicsComponent
 	~PhysicsComponent() noexcept;
 
 	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
+	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;
+	static bool onDeserialize(void *instance, SerializationReadStream &stream) noexcept;
 	static void toLua(lua_State *L, void *instance) noexcept;
 	static void fromLua(lua_State *L, void *instance) noexcept;
 	static const char *getComponentName() noexcept { return "PhysicsComponent"; }

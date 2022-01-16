@@ -2,6 +2,27 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
+#include "utility/Serialization.h"
+
+template<typename Stream>
+static bool serialize(TransformComponent &c, Stream &stream) noexcept
+{
+	uint32_t mobilityInt = static_cast<uint32_t>(c.m_mobility);
+	serializeUInt32(stream, mobilityInt);
+	c.m_mobility = static_cast<TransformComponent::Mobility>(mobilityInt);
+	serializeFloat(stream, c.m_transform.m_translation.x);
+	serializeFloat(stream, c.m_transform.m_translation.y);
+	serializeFloat(stream, c.m_transform.m_translation.z);
+	serializeFloat(stream, c.m_transform.m_rotation.x);
+	serializeFloat(stream, c.m_transform.m_rotation.y);
+	serializeFloat(stream, c.m_transform.m_rotation.z);
+	serializeFloat(stream, c.m_transform.m_rotation.w);
+	serializeFloat(stream, c.m_transform.m_scale.x);
+	serializeFloat(stream, c.m_transform.m_scale.y);
+	serializeFloat(stream, c.m_transform.m_scale.z);
+
+	return true;
+}
 
 void TransformComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
@@ -28,6 +49,16 @@ void TransformComponent::onGUI(void *instance, Renderer *renderer, const Transfo
 
 	ImGui::DragFloat3("Scale", &c.m_transform.m_scale.x, 0.1f);
 	
+}
+
+bool TransformComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<TransformComponent *>(instance), stream);
+}
+
+bool TransformComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<TransformComponent *>(instance), stream);
 }
 
 void TransformComponent::toLua(lua_State *L, void *instance) noexcept

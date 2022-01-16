@@ -13,12 +13,15 @@ struct SceneGraphNode
 class Level
 {
 public:
-	explicit Level() noexcept;
+	explicit Level(ECS *ecs) noexcept;
+	bool save(const char *path) const noexcept;
+	bool load(const char *path) noexcept;
 	void addEntity(EntityID entity, const char *name) noexcept;
 	void removeEntity(EntityID entity) noexcept;
 	const eastl::vector<SceneGraphNode *> &getSceneGraphNodes() noexcept;
 
 private:
+	ECS *m_ecs;
 	DynamicObjectMemoryPool<SceneGraphNode> m_sceneGraphNodeMemoryPool;
 	eastl::vector<SceneGraphNode *> m_sceneGraphNodes;
 };

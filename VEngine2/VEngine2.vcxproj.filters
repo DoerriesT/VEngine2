@@ -627,6 +627,9 @@
     <ClInclude Include="src\component\ReflectionProbeComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\Serialization.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1105,6 +1108,9 @@
     </ClCompile>
     <ClCompile Include="src\component\ReflectionProbeComponent.cpp">
       <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Serialization.cpp">
+      <Filter>src\utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

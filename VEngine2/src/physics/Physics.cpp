@@ -169,15 +169,31 @@ void Physics::update(float deltaTime) noexcept
 				// initialize actor
 				if (!pc.m_internalPhysicsActorHandle)
 				{
-					const bool validMaterialHandle = pc.m_materialHandle != 0 && pc.m_materialHandle <= m_materials.size();
-					if (!validMaterialHandle)
+					//const bool validMaterialHandle = pc.m_materialHandle != 0 && pc.m_materialHandle <= m_materials.size();
+					//if (!validMaterialHandle)
+					//{
+					//	// TODO: some error message
+					//	continue;
+					//}
+
+					if (pc.m_physicsShapeType == PhysicsShapeType::CONVEX_MESH || pc.m_physicsShapeType == PhysicsShapeType::TRIANGLE_MESH)
 					{
-						// TODO: some error message
-						continue;
+						if (pc.m_physicsMesh.isLoaded())
+						{
+							continue;
+						}
+						if (pc.m_physicsShapeType == PhysicsShapeType::CONVEX_MESH && pc.m_physicsMesh->getPhysicsConvexMeshhandle() == NULL_PHYSICS_CONVEX_MESH_HANDLE)
+						{
+							continue;
+						}
+						if (pc.m_physicsShapeType == PhysicsShapeType::TRIANGLE_MESH && pc.m_physicsMesh->getPhysicsTriangleMeshhandle() == NULL_PHYSICS_TRIANGLE_MESH_HANDLE)
+						{
+							continue;
+						}
 					}
 
 					// fetch material
-					PxMaterial *mat = m_materials[pc.m_materialHandle - 1];
+					PxMaterial *mat = m_pxPhysics->createMaterial(0.5f, 0.5f, 0.5f); //m_materials[pc.m_materialHandle - 1];
 
 					// create transform
 					PxTransform pxTransform{};
@@ -204,10 +220,10 @@ void Physics::update(float deltaTime) noexcept
 							actor = PxCreatePlane(*m_pxPhysics, PxPlane(pc.m_planeNx, pc.m_planeNy, pc.m_planeNz, pc.m_planeDistance), *mat);
 							break;
 						case PhysicsShapeType::CONVEX_MESH:
-							actor = PxCreateStatic(*m_pxPhysics, pxTransform, PxConvexMeshGeometry(m_convexMeshes[pc.m_convexMeshHandle - 1]), *mat);
+							actor = PxCreateStatic(*m_pxPhysics, pxTransform, PxConvexMeshGeometry(m_convexMeshes[pc.m_physicsMesh->getPhysicsConvexMeshhandle() - 1]), *mat);
 							break;
 						case PhysicsShapeType::TRIANGLE_MESH:
-							actor = PxCreateStatic(*m_pxPhysics, pxTransform, PxTriangleMeshGeometry(m_triangleMeshes[pc.m_triangleMeshHandle - 1]), *mat);
+							actor = PxCreateStatic(*m_pxPhysics, pxTransform, PxTriangleMeshGeometry(m_triangleMeshes[pc.m_physicsMesh->getPhysicsTriangleMeshhandle() - 1]), *mat);
 							break;
 						default:
 							assert(false);
@@ -223,7 +239,7 @@ void Physics::update(float deltaTime) noexcept
 							dynamic = PxCreateDynamic(*m_pxPhysics, pxTransform, PxSphereGeometry(pc.m_sphereRadius), *mat, pc.m_density);
 							break;
 						case PhysicsShapeType::CONVEX_MESH:
-							dynamic = PxCreateDynamic(*m_pxPhysics, pxTransform, PxConvexMeshGeometry(m_convexMeshes[pc.m_convexMeshHandle - 1]), *mat, pc.m_density);
+							dynamic = PxCreateDynamic(*m_pxPhysics, pxTransform, PxConvexMeshGeometry(m_convexMeshes[pc.m_physicsMesh->getPhysicsConvexMeshhandle() - 1]), *mat, pc.m_density);
 							break;
 						default:
 							assert(false);

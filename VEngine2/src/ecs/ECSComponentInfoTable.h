@@ -4,11 +4,15 @@
 struct lua_State;
 struct TransformComponent;
 class Renderer;
+class SerializationWriteStream;
+class SerializationReadStream;
 
 struct ECSComponentInfo
 {
 	ErasedType m_erasedType;
 	void (*m_onGUI)(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
+	bool (*m_onSerialize)(void *instance, SerializationWriteStream &stream) noexcept;
+	bool (*m_onDeserialize)(void *instance, SerializationReadStream &stream) noexcept;
 	void (*m_toLua)(lua_State *L, void *instance) noexcept;
 	void (*m_fromLua)(lua_State *L, void *instance) noexcept;
 	const char *m_name;
@@ -27,6 +31,8 @@ public:
 		ECSComponentInfo info{};
 		info.m_erasedType = ErasedType::create<T>();
 		info.m_onGUI = T::onGUI;
+		info.m_onSerialize = T::onSerialize;
+		info.m_onDeserialize = T::onDeserialize;
 		info.m_toLua = T::toLua;
 		info.m_fromLua = T::fromLua;
 		info.m_name = T::getComponentName();

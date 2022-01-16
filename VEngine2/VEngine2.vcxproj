@@ -396,6 +396,7 @@
     <ClInclude Include="src\utility\DeletedCopyMove.h" />
     <ClInclude Include="src\utility\Memory.h" />
     <ClInclude Include="src\utility\ObjectPool.h" />
+    <ClInclude Include="src\utility\Serialization.h" />
     <ClInclude Include="src\utility\SpinLock.h" />
     <ClInclude Include="src\utility\StringID.h" />
     <ClInclude Include="src\utility\Thread.h" />
@@ -557,6 +558,7 @@
     <ClCompile Include="src\utility\allocator\PoolAllocator.cpp" />
     <ClCompile Include="src\utility\Fiber.cpp" />
     <ClCompile Include="src\utility\HandleManager.cpp" />
+    <ClCompile Include="src\utility\Serialization.cpp" />
     <ClCompile Include="src\utility\SpinLock.cpp" />
     <ClCompile Include="src\utility\StringID.cpp" />
     <ClCompile Include="src\utility\Thread.cpp" />

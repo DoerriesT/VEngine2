@@ -4,44 +4,69 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include <PxPhysicsAPI.h>
+#include "asset/AssetManager.h"
+#include "utility/Serialization.h"
+#include "utility/Memory.h"
+
+template<typename Stream>
+static bool serialize(PhysicsComponent &c, Stream &stream) noexcept
+{
+	uint32_t mobilityInt = static_cast<uint32_t>(c.m_mobility);
+	serializeUInt32(stream, mobilityInt);
+	c.m_mobility = static_cast<PhysicsMobility>(mobilityInt);
+
+	uint32_t typeInt = static_cast<uint32_t>(c.m_physicsShapeType);
+	serializeUInt32(stream, typeInt);
+	c.m_physicsShapeType = static_cast<PhysicsShapeType>(typeInt);
+
+	serializeAsset(stream, c.m_physicsMesh, MeshAssetData);
+	serializeFloat(stream, c.m_sphereRadius);
+	serializeFloat(stream, c.m_planeNx);
+	serializeFloat(stream, c.m_planeNy);
+	serializeFloat(stream, c.m_planeNz);
+	serializeFloat(stream, c.m_planeDistance);
+	serializeFloat(stream, c.m_linearDamping);
+	serializeFloat(stream, c.m_angularDamping);
+	serializeFloat(stream, c.m_density);
+
+	return true;
+}
 
 PhysicsComponent::PhysicsComponent(const PhysicsComponent &other) noexcept
 	:m_mobility(other.m_mobility),
 	m_physicsShapeType(other.m_physicsShapeType),
+	m_physicsMesh(other.m_physicsMesh),
 	m_sphereRadius(other.m_sphereRadius),
 	m_planeNx(other.m_planeNx),
 	m_planeNy(other.m_planeNy),
 	m_planeNz(other.m_planeNz),
 	m_planeDistance(other.m_planeDistance),
-	m_convexMeshHandle(other.m_convexMeshHandle),
-	m_triangleMeshHandle(other.m_triangleMeshHandle),
 	m_linearDamping(other.m_linearDamping),
 	m_angularDamping(other.m_angularDamping),
 	m_density(other.m_density),
 	m_initialVelocityX(other.m_initialVelocityX),
 	m_initialVelocityY(other.m_initialVelocityY),
-	m_initialVelocityZ(other.m_initialVelocityZ),
-	m_materialHandle(other.m_materialHandle)
+	m_initialVelocityZ(other.m_initialVelocityZ)//,
+	//m_materialHandle(other.m_materialHandle)
 {
 }
 
 PhysicsComponent::PhysicsComponent(PhysicsComponent &&other) noexcept
 	:m_mobility(other.m_mobility),
 	m_physicsShapeType(other.m_physicsShapeType),
+	m_physicsMesh(other.m_physicsMesh),
 	m_sphereRadius(other.m_sphereRadius),
 	m_planeNx(other.m_planeNx),
 	m_planeNy(other.m_planeNy),
 	m_planeNz(other.m_planeNz),
 	m_planeDistance(other.m_planeDistance),
-	m_convexMeshHandle(other.m_convexMeshHandle),
-	m_triangleMeshHandle(other.m_triangleMeshHandle),
 	m_linearDamping(other.m_linearDamping),
 	m_angularDamping(other.m_angularDamping),
 	m_density(other.m_density),
 	m_initialVelocityX(other.m_initialVelocityX),
 	m_initialVelocityY(other.m_initialVelocityY),
 	m_initialVelocityZ(other.m_initialVelocityZ),
-	m_materialHandle(other.m_materialHandle),
+	//m_materialHandle(other.m_materialHandle),
 	m_internalPhysicsActorHandle(other.m_internalPhysicsActorHandle)
 {
 	other.m_internalPhysicsActorHandle = nullptr;
@@ -53,20 +78,19 @@ PhysicsComponent &PhysicsComponent::operator=(const PhysicsComponent &other) noe
 	{
 		m_mobility = other.m_mobility;
 		m_physicsShapeType = other.m_physicsShapeType;
+		m_physicsMesh = other.m_physicsMesh;
 		m_sphereRadius = other.m_sphereRadius;
 		m_planeNx = other.m_planeNx;
 		m_planeNy = other.m_planeNy;
 		m_planeNz = other.m_planeNz;
 		m_planeDistance = other.m_planeDistance;
-		m_convexMeshHandle = other.m_convexMeshHandle;
-		m_triangleMeshHandle = other.m_triangleMeshHandle;
 		m_linearDamping = other.m_linearDamping;
 		m_angularDamping = other.m_angularDamping;
 		m_density = other.m_density;
 		m_initialVelocityX = other.m_initialVelocityX;
 		m_initialVelocityY = other.m_initialVelocityY;
 		m_initialVelocityZ = other.m_initialVelocityZ;
-		m_materialHandle = other.m_materialHandle;
+		//m_materialHandle = other.m_materialHandle;
 
 		if (m_internalPhysicsActorHandle)
 		{
@@ -83,20 +107,19 @@ PhysicsComponent &PhysicsComponent::operator=(PhysicsComponent &&other) noexcept
 	{
 		m_mobility = other.m_mobility;
 		m_physicsShapeType = other.m_physicsShapeType;
+		m_physicsMesh = other.m_physicsMesh;
 		m_sphereRadius = other.m_sphereRadius;
 		m_planeNx = other.m_planeNx;
 		m_planeNy = other.m_planeNy;
 		m_planeNz = other.m_planeNz;
 		m_planeDistance = other.m_planeDistance;
-		m_convexMeshHandle = other.m_convexMeshHandle;
-		m_triangleMeshHandle = other.m_triangleMeshHandle;
 		m_linearDamping = other.m_linearDamping;
 		m_angularDamping = other.m_angularDamping;
 		m_density = other.m_density;
 		m_initialVelocityX = other.m_initialVelocityX;
 		m_initialVelocityY = other.m_initialVelocityY;
 		m_initialVelocityZ = other.m_initialVelocityZ;
-		m_materialHandle = other.m_materialHandle;
+		//m_materialHandle = other.m_materialHandle;
 
 		if (m_internalPhysicsActorHandle)
 		{
@@ -153,8 +176,14 @@ void PhysicsComponent::onGUI(void *instance, Renderer *renderer, const Transform
 	}
 	break;
 	case PhysicsShapeType::CONVEX_MESH:
-		break;
 	case PhysicsShapeType::TRIANGLE_MESH:
+	{
+		AssetID resultAssetID;
+		if (ImGuiHelpers::AssetPicker("Physics Mesh Asset", MeshAssetData::k_assetType, c.m_physicsMesh.get(), &resultAssetID))
+		{
+			c.m_physicsMesh = AssetManager::get()->getAsset<MeshAssetData>(resultAssetID);
+		}
+	}
 		break;
 	default:
 		assert(false);
@@ -166,6 +195,16 @@ void PhysicsComponent::onGUI(void *instance, Renderer *renderer, const Transform
 	ImGui::DragFloat("Angular Dampening", &c.m_angularDamping, 0.01f, 0.0f, FLT_MAX);
 
 	ImGui::DragFloat("Density", &c.m_density, 0.01f, 0.01f, FLT_MAX);
+}
+
+bool PhysicsComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<PhysicsComponent *>(instance), stream);
+}
+
+bool PhysicsComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<PhysicsComponent *>(instance), stream);
 }
 
 void PhysicsComponent::toLua(lua_State *L, void *instance) noexcept

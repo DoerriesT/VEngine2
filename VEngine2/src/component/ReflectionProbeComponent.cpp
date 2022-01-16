@@ -6,6 +6,24 @@
 #include <glm/gtx/transform.hpp>
 #include "TransformComponent.h"
 #include "graphics/Renderer.h"
+#include "utility/Serialization.h"
+
+template<typename Stream>
+static bool serialize(ReflectionProbeComponent &c, Stream &stream) noexcept
+{
+	serializeFloat(stream, c.m_captureOffset.x);
+	serializeFloat(stream, c.m_captureOffset.y);
+	serializeFloat(stream, c.m_captureOffset.z);
+	serializeFloat(stream, c.m_nearPlane);
+	serializeFloat(stream, c.m_farPlane);
+	for (auto &d : c.m_boxFadeDistances)
+	{
+		serializeFloat(stream, d);
+	}
+	serializeBool(stream, c.m_lockedFadeDistance);
+
+	return true;
+}
 
 void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
@@ -89,6 +107,16 @@ void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const T
 		renderer->drawDebugLine(DebugDrawVisibility::Visible, p0, p1, k_visibleDebugColor, k_visibleDebugColor);
 		renderer->drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, k_occludedDebugColor, k_occludedDebugColor);
 	}
+}
+
+bool ReflectionProbeComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<ReflectionProbeComponent *>(instance), stream);
+}
+
+bool ReflectionProbeComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<ReflectionProbeComponent *>(instance), stream);
 }
 
 void ReflectionProbeComponent::toLua(lua_State *L, void *instance) noexcept

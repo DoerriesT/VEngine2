@@ -2,6 +2,13 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
+#include "utility/Serialization.h"
+
+template<typename Stream>
+static bool serialize(CharacterMovementComponent &c, Stream &stream) noexcept
+{
+	return true;
+}
 
 void CharacterMovementComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
@@ -39,6 +46,16 @@ void CharacterMovementComponent::onGUI(void *instance, Renderer *renderer, const
 
 	bool exitCrouchInput = c.m_exitCrouchInputAction;
 	ImGui::Checkbox("Exit Crouch Input", &exitCrouchInput);
+}
+
+bool CharacterMovementComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<CharacterMovementComponent *>(instance), stream);
+}
+
+bool CharacterMovementComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<CharacterMovementComponent *>(instance), stream);
 }
 
 void CharacterMovementComponent::toLua(lua_State *L, void *instance) noexcept

@@ -3,6 +3,33 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "asset/AssetManager.h"
 #include "script/LuaUtil.h"
+#include "utility/Serialization.h"
+#include "utility/Memory.h"
+
+template<typename Stream>
+static bool serialize(ParticipatingMediumComponent &c, Stream &stream) noexcept
+{
+	uint32_t typeInt = static_cast<uint32_t>(c.m_type);
+	serializeUInt32(stream, typeInt);
+	c.m_type = static_cast<ParticipatingMediumComponent::Type>(typeInt);
+	serializeUInt32(stream, c.m_albedo);
+	serializeFloat(stream, c.m_extinction);
+	serializeUInt32(stream, c.m_emissiveColor);
+	serializeFloat(stream, c.m_emissiveIntensity);
+	serializeFloat(stream, c.m_phaseAnisotropy);
+	serializeBool(stream, c.m_heightFogEnabled);
+	serializeFloat(stream, c.m_heightFogStart);
+	serializeFloat(stream, c.m_heightFogFalloff);
+	serializeFloat(stream, c.m_maxHeight);
+	serializeAsset(stream, c.m_densityTexture, TextureAssetData);
+	serializeFloat(stream, c.m_textureScale);
+	serializeFloat(stream, c.m_textureBias[0]);
+	serializeFloat(stream, c.m_textureBias[1]);
+	serializeFloat(stream, c.m_textureBias[2]);
+	serializeBool(stream, c.m_spherical);
+
+	return true;
+}
 
 void ParticipatingMediumComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
@@ -39,6 +66,16 @@ void ParticipatingMediumComponent::onGUI(void *instance, Renderer *renderer, con
 		ImGui::RadioButton("Sphere", &sphericalInt, 1); ImGui::SameLine();
 		c.m_spherical = sphericalInt != 0;
 	}
+}
+
+bool ParticipatingMediumComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<ParticipatingMediumComponent *>(instance), stream);
+}
+
+bool ParticipatingMediumComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<ParticipatingMediumComponent *>(instance), stream);
 }
 
 void ParticipatingMediumComponent::toLua(lua_State *L, void *instance) noexcept

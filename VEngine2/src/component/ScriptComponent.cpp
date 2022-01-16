@@ -3,6 +3,16 @@
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
 #include "asset/AssetManager.h"
+#include "utility/Serialization.h"
+#include "utility/Memory.h"
+
+template<typename Stream>
+static bool serialize(ScriptComponent &c, Stream &stream) noexcept
+{
+	serializeAsset(stream, c.m_script, ScriptAssetData);
+
+	return true;
+}
 
 ScriptComponent::ScriptComponent(const ScriptComponent &other) noexcept
 	:m_script(other.m_script)
@@ -132,6 +142,16 @@ void ScriptComponent::onGUI(void *instance, Renderer *renderer, const TransformC
 		// remove the Properties table
 		lua_pop(L, 1);
 	}
+}
+
+bool ScriptComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<ScriptComponent *>(instance), stream);
+}
+
+bool ScriptComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<ScriptComponent *>(instance), stream);
 }
 
 void ScriptComponent::toLua(lua_State *L, void *instance) noexcept

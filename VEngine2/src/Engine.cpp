@@ -63,9 +63,14 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	// set VFS mount points
 	{
 		char currentPath[IFileSystem::k_maxPathLength] = {};
+
 		RawFileSystem::get().getCurrentPath(currentPath);
 		strcat_s(currentPath, "/assets");
 		VirtualFileSystem::get().mount(currentPath, "assets");
+
+		RawFileSystem::get().getCurrentPath(currentPath);
+		strcat_s(currentPath, "/levels");
+		VirtualFileSystem::get().mount(currentPath, "levels");
 	}
 
 	job::init();
@@ -74,8 +79,6 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	Window window(1600, 900, Window::WindowMode::WINDOWED, "VEngine 2");
 	m_window = &window;
 	Timer::init();
-
-	m_level = new Level();
 
 	// Setup Dear ImGui context
 	{
@@ -100,6 +103,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	ComponentRegistration::registerAllComponents();
 
 	m_ecs = new ECS();
+	m_level = new Level(m_ecs);
 
 	Renderer renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_renderer = &renderer;
@@ -172,6 +176,31 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			{
 				ImGui::Checkbox("TAA", &g_taaEnabled);
 				ImGui::Checkbox("Sharpen", &g_sharpenEnabled);
+				if (ImGui::Button("Save"))
+				{
+					Log::info("Saving level...");
+					if (m_level->save("/levels/level.bin"))
+					{
+						Log::info("Done saving level.");
+					}
+					else
+					{
+						Log::err("Failed to save level!");
+					}
+				}
+				if (ImGui::Button("Load"))
+				{
+					//m_ecs->clear();
+					Log::info("Loading level...");
+					if (m_level->load("/levels/level.bin"))
+					{
+						Log::info("Done loading level.");
+					}
+					else
+					{
+						Log::err("Failed to load level!");
+					}
+				}
 			}
 			ImGui::End();
 

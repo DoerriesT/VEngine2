@@ -143,7 +143,7 @@ public:
 			PhysicsComponent physicsC{};
 			physicsC.m_mobility = PhysicsMobility::STATIC;
 			physicsC.m_physicsShapeType = PhysicsShapeType::PLANE;
-			physicsC.m_materialHandle = m_physicsMaterial;
+			//physicsC.m_materialHandle = m_physicsMaterial;
 
 			auto entity = m_engine->getECS()->createEntity<TransformComponent, PhysicsComponent>(transC, physicsC);
 			m_engine->getLevel()->addEntity(entity, "Ground Plane");
@@ -161,8 +161,9 @@ public:
 			PhysicsComponent physicsC{};
 			physicsC.m_mobility = PhysicsMobility::STATIC;
 			physicsC.m_physicsShapeType = PhysicsShapeType::TRIANGLE_MESH;
-			physicsC.m_triangleMeshHandle = m_sponzaAsset->getPhysicsTriangleMeshhandle();
-			physicsC.m_materialHandle = m_physicsMaterial;
+			physicsC.m_physicsMesh = m_sponzaAsset;
+			//physicsC.m_triangleMeshHandle = m_sponzaAsset->getPhysicsTriangleMeshhandle();
+			//physicsC.m_materialHandle = m_physicsMaterial;
 
 			auto entity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
 			m_engine->getLevel()->addEntity(entity, "Sponza");
@@ -380,7 +381,7 @@ private:
 		physicsC.m_initialVelocityX = vel.x;
 		physicsC.m_initialVelocityY = vel.y;
 		physicsC.m_initialVelocityZ = vel.z;
-		physicsC.m_materialHandle = m_physicsMaterial;
+		//physicsC.m_materialHandle = m_physicsMaterial;
 
 		auto entity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
 		m_engine->getLevel()->addEntity(entity, "Physics Sphere");

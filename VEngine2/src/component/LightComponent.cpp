@@ -5,6 +5,32 @@
 #include <EASTL/algorithm.h>
 #include "TransformComponent.h"
 #include "graphics/Renderer.h"
+#include "utility/Serialization.h"
+
+template<typename Stream>
+static bool serialize(LightComponent &c, Stream &stream) noexcept
+{
+	uint32_t typeInt = static_cast<uint32_t>(c.m_type);
+	serializeUInt32(stream, typeInt);
+	c.m_type = static_cast<LightComponent::Type>(typeInt);
+	serializeUInt32(stream, c.m_color);
+	serializeFloat(stream, c.m_intensity);
+	serializeBool(stream, c.m_shadows);
+	serializeFloat(stream, c.m_radius);
+	serializeFloat(stream, c.m_outerAngle);
+	serializeFloat(stream, c.m_innerAngle);
+	serializeFloat(stream, c.m_splitLambda);
+	serializeUInt32(stream, c.m_cascadeCount);
+	c.m_cascadeCount = eastl::min<uint32_t>(c.m_cascadeCount, LightComponent::k_maxCascades);
+	for (size_t i = 0; i < c.m_cascadeCount; ++i)
+	{
+		serializeFloat(stream, c.m_depthBias[i]);
+		serializeFloat(stream, c.m_normalOffsetBias[i]);
+	}
+	serializeFloat(stream, c.m_maxShadowDistance);
+
+	return true;
+}
 
 void LightComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
@@ -86,6 +112,16 @@ void LightComponent::onGUI(void *instance, Renderer *renderer, const TransformCo
 			break;
 		}
 	}
+}
+
+bool LightComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<LightComponent *>(instance), stream);
+}
+
+bool LightComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<LightComponent *>(instance), stream);
 }
 
 void LightComponent::toLua(lua_State *L, void *instance) noexcept

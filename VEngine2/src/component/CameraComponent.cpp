@@ -3,6 +3,18 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include "script/LuaUtil.h"
+#include "utility/Serialization.h"
+
+template<typename Stream>
+static bool serialize(CameraComponent &c, Stream &stream) noexcept
+{
+	serializeFloat(stream, c.m_aspectRatio);
+	serializeFloat(stream, c.m_fovy);
+	serializeFloat(stream, c.m_near);
+	serializeFloat(stream, c.m_far);
+
+	return true;
+}
 
 void CameraComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
@@ -18,6 +30,16 @@ void CameraComponent::onGUI(void *instance, Renderer *renderer, const TransformC
 
 	ImGui::DragFloat("Far Plane", &cc.m_far, 0.1f, 0.05f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 	ImGuiHelpers::Tooltip("The distance of the camera far plane.");
+}
+
+bool CameraComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<CameraComponent *>(instance), stream);
+}
+
+bool CameraComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<CameraComponent *>(instance), stream);
 }
 
 void CameraComponent::toLua(lua_State *L, void *instance) noexcept

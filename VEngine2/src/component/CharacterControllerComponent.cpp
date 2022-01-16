@@ -3,6 +3,22 @@
 #include "graphics/imgui/imgui.h"
 #include "graphics/imgui/gui_helpers.h"
 #include <PxPhysicsAPI.h>
+#include "utility/Serialization.h"
+
+template<typename Stream>
+static bool serialize(CharacterControllerComponent &c, Stream &stream) noexcept
+{
+	serializeFloat(stream, c.m_slopeLimit);
+	serializeFloat(stream, c.m_contactOffset);
+	serializeFloat(stream, c.m_stepOffset);
+	serializeFloat(stream, c.m_density);
+	serializeFloat(stream, c.m_capsuleRadius);
+	serializeFloat(stream, c.m_capsuleHeight);
+	serializeFloat(stream, c.m_translationHeightOffset);
+	serializeBool(stream, c.m_active);
+
+	return true;
+}
 
 CharacterControllerComponent::CharacterControllerComponent(const CharacterControllerComponent &other) noexcept
 	:m_slopeLimit(other.m_slopeLimit),
@@ -141,6 +157,16 @@ void CharacterControllerComponent::onGUI(void *instance, Renderer *renderer, con
 	ImGui::Checkbox("Collision Up", &collisionUp);
 	bool collisionDown = (c.m_collisionFlags & CharacterControllerCollisionFlags::DOWN) != 0;
 	ImGui::Checkbox("Collision Down", &collisionDown);
+}
+
+bool CharacterControllerComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<CharacterControllerComponent *>(instance), stream);
+}
+
+bool CharacterControllerComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+{
+	return serialize(*reinterpret_cast<CharacterControllerComponent *>(instance), stream);
 }
 
 void CharacterControllerComponent::toLua(lua_State *L, void *instance) noexcept
