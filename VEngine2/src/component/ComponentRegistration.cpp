@@ -11,6 +11,7 @@
 #include "OutlineComponent.h"
 #include "ParticipatingMediumComponent.h"
 #include "ReflectionProbeComponent.h"
+#include "IrradianceVolumeComponent.h"
 #include "RawInputStateComponent.h"
 #include "InputStateComponent.h"
 #include "ecs/ECS.h"
@@ -39,6 +40,7 @@ void ComponentRegistration::registerAllComponents() noexcept
 	registerComponent<EditorOutlineComponent>();
 	registerComponent<ParticipatingMediumComponent>();
 	registerComponent<ReflectionProbeComponent>();
+	registerComponent<IrradianceVolumeComponent>();
 
 	// singleton components
 	ECS::registerSingletonComponent<RawInputStateComponent>();

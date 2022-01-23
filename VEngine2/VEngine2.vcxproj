@@ -248,6 +248,7 @@
     <ClInclude Include="src\component\CharacterControllerComponent.h" />
     <ClInclude Include="src\component\ComponentRegistration.h" />
     <ClInclude Include="src\component\InputStateComponent.h" />
+    <ClInclude Include="src\component\IrradianceVolumeComponent.h" />
     <ClInclude Include="src\component\OutlineComponent.h" />
     <ClInclude Include="src\component\ParticipatingMediumComponent.h" />
     <ClInclude Include="src\component\RawInputStateComponent.h" />
@@ -429,6 +430,7 @@
     <ClCompile Include="src\component\CameraComponent.cpp" />
     <ClCompile Include="src\component\CharacterControllerComponent.cpp" />
     <ClCompile Include="src\component\ComponentRegistration.cpp" />
+    <ClCompile Include="src\component\IrradianceVolumeComponent.cpp" />
     <ClCompile Include="src\component\Level.cpp" />
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\MeshComponent.cpp" />

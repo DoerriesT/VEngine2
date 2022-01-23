@@ -58,7 +58,7 @@ namespace gal
 		virtual void endDebugLabel() override;
 
 	private:
-		static constexpr size_t k_scratchMemorySize = 1024 * 16;
+		static constexpr size_t k_scratchMemorySize = 1024 * 256;
 		VkCommandBuffer m_commandBuffer;
 		GraphicsDeviceVk *m_device;
 		ScopedAllocation m_scratchMemoryAllocation;

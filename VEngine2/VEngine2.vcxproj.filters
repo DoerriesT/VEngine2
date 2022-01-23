@@ -630,6 +630,9 @@
     <ClInclude Include="src\utility\Serialization.h">
       <Filter>src\utility</Filter>
     </ClInclude>
+    <ClInclude Include="src\component\IrradianceVolumeComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1111,6 +1114,9 @@
     </ClCompile>
     <ClCompile Include="src\utility\Serialization.cpp">
       <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\IrradianceVolumeComponent.cpp">
+      <Filter>src\component</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
