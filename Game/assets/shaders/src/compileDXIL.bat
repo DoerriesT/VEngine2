@@ -64,4 +64,7 @@ dxc.exe -T cs_6_0 -E main fidelityFxDownsample_cs.hlsl -Fo ./../fidelityFxDownsa
 dxc.exe -T cs_6_0 -E main reflectionProbeFilter_cs.hlsl -Fo ./../reflectionProbeFilter_cs.cso -Zi -Fd ./../reflectionProbeFilter_cs.pdb
 dxc.exe -T cs_6_0 -E main brdfLUT_cs.hlsl -Fo ./../brdfLUT_cs.cso -Zi -Fd ./../brdfLUT_cs.pdb
 
+dxc.exe -T cs_6_0 -E main irradianceProbeFilter_cs.hlsl -Fo ./../irradianceProbeFilter_diffuse_cs.cso -Zi -Fd ./../irradianceProbeFilter_diffuse_cs.pdb
+dxc.exe -T cs_6_0 -E main -D OUTPUT_VISIBILITY=1 irradianceProbeFilter_cs.hlsl -Fo ./../irradianceProbeFilter_visibility_cs.cso -Zi -Fd ./../irradianceProbeFilter_visibility_cs.pdb
+
 pause

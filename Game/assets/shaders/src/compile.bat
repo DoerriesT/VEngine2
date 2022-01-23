@@ -66,4 +66,7 @@ dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main fidelity
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main reflectionProbeFilter_cs.hlsl -Fo ./../reflectionProbeFilter_cs.spv
 dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main brdfLUT_cs.hlsl -Fo ./../brdfLUT_cs.spv
 
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main irradianceProbeFilter_cs.hlsl -Fo ./../irradianceProbeFilter_diffuse_cs.spv
+dxc.exe -D VULKAN=1 -spirv -fspv-target-env=vulkan1.1 -T cs_6_0 -E main -D OUTPUT_VISIBILITY=1 irradianceProbeFilter_cs.hlsl -Fo ./../irradianceProbeFilter_visibility_cs.spv
+
 pause

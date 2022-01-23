@@ -138,7 +138,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	}
 	
 	const float2 uv = (threadID.xy + 0.5f) * g_PushConsts.texelSize;
-	const float3 N = getDir(uv, threadID.z);
+	const float3 N = normalize(getDir(uv, threadID.z));
 	
 	g_RWTextures[g_PushConsts.resultTextureIndex][threadID] = float4(integrateCubeLDOnly(N, g_PushConsts.roughness), 1.0f);
 }
