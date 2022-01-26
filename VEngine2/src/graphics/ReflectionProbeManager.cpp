@@ -1219,8 +1219,8 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 	// filter
 	graph->addPass("Reflection Probe Filter", rg::QueueType::GRAPHICS, 0, nullptr, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
-			GAL_SCOPED_GPU_LABEL(cmdList, "Reflection Probe Generate Mips");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Reflection Probe Generate Mips");
+			GAL_SCOPED_GPU_LABEL(cmdList, "Reflection Probe Filter");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Reflection Probe Filter");
 			PROFILING_ZONE_SCOPED;
 
 			// transition result image to RW_RESOURCE
