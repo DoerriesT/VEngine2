@@ -61,11 +61,39 @@ bool TextureLoader::load(size_t fileSize, const char *fileData, const char *text
 		m_device->setDebugObjectName(gal::ObjectType::IMAGE_VIEW, *imageView, textureName);
 	}
 
+	// compute required staging buffer size
+	uint64_t requiredStagingBufferSize = 0;
+	{
+		// if this is a compressed format, how many texels is each block?
+		auto blockExtent = gli::block_extent(gliTex.format());
+		for (size_t level = 0; level < gliTex.levels(); ++level)
+		{
+			// blocks in this level; use max to ensure we dont divide e.g. extent = 2 by blockExtent = 4
+			auto blockDims = glm::max(gliTex.extent(level), blockExtent) / blockExtent;
+			// size of a texel row in bytes in the src data
+			size_t rowSize = blockDims.x * gli::block_size(gliTex.format());
+			// size of a row in the staging buffer
+			size_t rowPitch = util::alignPow2Up(rowSize, (size_t)m_device->getBufferCopyRowPitchAlignment());
+			assert(rowPitch % gli::block_size(gliTex.format()) == 0);
+
+			// TODO: can we copy all layers and faces in one go?
+			for (size_t layer = 0; layer < gliTex.layers(); ++layer)
+			{
+				for (size_t face = 0; face < gliTex.faces(); ++face)
+				{
+					// ensure each copy region starts at the proper alignment in the staging buffer
+					requiredStagingBufferSize = util::alignPow2Up(requiredStagingBufferSize, (size_t)m_device->getBufferCopyOffsetAlignment());
+					requiredStagingBufferSize += blockDims.z * blockDims.y * rowPitch;
+				}
+			}
+		}
+	}
+
 	// create staging buffer
 	gal::Buffer *stagingBuffer = nullptr;
 	{
 		gal::BufferCreateInfo bufferCreateInfo{};
-		bufferCreateInfo.m_size = gliTex.size() * 2; // account for padding. TODO: calculate actual size requirement
+		bufferCreateInfo.m_size = requiredStagingBufferSize;
 		bufferCreateInfo.m_usageFlags = gal::BufferUsageFlags::TRANSFER_SRC_BIT;
 
 		m_device->createBuffer(bufferCreateInfo, gal::MemoryPropertyFlags::HOST_COHERENT_BIT | gal::MemoryPropertyFlags::HOST_VISIBLE_BIT, {}, false, &stagingBuffer);
