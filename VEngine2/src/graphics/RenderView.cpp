@@ -1,6 +1,5 @@
 #include "RenderView.h"
 #include "LightManager.h"
-#include "ReflectionProbeManager.h"
 #include "pass/ForwardModule.h"
 #include "pass/PostProcessModule.h"
 #include "pass/GridPass.h"
@@ -20,7 +19,7 @@
 #include "animation/Skeleton.h"
 #include "RenderGraph.h"
 #include "RendererResources.h"
-#include "BufferStackAllocator.h"
+#include "LinearGPUBufferAllocator.h"
 #include <EASTL/fixed_vector.h>
 #include <EASTL/numeric.h>
 #include <EASTL/sort.h>
@@ -28,9 +27,6 @@
 #include "utility/Utility.h"
 #include "graphics/Camera.h"
 #include "ecs/ECS.h"
-
-bool g_taaEnabled = true;
-bool g_sharpenEnabled = true;
 
 using namespace gal;
 
@@ -54,7 +50,6 @@ RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRe
 
 	m_renderViewResources = new RenderViewResources(m_device, viewRegistry, m_width, m_height);
 	m_lightManager = new LightManager(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
-	m_reflectionProbeManager = new ReflectionProbeManager(m_device, m_rendererResources, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_forwardModule = new ForwardModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_postProcessModule = new PostProcessModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_gridPass = new GridPass(m_device, offsetBufferSetLayout);
@@ -63,14 +58,13 @@ RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRe
 RenderView::~RenderView()
 {
 	delete m_lightManager;
-	delete m_reflectionProbeManager;
 	delete m_forwardModule;
 	delete m_postProcessModule;
 	delete m_gridPass;
 	delete m_renderViewResources;
 }
 
-void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept
+void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 {
 	if (m_width == 0 || m_height == 0)
 	{
@@ -119,18 +113,12 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 	rg::ResourceViewHandle taaHistoryImageViewHandle = graph->createImageView(rg::ImageViewDesc::createDefault("Temporal AA History", taaHistoryImageHandle, graph));
 
 	const size_t haltonIdx = m_frame % k_haltonSampleCount;
-	glm::mat4 jitterMatrix = g_taaEnabled ? glm::translate(glm::vec3(m_haltonJitter[haltonIdx * 2 + 0] / m_width, m_haltonJitter[haltonIdx * 2 + 1] / m_height, 0.0f)) : glm::identity<glm::mat4>();
+	glm::mat4 jitterMatrix = data.m_effectSettings.m_taaEnabled ? glm::translate(glm::vec3(m_haltonJitter[haltonIdx * 2 + 0] / m_width, m_haltonJitter[haltonIdx * 2 + 1] / m_height, 0.0f)) : glm::identity<glm::mat4>();
 
 
-	auto *cameraComponent = ecs->getComponent<CameraComponent>(cameraEntity);
-	auto cameraTransformComponent = *ecs->getComponent<TransformComponent>(cameraEntity);
-	cameraTransformComponent.m_transform = cameraTransformComponent.m_curRenderTransform;
 	auto &viewData = m_viewData[resIdx];
-	{
-		Camera camera(cameraTransformComponent, *cameraComponent);
-		viewData.m_viewMatrix = camera.getViewMatrix();
-		viewData.m_projectionMatrix = camera.getProjectionMatrix();
-	}
+	viewData.m_viewMatrix = data.m_viewMatrix;
+	viewData.m_projectionMatrix = data.m_projectionMatrix;
 	viewData.m_invViewMatrix = glm::inverse(viewData.m_viewMatrix);
 	viewData.m_invProjectionMatrix = glm::inverse(viewData.m_projectionMatrix);
 	viewData.m_jitteredProjectionMatrix = jitterMatrix * viewData.m_projectionMatrix;
@@ -152,18 +140,18 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 	viewData.m_prevInvJitteredViewProjectionMatrix = m_viewData[prevResIdx].m_invJitteredViewProjectionMatrix;
 
 	viewData.m_viewMatrixDepthRow = glm::vec4(viewData.m_viewMatrix[0][2], viewData.m_viewMatrix[1][2], viewData.m_viewMatrix[2][2], viewData.m_viewMatrix[3][2]);
-	viewData.m_cameraPosition = cameraTransformComponent.m_transform.m_translation;
-	viewData.m_near = cameraComponent->m_near;
-	viewData.m_far = cameraComponent->m_far;
-	viewData.m_fovy = cameraComponent->m_fovy;
+	viewData.m_cameraPosition = data.m_cameraPosition;
+	viewData.m_near = data.m_nearPlane;
+	viewData.m_far = data.m_farPlane;
+	viewData.m_fovy = data.m_fovy;
 	viewData.m_width = m_width;
 	viewData.m_height = m_height;
 	viewData.m_pickingPosX = m_pickingPosX;
 	viewData.m_pickingPosY = m_pickingPosY;
-	viewData.m_aspectRatio = cameraComponent->m_aspectRatio;
+	viewData.m_aspectRatio = m_width / static_cast<float>(m_height);
 	viewData.m_frame = m_frame;
-	viewData.m_time = time;
-	viewData.m_deltaTime = deltaTime;
+	viewData.m_time = data.m_time;
+	viewData.m_deltaTime = data.m_deltaTime;
 	viewData.m_device = m_device;
 	viewData.m_rendererResources = m_rendererResources;
 	viewData.m_viewResources = m_renderViewResources;
@@ -171,158 +159,14 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 	viewData.m_resIdx = static_cast<uint32_t>(resIdx);
 	viewData.m_prevResIdx = static_cast<uint32_t>(prevResIdx);
 	viewData.m_gpuProfilingCtx = m_device->getProfilingContext();
-	viewData.m_cbvAllocator = m_rendererResources->m_constantBufferStackAllocators[resIdx];
-	viewData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[resIdx];
+	viewData.m_constantBufferAllocator = m_rendererResources->m_constantBufferLinearAllocators[data.m_renderResourceIdx];
+	viewData.m_shaderResourceAllocator = m_rendererResources->m_shaderResourceBufferLinearAllocators[data.m_renderResourceIdx];
+	viewData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferLinearAllocators[data.m_renderResourceIdx];
+	viewData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[data.m_renderResourceIdx];
 	viewData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 	viewData.m_pickingBufferHandle = pickingBufferViewHandle;
 	viewData.m_exposureBufferHandle = exposureBufferViewHandle;
-	viewData.m_reflectionProbeArrayTextureViewHandle = m_reflectionProbeManager->getReflectionProbeArrayTextureViewHandle();
-
-	m_modelMatrices.clear();
-	m_prevModelMatrices.clear();
-	m_skinningMatrices.clear();
-	m_prevSkinningMatrices.clear();
-	m_globalMedia.clear();
-	m_renderList.clear();
-	m_outlineRenderList.clear();
-
-	// process global participating media
-	ecs->iterate<ParticipatingMediumComponent>([&](size_t count, const EntityID *entities, ParticipatingMediumComponent *mediaC)
-		{
-			for (size_t i = 0; i < count; ++i)
-			{
-				auto &mc = mediaC[i];
-
-				if (mc.m_type == ParticipatingMediumComponent::Type::Global)
-				{
-					GlobalParticipatingMediumGPU medium{};
-					medium.emissive = glm::unpackUnorm4x8(mc.m_emissiveColor) * mc.m_emissiveIntensity;
-					medium.extinction = mc.m_extinction;
-					medium.scattering = glm::unpackUnorm4x8(mc.m_albedo) * mc.m_extinction;
-					medium.phase = mc.m_phaseAnisotropy;
-					medium.heightFogEnabled = mc.m_heightFogEnabled;
-					medium.heightFogStart = mc.m_heightFogStart;
-					medium.heightFogFalloff = mc.m_heightFogFalloff;
-					medium.maxHeight = mc.m_maxHeight;
-					medium.textureScale = mc.m_textureScale;
-					medium.textureBias = glm::make_vec3(mc.m_textureBias);
-					medium.densityTexture = mc.m_densityTexture.isLoaded() ? mc.m_densityTexture->getTextureHandle() : TextureHandle{};
-
-					m_globalMedia.push_back(medium);
-				}
-			}
-		});
-
-
-	bool anyOutlines = false;
-
-	// fill mesh render lists
-	IterateQuery meshIterateQuery;
-	ecs->setIterateQueryRequiredComponents<TransformComponent>(meshIterateQuery);
-	ecs->setIterateQueryOptionalComponents<MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(meshIterateQuery);
-	ecs->iterate<TransformComponent, MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(
-		meshIterateQuery,
-		[&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC, SkinnedMeshComponent *sMeshC, OutlineComponent *outlineC, EditorOutlineComponent *editorOutlineC)
-		{
-			// we need either one of these
-			if (!meshC && !sMeshC)
-			{
-				return;
-			}
-			const bool skinned = sMeshC != nullptr;
-			for (size_t i = 0; i < count; ++i)
-			{
-				auto &tc = transC[i];
-				const auto &meshAsset = skinned ? sMeshC[i].m_mesh : meshC[i].m_mesh;
-				if (!meshAsset.get())
-				{
-					continue;
-				}
-
-				// model transform
-				const auto transformIndex = m_modelMatrices.size();
-				m_modelMatrices.push_back(glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(tc.m_curRenderTransform.m_rotation) * glm::scale(tc.m_curRenderTransform.m_scale));
-				m_prevModelMatrices.push_back(glm::translate(tc.m_prevRenderTransform.m_translation) * glm::mat4_cast(tc.m_prevRenderTransform.m_rotation) * glm::scale(tc.m_prevRenderTransform.m_scale));
-
-				// skinning matrices
-				const auto skinningMatricesOffset = m_skinningMatrices.size();
-				if (skinned)
-				{
-					m_skinningMatrices.insert(m_skinningMatrices.end(), sMeshC[i].m_curRenderMatrixPalette.begin(), sMeshC[i].m_curRenderMatrixPalette.end());
-					m_prevSkinningMatrices.insert(m_prevSkinningMatrices.end(), sMeshC[i].m_prevRenderMatrixPalette.begin(), sMeshC[i].m_prevRenderMatrixPalette.end());
-				}
-
-				const bool outlined = (outlineC && outlineC[i].m_outlined) || (editorOutlineC && editorOutlineC[i].m_outlined);
-
-				const auto &submeshhandles = meshAsset->getSubMeshhandles();
-				const auto &materialAssets = meshAsset->getMaterials();
-				for (size_t j = 0; j < submeshhandles.size(); ++j)
-				{
-					SubMeshInstanceData instanceData{};
-					instanceData.m_subMeshHandle = submeshhandles[j];
-					instanceData.m_transformIndex = static_cast<uint32_t>(transformIndex);
-					instanceData.m_skinningMatricesOffset = static_cast<uint32_t>(skinningMatricesOffset);
-					instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
-					instanceData.m_entityID = entities[i];
-
-					const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
-
-					if (alphaTested)
-						if (skinned)
-							m_renderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-						else
-							m_renderList.m_opaqueAlphaTested.push_back(instanceData);
-					else
-						if (skinned)
-							m_renderList.m_opaqueSkinned.push_back(instanceData);
-						else
-							m_renderList.m_opaque.push_back(instanceData);
-
-					if (outlined)
-					{
-						anyOutlines = true;
-						if (alphaTested)
-							if (skinned)
-								m_outlineRenderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-							else
-								m_outlineRenderList.m_opaqueAlphaTested.push_back(instanceData);
-						else
-							if (skinned)
-								m_outlineRenderList.m_opaqueSkinned.push_back(instanceData);
-							else
-								m_outlineRenderList.m_opaque.push_back(instanceData);
-					}
-				}
-			}
-		});
-
-	auto createShaderResourceBuffer = [&](DescriptorType descriptorType, auto dataAsVector)
-	{
-		const size_t elementSize = sizeof(dataAsVector[0]);
-
-		// prepare DescriptorBufferInfo
-		DescriptorBufferInfo bufferInfo = Initializers::structuedBufferInfo(elementSize, dataAsVector.size());
-		bufferInfo.m_buffer = m_rendererResources->m_shaderResourceBufferStackAllocators[resIdx]->getBuffer();
-
-		// allocate memory
-		uint64_t alignment = m_device->getBufferAlignment(descriptorType, elementSize);
-		uint8_t *bufferPtr = m_rendererResources->m_shaderResourceBufferStackAllocators[resIdx]->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
-
-		// copy to destination
-		memcpy(bufferPtr, dataAsVector.data(), dataAsVector.size() * elementSize);
-
-		// create a transient bindless handle
-		return descriptorType == DescriptorType::STRUCTURED_BUFFER ?
-			m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) :
-			m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
-	};
-
-	StructuredBufferViewHandle transformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_modelMatrices);
-	StructuredBufferViewHandle prevTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_prevModelMatrices);
-	StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_skinningMatrices);
-	StructuredBufferViewHandle prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_prevSkinningMatrices);
-
-	StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
+	viewData.m_reflectionProbeArrayTextureViewHandle = data.m_reflectionProbeCacheTextureViewHandle;
 
 	// prepare data
 	const bool initializeExposureBuffer = m_frame < 2;
@@ -345,50 +189,37 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 			}
 		});
 
-	m_lightManager->update(viewData, ecs, cameraEntity, graph);
+	m_lightManager->update(viewData, data.m_ecs, graph);
 	m_lightManager->recordLightTileAssignment(graph, viewData);
 
 	LightManager::ShadowRecordData shadowRecordData{};
-	shadowRecordData.m_transformBufferHandle = transformsBufferViewHandle;
-	shadowRecordData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
+	shadowRecordData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
+	shadowRecordData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
 	shadowRecordData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	shadowRecordData.m_renderList = &m_renderList;
-	shadowRecordData.m_modelMatrices = m_modelMatrices.data();
+	shadowRecordData.m_renderList = data.m_renderList;
 	shadowRecordData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	shadowRecordData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 
 	m_lightManager->recordShadows(graph, viewData, shadowRecordData);
 
-	ReflectionProbeManager::Data reflectionProbeManagerData{};
-	reflectionProbeManagerData.m_viewData = &viewData;
-	reflectionProbeManagerData.m_ecs = ecs;
-	reflectionProbeManagerData.m_transformBufferHandle = transformsBufferViewHandle;
-	reflectionProbeManagerData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	reflectionProbeManagerData.m_lightRecordData = m_lightManager->getLightRecordData();
-	reflectionProbeManagerData.m_renderList = &m_renderList;
-	reflectionProbeManagerData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
-	reflectionProbeManagerData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
-
-	m_reflectionProbeManager->update(graph, reflectionProbeManagerData);
-
 
 	ForwardModule::ResultData forwardModuleResultData;
 	ForwardModule::Data forwardModuleData{};
 	forwardModuleData.m_viewData = &viewData;
-	forwardModuleData.m_transformBufferHandle = transformsBufferViewHandle;
-	forwardModuleData.m_prevTransformBufferHandle = prevTransformsBufferViewHandle;
-	forwardModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
-	forwardModuleData.m_prevSkinningMatrixBufferHandle = prevSkinningMatricesBufferViewHandle;
+	forwardModuleData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
+	forwardModuleData.m_prevTransformBufferHandle = data.m_prevTransformsBufferViewHandle;
+	forwardModuleData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
+	forwardModuleData.m_prevSkinningMatrixBufferHandle = data.m_prevSkinningMatricesBufferViewHandle;
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	forwardModuleData.m_globalMediaBufferHandle = globalMediaBufferViewHandle;
-	forwardModuleData.m_reflectionProbeDataBufferHandle = m_reflectionProbeManager->getReflectionProbeDataBufferhandle();
-	forwardModuleData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
-	forwardModuleData.m_reflectionProbeCount = m_reflectionProbeManager->getReflectionProbeCount();
-	forwardModuleData.m_renderList = &m_renderList;
+	forwardModuleData.m_globalMediaBufferHandle = data.m_globalMediaBufferViewHandle;
+	forwardModuleData.m_reflectionProbeDataBufferHandle = data.m_reflectionProbeDataBufferHandle;
+	forwardModuleData.m_globalMediaCount = data.m_globalMediaCount;
+	forwardModuleData.m_reflectionProbeCount = data.m_reflectionProbeCount;
+	forwardModuleData.m_renderList = data.m_renderList;
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	forwardModuleData.m_lightRecordData = m_lightManager->getLightRecordData();
-	forwardModuleData.m_taaEnabled = g_taaEnabled;
+	forwardModuleData.m_taaEnabled = data.m_effectSettings.m_taaEnabled;
 	forwardModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 
 	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
@@ -402,40 +233,47 @@ void RenderView::render(float deltaTime, float time, ECS *ecs, uint64_t cameraEn
 	postProcessModuleData.m_temporalAAResultImageViewHandle = taaResultImageViewHandle;
 	postProcessModuleData.m_temporalAAHistoryImageViewHandle = taaHistoryImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
-	postProcessModuleData.m_transformBufferHandle = transformsBufferViewHandle;
-	postProcessModuleData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
+	postProcessModuleData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
+	postProcessModuleData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	postProcessModuleData.m_renderList = &m_renderList;
-	postProcessModuleData.m_outlineRenderList = &m_outlineRenderList;
+	postProcessModuleData.m_renderList = data.m_renderList;
+	postProcessModuleData.m_outlineRenderList = data.m_outlineRenderList;
 	postProcessModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
-	postProcessModuleData.m_debugNormals = false;
-	postProcessModuleData.m_renderOutlines = anyOutlines;
+	postProcessModuleData.m_debugNormals = data.m_effectSettings.m_renderDebugNormals;
+	postProcessModuleData.m_renderOutlines = data.m_outlineRenderList && 
+		(!data.m_outlineRenderList->m_opaque.empty()
+		|| !data.m_outlineRenderList->m_opaqueAlphaTested.empty() 
+		|| !data.m_outlineRenderList->m_opaqueSkinned.empty() 
+		|| !data.m_outlineRenderList->m_opaqueSkinnedAlphaTested.empty());
 	postProcessModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
-	postProcessModuleData.m_taaEnabled = g_taaEnabled;
-	postProcessModuleData.m_sharpenEnabled = g_sharpenEnabled;
-	postProcessModuleData.m_bloomEnabled = true;
+	postProcessModuleData.m_taaEnabled = data.m_effectSettings.m_taaEnabled;
+	postProcessModuleData.m_sharpenEnabled = data.m_effectSettings.m_sharpenEnabled;
+	postProcessModuleData.m_bloomEnabled = data.m_effectSettings.m_bloomEnabled;
 
 	m_postProcessModule->record(graph, postProcessModuleData, nullptr);
 
 
-	GridPass::Data gridPassData{};
-	gridPassData.m_profilingCtx = m_device->getProfilingContext();
-	gridPassData.m_bufferAllocator = viewData.m_cbvAllocator;
-	gridPassData.m_offsetBufferSet = viewData.m_offsetBufferSet;
-	gridPassData.m_width = m_width;
-	gridPassData.m_height = m_height;
-	gridPassData.m_colorAttachment = resultImageViewHandle;
-	gridPassData.m_depthBufferAttachment = forwardModuleResultData.m_depthBufferImageViewHandle;
-	gridPassData.m_modelMatrix = glm::translate(glm::floor(glm::vec3(viewData.m_cameraPosition.x, 0.0f, viewData.m_cameraPosition.z) * 0.1f) * 10.0f);
-	gridPassData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
-	gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
-	gridPassData.m_thickLineColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-	gridPassData.m_cameraPos = viewData.m_cameraPosition;
-	gridPassData.m_cellSize = 1.0f;
-	gridPassData.m_gridSize = 200.0f;
+	if (data.m_effectSettings.m_renderEditorGrid)
+	{
+		GridPass::Data gridPassData{};
+		gridPassData.m_profilingCtx = m_device->getProfilingContext();
+		gridPassData.m_bufferAllocator = viewData.m_constantBufferAllocator;
+		gridPassData.m_offsetBufferSet = viewData.m_offsetBufferSet;
+		gridPassData.m_width = m_width;
+		gridPassData.m_height = m_height;
+		gridPassData.m_colorAttachment = resultImageViewHandle;
+		gridPassData.m_depthBufferAttachment = forwardModuleResultData.m_depthBufferImageViewHandle;
+		gridPassData.m_modelMatrix = glm::translate(glm::floor(glm::vec3(viewData.m_cameraPosition.x, 0.0f, viewData.m_cameraPosition.z) * 0.1f) * 10.0f);
+		gridPassData.m_viewProjectionMatrix = viewData.m_viewProjectionMatrix;
+		gridPassData.m_thinLineColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+		gridPassData.m_thickLineColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+		gridPassData.m_cameraPos = viewData.m_cameraPosition;
+		gridPassData.m_cellSize = 1.0f;
+		gridPassData.m_gridSize = 200.0f;
 
-	m_gridPass->record(graph, gridPassData);
+		m_gridPass->record(graph, gridPassData);
+	}
 
 	// copy picking data to readback buffer
 	rg::ResourceUsageDesc pickingBufferReadbackUsages[]

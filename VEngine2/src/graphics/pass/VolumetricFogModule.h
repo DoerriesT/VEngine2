@@ -5,7 +5,7 @@
 #include "utility/DeletedCopyMove.h"
 #include "Handles.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 struct SubMeshDrawInfo;
 struct RenderList;
 struct SubMeshBufferHandles;

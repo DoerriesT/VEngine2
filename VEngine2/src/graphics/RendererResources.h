@@ -2,7 +2,7 @@
 #include "gal/GraphicsAbstractionLayer.h"
 #include "ViewHandles.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 class ResourceViewRegistry;
 class TextureLoader;
 
@@ -28,10 +28,10 @@ public:
 	gal::Buffer *m_mappableShaderResourceBuffers[2] = {};
 	gal::Buffer *m_mappableIndexBuffers[2] = {};
 	gal::Buffer *m_mappableVertexBuffers[2] = {};
-	BufferStackAllocator *m_constantBufferStackAllocators[2] = {};
-	BufferStackAllocator *m_shaderResourceBufferStackAllocators[2] = {};
-	BufferStackAllocator *m_indexBufferStackAllocators[2] = {};
-	BufferStackAllocator *m_vertexBufferStackAllocators[2] = {};
+	LinearGPUBufferAllocator *m_constantBufferLinearAllocators[2] = {};
+	LinearGPUBufferAllocator *m_shaderResourceBufferLinearAllocators[2] = {};
+	LinearGPUBufferAllocator *m_indexBufferLinearAllocators[2] = {};
+	LinearGPUBufferAllocator *m_vertexBufferLinearAllocators[2] = {};
 	gal::Image *m_imguiFontTexture = nullptr;
 	gal::ImageView *m_imguiFontTextureView = nullptr;
 	TextureViewHandle m_imguiFontTextureViewHandle = {};

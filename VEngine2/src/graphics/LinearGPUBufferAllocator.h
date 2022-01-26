@@ -4,12 +4,12 @@
 #include "gal/GraphicsAbstractionLayer.h"
 #include "utility/DeletedCopyMove.h"
 
-class BufferStackAllocator
+class LinearGPUBufferAllocator
 {
 public:
-	explicit BufferStackAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer) noexcept;
-	DELETED_COPY_MOVE(BufferStackAllocator);
-	~BufferStackAllocator() noexcept;
+	explicit LinearGPUBufferAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer) noexcept;
+	DELETED_COPY_MOVE(LinearGPUBufferAllocator);
+	~LinearGPUBufferAllocator() noexcept;
 
 	/// <summary>
 	/// Attempts to allocate memory from the underlying buffer.

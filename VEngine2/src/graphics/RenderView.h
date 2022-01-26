@@ -9,7 +9,7 @@
 
 struct RenderViewResources;
 class ResourceViewRegistry;
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 class ShadowModule;
 class ForwardModule;
 class PostProcessModule;
@@ -23,15 +23,55 @@ class RendererResources;
 struct Transform;
 struct CameraComponent;
 class LightManager;
-class ReflectionProbeManager;
 class ECS;
 
 class RenderView
 {
 public:
+	struct EffectSettings
+	{
+		bool m_postProcessingEnabled;
+		bool m_renderEditorGrid;
+		bool m_renderDebugNormals;
+		bool m_taaEnabled;
+		bool m_sharpenEnabled;
+		bool m_bloomEnabled;
+		bool m_pickingEnabled;
+		bool m_autoExposureEnabled;
+		float m_manualExposure;
+	};
+
+	struct Data
+	{
+		EffectSettings m_effectSettings;
+		ECS *m_ecs;
+		float m_deltaTime;
+		float m_time;
+		TextureViewHandle m_reflectionProbeCacheTextureViewHandle;
+		StructuredBufferViewHandle m_reflectionProbeDataBufferHandle;
+		uint32_t m_reflectionProbeCount;
+		StructuredBufferViewHandle m_transformsBufferViewHandle;
+		StructuredBufferViewHandle m_prevTransformsBufferViewHandle;
+		StructuredBufferViewHandle m_skinningMatricesBufferViewHandle;
+		StructuredBufferViewHandle m_prevSkinningMatricesBufferViewHandle;
+		StructuredBufferViewHandle m_globalMediaBufferViewHandle;
+		uint32_t m_globalMediaCount;
+		const RenderList *m_renderList;
+		const RenderList *m_outlineRenderList;
+		glm::mat4 m_viewMatrix;
+		glm::mat4 m_projectionMatrix;
+		glm::vec3 m_cameraPosition;
+		float m_nearPlane;
+		float m_farPlane;
+		float m_fovy;
+		uint32_t m_renderResourceIdx;
+		uint32_t m_prevRenderResourceIdx;
+		bool m_ignoreHistory;
+	};
+
 	explicit RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, uint32_t width, uint32_t height) noexcept;
 	~RenderView();
-	void render(float deltaTime, float time, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept;
+	void render(const Data &data, rg::RenderGraph *graph) noexcept;
 	void resize(uint32_t width, uint32_t height) noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	gal::Image *getResultImage() const noexcept;
@@ -63,16 +103,7 @@ private:
 	uint32_t m_framesSinceLastResize = 0;
 
 	LightManager *m_lightManager = nullptr;
-	ReflectionProbeManager *m_reflectionProbeManager = nullptr;
 	ForwardModule *m_forwardModule = nullptr;
 	PostProcessModule *m_postProcessModule = nullptr;
 	GridPass *m_gridPass = nullptr;
-
-	eastl::vector<glm::mat4> m_modelMatrices;
-	eastl::vector<glm::mat4> m_prevModelMatrices;
-	eastl::vector<glm::mat4> m_skinningMatrices;
-	eastl::vector<glm::mat4> m_prevSkinningMatrices;
-	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
-	RenderList m_renderList;
-	RenderList m_outlineRenderList;
 };

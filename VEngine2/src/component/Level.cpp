@@ -119,7 +119,7 @@ bool Level::load(const char *path) noexcept
 			return false;
 		}
 
-		componentIDMappingTable[i] = index;
+		componentIDMappingTable[i] = static_cast<uint32_t>(index);
 	}
 
 	uint32_t nodeCount = 0;

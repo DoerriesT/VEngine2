@@ -1,7 +1,7 @@
 #include "ForwardModule.h"
 #include "graphics/gal/GraphicsAbstractionLayer.h"
 #include "graphics/gal/Initializers.h"
-#include "graphics/BufferStackAllocator.h"
+#include "graphics/LinearGPUBufferAllocator.h"
 #include "graphics/Mesh.h"
 #include <EASTL/iterator.h> // eastl::size()
 #include "utility/Utility.h"
@@ -461,7 +461,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 				const eastl::vector<SubMeshInstanceData> *instancesArr[]
 				{
@@ -677,7 +677,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.pickingPosY = data.m_viewData->m_pickingPosY;
 				passConsts.lodBias = data.m_taaEnabled ? -0.5f : 0.0f;
 
-				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 				const eastl::vector<SubMeshInstanceData> *instancesArr[]
 				{
@@ -858,7 +858,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			consts.normalTextureIndex = registry.getBindlessHandle(normalImageViewHandle, DescriptorType::TEXTURE);
 			consts.resultTextureIndex = registry.getBindlessHandle(gtaoImageViewHandle, DescriptorType::RW_TEXTURE);
 
-			uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+			uint32_t constsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			cmdList->bindPipeline(m_gtaoPipeline);
 
@@ -973,7 +973,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				consts.frame = data.m_viewData->m_frame;
 				consts.reflectionProbeCount = data.m_reflectionProbeCount;
 
-				uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+				uint32_t constsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 				gal::Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
 				cmdList->setViewport(0, 1, &viewport);

@@ -639,7 +639,7 @@ StaticSamplerDescription gal::Initializers::staticAnisotropicRepeatSampler(uint3
 	return desc;
 }
 
-DescriptorBufferInfo gal::Initializers::structuedBufferInfo(size_t elementSize, size_t elementCount) noexcept
+DescriptorBufferInfo gal::Initializers::structuredBufferInfo(size_t elementSize, size_t elementCount) noexcept
 {
 	elementCount = elementCount < 1 ? 1 : elementCount;
 	return { nullptr, 0, static_cast<uint64_t>(elementSize * elementCount), static_cast<uint32_t>(elementSize) };

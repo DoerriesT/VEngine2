@@ -1,7 +1,7 @@
 #include "PostProcessModule.h"
 #include "graphics/gal/GraphicsAbstractionLayer.h"
 #include "graphics/gal/Initializers.h"
-#include "graphics/BufferStackAllocator.h"
+#include "graphics/LinearGPUBufferAllocator.h"
 #include "graphics/Mesh.h"
 #include <EASTL/iterator.h> // eastl::size()
 #include <EASTL/fixed_vector.h>
@@ -572,7 +572,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				consts.velocityTextureIndex = registry.getBindlessHandle(data.m_velocityImageViewHandle, DescriptorType::TEXTURE);
 				consts.exposureDataBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 
-				uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+				uint32_t constsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 				cmdList->bindPipeline(m_temporalAAPipeline);
 
@@ -989,7 +989,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
@@ -1174,7 +1174,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.normalsLength = 0.1f;
 
-					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
@@ -1290,8 +1290,6 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 
 	if (anyDebugDraws)
 	{
-		auto *vertexBufferAllocator = data.m_viewData->m_rendererResources->m_vertexBufferStackAllocators[data.m_viewData->m_resIdx];
-
 		// compute vertex buffer size requirements
 		size_t debugVertexCount = 0;
 		for (const auto &vertices : m_debugDrawVertices)
@@ -1304,7 +1302,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 		uint64_t vertexBufferByteOffset;
 		{
 			uint64_t allocSize = (sizeof(float) * 4) * static_cast<uint64_t>(debugVertexCount);
-			auto *mappedPtr = vertexBufferAllocator->allocate(sizeof(float) * 4, &allocSize, &vertexBufferByteOffset);
+			auto *mappedPtr = data.m_viewData->m_vertexBufferAllocator->allocate(sizeof(float) * 4, &allocSize, &vertexBufferByteOffset);
 			assert(mappedPtr);
 			if (mappedPtr)
 			{
@@ -1354,7 +1352,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 					PassConstants passConsts;
 					memcpy(passConsts.viewProjectionMatrix, &data.m_viewData->m_viewProjectionMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
 
-					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					for (size_t i = 0; i < 6; ++i)
 					{
@@ -1366,7 +1364,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 						cmdList->bindPipeline(m_debugDrawPipelines[i]);
 						cmdList->bindDescriptorSets(m_debugDrawPipelines[i], 0, 1, &data.m_viewData->m_offsetBufferSet, 1, &passConstsAddress);
 
-						Buffer *vertexBuffer = vertexBufferAllocator->getBuffer();
+						Buffer *vertexBuffer = data.m_viewData->m_vertexBufferAllocator->getBuffer();
 						uint64_t vertexBufferOffset = vertexBufferByteOffset;
 						cmdList->bindVertexBuffers(0, 1, &vertexBuffer, &vertexBufferOffset);
 

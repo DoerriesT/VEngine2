@@ -14,7 +14,7 @@
 #include "CommonViewData.h"
 #include "RendererResources.h"
 #include "ResourceViewRegistry.h"
-#include "BufferStackAllocator.h"
+#include "LinearGPUBufferAllocator.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "utility/Utility.h"
@@ -383,7 +383,7 @@ LightManager::~LightManager()
 	m_device->destroyGraphicsPipeline(m_shadowSkinnedAlphaTestedPipeline);
 }
 
-void LightManager::update(const CommonViewData &viewData, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept
+void LightManager::update(const CommonViewData &viewData, ECS *ecs, rg::RenderGraph *graph) noexcept
 {
 	m_shadowMatrices.clear();
 	m_shadowTextureRenderHandles.clear();
@@ -451,12 +451,12 @@ void LightManager::update(const CommonViewData &viewData, ECS *ecs, uint64_t cam
 		const size_t elementSize = sizeof(dataAsVector[0]);
 
 		// prepare DescriptorBufferInfo
-		DescriptorBufferInfo bufferInfo = Initializers::structuedBufferInfo(elementSize, dataAsVector.size());
-		bufferInfo.m_buffer = viewData.m_rendererResources->m_shaderResourceBufferStackAllocators[viewData.m_resIdx]->getBuffer();
+		DescriptorBufferInfo bufferInfo = Initializers::structuredBufferInfo(elementSize, dataAsVector.size());
+		bufferInfo.m_buffer = viewData.m_shaderResourceAllocator->getBuffer();
 
 		// allocate memory
 		uint64_t alignment = viewData.m_device->getBufferAlignment(descriptorType, elementSize);
-		uint8_t *bufferPtr = viewData.m_rendererResources->m_shaderResourceBufferStackAllocators[viewData.m_resIdx]->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+		uint8_t *bufferPtr = viewData.m_shaderResourceAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
 
 		// copy to destination
 		if (copyNow && !dataAsVector.empty())
@@ -637,7 +637,7 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 
 					cmdList->bindPipeline(m_lightTileAssignmentPipeline);
 
-					gal::DescriptorSet *sets[] = { viewData.m_rendererResources->m_offsetBufferDescriptorSets[viewData.m_resIdx], viewData.m_viewRegistry->getCurrentFrameDescriptorSet() };
+					gal::DescriptorSet *sets[] = { viewData.m_offsetBufferSet, viewData.m_viewRegistry->getCurrentFrameDescriptorSet() };
 					cmdList->bindDescriptorSets(m_lightTileAssignmentPipeline, 1, 1, &sets[1], 0, nullptr);
 
 					cmdList->bindIndexBuffer(viewData.m_rendererResources->m_proxyMeshIndexBuffer, 0, IndexType::UINT16);
@@ -662,7 +662,7 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 						passConsts.wordCount = isShadowed ? lightShadowedWordCount : lightWordCount;
 						passConsts.resultTextureIndex = registry.getBindlessHandle(isShadowed ? m_lightRecordData.m_punctualLightsShadowedTileTextureViewHandle : m_lightRecordData.m_punctualLightsTileTextureViewHandle, DescriptorType::RW_TEXTURE);
 
-						uint32_t passConstsAddress = (uint32_t)viewData.m_rendererResources->m_constantBufferStackAllocators[viewData.m_resIdx]->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+						uint32_t passConstsAddress = (uint32_t)viewData.m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 						cmdList->bindDescriptorSets(m_lightTileAssignmentPipeline, 0, 1, &sets[0], 1, &passConstsAddress);
 
@@ -747,7 +747,7 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-					uint32_t passConstsAddress = (uint32_t)viewData.m_rendererResources->m_constantBufferStackAllocators[viewData.m_resIdx]->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)viewData.m_constantBufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
@@ -776,7 +776,7 @@ void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &v
 
 						cmdList->bindPipeline(pipeline);
 
-						gal::DescriptorSet *sets[] = { viewData.m_rendererResources->m_offsetBufferDescriptorSets[viewData.m_resIdx], viewData.m_viewRegistry->getCurrentFrameDescriptorSet() };
+						gal::DescriptorSet *sets[] = { viewData.m_offsetBufferSet, viewData.m_viewRegistry->getCurrentFrameDescriptorSet() };
 						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
 						for (const auto &instance : *instancesArr[listType])

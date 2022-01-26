@@ -1,6 +1,6 @@
 #include "ImGuiPass.h"
 #include "graphics/gal/Initializers.h"
-#include "graphics/BufferStackAllocator.h"
+#include "graphics/LinearGPUBufferAllocator.h"
 #include "graphics/imgui/imgui.h"
 #include <EASTL/iterator.h> // eastl::size()
 #define PROFILING_GPU_ENABLE

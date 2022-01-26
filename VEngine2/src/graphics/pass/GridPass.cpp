@@ -1,6 +1,6 @@
 #include "GridPass.h"
 #include "graphics/gal/Initializers.h"
-#include "graphics/BufferStackAllocator.h"
+#include "graphics/LinearGPUBufferAllocator.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "../RenderGraph.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 struct ImDrawData;
 
 class ImGuiPass
@@ -12,8 +12,8 @@ public:
 	struct Data
 	{
 		void *m_profilingCtx;
-		BufferStackAllocator *m_vertexBufferAllocator;
-		BufferStackAllocator *m_indexBufferAllocator;
+		LinearGPUBufferAllocator *m_vertexBufferAllocator;
+		LinearGPUBufferAllocator *m_indexBufferAllocator;
 		gal::DescriptorSet *m_bindlessSet;
 		uint32_t m_width;
 		uint32_t m_height;

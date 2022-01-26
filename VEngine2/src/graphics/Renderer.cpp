@@ -1,9 +1,10 @@
 #include "Renderer.h"
 #include "gal/GraphicsAbstractionLayer.h"
 #include "gal/Initializers.h"
-#include "BufferStackAllocator.h"
+#include "LinearGPUBufferAllocator.h"
 #include "ResourceViewRegistry.h"
 #include "RendererResources.h"
+#include "ReflectionProbeManager.h"
 #include "RenderView.h"
 #include "pass/ImGuiPass.h"
 #include <glm/gtc/type_ptr.hpp>
@@ -15,12 +16,19 @@
 #include "MaterialManager.h"
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
+#include "component/MeshComponent.h"
+#include "component/OutlineComponent.h"
+#include "component/ParticipatingMediumComponent.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
 #include "RenderGraph.h"
 #include "ecs/ECS.h"
 #include "component/TransformComponent.h"
 #include "component/SkinnedMeshComponent.h"
+#include "Camera.h"
+
+bool g_taaEnabled = true;
+bool g_sharpenEnabled = true;
 
 static Transform lerp(const Transform &x, const Transform &y, float alpha) noexcept
 {
@@ -69,6 +77,8 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 
 	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
 
+	m_reflectionProbeManager = new ReflectionProbeManager(m_device, m_rendererResources, m_viewRegistry);
+
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
@@ -82,6 +92,7 @@ Renderer::~Renderer() noexcept
 
 	delete m_imguiPass;
 	delete m_renderView;
+	delete m_reflectionProbeManager;
 	delete m_materialManager;
 	delete m_textureLoader;
 	delete m_textureManager;
@@ -149,10 +160,10 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 
 	PROFILING_GPU_NEW_FRAME(m_device->getProfilingContext());
 
-	m_rendererResources->m_constantBufferStackAllocators[m_frame & 1]->reset();
-	m_rendererResources->m_shaderResourceBufferStackAllocators[m_frame & 1]->reset();
-	m_rendererResources->m_indexBufferStackAllocators[m_frame & 1]->reset();
-	m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_constantBufferLinearAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_indexBufferLinearAllocators[m_frame & 1]->reset();
+	m_rendererResources->m_vertexBufferLinearAllocators[m_frame & 1]->reset();
 
 	m_viewRegistry->flushChanges();
 	m_textureManager->flushDeletionQueue(m_frame);
@@ -168,13 +179,212 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				m_meshManager->flushUploadCopies(cmdList, m_frame);
 			});
 
+		auto createShaderResourceBuffer = [&](gal::DescriptorType descriptorType, auto dataAsVector)
+		{
+			const size_t elementSize = sizeof(dataAsVector[0]);
+
+			// prepare DescriptorBufferInfo
+			gal::DescriptorBufferInfo bufferInfo = gal::Initializers::structuredBufferInfo(elementSize, dataAsVector.size());
+			bufferInfo.m_buffer = m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1]->getBuffer();
+
+			// allocate memory
+			uint64_t alignment = m_device->getBufferAlignment(descriptorType, elementSize);
+			uint8_t *bufferPtr = m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1]->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+
+			// copy to destination
+			memcpy(bufferPtr, dataAsVector.data(), dataAsVector.size() * elementSize);
+
+			// create a transient bindless handle
+			return descriptorType == gal::DescriptorType::STRUCTURED_BUFFER ?
+				m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) :
+				m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
+		};
+
+		m_globalMedia.clear();
+		m_modelMatrices.clear();
+		m_prevModelMatrices.clear();
+		m_skinningMatrices.clear();
+		m_prevSkinningMatrices.clear();
+		m_renderList.clear();
+		m_outlineRenderList.clear();
+
+		// process global participating media
+		ecs->iterate<ParticipatingMediumComponent>([&](size_t count, const EntityID *entities, ParticipatingMediumComponent *mediaC)
+			{
+				for (size_t i = 0; i < count; ++i)
+				{
+					auto &mc = mediaC[i];
+
+					if (mc.m_type == ParticipatingMediumComponent::Type::Global)
+					{
+						GlobalParticipatingMediumGPU medium{};
+						medium.emissive = glm::unpackUnorm4x8(mc.m_emissiveColor) * mc.m_emissiveIntensity;
+						medium.extinction = mc.m_extinction;
+						medium.scattering = glm::unpackUnorm4x8(mc.m_albedo) * mc.m_extinction;
+						medium.phase = mc.m_phaseAnisotropy;
+						medium.heightFogEnabled = mc.m_heightFogEnabled;
+						medium.heightFogStart = mc.m_heightFogStart;
+						medium.heightFogFalloff = mc.m_heightFogFalloff;
+						medium.maxHeight = mc.m_maxHeight;
+						medium.textureScale = mc.m_textureScale;
+						medium.textureBias = glm::make_vec3(mc.m_textureBias);
+						medium.densityTexture = mc.m_densityTexture.isLoaded() ? mc.m_densityTexture->getTextureHandle() : TextureHandle{};
+
+						m_globalMedia.push_back(medium);
+					}
+				}
+			});
+
+		// fill mesh render lists
+		{
+			IterateQuery meshIterateQuery;
+			ecs->setIterateQueryRequiredComponents<TransformComponent>(meshIterateQuery);
+			ecs->setIterateQueryOptionalComponents<MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(meshIterateQuery);
+			ecs->iterate<TransformComponent, MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(
+				meshIterateQuery,
+				[&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC, SkinnedMeshComponent *sMeshC, OutlineComponent *outlineC, EditorOutlineComponent *editorOutlineC)
+				{
+					// we need either one of these
+					if (!meshC && !sMeshC)
+					{
+						return;
+					}
+					const bool skinned = sMeshC != nullptr;
+					for (size_t i = 0; i < count; ++i)
+					{
+						auto &tc = transC[i];
+						const auto &meshAsset = skinned ? sMeshC[i].m_mesh : meshC[i].m_mesh;
+						if (!meshAsset.get())
+						{
+							continue;
+						}
+
+						// model transform
+						const auto transformIndex = m_modelMatrices.size();
+						m_modelMatrices.push_back(glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(tc.m_curRenderTransform.m_rotation) * glm::scale(tc.m_curRenderTransform.m_scale));
+						m_prevModelMatrices.push_back(glm::translate(tc.m_prevRenderTransform.m_translation) * glm::mat4_cast(tc.m_prevRenderTransform.m_rotation) * glm::scale(tc.m_prevRenderTransform.m_scale));
+
+						// skinning matrices
+						const auto skinningMatricesOffset = m_skinningMatrices.size();
+						if (skinned)
+						{
+							m_skinningMatrices.insert(m_skinningMatrices.end(), sMeshC[i].m_curRenderMatrixPalette.begin(), sMeshC[i].m_curRenderMatrixPalette.end());
+							m_prevSkinningMatrices.insert(m_prevSkinningMatrices.end(), sMeshC[i].m_prevRenderMatrixPalette.begin(), sMeshC[i].m_prevRenderMatrixPalette.end());
+						}
+
+						const bool outlined = (outlineC && outlineC[i].m_outlined) || (editorOutlineC && editorOutlineC[i].m_outlined);
+
+						const auto &submeshhandles = meshAsset->getSubMeshhandles();
+						const auto &materialAssets = meshAsset->getMaterials();
+						for (size_t j = 0; j < submeshhandles.size(); ++j)
+						{
+							SubMeshInstanceData instanceData{};
+							instanceData.m_subMeshHandle = submeshhandles[j];
+							instanceData.m_transformIndex = static_cast<uint32_t>(transformIndex);
+							instanceData.m_skinningMatricesOffset = static_cast<uint32_t>(skinningMatricesOffset);
+							instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
+							instanceData.m_entityID = entities[i];
+
+							const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
+
+							if (alphaTested)
+								if (skinned)
+									m_renderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
+								else
+									m_renderList.m_opaqueAlphaTested.push_back(instanceData);
+							else
+								if (skinned)
+									m_renderList.m_opaqueSkinned.push_back(instanceData);
+								else
+									m_renderList.m_opaque.push_back(instanceData);
+
+							if (outlined)
+							{
+								if (alphaTested)
+									if (skinned)
+										m_outlineRenderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
+									else
+										m_outlineRenderList.m_opaqueAlphaTested.push_back(instanceData);
+								else
+									if (skinned)
+										m_outlineRenderList.m_opaqueSkinned.push_back(instanceData);
+									else
+										m_outlineRenderList.m_opaque.push_back(instanceData);
+							}
+						}
+					}
+				});
+		}
+
+		StructuredBufferViewHandle transformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_modelMatrices);
+		StructuredBufferViewHandle prevTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_prevModelMatrices);
+		StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_skinningMatrices);
+		StructuredBufferViewHandle prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_prevSkinningMatrices);
+		StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
 
 		// render views
 		if (cameraEntity != k_nullEntity)
 		{
-			m_renderView->render(deltaTime, m_time, ecs, cameraEntity, m_renderGraph);
-		}
+			auto *cameraComponent = ecs->getComponent<CameraComponent>(cameraEntity);
+			auto cameraTransformComponent = *ecs->getComponent<TransformComponent>(cameraEntity);
+			cameraTransformComponent.m_transform = cameraTransformComponent.m_curRenderTransform;
+			Camera camera(cameraTransformComponent, *cameraComponent);
 
+			// update reflection probes
+			{
+				auto cameraPosition = camera.getPosition();
+
+				ReflectionProbeManager::Data reflectionProbeManagerData{};
+				reflectionProbeManagerData.m_ecs = ecs;
+				reflectionProbeManagerData.m_cameraPosition = &cameraPosition;
+				reflectionProbeManagerData.m_gpuProfilingCtx = m_device->getProfilingContext();
+				reflectionProbeManagerData.m_shaderResourceLinearAllocator = m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1];
+				reflectionProbeManagerData.m_constantBufferLinearAllocator = m_rendererResources->m_constantBufferLinearAllocators[m_frame & 1];
+				reflectionProbeManagerData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1];
+				reflectionProbeManagerData.m_transformBufferHandle = transformsBufferViewHandle;
+				reflectionProbeManagerData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+				reflectionProbeManagerData.m_renderList = &m_renderList;
+				reflectionProbeManagerData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
+				reflectionProbeManagerData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
+
+				m_reflectionProbeManager->update(m_renderGraph, reflectionProbeManagerData);
+			}
+
+			RenderView::Data renderViewData{};
+			renderViewData.m_effectSettings.m_postProcessingEnabled = true;
+			renderViewData.m_effectSettings.m_renderEditorGrid = true;
+			renderViewData.m_effectSettings.m_renderDebugNormals = false;
+			renderViewData.m_effectSettings.m_taaEnabled = g_taaEnabled;
+			renderViewData.m_effectSettings.m_sharpenEnabled = g_sharpenEnabled;
+			renderViewData.m_effectSettings.m_bloomEnabled = true;
+			renderViewData.m_effectSettings.m_pickingEnabled = true;
+			renderViewData.m_effectSettings.m_autoExposureEnabled = true;
+			renderViewData.m_effectSettings.m_manualExposure = 1.0f;
+			renderViewData.m_ecs = ecs;
+			renderViewData.m_deltaTime = deltaTime;
+			renderViewData.m_time = m_time;
+			renderViewData.m_reflectionProbeCacheTextureViewHandle = m_reflectionProbeManager->getReflectionProbeArrayTextureViewHandle();
+			renderViewData.m_reflectionProbeDataBufferHandle = m_reflectionProbeManager->getReflectionProbeDataBufferhandle();
+			renderViewData.m_reflectionProbeCount = m_reflectionProbeManager->getReflectionProbeCount();
+			renderViewData.m_transformsBufferViewHandle = transformsBufferViewHandle;
+			renderViewData.m_prevTransformsBufferViewHandle = prevTransformsBufferViewHandle;
+			renderViewData.m_skinningMatricesBufferViewHandle = skinningMatricesBufferViewHandle;
+			renderViewData.m_prevSkinningMatricesBufferViewHandle = prevSkinningMatricesBufferViewHandle;
+			renderViewData.m_globalMediaBufferViewHandle = globalMediaBufferViewHandle;
+			renderViewData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
+			renderViewData.m_renderList = &m_renderList;
+			renderViewData.m_outlineRenderList = &m_outlineRenderList;
+			renderViewData.m_viewMatrix = camera.getViewMatrix();
+			renderViewData.m_projectionMatrix = camera.getProjectionMatrix();
+			renderViewData.m_cameraPosition = camera.getPosition();
+			renderViewData.m_nearPlane = cameraComponent->m_near;
+			renderViewData.m_farPlane = cameraComponent->m_far;
+			renderViewData.m_fovy = cameraComponent->m_fovy;
+			renderViewData.m_renderResourceIdx = m_frame & 1;
+			renderViewData.m_prevRenderResourceIdx = (m_frame + 1) & 1;
+
+			m_renderView->render(renderViewData, m_renderGraph);
+		}
 
 		if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
 		{
@@ -211,8 +421,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				{
 					ImGuiPass::Data imguiPassData{};
 					imguiPassData.m_profilingCtx = m_device->getProfilingContext();
-					imguiPassData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferStackAllocators[m_frame & 1];
-					imguiPassData.m_indexBufferAllocator = m_rendererResources->m_indexBufferStackAllocators[m_frame & 1];
+					imguiPassData.m_vertexBufferAllocator = m_rendererResources->m_vertexBufferLinearAllocators[m_frame & 1];
+					imguiPassData.m_indexBufferAllocator = m_rendererResources->m_indexBufferLinearAllocators[m_frame & 1];
 					imguiPassData.m_bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
 					imguiPassData.m_width = m_swapchainWidth;
 					imguiPassData.m_height = m_swapchainHeight;

@@ -13,7 +13,7 @@
 
 #include "Material.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 class RenderView;
 class ResourceViewRegistry;
 class RendererResources;
@@ -23,6 +23,7 @@ class TextureManager;
 class MaterialManager;
 class ImGuiPass;
 class ECS;
+class ReflectionProbeManager;
 
 typedef void *ImTextureID;
 
@@ -67,7 +68,7 @@ private:
 	gal::Semaphore *m_semaphores[3] = {};
 	uint64_t m_semaphoreValues[3] = {};
 	rg::RenderGraph *m_renderGraph = nullptr;
-	uint64_t m_frame = 0;
+	uint32_t m_frame = 0;
 	uint32_t m_swapchainWidth = 1;
 	uint32_t m_swapchainHeight = 1;
 	uint32_t m_width = 1;
@@ -79,7 +80,16 @@ private:
 	TextureLoader *m_textureLoader = nullptr;
 	TextureManager *m_textureManager = nullptr;
 	MaterialManager *m_materialManager = nullptr;
+	ReflectionProbeManager *m_reflectionProbeManager = nullptr;
 	RenderView *m_renderView = nullptr;
 	ImGuiPass *m_imguiPass = nullptr;
 	bool m_editorMode = false;
+
+	eastl::vector<glm::mat4> m_modelMatrices;
+	eastl::vector<glm::mat4> m_prevModelMatrices;
+	eastl::vector<glm::mat4> m_skinningMatrices;
+	eastl::vector<glm::mat4> m_prevSkinningMatrices;
+	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
+	RenderList m_renderList;
+	RenderList m_outlineRenderList;
 };

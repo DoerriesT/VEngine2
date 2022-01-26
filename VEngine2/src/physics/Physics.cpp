@@ -178,7 +178,7 @@ void Physics::update(float deltaTime) noexcept
 
 					if (pc.m_physicsShapeType == PhysicsShapeType::CONVEX_MESH || pc.m_physicsShapeType == PhysicsShapeType::TRIANGLE_MESH)
 					{
-						if (pc.m_physicsMesh.isLoaded())
+						if (!pc.m_physicsMesh.isLoaded())
 						{
 							continue;
 						}

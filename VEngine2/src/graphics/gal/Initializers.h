@@ -49,7 +49,7 @@ namespace gal
 		StaticSamplerDescription staticAnisotropicClampSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
 		StaticSamplerDescription staticAnisotropicRepeatSampler(uint32_t binding, uint32_t space, ShaderStageFlags stageFlags) noexcept;
 
-		DescriptorBufferInfo structuedBufferInfo(size_t elementSize, size_t elementCount) noexcept;
+		DescriptorBufferInfo structuredBufferInfo(size_t elementSize, size_t elementCount) noexcept;
 
 		DescriptorSetLayoutBinding bindlessDescriptorSetLayoutBinding(DescriptorType type, uint32_t space, ShaderStageFlags stageFlags = ShaderStageFlags::ALL_STAGES) noexcept;
 	}

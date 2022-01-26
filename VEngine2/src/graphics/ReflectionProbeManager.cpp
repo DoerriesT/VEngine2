@@ -5,13 +5,13 @@
 #include "gal/Initializers.h"
 #include "component/ReflectionProbeComponent.h"
 #include "component/TransformComponent.h"
+#include "component/LightComponent.h"
 #include "RenderData.h"
 #include "RenderGraph.h"
 #include "Mesh.h"
-#include "CommonViewData.h"
 #include "RendererResources.h"
 #include "ResourceViewRegistry.h"
-#include "BufferStackAllocator.h"
+#include "LinearGPUBufferAllocator.h"
 #include "RendererResources.h"
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
@@ -40,9 +40,10 @@ namespace
 	};
 }
 
-ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept
+ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, RendererResources *renderResources, ResourceViewRegistry *viewRegistry) noexcept
 	:m_device(device),
-	m_rendererResources(renderResources)
+	m_rendererResources(renderResources),
+	m_viewRegistry(viewRegistry)
 {
 	for (uint32_t i = 0; i < k_cacheSize; ++i)
 	{
@@ -108,8 +109,8 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
 			{
-				{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-				{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+				{ renderResources->m_offsetBufferDescriptorSetLayout, 1, &usedOffsetBufferBinding },
+				{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 			};
 
 			gal::StaticSamplerDescription staticSamplerDescs[]
@@ -136,8 +137,8 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
 		{
-			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+			{ renderResources->m_offsetBufferDescriptorSetLayout, 1, &usedOffsetBufferBinding },
+			{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::COMPUTE_BIT);
 
@@ -165,8 +166,8 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
 		{
-			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+			{ renderResources->m_offsetBufferDescriptorSetLayout, 1, &usedOffsetBufferBinding },
+			{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::COMPUTE_BIT);
 
@@ -189,7 +190,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
 		{
-			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+			{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, ShaderStageFlags::COMPUTE_BIT);
 
@@ -429,7 +430,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 			{
 				gal::ImageViewCreateInfo viewCreateInfo{};
 				viewCreateInfo.m_image = m_probeTmpLitImage;
-				viewCreateInfo.m_viewType = gal::ImageViewType::_2D;
+				viewCreateInfo.m_viewType = gal::ImageViewType::_2D_ARRAY;
 				viewCreateInfo.m_format = imageCreateInfo.m_format;
 				viewCreateInfo.m_baseMipLevel = i;
 				viewCreateInfo.m_levelCount = 1;
@@ -597,7 +598,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 					pc.m_recapture = false;
 				}
 
-				glm::vec3 cameraProbePosDiff = data.m_viewData->m_cameraPosition - tc.m_curRenderTransform.m_translation;
+				glm::vec3 cameraProbePosDiff = *data.m_cameraPosition - tc.m_curRenderTransform.m_translation;
 
 				ProbeSortData probeSortData{};
 				probeSortData.m_entity = entities[i];
@@ -681,7 +682,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		// evaluate relighting score
 		const uint32_t lastLit = sData.m_probeComp->m_lastLit;
 		const float distanceScore = (1.0f - (sData.m_cameraDist2 * invFurthestDistance2)) * 0.5f + 0.5f;
-		const float timeScore = lastLit == UINT32_MAX ? 9999999.0f : static_cast<float>(data.m_viewData->m_frame - lastLit);
+		const float timeScore = lastLit == UINT32_MAX ? 9999999.0f : static_cast<float>(m_internalFrame - lastLit);
 		const float relightScore = distanceScore * timeScore;
 
 		if (relightScore > bestRelightScore)
@@ -729,7 +730,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 	{
 		auto &sData = sortData[relightProbeIndex];
 		// keep track of the frame where the probe was lit
-		sData.m_probeComp->m_lastLit = data.m_viewData->m_frame;
+		sData.m_probeComp->m_lastLit = m_internalFrame;
 
 		m_currentRelightProbePosition = sData.m_capturePosition;
 		m_currentRelightProbeNearPlane = sData.m_nearPlane;
@@ -747,16 +748,16 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 	ReflectionProbeGPU *reflectionProbesBufferPtr = nullptr;
 	{
 		// prepare DescriptorBufferInfo
-		DescriptorBufferInfo bufferInfo = Initializers::structuedBufferInfo(sizeof(ReflectionProbeGPU), k_cacheSize);
-		bufferInfo.m_buffer = data.m_viewData->m_rendererResources->m_shaderResourceBufferStackAllocators[data.m_viewData->m_resIdx]->getBuffer();
+		DescriptorBufferInfo bufferInfo = Initializers::structuredBufferInfo(sizeof(ReflectionProbeGPU), k_cacheSize);
+		bufferInfo.m_buffer = data.m_shaderResourceLinearAllocator->getBuffer();
 
 		// allocate memory
-		const uint64_t alignment = data.m_viewData->m_device->getBufferAlignment(DescriptorType::STRUCTURED_BUFFER, sizeof(ReflectionProbeGPU));
-		uint8_t *bufferPtr = data.m_viewData->m_rendererResources->m_shaderResourceBufferStackAllocators[data.m_viewData->m_resIdx]->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+		const uint64_t alignment = m_device->getBufferAlignment(DescriptorType::STRUCTURED_BUFFER, sizeof(ReflectionProbeGPU));
+		uint8_t *bufferPtr = data.m_shaderResourceLinearAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
 		reflectionProbesBufferPtr = reinterpret_cast<ReflectionProbeGPU *>(bufferPtr);
 
 		// create a transient bindless handle
-		m_reflectionProbesBufferHandle = data.m_viewData->m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
+		m_reflectionProbesBufferHandle = m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
 	}
 
 	// build probe list for frame
@@ -795,6 +796,8 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 	}
 
 	m_reflectionProbeCount = static_cast<uint32_t>(activeProbeCount);
+
+	++m_internalFrame;
 }
 
 TextureViewHandle ReflectionProbeManager::getReflectionProbeArrayTextureViewHandle() const noexcept
@@ -836,7 +839,7 @@ void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Da
 	graph->addPass("Reflection Probe GBuffer", rg::QueueType::GRAPHICS, 0, nullptr, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Reflection Probe GBuffer");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Reflection Probe GBuffer");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Reflection Probe GBuffer");
 			PROFILING_ZONE_SCOPED;
 
 			constexpr uint32_t resolution = static_cast<uint32_t>(k_resolution);
@@ -891,7 +894,7 @@ void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Da
 					passConsts.transformBufferIndex = data.m_transformBufferHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-					uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+					uint32_t passConstsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 					const eastl::vector<SubMeshInstanceData> *instancesArr[]
 					{
@@ -915,7 +918,7 @@ void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Da
 
 						cmdList->bindPipeline(pipeline);
 
-						gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
+						gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
 						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
 						for (const auto &instance : *instancesArr[listType])
@@ -989,15 +992,79 @@ void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Da
 
 void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &data, size_t probeIdx) const noexcept
 {
-	// relight gbuffer
-	rg::ResourceUsageDesc relightUsageDescs[] =
+	// get list of directional lights and prepare GPU data. we do not care about shadow mapping, so making a list of all lights is enough.
+	eastl::fixed_vector<DirectionalLightGPU, 8> directionalLights;
+	eastl::fixed_vector<DirectionalLightGPU, 8> directionalLightsShadowed;
+	data.m_ecs->iterate<TransformComponent, LightComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, LightComponent *lightC)
+		{
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				auto &lc = lightC[i];
+
+				if (lc.m_type == LightComponent::Type::Directional)
+				{
+					DirectionalLightGPU directionalLight{};
+					directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
+					directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+					directionalLight.m_cascadeCount = 0;
+
+					if (lc.m_shadows)
+					{
+						directionalLightsShadowed.push_back(directionalLight);
+					}
+					else
+					{
+						directionalLights.push_back(directionalLight);
+					}
+				}
+			}
+		});
+
+	// create buffers for directional light data
+	uint32_t numDirectionalLights = static_cast<uint32_t>(directionalLights.size());
+	uint32_t numDirectionalLightsShadowed = static_cast<uint32_t>(directionalLightsShadowed.size());
+	StructuredBufferViewHandle directionalLightsBufferViewHandle = {};
+	StructuredBufferViewHandle directionalLightsShadowedBufferViewHandle = {};
 	{
-		{data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT}},
-	};
-	graph->addPass("Reflection Probe Relight", rg::QueueType::GRAPHICS, eastl::size(relightUsageDescs), relightUsageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+		const uint64_t alignment = m_device->getBufferAlignment(DescriptorType::STRUCTURED_BUFFER, sizeof(DirectionalLightGPU));
+
+		// unshadowed
+		if (!directionalLights.empty())
+		{
+			// prepare DescriptorBufferInfo
+			DescriptorBufferInfo bufferInfo = Initializers::structuredBufferInfo(sizeof(DirectionalLightGPU), directionalLights.size());
+			bufferInfo.m_buffer = data.m_shaderResourceLinearAllocator->getBuffer();
+
+			// allocate memory
+			uint8_t *bufferPtr = data.m_shaderResourceLinearAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+			memcpy(bufferPtr, directionalLights.data(), directionalLights.size() * sizeof(directionalLights[0]));
+
+			// create a transient bindless handle
+			directionalLightsBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
+		}
+
+		// shadowed
+		if (!directionalLightsShadowed.empty())
+		{
+			// prepare DescriptorBufferInfo
+			DescriptorBufferInfo bufferInfo = Initializers::structuredBufferInfo(sizeof(DirectionalLightGPU), directionalLightsShadowed.size());
+			bufferInfo.m_buffer = data.m_shaderResourceLinearAllocator->getBuffer();
+
+			// allocate memory
+			uint8_t *bufferPtr = data.m_shaderResourceLinearAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+			memcpy(bufferPtr, directionalLightsShadowed.data(), directionalLightsShadowed.size() * sizeof(directionalLightsShadowed[0]));
+
+			// create a transient bindless handle
+			directionalLightsShadowedBufferViewHandle = m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
+		}
+	}
+
+	// relight gbuffer
+	graph->addPass("Reflection Probe Relight", rg::QueueType::GRAPHICS, 0, nullptr, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Reflection Probe Relight");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Reflection Probe Relight");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Reflection Probe Relight");
 			PROFILING_ZONE_SCOPED;
 
 			// transition tmp image to RW_RESOURCE (we need to write to the mips in the next pass, so just transitition them here already)
@@ -1046,19 +1113,19 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 			consts.texelSize = 1.0f / k_resolution;
 			consts.resolution = static_cast<uint32_t>(k_resolution);
 			consts.probeArraySlot = static_cast<uint32_t>(probeIdx);
-			consts.directionalLightCount = data.m_lightRecordData->m_directionalLightCount;
-			consts.directionalLightBufferIndex = data.m_lightRecordData->m_directionalLightsBufferViewHandle;
-			consts.directionalLightShadowedCount = data.m_lightRecordData->m_directionalLightShadowedCount;
-			consts.directionalLightShadowedBufferIndex = data.m_lightRecordData->m_directionalLightsShadowedBufferViewHandle;
+			consts.directionalLightCount = numDirectionalLights;
+			consts.directionalLightBufferIndex = directionalLightsBufferViewHandle;
+			consts.directionalLightShadowedCount = numDirectionalLightsShadowed;
+			consts.directionalLightShadowedBufferIndex = directionalLightsShadowedBufferViewHandle;
 			consts.albedoRoughnessTextureIndex = m_probeAlbedoRoughnessTextureViewHandle;
 			consts.normalDepthTextureIndex = m_probeNormalDepthTextureViewHandle;
 			consts.resultTextureIndex = m_probeTmpLitArrayRWTextureViewHandles[0]; // write into mip 0
 
-			uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+			uint32_t constsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			cmdList->bindPipeline(m_probeRelightPipeline);
 
-			gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
+			gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
 			cmdList->bindDescriptorSets(m_probeRelightPipeline, 0, 2, sets, 1, &constsAddress);
 
 			cmdList->dispatch((consts.resolution + 7) / 8, (consts.resolution + 7) / 8, 6);
@@ -1068,7 +1135,7 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 	graph->addPass("Reflection Probe Generate Mips", rg::QueueType::GRAPHICS, 0, nullptr, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Reflection Probe Generate Mips");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Reflection Probe Generate Mips");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Reflection Probe Generate Mips");
 			PROFILING_ZONE_SCOPED;
 
 			// transition first mip of tmp image to READ_RESOURCE, all other mips are already RW_RESOURCE
@@ -1128,11 +1195,11 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 			consts.resultMip3TextureIndex = m_probeTmpLitArrayRWTextureViewHandles[4];
 			consts.spdCounterBufferIndex = m_spdCounterBufferViewHandle;
 
-			uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+			uint32_t constsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			cmdList->bindPipeline(m_ffxDownsamplePipeline);
 
-			gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
+			gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
 			cmdList->bindDescriptorSets(m_ffxDownsamplePipeline, 0, 2, sets, 1, &constsAddress);
 
 			cmdList->dispatch(dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1], 6);
@@ -1153,7 +1220,7 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 	graph->addPass("Reflection Probe Filter", rg::QueueType::GRAPHICS, 0, nullptr, [=](CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "Reflection Probe Generate Mips");
-			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "Reflection Probe Generate Mips");
+			PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Reflection Probe Generate Mips");
 			PROFILING_ZONE_SCOPED;
 
 			// transition result image to RW_RESOURCE
@@ -1168,7 +1235,8 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 			}
 
 			cmdList->bindPipeline(m_probeFilterPipeline);
-			cmdList->bindDescriptorSets(m_probeFilterPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
+			auto *bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+			cmdList->bindDescriptorSets(m_probeFilterPipeline, 0, 1, &bindlessSet, 0, nullptr);
 
 			for (size_t i = 0; i < k_numMips; ++i)
 			{

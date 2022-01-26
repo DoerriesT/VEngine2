@@ -1,5 +1,5 @@
 #include "RendererResources.h"
-#include "BufferStackAllocator.h"
+#include "LinearGPUBufferAllocator.h"
 #include "ResourceViewRegistry.h"
 #include "imgui/imgui.h"
 #include "utility/Utility.h"
@@ -25,8 +25,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableConstantBuffers[0], "Mappable Constant Buffer 0");
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableConstantBuffers[1], "Mappable Constant Buffer 1");
 
-		m_constantBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableConstantBuffers[0]);
-		m_constantBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableConstantBuffers[1]);
+		m_constantBufferLinearAllocators[0] = new LinearGPUBufferAllocator(m_device, m_mappableConstantBuffers[0]);
+		m_constantBufferLinearAllocators[1] = new LinearGPUBufferAllocator(m_device, m_mappableConstantBuffers[1]);
 
 		gal::DescriptorSetLayoutBinding binding{ gal::DescriptorType::OFFSET_CONSTANT_BUFFER, 0, 0, 1, gal::ShaderStageFlags::ALL_STAGES };
 		m_device->createDescriptorSetLayout(1, &binding, &m_offsetBufferDescriptorSetLayout);
@@ -49,8 +49,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableShaderResourceBuffers[0], "Mappable Shader Resource Buffer 0");
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableShaderResourceBuffers[1], "Mappable Shader Resource Buffer 1");
 
-		m_shaderResourceBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableShaderResourceBuffers[0]);
-		m_shaderResourceBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableShaderResourceBuffers[1]);
+		m_shaderResourceBufferLinearAllocators[0] = new LinearGPUBufferAllocator(m_device, m_mappableShaderResourceBuffers[0]);
+		m_shaderResourceBufferLinearAllocators[1] = new LinearGPUBufferAllocator(m_device, m_mappableShaderResourceBuffers[1]);
 	}
 
 	// index buffer
@@ -61,8 +61,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableIndexBuffers[0], "Mappable Index Buffer 0");
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableIndexBuffers[1], "Mappable Index Buffer 1");
 
-		m_indexBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableIndexBuffers[0]);
-		m_indexBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableIndexBuffers[1]);
+		m_indexBufferLinearAllocators[0] = new LinearGPUBufferAllocator(m_device, m_mappableIndexBuffers[0]);
+		m_indexBufferLinearAllocators[1] = new LinearGPUBufferAllocator(m_device, m_mappableIndexBuffers[1]);
 	}
 
 	// vertex buffer
@@ -73,8 +73,8 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableVertexBuffers[0], "Mappable Vertex Buffer 0");
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_mappableVertexBuffers[1], "Mappable Vertex Buffer 1");
 
-		m_vertexBufferStackAllocators[0] = new BufferStackAllocator(m_device, m_mappableVertexBuffers[0]);
-		m_vertexBufferStackAllocators[1] = new BufferStackAllocator(m_device, m_mappableVertexBuffers[1]);
+		m_vertexBufferLinearAllocators[0] = new LinearGPUBufferAllocator(m_device, m_mappableVertexBuffers[0]);
+		m_vertexBufferLinearAllocators[1] = new LinearGPUBufferAllocator(m_device, m_mappableVertexBuffers[1]);
 	}
 
 	// imgui font texture
@@ -479,14 +479,14 @@ RendererResources::RendererResources(gal::GraphicsDevice *device, ResourceViewRe
 
 RendererResources::~RendererResources()
 {
-	delete m_constantBufferStackAllocators[0];
-	delete m_constantBufferStackAllocators[1];
-	delete m_shaderResourceBufferStackAllocators[0];
-	delete m_shaderResourceBufferStackAllocators[1];
-	delete m_indexBufferStackAllocators[0];
-	delete m_indexBufferStackAllocators[1];
-	delete m_vertexBufferStackAllocators[0];
-	delete m_vertexBufferStackAllocators[1];
+	delete m_constantBufferLinearAllocators[0];
+	delete m_constantBufferLinearAllocators[1];
+	delete m_shaderResourceBufferLinearAllocators[0];
+	delete m_shaderResourceBufferLinearAllocators[1];
+	delete m_indexBufferLinearAllocators[0];
+	delete m_indexBufferLinearAllocators[1];
+	delete m_vertexBufferLinearAllocators[0];
+	delete m_vertexBufferLinearAllocators[1];
 
 	m_device->destroyBuffer(m_mappableConstantBuffers[0]);
 	m_device->destroyBuffer(m_mappableConstantBuffers[1]);

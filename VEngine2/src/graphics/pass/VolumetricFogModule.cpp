@@ -4,7 +4,7 @@
 #include "profiling/Profiling.h"
 #include "graphics/gal/GraphicsAbstractionLayer.h"
 #include "graphics/gal/Initializers.h"
-#include "graphics/BufferStackAllocator.h"
+#include "graphics/LinearGPUBufferAllocator.h"
 #include "utility/Utility.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include "graphics/LightManager.h"
@@ -315,7 +315,7 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			consts.checkerBoardCondition = data.m_viewData->m_frame & 1;
 			consts.ignoreHistory = data.m_ignoreHistory;
 
-			uint32_t constsAddress = (uint32_t)data.m_viewData->m_cbvAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
+			uint32_t constsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 
 			// scatter
 			{

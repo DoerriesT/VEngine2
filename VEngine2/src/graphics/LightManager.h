@@ -41,7 +41,6 @@ public:
 		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		const RenderList *m_renderList;
-		const glm::mat4 *m_modelMatrices;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 	};
@@ -50,7 +49,7 @@ public:
 	explicit LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept;
 	DELETED_COPY_MOVE(LightManager);
 	~LightManager() noexcept;
-	void update(const CommonViewData &viewData, ECS *ecs, uint64_t cameraEntity, rg::RenderGraph *graph) noexcept;
+	void update(const CommonViewData &viewData, ECS *ecs, rg::RenderGraph *graph) noexcept;
 	void recordLightTileAssignment(rg::RenderGraph *graph, const CommonViewData &viewData) noexcept;
 	void recordShadows(rg::RenderGraph *graph, const CommonViewData &viewData, const ShadowRecordData &data) noexcept;
 	const LightRecordData *getLightRecordData() const noexcept;

@@ -3,7 +3,7 @@
 #include <glm/mat4x4.hpp>
 #include "../RenderGraph.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 
 class GridPass
 {
@@ -11,7 +11,7 @@ public:
 	struct Data
 	{
 		void *m_profilingCtx;
-		BufferStackAllocator *m_bufferAllocator;
+		LinearGPUBufferAllocator *m_bufferAllocator;
 		gal::DescriptorSet *m_offsetBufferSet;
 		uint32_t m_width;
 		uint32_t m_height;

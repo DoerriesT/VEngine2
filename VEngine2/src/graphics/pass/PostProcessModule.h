@@ -6,7 +6,7 @@
 #include <glm/mat4x4.hpp>
 #include "../RenderData.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
 struct RenderList;

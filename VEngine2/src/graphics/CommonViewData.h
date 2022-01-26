@@ -3,7 +3,7 @@
 #include "gal/FwdDecl.h"
 #include "RenderGraph.h"
 
-class BufferStackAllocator;
+class LinearGPUBufferAllocator;
 class ResourceViewRegistry;
 class RendererResources;
 struct RenderViewResources;
@@ -54,7 +54,9 @@ struct CommonViewData
 	uint32_t m_resIdx;
 	uint32_t m_prevResIdx;
 	void *m_gpuProfilingCtx;
-	BufferStackAllocator *m_cbvAllocator;
+	LinearGPUBufferAllocator *m_constantBufferAllocator;
+	LinearGPUBufferAllocator *m_shaderResourceAllocator;
+	LinearGPUBufferAllocator *m_vertexBufferAllocator;
 	gal::DescriptorSet *m_offsetBufferSet;
 	gal::DescriptorSet *m_bindlessSet;
 	rg::ResourceViewHandle m_pickingBufferHandle;

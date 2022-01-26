@@ -4,13 +4,14 @@
 #include "RenderData.h"
 #include "RenderGraph.h"
 
-struct CommonViewData;
 class ECS;
 class RendererResources;
 struct SubMeshDrawInfo;
 struct RenderList;
 struct SubMeshBufferHandles;
 struct LightRecordData;
+class ResourceViewRegistry;
+class LinearGPUBufferAllocator;
 
 class ReflectionProbeManager
 {
@@ -22,17 +23,20 @@ public:
 
 	struct Data
 	{
-		const CommonViewData *m_viewData;
 		ECS *m_ecs;
+		const glm::vec3 *m_cameraPosition;
+		void *m_gpuProfilingCtx;
+		LinearGPUBufferAllocator *m_shaderResourceLinearAllocator;
+		LinearGPUBufferAllocator *m_constantBufferLinearAllocator;
+		gal::DescriptorSet *m_offsetBufferSet;
 		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
-		const LightRecordData *m_lightRecordData;
 		const RenderList *m_renderList;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 	};
 
-	explicit ReflectionProbeManager(gal::GraphicsDevice *device, RendererResources *renderResources, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept;
+	explicit ReflectionProbeManager(gal::GraphicsDevice *device, RendererResources *renderResources, ResourceViewRegistry *viewRegistry) noexcept;
 	DELETED_COPY_MOVE(ReflectionProbeManager);
 	~ReflectionProbeManager() noexcept;
 	
@@ -43,6 +47,7 @@ public:
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
+	ResourceViewRegistry *m_viewRegistry = nullptr;
 	RendererResources *m_rendererResources = nullptr;
 	gal::GraphicsPipeline *m_probeGbufferPipeline = nullptr;
 	gal::GraphicsPipeline *m_probeGbufferAlphaTestedPipeline = nullptr;
@@ -87,6 +92,7 @@ private:
 
 	eastl::fixed_vector<uint32_t, k_cacheSize> m_freeCacheSlots;
 	EntityID m_cacheSlotOwners[k_cacheSize] = {};
+	uint32_t m_internalFrame = 0;
 	glm::mat4 m_currentRenderProbeViewProjMatrices[6] = {};
 	glm::mat4 m_currentRelightProbeWorldToLocalTransposed = {};
 	glm::vec3 m_currentRelightProbePosition = {};

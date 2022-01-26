@@ -210,7 +210,7 @@
     <ClInclude Include="src\graphics\pass\GridPass.h">
       <Filter>src\graphics\pass</Filter>
     </ClInclude>
-    <ClInclude Include="src\graphics\BufferStackAllocator.h">
+    <ClInclude Include="src\graphics\LinearGPUBufferAllocator.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
     <ClInclude Include="src\utility\SpinLock.h">
@@ -752,7 +752,7 @@
     <ClCompile Include="src\graphics\pass\GridPass.cpp">
       <Filter>src\graphics\pass</Filter>
     </ClCompile>
-    <ClCompile Include="src\graphics\BufferStackAllocator.cpp">
+    <ClCompile Include="src\graphics\LinearGPUBufferAllocator.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
     <ClCompile Include="src\utility\SpinLock.cpp">

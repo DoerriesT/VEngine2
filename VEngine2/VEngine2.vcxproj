@@ -271,7 +271,7 @@
     <ClInclude Include="src\filesystem\RawFileSystem.h" />
     <ClInclude Include="src\filesystem\VirtualFileSystem.h" />
     <ClInclude Include="src\file\FileDialog.h" />
-    <ClInclude Include="src\graphics\BufferStackAllocator.h" />
+    <ClInclude Include="src\graphics\LinearGPUBufferAllocator.h" />
     <ClInclude Include="src\graphics\Camera.h" />
     <ClInclude Include="src\graphics\CommandListFramePool.h" />
     <ClInclude Include="src\graphics\CommonViewData.h" />
@@ -451,7 +451,7 @@
     <ClCompile Include="src\filesystem\RawFileSystem.cpp" />
     <ClCompile Include="src\filesystem\VirtualFileSystem.cpp" />
     <ClCompile Include="src\file\FileDialog.cpp" />
-    <ClCompile Include="src\graphics\BufferStackAllocator.cpp" />
+    <ClCompile Include="src\graphics\LinearGPUBufferAllocator.cpp" />
     <ClCompile Include="src\graphics\Camera.cpp" />
     <ClCompile Include="src\graphics\CommandListFramePool.cpp" />
     <ClCompile Include="src\graphics\gal\dx12\CommandListDx12.cpp" />

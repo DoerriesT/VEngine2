@@ -1,9 +1,9 @@
-#include "BufferStackAllocator.h"
+#include "LinearGPUBufferAllocator.h"
 #include "gal/GraphicsAbstractionLayer.h"
 #include <assert.h>
 #include "utility/Utility.h"
 
-BufferStackAllocator::BufferStackAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer) noexcept
+LinearGPUBufferAllocator::LinearGPUBufferAllocator(gal::GraphicsDevice *device, gal::Buffer *buffer) noexcept
 	:m_device(device),
 	m_bufferSize(buffer->getDescription().m_size),
 	m_buffer(buffer)
@@ -11,12 +11,12 @@ BufferStackAllocator::BufferStackAllocator(gal::GraphicsDevice *device, gal::Buf
 	m_buffer->map((void **)&m_mappedPtr);
 }
 
-BufferStackAllocator::~BufferStackAllocator() noexcept
+LinearGPUBufferAllocator::~LinearGPUBufferAllocator() noexcept
 {
 	m_buffer->unmap();
 }
 
-uint8_t *BufferStackAllocator::allocate(uint64_t alignment, uint64_t *size, uint64_t *offset) noexcept
+uint8_t *LinearGPUBufferAllocator::allocate(uint64_t alignment, uint64_t *size, uint64_t *offset) noexcept
 {
 	assert(size && offset);
 	assert(*size > 0);
@@ -39,17 +39,17 @@ uint8_t *BufferStackAllocator::allocate(uint64_t alignment, uint64_t *size, uint
 	}
 }
 
-gal::Buffer *BufferStackAllocator::getBuffer() const noexcept
+gal::Buffer *LinearGPUBufferAllocator::getBuffer() const noexcept
 {
 	return m_buffer;
 }
 
-void BufferStackAllocator::reset() noexcept
+void LinearGPUBufferAllocator::reset() noexcept
 {
 	m_currentOffset = 0;
 }
 
-uint64_t BufferStackAllocator::getCurrentOffset() const noexcept
+uint64_t LinearGPUBufferAllocator::getCurrentOffset() const noexcept
 {
 	return m_currentOffset;
 }
