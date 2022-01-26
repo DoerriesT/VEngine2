@@ -195,6 +195,10 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 
 	if (!handler->loadAssetData(assetData, (eastl::string("/assets/") + assetID.m_string).c_str()))
 	{
+		{
+			LOCK_HOLDER(m_assetMutex);
+			m_assetMap.erase(assetID);
+		}
 		handler->destroyAsset(assetID, assetType, assetData);
 		Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
 		return nullptr;
