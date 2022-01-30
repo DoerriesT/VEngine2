@@ -1,6 +1,6 @@
 # VEngine2
 ![VEngine2 GI](https://doerriest.github.io/img/vengine2_editor_screen0.png?raw=true "VEngine2 Global Illumination")
-This is my current (work in progress) hobby render engine that I like to work on in my free time. It is written in C++ and uses a custom abstraction layer to access both Vulkan and D3D12 as rendering API.
+This is my current (work in progress) hobby render engine that I like to work on in my free time. It is written in C++ and uses a custom abstraction layer to access both Vulkan and D3D12 as rendering API. See https://doerriest.github.io/project/vengine2/ for more details.
 
 Among other things, it has these features:
 - Static Global Illumination based on ["Dynamic Diffuse Global Illumination (DDGI)" by Majercik et al.](https://jcgt.org/published/0008/02/01/)
