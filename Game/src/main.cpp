@@ -231,41 +231,138 @@ public:
 
 		// reflection probes
 		{
-			auto createReflectionProbe = [&](const glm::vec3 &bboxMin, const glm::vec3 &bboxMax, bool manualOffset = false, const glm::vec3 &capturePos = glm::vec3(0.0f))
-			{
-				glm::vec3 probeCenter = (bboxMin + bboxMax) * 0.5f;
-				glm::vec3 captureOffset = manualOffset ? capturePos - probeCenter : glm::vec3(0.0f);
-		
-				TransformComponent transC{};
-				transC.m_transform.m_translation = probeCenter;
-				transC.m_transform.m_scale = bboxMax - probeCenter;
-		
-				ReflectionProbeComponent probeC{};
-				probeC.m_captureOffset = captureOffset;
-		
-				auto reflectionProbeEntity = m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC);
-				m_engine->getLevel()->addEntity(reflectionProbeEntity, "Reflection Probe");
-				return reflectionProbeEntity;
-			};
-		
 			// center
-			createReflectionProbe(glm::vec3(-9.5f, -0.05f, -2.4f), glm::vec3(9.5f, 13.0f, 2.4f), true, glm::vec3(0.0f, 2.0f, 0.0f));
-		
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(0.0f, 6.475f, 0.0f);
+				transC.m_transform.m_scale = glm::vec3(10.0f, 6.525f, 2.4f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_captureOffset = glm::vec3(0.0f, -4.475, 0.0f);
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.5f;
+				probeC.m_boxFadeDistances[5] = 0.5f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Center");
+			}
+
 			// lower halls
-			createReflectionProbe(glm::vec3(-9.5, -0.05, 2.4), glm::vec3(9.5, 3.9, 6.1));
-			createReflectionProbe(glm::vec3(-9.5, -0.05, -6.1), glm::vec3(9.5, 3.9, -2.4));
-		
-			// lower end
-			createReflectionProbe(glm::vec3(-13.7, -0.05, -6.1), glm::vec3(-9.5, 3.9, 6.1));
-			createReflectionProbe(glm::vec3(9.5, -0.05, -6.1), glm::vec3(13.65, 3.9, 6.1));
-		
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(0.0f, 1.925f, 4.26f);
+				transC.m_transform.m_scale = glm::vec3(10.0f, 1.975f, 2.0f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.0f;
+				probeC.m_boxFadeDistances[5] = 0.2f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Halls 0");
+			}
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(0.0f, 1.925f, -4.22f);
+				transC.m_transform.m_scale = glm::vec3(10.0f, 1.975f, 1.95f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.2f;
+				probeC.m_boxFadeDistances[5] = 0.0f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Halls 1");
+			}
+
+			// lower ends
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(-11.330, 1.925f, 0.0f);
+				transC.m_transform.m_scale = glm::vec3(2.35f, 1.975f, 6.15f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.0f;
+				probeC.m_boxFadeDistances[4] = 0.0f;
+				probeC.m_boxFadeDistances[5] = 0.0f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Ends 0");
+			}
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(11.375f, 1.925f, 0.0f);
+				transC.m_transform.m_scale = glm::vec3(2.325f, 1.975f, 6.15f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_boxFadeDistances[0] = 0.0f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.0f;
+				probeC.m_boxFadeDistances[5] = 0.0f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Ends 1");
+			}
+
+
 			// upper halls
-			createReflectionProbe(glm::vec3(-9.8, 4.15, 2.8), glm::vec3(9.8, 8.7, 6.15));
-			createReflectionProbe(glm::vec3(-9.8, 4.15, -6.1), glm::vec3(9.8, 8.7, -2.8));
-		
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(0.0f, 6.415f, 4.23f);
+				transC.m_transform.m_scale = glm::vec3(10.3f, 2.275f, 1.9f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.0f;
+				probeC.m_boxFadeDistances[5] = 0.2f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Halls 0");
+			}
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(0.0f, 6.415f, -4.210f);
+				transC.m_transform.m_scale = glm::vec3(10.3f, 2.275f, 1.9f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.2f;
+				probeC.m_boxFadeDistances[5] = 0.0f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Halls 1");
+			}
+
 			// upper ends
-			createReflectionProbe(glm::vec3(-13.7, 4.15, -6.1), glm::vec3(-9.8, 8.7, 6.15));
-			createReflectionProbe(glm::vec3(9.8, 4.15, -6.1), glm::vec3(13.65, 8.7, 6.15));
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(-11.38f, 6.415f, 0.0f);
+				transC.m_transform.m_scale = glm::vec3(2.3f, 2.275f, 6.125f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
+				probeC.m_boxFadeDistances[0] = 0.5f;
+				probeC.m_boxFadeDistances[1] = 0.0f;
+				probeC.m_boxFadeDistances[4] = 0.0f;
+				probeC.m_boxFadeDistances[5] = 0.0f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Ends 0");
+			}
+			{
+				TransformComponent transC{};
+				transC.m_transform.m_translation = glm::vec3(11.495f, 6.415f, 0.0f);
+				transC.m_transform.m_scale = glm::vec3(2.3f, 2.275f, 6.125f);
+
+				ReflectionProbeComponent probeC{};
+				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
+				probeC.m_boxFadeDistances[0] = 0.0f;
+				probeC.m_boxFadeDistances[1] = 0.5f;
+				probeC.m_boxFadeDistances[4] = 0.0f;
+				probeC.m_boxFadeDistances[5] = 0.0f;
+
+				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Ends 1");
+			}
 		}
 
 		// irradiance volume
@@ -276,7 +373,7 @@ public:
 			volumeC.m_resolutionZ = 8;
 
 			float spacing = 2.0f;
-			
+
 			TransformComponent transC{};
 			transC.m_transform.m_translation = glm::vec3(-14.0f, 1.0f, -7.0f) + glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
 			transC.m_transform.m_scale = glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
