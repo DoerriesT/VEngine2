@@ -36,6 +36,8 @@ struct Constants
 	uint localMediaBufferIndex;
 	uint localMediaTileTextureIndex;
 	uint localMediaDepthBinsBufferIndex;
+	uint irradianceVolumeCount;
+	uint irradianceVolumeBufferIndex;
 	uint exposureBufferIndex;
 	uint scatterResultTextureIndex;
 	uint filterInputTextureIndex;

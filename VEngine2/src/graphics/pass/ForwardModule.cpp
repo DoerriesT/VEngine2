@@ -563,8 +563,10 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	volumetricFogData.m_localMediaBufferHandle = {}; // TODO;
 	volumetricFogData.m_localMediaDepthBinsBufferHandle = {}; // TODO
 	volumetricFogData.m_localMediaTileTextureViewHandle = {}; // TODO
+	volumetricFogData.m_irradianceVolumeBufferHandle = data.m_irradianceVolumeBufferHandle;
 	volumetricFogData.m_globalMediaCount = data.m_globalMediaCount;
 	volumetricFogData.m_localMediaCount = 0; // TODO
+	volumetricFogData.m_irradianceVolumeCount = data.m_irradianceVolumeCount;
 	volumetricFogData.m_ignoreHistory = data.m_viewData->m_frame < 2 || data.m_ignoreHistory;
 	volumetricFogData.m_lightRecordData = data.m_lightRecordData;
 

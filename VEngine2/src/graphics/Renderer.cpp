@@ -346,6 +346,7 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				irradianceVolumeMgrData.m_renderList = &m_renderList;
 				irradianceVolumeMgrData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 				irradianceVolumeMgrData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
+				irradianceVolumeMgrData.m_frame = m_frame;
 
 				m_irradianceVolumeManager->update(m_renderGraph, irradianceVolumeMgrData);
 			}

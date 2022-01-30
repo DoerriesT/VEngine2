@@ -116,6 +116,10 @@ struct IrradianceVolumeGPU
 	glm::vec2 volumeTexelSize;
 	uint32_t diffuseTextureIndex;
 	uint32_t visibilityTextureIndex;
+	uint32_t averageDiffuseTextureIndex;
+	float pad0;
+	float pad1;
+	float pad2;
 };
 
 enum class DebugDrawVisibility

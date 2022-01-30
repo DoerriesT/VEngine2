@@ -64,10 +64,14 @@ private:
 		EntityID m_entity;
 		gal::Image *m_diffuseImage = nullptr;
 		gal::Image *m_visibilityImage = nullptr;
+		gal::Image *m_averageDiffuseImage = nullptr;
 		gal::ImageView *m_diffuseImageView = nullptr;
 		gal::ImageView *m_visibilityImageView = nullptr;
+		gal::ImageView *m_averageDiffuseImageView = nullptr;
 		TextureViewHandle m_diffuseImageViewHandle = {};
 		TextureViewHandle m_visibilityImageViewHandle = {};
+		TextureViewHandle m_averageDiffuseImageViewHandle = {};
+		RWTextureViewHandle m_averageDiffuseImageRWViewHandle = {};
 
 		uint32_t m_resolutionX;
 		uint32_t m_resolutionY;
@@ -81,10 +85,14 @@ private:
 	{
 		gal::Image *m_diffuseImage = nullptr;
 		gal::Image *m_visibilityImage = nullptr;
+		gal::Image *m_averageDiffuseImage = nullptr;
 		gal::ImageView *m_diffuseImageView = nullptr;
 		gal::ImageView *m_visibilityImageView = nullptr;
+		gal::ImageView *m_averageDiffuseImageView = nullptr;
 		TextureViewHandle m_diffuseImageViewHandle = {};
 		TextureViewHandle m_visibilityImageViewHandle = {};
+		TextureViewHandle m_averageDiffuseImageViewHandle = {};
+		RWTextureViewHandle m_averageDiffuseImageRWViewHandle = {};
 		uint64_t m_frameToFreeIn = UINT64_MAX;
 	};
 
@@ -97,6 +105,7 @@ private:
 	gal::GraphicsPipeline *m_skyPipeline = nullptr;
 	gal::ComputePipeline *m_diffuseFilterPipeline = nullptr;
 	gal::ComputePipeline *m_visibilityFilterPipeline = nullptr;
+	gal::ComputePipeline *m_averageFilterPipeline = nullptr;
 
 	gal::Image *m_colorImage = nullptr;
 	rg::ResourceStateData m_colorImageState[6] = {};

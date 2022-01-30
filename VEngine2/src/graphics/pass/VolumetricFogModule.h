@@ -24,8 +24,10 @@ public:
 		StructuredBufferViewHandle m_localMediaBufferHandle;
 		ByteBufferViewHandle m_localMediaDepthBinsBufferHandle;
 		rg::ResourceViewHandle m_localMediaTileTextureViewHandle;
+		StructuredBufferViewHandle m_irradianceVolumeBufferHandle;
 		uint32_t m_globalMediaCount;
 		uint32_t m_localMediaCount;
+		uint32_t m_irradianceVolumeCount;
 		bool m_ignoreHistory;
 		const LightRecordData *m_lightRecordData;
 	};

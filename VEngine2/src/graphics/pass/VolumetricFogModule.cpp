@@ -44,7 +44,8 @@ VolumetricFogModule::VolumetricFogModule(gal::GraphicsDevice *device, gal::Descr
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 8), // global media
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 9), // local media
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 10), // exposure
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 11), // result
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 11), // irradiance volumes
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 12), // result
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -256,6 +257,8 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 				uint32_t localMediaBufferIndex;
 				uint32_t localMediaTileTextureIndex;
 				uint32_t localMediaDepthBinsBufferIndex;
+				uint32_t irradianceVolumeCount;
+				uint32_t irradianceVolumeBufferIndex;
 				uint32_t exposureBufferIndex;
 				uint32_t scatterResultTextureIndex;
 				uint32_t filterInputTextureIndex;
@@ -304,6 +307,8 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 			consts.localMediaBufferIndex = data.m_localMediaBufferHandle;
 			consts.localMediaTileTextureIndex = consts.localMediaCount > 0 ? registry.getBindlessHandle(data.m_localMediaTileTextureViewHandle, DescriptorType::TEXTURE) : 0;
 			consts.localMediaDepthBinsBufferIndex = data.m_localMediaDepthBinsBufferHandle;
+			consts.irradianceVolumeCount = data.m_irradianceVolumeCount;
+			consts.irradianceVolumeBufferIndex = data.m_irradianceVolumeBufferHandle;
 			consts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
 			consts.scatterResultTextureIndex = registry.getBindlessHandle(scatterResultImageViewHandle, DescriptorType::RW_TEXTURE);
 			consts.filterInputTextureIndex = registry.getBindlessHandle(scatterResultImageViewHandle, DescriptorType::TEXTURE);

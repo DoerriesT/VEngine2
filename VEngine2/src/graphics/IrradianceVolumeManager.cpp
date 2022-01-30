@@ -41,6 +41,13 @@ namespace
 		uint32_t inputTextureIndex;
 		uint32_t resultTextureIndex;
 	};
+
+	struct ProbeAverageFilterPushConsts
+	{
+		uint32_t resolution[2];
+		uint32_t inputTextureIndex;
+		uint32_t resultTextureIndex;
+	};
 }
 
 IrradianceVolumeManager::IrradianceVolumeManager(gal::GraphicsDevice *device, RendererResources *renderResources, ResourceViewRegistry *viewRegistry) noexcept
@@ -186,6 +193,27 @@ IrradianceVolumeManager::IrradianceVolumeManager(gal::GraphicsDevice *device, Re
 		device->createComputePipelines(1, &pipelineCreateInfo, i == 0 ? &m_diffuseFilterPipeline : &m_visibilityFilterPipeline);
 	}
 
+	// average probe filter
+	{
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0), // textures
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 1), // result
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		ComputePipelineCreateInfo pipelineCreateInfo{};
+		ComputePipelineBuilder builder(pipelineCreateInfo);
+		builder.setComputeShader("assets/shaders/irradianceProbeAverageFilter_cs");
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(ProbeAverageFilterPushConsts), ShaderStageFlags::COMPUTE_BIT, 0, nullptr, -1);
+
+		device->createComputePipelines(1, &pipelineCreateInfo, &m_averageFilterPipeline);
+	}
+
 	// images
 	{
 		// cubemaps
@@ -301,6 +329,7 @@ IrradianceVolumeManager::~IrradianceVolumeManager() noexcept
 	m_device->destroyGraphicsPipeline(m_skyPipeline);
 	m_device->destroyComputePipeline(m_diffuseFilterPipeline);
 	m_device->destroyComputePipeline(m_visibilityFilterPipeline);
+	m_device->destroyComputePipeline(m_averageFilterPipeline);
 
 	m_device->destroyImage(m_tmpIrradianceVolumeDiffuseImage);
 	m_device->destroyImage(m_tmpIrradianceVolumeVisibilityImage);
@@ -315,10 +344,14 @@ IrradianceVolumeManager::~IrradianceVolumeManager() noexcept
 
 		m_device->destroyImage(oldResources.m_diffuseImage);
 		m_device->destroyImage(oldResources.m_visibilityImage);
+		m_device->destroyImage(oldResources.m_averageDiffuseImage);
 		m_device->destroyImageView(oldResources.m_diffuseImageView);
 		m_device->destroyImageView(oldResources.m_visibilityImageView);
+		m_device->destroyImageView(oldResources.m_averageDiffuseImageView);
 		m_viewRegistry->destroyHandle(oldResources.m_diffuseImageViewHandle);
 		m_viewRegistry->destroyHandle(oldResources.m_visibilityImageViewHandle);
+		m_viewRegistry->destroyHandle(oldResources.m_averageDiffuseImageViewHandle);
+		m_viewRegistry->destroyHandle(oldResources.m_averageDiffuseImageRWViewHandle);
 		m_deletionQueue.pop();
 	}
 }
@@ -342,6 +375,10 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 			qItem.m_visibilityImage = v.m_visibilityImage;
 			qItem.m_visibilityImageView = v.m_visibilityImageView;
 			qItem.m_visibilityImageViewHandle = v.m_visibilityImageViewHandle;
+			qItem.m_averageDiffuseImage = v.m_averageDiffuseImage;
+			qItem.m_averageDiffuseImageView = v.m_averageDiffuseImageView;
+			qItem.m_averageDiffuseImageViewHandle = v.m_averageDiffuseImageViewHandle;
+			qItem.m_averageDiffuseImageRWViewHandle = v.m_averageDiffuseImageRWViewHandle;
 			qItem.m_frameToFreeIn = data.m_frame + 2;
 
 			m_deletionQueue.push(qItem);
@@ -415,6 +452,10 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 							qItem.m_visibilityImage = oldVolume.m_visibilityImage;
 							qItem.m_visibilityImageView = oldVolume.m_visibilityImageView;
 							qItem.m_visibilityImageViewHandle = oldVolume.m_visibilityImageViewHandle;
+							qItem.m_averageDiffuseImage = oldVolume.m_averageDiffuseImage;
+							qItem.m_averageDiffuseImageView = oldVolume.m_averageDiffuseImageView;
+							qItem.m_averageDiffuseImageViewHandle = oldVolume.m_averageDiffuseImageViewHandle;
+							qItem.m_averageDiffuseImageRWViewHandle = oldVolume.m_averageDiffuseImageRWViewHandle;
 							qItem.m_frameToFreeIn = data.m_frame + 2;
 
 							m_deletionQueue.push(qItem);
@@ -429,13 +470,17 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 						//	volume.m_visibilityImage = oldVolume.m_visibilityImage;
 						//	volume.m_visibilityImageView = oldVolume.m_visibilityImageView;
 						//	volume.m_visibilityImageViewHandle = oldVolume.m_visibilityImageViewHandle;
+						//	volume.m_averageDiffuseImage = oldVolume.m_averageDiffuseImage;
+						//	volume.m_averageDiffuseImageView = oldVolume.m_averageDiffuseImageView;
+						//	volume.m_averageDiffuseImageViewHandle = oldVolume.m_averageDiffuseImageViewHandle;
+						//	volume.m_averageDiffuseImageRWViewHandle = oldVolume.m_averageDiffuseImageRWViewHandle;
 						//}
 					}
 
 					if (createTextures)
 					{
 						ImageCreateInfo imageCreateInfo{};
-						imageCreateInfo.m_usageFlags = ImageUsageFlags::TEXTURE_BIT | ImageUsageFlags::TRANSFER_DST_BIT | ImageUsageFlags::CLEAR_BIT;
+						imageCreateInfo.m_usageFlags = ImageUsageFlags::TEXTURE_BIT | ImageUsageFlags::TRANSFER_DST_BIT;
 
 						// diffuse
 						imageCreateInfo.m_format = Format::R16G16B16A16_SFLOAT;
@@ -456,6 +501,18 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 						m_device->createImageView(volume.m_visibilityImage, &volume.m_visibilityImageView);
 						m_device->setDebugObjectName(ObjectType::IMAGE_VIEW, volume.m_visibilityImageView, "Irradiance Volume Visibility Image View");
 						volume.m_visibilityImageViewHandle = m_viewRegistry->createTextureViewHandle(volume.m_visibilityImageView);
+
+						// average diffuse
+						imageCreateInfo.m_usageFlags = ImageUsageFlags::TEXTURE_BIT | ImageUsageFlags::RW_TEXTURE_BIT;
+						imageCreateInfo.m_format = Format::R16G16B16A16_SFLOAT;
+						imageCreateInfo.m_width = volume.m_resolutionX * volume.m_resolutionY;
+						imageCreateInfo.m_height = volume.m_resolutionZ;
+						m_device->createImage(imageCreateInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &volume.m_averageDiffuseImage);
+						m_device->setDebugObjectName(ObjectType::IMAGE, volume.m_averageDiffuseImage, "Irradiance Volume Avg Diffuse Image");
+						m_device->createImageView(volume.m_averageDiffuseImage, &volume.m_averageDiffuseImageView);
+						m_device->setDebugObjectName(ObjectType::IMAGE_VIEW, volume.m_averageDiffuseImageView, "Irradiance Volume Avg Diffuse Image View");
+						volume.m_averageDiffuseImageViewHandle = m_viewRegistry->createTextureViewHandle(volume.m_averageDiffuseImageView);
+						volume.m_averageDiffuseImageRWViewHandle = m_viewRegistry->createRWTextureViewHandle(volume.m_averageDiffuseImageView);
 					}
 
 
@@ -503,6 +560,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 			volumeGPU.volumeTexelSize.y = 1.0f / volume.m_resolutionZ;
 			volumeGPU.diffuseTextureIndex = volume.m_diffuseImageViewHandle;
 			volumeGPU.visibilityTextureIndex = volume.m_visibilityImageViewHandle;
+			volumeGPU.averageDiffuseTextureIndex = volume.m_averageDiffuseImageViewHandle;
 
 			m_sortedGPUVolumes.push_back(volumeGPU);
 		}
@@ -514,6 +572,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 				{
 					barriers.push_back(Initializers::imageBarrier(v.m_diffuseImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::PIXEL_SHADER_BIT | PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE));
 					barriers.push_back(Initializers::imageBarrier(v.m_visibilityImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::PIXEL_SHADER_BIT | PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE));
+					barriers.push_back(Initializers::imageBarrier(v.m_averageDiffuseImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::PIXEL_SHADER_BIT | PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE));
 				}
 				cmdList->barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
 			});
@@ -561,6 +620,10 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 					qItem.m_visibilityImage = volume.m_visibilityImage;
 					qItem.m_visibilityImageView = volume.m_visibilityImageView;
 					qItem.m_visibilityImageViewHandle = volume.m_visibilityImageViewHandle;
+					qItem.m_averageDiffuseImage = volume.m_averageDiffuseImage;
+					qItem.m_averageDiffuseImageView = volume.m_averageDiffuseImageView;
+					qItem.m_averageDiffuseImageViewHandle = volume.m_averageDiffuseImageViewHandle;
+					qItem.m_averageDiffuseImageRWViewHandle = volume.m_averageDiffuseImageRWViewHandle;
 					qItem.m_frameToFreeIn = data.m_frame + 2;
 
 					m_deletionQueue.push(qItem);
@@ -581,10 +644,14 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 		{
 			m_device->destroyImage(oldResources.m_diffuseImage);
 			m_device->destroyImage(oldResources.m_visibilityImage);
+			m_device->destroyImage(oldResources.m_averageDiffuseImage);
 			m_device->destroyImageView(oldResources.m_diffuseImageView);
 			m_device->destroyImageView(oldResources.m_visibilityImageView);
+			m_device->destroyImageView(oldResources.m_averageDiffuseImageView);
 			m_viewRegistry->destroyHandle(oldResources.m_diffuseImageViewHandle);
 			m_viewRegistry->destroyHandle(oldResources.m_visibilityImageViewHandle);
+			m_viewRegistry->destroyHandle(oldResources.m_averageDiffuseImageViewHandle);
+			m_viewRegistry->destroyHandle(oldResources.m_averageDiffuseImageRWViewHandle);
 			m_deletionQueue.pop();
 		}
 		else
@@ -976,6 +1043,37 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 					cmdList->barrier(static_cast<uint32_t>(barriers.size()), barriers.data());
 				}
 			});
+
+		// only do this on the last bounce
+		if ((m_curBounce + 1) == m_targetBounces)
+		{
+			graph->addPass("Irradiance Volume Avg Filter", rg::QueueType::GRAPHICS, 0, nullptr, [=](CommandList *cmdList, const rg::Registry &registry)
+				{
+					{
+						Barrier b = Initializers::imageBarrier(m_volumes[curVolumeIdx].m_averageDiffuseImage, PipelineStageFlags::PIXEL_SHADER_BIT | PipelineStageFlags::COMPUTE_SHADER_BIT, PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::READ_RESOURCE, ResourceState::RW_RESOURCE_WRITE_ONLY);
+						cmdList->barrier(1, &b);
+					}
+
+					cmdList->bindPipeline(m_averageFilterPipeline);
+					auto *bindlessSet = m_viewRegistry->getCurrentFrameDescriptorSet();
+					cmdList->bindDescriptorSets(m_averageFilterPipeline, 0, 1, &bindlessSet, 0, nullptr);
+
+					ProbeAverageFilterPushConsts pushConsts{};
+					pushConsts.resolution[0] = m_volumes[curVolumeIdx].m_resolutionX * m_volumes[curVolumeIdx].m_resolutionY;
+					pushConsts.resolution[1] = m_volumes[curVolumeIdx].m_resolutionZ;
+					pushConsts.inputTextureIndex = m_volumes[curVolumeIdx].m_diffuseImageViewHandle;
+					pushConsts.resultTextureIndex = m_volumes[curVolumeIdx].m_averageDiffuseImageRWViewHandle;
+
+					cmdList->pushConstants(m_averageFilterPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+					cmdList->dispatch((pushConsts.resolution[0] + 7) / 8, (pushConsts.resolution[1] + 7) / 8, 1);
+
+					{
+						Barrier b = Initializers::imageBarrier(m_volumes[curVolumeIdx].m_averageDiffuseImage, PipelineStageFlags::COMPUTE_SHADER_BIT, PipelineStageFlags::PIXEL_SHADER_BIT | PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::RW_RESOURCE_WRITE_ONLY, ResourceState::READ_RESOURCE);
+						cmdList->barrier(1, &b);
+					}
+				});
+		}
 
 		// go to next volume
 		++m_curVolumeIdx;

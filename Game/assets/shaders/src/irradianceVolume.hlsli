@@ -16,6 +16,10 @@ struct IrradianceVolume
 	float2 volumeTexelSize;
 	uint diffuseTextureIndex;
 	uint visibilityTextureIndex;
+	uint averageDiffuseTextureIndex;
+	float pad0;
+	float pad1;
+	float pad2;
 };
 
 float3 sampleIrradianceProbe(Texture2D<float4> tex, SamplerState linearSampler, IrradianceVolume volume, uint3 probeIdx, float3 dir, float probeSideLength)
@@ -121,6 +125,103 @@ float4 sampleIrradianceVolume(
 		if (weight > 0.0f)
 		{
 			tap = sampleIrradianceProbe(diffuseTex, linearSampler, volume, (uint3)probeGridCoord, N, 8.0f);
+			tap = sqrt(tap);
+		}
+		
+		sum += float4(tap * weight, weight);
+	}
+	
+	float3 result = sum.xyz / sum.w;
+	
+	result *= result;
+	
+	float alpha = 1.0f;
+	//alpha *= smoothstep(-fadeoutRange, 0.0f, min(pointGridCoord.x, min(pointGridCoord.y, pointGridCoord.z)));
+	//alpha *= smoothstep(volume.volumeSize - 1.0f, volume.volumeSize - 1.0f + fadeoutRange, max(pointGridCoord.x, max(pointGridCoord.y, pointGridCoord.z)));
+	
+	return float4(result, alpha);
+}
+
+float4 sampleIrradianceVolumeDirectionless(
+	Texture2D<float4> averageDiffuseTex, 
+	Texture2D<float4> visibilityTex, 
+	SamplerState linearSampler, 
+	IrradianceVolume volume,
+	float3 worldSpacePos
+)
+{
+	// transform world space position into irradiance volume space
+	float3 pointGridCoord;
+	pointGridCoord.x = dot(volume.worldToLocal0, float4(worldSpacePos, 1.0f));
+	pointGridCoord.y = dot(volume.worldToLocal1, float4(worldSpacePos, 1.0f));
+	pointGridCoord.z = dot(volume.worldToLocal2, float4(worldSpacePos, 1.0f));
+	pointGridCoord = clamp(pointGridCoord, 0.0f, volume.volumeSize - 1.0f);
+	
+	const float fadeoutRange = 0.5f; // starting from the outer most probes, fade out over this many irradiance volume space units
+	
+	//if (any(pointGridCoord < -fadeoutRange) || any(pointGridCoord > (volume.volumeSize - 1.0f + fadeoutRange)))
+	//{
+	//	return 0.0f;
+	//}
+	
+	float4 sum = 0.0f;
+	
+	for (uint i = 0; i < 8; ++i)
+	{
+		const float3 probeGridCoord = floor(pointGridCoord) + (uint3(i, i >> 1, i >> 2) & 1);
+	
+		// transform probe position into world space
+		float3 probeWorldSpacePos;
+		probeWorldSpacePos.x = dot(volume.localToWorld0, float4(probeGridCoord, 1.0f));
+		probeWorldSpacePos.y = dot(volume.localToWorld1, float4(probeGridCoord, 1.0f));
+		probeWorldSpacePos.z = dot(volume.localToWorld2, float4(probeGridCoord, 1.0f));
+		
+		float weight = 1.0f;
+		
+		const float3 trueDirToProbe = probeWorldSpacePos - worldSpacePos;
+		const bool probeInPoint = dot(trueDirToProbe, trueDirToProbe) < 1e-6f;
+		
+		// moment visibility test
+		if (!probeInPoint)
+		{
+			const float3 biasedProbeToPoint = worldSpacePos - probeWorldSpacePos;// + (N + 3.0f * V) * volume.normalBias;
+			const float distToProbe = length(biasedProbeToPoint);
+			
+			float2 moments = sampleIrradianceProbe(visibilityTex, linearSampler, volume, (uint3)probeGridCoord, normalize(biasedProbeToPoint), 16.0f).xy;
+				
+			float mean = moments.x;
+			float variance = abs(moments.x * moments.x - moments.y);
+			
+			float squareTerm = max(distToProbe - mean, 0.0f);
+			squareTerm *= squareTerm;
+			float chebyshevWeight = variance / (variance + squareTerm);
+			chebyshevWeight = max(chebyshevWeight * chebyshevWeight * chebyshevWeight, 0.0f);
+			
+			if (distToProbe > mean)
+			{
+				weight *= chebyshevWeight;
+			}
+		}
+		
+		// avoid zero weight
+		weight = max(0.000001f, weight);
+		
+		const float crushThreshold = 0.2f;
+		if (weight < crushThreshold)
+		{
+			weight *= weight * weight / (crushThreshold * crushThreshold);
+		}
+		
+		// trilinear
+		float3 trilinear = 1.0f - abs(probeGridCoord - pointGridCoord);
+		weight *= trilinear.x * trilinear.y * trilinear.z;
+		
+		float3 tap = 0.0f;
+		if (weight > 0.0f)
+		{
+			uint3 probeIdx = (uint3)probeGridCoord;
+			uint2 texelCoord = uint2(volume.volumeSize.x * probeIdx.y + probeIdx.x, probeIdx.z);
+			tap = averageDiffuseTex.Load(int3(texelCoord, 0)).rgb;
 			tap = sqrt(tap);
 		}
 		

@@ -1,5 +1,6 @@
 #include "bindings.hlsli"
 #include "lightEvaluation.hlsli"
+#include "irradianceVolume.hlsli"
 
 struct Constants
 {
@@ -37,6 +38,8 @@ struct Constants
 	uint localMediaBufferIndex;
 	uint localMediaTileTextureIndex;
 	uint localMediaDepthBinsBufferIndex;
+	uint irradianceVolumeCount;
+	uint irradianceVolumeBufferIndex;
 	uint exposureBufferIndex;
 	uint scatterResultTextureIndex;
 	uint filterInputTextureIndex;
@@ -101,7 +104,8 @@ StructuredBuffer<PunctualLightShadowed> g_PunctualLightsShadowed[65536] : REGIST
 StructuredBuffer<GlobalParticipatingMedium> g_GlobalMedia[65536] : REGISTER_SRV(4, 8, 1);
 StructuredBuffer<LocalParticipatingMedium> g_LocalMedia[65536] : REGISTER_SRV(4, 9, 1);
 ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 10, 1);
-RWTexture3D<float4> g_RWTextures3D[65536] : REGISTER_UAV(1, 11, 1);
+StructuredBuffer<IrradianceVolume> g_IrradianceVolumes[65536] : REGISTER_SRV(4, 11, 1);
+RWTexture3D<float4> g_RWTextures3D[65536] : REGISTER_UAV(1, 12, 1);
 
 
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 2);
@@ -265,8 +269,20 @@ float4 inscattering(uint2 coord, float3 V, float3 worldSpacePos, float linearDep
 	{
 		// ambient
 		{
-			float3 ambientLight = (1.0f / PI);
-			lighting += ambientLight / (4.0f * PI);
+			float4 sum = 0.0f;
+			for (uint i = 0; i < g_Constants.irradianceVolumeCount; ++i)
+			{
+				IrradianceVolume volume = g_IrradianceVolumes[g_Constants.irradianceVolumeBufferIndex][i];
+				Texture2D<float4> averageDiffuseTex = g_Textures[volume.averageDiffuseTextureIndex];
+				Texture2D<float4> visibilityTex = g_Textures[volume.visibilityTextureIndex];
+				
+				sum += sampleIrradianceVolumeDirectionless(averageDiffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos);
+			}
+			
+			if (sum.a > 1e-5f)
+			{
+				lighting += (sum.rgb / sum.a);// / (4.0f * PI);
+			}
 		}
 		
 		// directional lights
