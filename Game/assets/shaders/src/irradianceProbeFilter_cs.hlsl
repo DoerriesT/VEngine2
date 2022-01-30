@@ -1,5 +1,6 @@
 #include "bindings.hlsli"
 #include "packing.hlsli"
+#include "brdf.hlsli"
 
 #ifndef OUTPUT_VISIBILITY
 #define OUTPUT_VISIBILITY 0
@@ -101,6 +102,10 @@ void main(uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
 	if (result.w >= epsilon)
 	{
 		result /= result.w;
+		
+#if !OUTPUT_VISIBILITY
+		result.rgb *= 2.0f * PI; // divide by uniform hemisphere sampling pdf (1.0f / (2.0f * PI))
+#endif
 		
 #if OUTPUT_VISIBILITY
 		result.zw = 0.0f; // hint to the compiler that we only care about the xy components

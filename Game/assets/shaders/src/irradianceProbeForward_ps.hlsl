@@ -262,7 +262,7 @@ PSOutput main(PSInput input)
 		
 		if (sum.a > 1e-5f)
 		{
-			result += (sum.rgb / sum.a) * lightingParams.albedo;
+			result += (sum.rgb / sum.a) * Diffuse_Lambert(lightingParams.albedo);
 		}
 	}
 	

@@ -114,7 +114,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		
 		if (sum.a > 1e-5f)
 		{
-			result += (sum.rgb / sum.a) * albedo;
+			result += (sum.rgb / sum.a) * Diffuse_Lambert(albedo);
 		}
 	}
 

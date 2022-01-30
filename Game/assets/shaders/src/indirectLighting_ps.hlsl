@@ -151,7 +151,7 @@ float4 main(PSInput input) : SV_Target0
 		
 		if (sum.a > 1e-5f)
 		{
-			result += (sum.rgb / sum.a) * albedo * (1.0f - metalness) * gtao * exposure;
+			result += (sum.rgb / sum.a) * Diffuse_Lambert(albedo) * (1.0f - metalness) * gtao * exposure;
 		}
 	}
 	
