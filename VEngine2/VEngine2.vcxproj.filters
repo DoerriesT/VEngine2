@@ -633,6 +633,9 @@
     <ClInclude Include="src\component\IrradianceVolumeComponent.h">
       <Filter>src\component</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\IrradianceVolumeManager.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1117,6 +1120,9 @@
     </ClCompile>
     <ClCompile Include="src\component\IrradianceVolumeComponent.cpp">
       <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\IrradianceVolumeManager.cpp">
+      <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

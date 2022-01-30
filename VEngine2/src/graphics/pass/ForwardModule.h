@@ -25,8 +25,10 @@ public:
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_globalMediaBufferHandle;
 		StructuredBufferViewHandle m_reflectionProbeDataBufferHandle;
+		StructuredBufferViewHandle m_irradianceVolumeBufferHandle;
 		uint32_t m_globalMediaCount;
 		uint32_t m_reflectionProbeCount;
+		uint32_t m_irradianceVolumeCount;
 		const RenderList *m_renderList;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;

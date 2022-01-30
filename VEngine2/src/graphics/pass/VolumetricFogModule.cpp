@@ -214,9 +214,9 @@ void VolumetricFogModule::record(rg::RenderGraph *graph, const Data &data, Resul
 	{
 		usageDescs.push_back({ data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	}
-	for (size_t i = 0; i < data.m_lightRecordData->m_shadowMapViewHandleCount; ++i)
+	for (const auto &handle : data.m_lightRecordData->m_shadowMapViewHandles)
 	{
-		usageDescs.push_back({ data.m_lightRecordData->m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
+		usageDescs.push_back({ handle, {ResourceState::READ_RESOURCE, PipelineStageFlags::COMPUTE_SHADER_BIT} });
 	}
 	graph->addPass("Volumetric Fog", rg::QueueType::GRAPHICS, usageDescs.size(), usageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 		{

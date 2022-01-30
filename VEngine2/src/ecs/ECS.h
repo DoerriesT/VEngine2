@@ -111,6 +111,13 @@ public:
 	void destroyEntity(EntityID entity) noexcept;
 
 	/// <summary>
+	/// Checks if the given entity is valid (was created and not yet destroyed).
+	/// </summary>
+	/// <param name="entity">The entity to check for validity.</param>
+	/// <returns>True if the entity is valid.</returns>
+	bool isValid(EntityID entity) const noexcept;
+
+	/// <summary>
 	/// Adds a component to an entity, overwriting the previous instance if it was already present.
 	/// </summary>
 	/// <typeparam name="T">The type of the component to add.</typeparam>

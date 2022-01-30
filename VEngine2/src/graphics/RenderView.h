@@ -6,6 +6,7 @@
 #include <glm/mat4x4.hpp>
 #include "RenderData.h"
 #include "CommonViewData.h"
+#include "LightManager.h"
 
 struct RenderViewResources;
 class ResourceViewRegistry;
@@ -56,6 +57,8 @@ public:
 		StructuredBufferViewHandle m_prevSkinningMatricesBufferViewHandle;
 		StructuredBufferViewHandle m_globalMediaBufferViewHandle;
 		uint32_t m_globalMediaCount;
+		StructuredBufferViewHandle m_irradianceVolumeBufferViewHandle;
+		uint32_t m_irradianceVolumeCount;
 		const RenderList *m_renderList;
 		const RenderList *m_outlineRenderList;
 		glm::mat4 m_viewMatrix;
@@ -106,4 +109,6 @@ private:
 	ForwardModule *m_forwardModule = nullptr;
 	PostProcessModule *m_postProcessModule = nullptr;
 	GridPass *m_gridPass = nullptr;
+
+	LightRecordData m_lightRecordData = {};
 };

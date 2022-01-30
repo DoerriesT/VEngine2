@@ -2,6 +2,7 @@
 #include "brdf.hlsli"
 #include "srgb.hlsli"
 #include "packing.hlsli"
+#include "irradianceVolume.hlsli"
 
 struct PSInput
 {
@@ -30,6 +31,8 @@ struct Constants
 	uint reflectionProbeDataBufferIndex;
 	uint frame;
 	uint reflectionProbeCount;
+	uint irradianceVolumeCount;
+	uint irradianceVolumeBufferIndex;
 };
 
 struct ReflectionProbe
@@ -56,6 +59,7 @@ TextureCubeArray<float4> g_CubeArrayTextures[65536] : REGISTER_SRV(0, 2, 1);
 ByteAddressBuffer g_ByteAddressBuffers[65536] : REGISTER_SRV(4, 3, 1);
 Texture2DArray<float4> g_ArrayTextures[65536] : REGISTER_SRV(0, 4, 1);
 StructuredBuffer<ReflectionProbe> g_ReflectionProbes[65536] : REGISTER_SRV(4, 5, 1);
+StructuredBuffer<IrradianceVolume> g_IrradianceVolumes[65536] : REGISTER_SRV(4, 6, 1);
 
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 2);
 
@@ -131,8 +135,25 @@ float4 main(PSInput input) : SV_Target0
 	
 	const float gtao = g_Textures[g_Constants.gtaoTextureIndex].Load(uint3(input.position.xy, 0)).x;
 	
-	float intensity = 1.0f;
-	float3 result = Diffuse_Lambert(albedo) * intensity * (1.0f - metalness) * gtao * exposure;
+	float3 result = 0.0f;
+	
+	// indirect diffuse
+	{
+		float4 sum = 0.0f;
+		for (uint i = 0; i < g_Constants.irradianceVolumeCount; ++i)
+		{
+			IrradianceVolume volume = g_IrradianceVolumes[g_Constants.irradianceVolumeBufferIndex][i];
+			Texture2D<float4> diffuseTex = g_Textures[volume.diffuseTextureIndex];
+			Texture2D<float4> visibilityTex = g_Textures[volume.visibilityTextureIndex];
+			
+			sum += sampleIrradianceVolume(diffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos, N, V);
+		}
+		
+		if (sum.a > 1e-5f)
+		{
+			result += (sum.rgb / sum.a) * albedo * (1.0f - metalness) * gtao * exposure;
+		}
+	}
 	
 	// reflection probe
 	if (g_Constants.reflectionProbeCount > 0)

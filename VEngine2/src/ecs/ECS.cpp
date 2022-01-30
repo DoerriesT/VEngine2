@@ -42,6 +42,11 @@ void ECS::destroyEntity(EntityID entity) noexcept
 	}
 }
 
+bool ECS::isValid(EntityID entity) const noexcept
+{
+	return m_entityRecords.find(entity) != m_entityRecords.end();
+}
+
 void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));

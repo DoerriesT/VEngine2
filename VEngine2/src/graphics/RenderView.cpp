@@ -49,7 +49,7 @@ RenderView::RenderView(gal::GraphicsDevice *device, ResourceViewRegistry *viewRe
 	}
 
 	m_renderViewResources = new RenderViewResources(m_device, viewRegistry, m_width, m_height);
-	m_lightManager = new LightManager(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
+	m_lightManager = new LightManager(m_device, rendererResources, viewRegistry);
 	m_forwardModule = new ForwardModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_postProcessModule = new PostProcessModule(m_device, offsetBufferSetLayout, viewRegistry->getDescriptorSetLayout());
 	m_gridPass = new GridPass(m_device, offsetBufferSetLayout);
@@ -189,18 +189,29 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 			}
 		});
 
-	m_lightManager->update(viewData, data.m_ecs, graph);
-	m_lightManager->recordLightTileAssignment(graph, viewData);
+	m_lightRecordData = {};
+	LightManager::Data lightMgrData{};
+	lightMgrData.m_ecs = data.m_ecs;
+	lightMgrData.m_width = m_width;
+	lightMgrData.m_height = m_height;
+	lightMgrData.m_near = data.m_nearPlane;
+	lightMgrData.m_far = data.m_farPlane;
+	lightMgrData.m_fovy = data.m_fovy;
+	lightMgrData.m_viewProjectionMatrix = viewData.m_jitteredViewProjectionMatrix;
+	lightMgrData.m_invViewMatrix = viewData.m_invViewMatrix;
+	lightMgrData.m_viewMatrixDepthRow = viewData.m_viewMatrixDepthRow;
+	lightMgrData.m_gpuProfilingCtx = viewData.m_gpuProfilingCtx;
+	lightMgrData.m_shaderResourceLinearAllocator = viewData.m_shaderResourceAllocator;
+	lightMgrData.m_constantBufferLinearAllocator = viewData.m_constantBufferAllocator;
+	lightMgrData.m_offsetBufferSet = viewData.m_offsetBufferSet;
+	lightMgrData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
+	lightMgrData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
+	lightMgrData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+	lightMgrData.m_renderList = data.m_renderList;
+	lightMgrData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
+	lightMgrData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 
-	LightManager::ShadowRecordData shadowRecordData{};
-	shadowRecordData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
-	shadowRecordData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
-	shadowRecordData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	shadowRecordData.m_renderList = data.m_renderList;
-	shadowRecordData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
-	shadowRecordData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
-
-	m_lightManager->recordShadows(graph, viewData, shadowRecordData);
+	m_lightManager->update(lightMgrData, graph, &m_lightRecordData);
 
 
 	ForwardModule::ResultData forwardModuleResultData;
@@ -213,12 +224,14 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_globalMediaBufferHandle = data.m_globalMediaBufferViewHandle;
 	forwardModuleData.m_reflectionProbeDataBufferHandle = data.m_reflectionProbeDataBufferHandle;
+	forwardModuleData.m_irradianceVolumeBufferHandle = data.m_irradianceVolumeBufferViewHandle;
 	forwardModuleData.m_globalMediaCount = data.m_globalMediaCount;
 	forwardModuleData.m_reflectionProbeCount = data.m_reflectionProbeCount;
+	forwardModuleData.m_irradianceVolumeCount = data.m_irradianceVolumeCount;
 	forwardModuleData.m_renderList = data.m_renderList;
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
-	forwardModuleData.m_lightRecordData = m_lightManager->getLightRecordData();
+	forwardModuleData.m_lightRecordData = &m_lightRecordData;
 	forwardModuleData.m_taaEnabled = data.m_effectSettings.m_taaEnabled;
 	forwardModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 

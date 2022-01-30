@@ -5,6 +5,7 @@
 #include "ResourceViewRegistry.h"
 #include "RendererResources.h"
 #include "ReflectionProbeManager.h"
+#include "IrradianceVolumeManager.h"
 #include "RenderView.h"
 #include "pass/ImGuiPass.h"
 #include <glm/gtc/type_ptr.hpp>
@@ -78,6 +79,7 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 	m_renderGraph = new rg::RenderGraph(m_device, m_semaphores, m_semaphoreValues, m_viewRegistry);
 
 	m_reflectionProbeManager = new ReflectionProbeManager(m_device, m_rendererResources, m_viewRegistry);
+	m_irradianceVolumeManager = new IrradianceVolumeManager(m_device, m_rendererResources, m_viewRegistry);
 
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
@@ -92,6 +94,7 @@ Renderer::~Renderer() noexcept
 
 	delete m_imguiPass;
 	delete m_renderView;
+	delete m_irradianceVolumeManager;
 	delete m_reflectionProbeManager;
 	delete m_materialManager;
 	delete m_textureLoader;
@@ -153,7 +156,7 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				}
 			});
 	}
-	
+
 
 	m_renderGraph->nextFrame();
 	m_time += deltaTime;
@@ -165,7 +168,6 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 	m_rendererResources->m_indexBufferLinearAllocators[m_frame & 1]->reset();
 	m_rendererResources->m_vertexBufferLinearAllocators[m_frame & 1]->reset();
 
-	m_viewRegistry->flushChanges();
 	m_textureManager->flushDeletionQueue(m_frame);
 	m_meshManager->flushDeletionQueue(m_frame);
 
@@ -330,6 +332,24 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 			cameraTransformComponent.m_transform = cameraTransformComponent.m_curRenderTransform;
 			Camera camera(cameraTransformComponent, *cameraComponent);
 
+			// bake irradiance volume
+			{
+				IrradianceVolumeManager::Data irradianceVolumeMgrData{};
+				irradianceVolumeMgrData.m_ecs = ecs;
+				irradianceVolumeMgrData.m_gpuProfilingCtx = m_device->getProfilingContext();
+				irradianceVolumeMgrData.m_shaderResourceLinearAllocator = m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1];
+				irradianceVolumeMgrData.m_constantBufferLinearAllocator = m_rendererResources->m_constantBufferLinearAllocators[m_frame & 1];
+				irradianceVolumeMgrData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1];
+				irradianceVolumeMgrData.m_transformBufferHandle = transformsBufferViewHandle;
+				irradianceVolumeMgrData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
+				irradianceVolumeMgrData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+				irradianceVolumeMgrData.m_renderList = &m_renderList;
+				irradianceVolumeMgrData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
+				irradianceVolumeMgrData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
+
+				m_irradianceVolumeManager->update(m_renderGraph, irradianceVolumeMgrData);
+			}
+
 			// update reflection probes
 			{
 				auto cameraPosition = camera.getPosition();
@@ -343,6 +363,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				reflectionProbeManagerData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1];
 				reflectionProbeManagerData.m_transformBufferHandle = transformsBufferViewHandle;
 				reflectionProbeManagerData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
+				reflectionProbeManagerData.m_irradianceVolumeCount = m_irradianceVolumeManager->getIrradianceVolumeCount();
+				reflectionProbeManagerData.m_irradianceVolumeBufferViewHandle = m_irradianceVolumeManager->getIrradianceVolumeBufferViewHandle();
 				reflectionProbeManagerData.m_renderList = &m_renderList;
 				reflectionProbeManagerData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 				reflectionProbeManagerData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
@@ -372,6 +394,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 			renderViewData.m_prevSkinningMatricesBufferViewHandle = prevSkinningMatricesBufferViewHandle;
 			renderViewData.m_globalMediaBufferViewHandle = globalMediaBufferViewHandle;
 			renderViewData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
+			renderViewData.m_irradianceVolumeBufferViewHandle = m_irradianceVolumeManager->getIrradianceVolumeBufferViewHandle();
+			renderViewData.m_irradianceVolumeCount = m_irradianceVolumeManager->getIrradianceVolumeCount();
 			renderViewData.m_renderList = &m_renderList;
 			renderViewData.m_outlineRenderList = &m_outlineRenderList;
 			renderViewData.m_viewMatrix = camera.getViewMatrix();
@@ -443,6 +467,7 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 		}
 	}
 
+	m_viewRegistry->flushChanges();
 	m_renderGraph->execute();
 
 	if (m_swapchainWidth != 0 && m_swapchainHeight != 0)
@@ -574,6 +599,28 @@ uint64_t Renderer::getPickedEntity() const noexcept
 	return static_cast<uint64_t>(m_renderView->getPickedEntity());
 }
 
+bool Renderer::startIrradianceVolumeBake() noexcept
+{
+	return m_irradianceVolumeManager->startBake();
+}
+
+bool Renderer::abortIrradianceVolumeBake() noexcept
+{
+	return m_irradianceVolumeManager->abortBake();
+}
+
+bool Renderer::isBakingIrradianceVolumes() const noexcept
+{
+	return m_irradianceVolumeManager->isBaking();
+}
+
+float Renderer::getIrradianceVolumeBakeProgress() const noexcept
+{
+	auto curVal = m_irradianceVolumeManager->getProcessedProbesCount();
+	auto targetVal = m_irradianceVolumeManager->getTotalProbeCount();
+	return targetVal == 0 ? 1.0f : curVal / static_cast<float>(targetVal);
+}
+
 void Renderer::clearDebugGeometry() noexcept
 {
 	m_renderView->clearDebugGeometry();
@@ -646,16 +693,16 @@ void Renderer::drawDebugBox(const glm::mat4 &transform, const glm::vec4 &visible
 
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][0][1], corners[1][0][1], corners[1][1][1], visibleColor, visibleColor, visibleColor);
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][0][1], corners[1][1][1], corners[0][1][1], visibleColor, visibleColor, visibleColor);
-		
+
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][0][0], corners[0][1][0], corners[0][1][1], visibleColor, visibleColor, visibleColor);
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][0][0], corners[0][0][1], corners[0][1][1], visibleColor, visibleColor, visibleColor);
-		
+
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[1][0][0], corners[1][1][0], corners[1][1][1], visibleColor, visibleColor, visibleColor);
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[1][0][0], corners[1][0][1], corners[1][1][1], visibleColor, visibleColor, visibleColor);
-		
+
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][1][0], corners[0][1][1], corners[1][1][1], visibleColor, visibleColor, visibleColor);
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][1][0], corners[1][1][0], corners[1][1][1], visibleColor, visibleColor, visibleColor);
-		
+
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][0][0], corners[0][0][1], corners[1][0][1], visibleColor, visibleColor, visibleColor);
 		drawDebugTriangle(DebugDrawVisibility::Visible, corners[0][0][0], corners[1][0][0], corners[1][0][1], visibleColor, visibleColor, visibleColor);
 
@@ -816,5 +863,43 @@ void Renderer::drawDebugArrow(glm::vec3 position, glm::quat rotation, float scal
 		drawDebugLine(DebugDrawVisibility::Occluded, arrowHead, arrowHeadX1, occludedColor, occludedColor);
 		drawDebugLine(DebugDrawVisibility::Occluded, arrowHead, arrowHeadZ0, occludedColor, occludedColor);
 		drawDebugLine(DebugDrawVisibility::Occluded, arrowHead, arrowHeadZ1, occludedColor, occludedColor);
+	}
+}
+
+void Renderer::drawDebugCross(glm::vec3 position, float scale, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept
+{
+	glm::vec3 p0;
+	glm::vec3 p1;
+
+	p0 = position + glm::vec3(scale, scale, scale);
+	p1 = position + -glm::vec3(scale, scale, scale);
+	drawDebugLine(DebugDrawVisibility::Visible, p0, p1, visibleColor, visibleColor);
+	if (drawOccluded)
+	{
+		drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, occludedColor, occludedColor);
+	}
+
+	p0 = position + glm::vec3(scale, scale, -scale);
+	p1 = position + -glm::vec3(scale, scale, -scale);
+	drawDebugLine(DebugDrawVisibility::Visible, p0, p1, visibleColor, visibleColor);
+	if (drawOccluded)
+	{
+		drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, occludedColor, occludedColor);
+	}
+
+	p0 = position + glm::vec3(-scale, scale, scale);
+	p1 = position + -glm::vec3(-scale, scale, scale);
+	drawDebugLine(DebugDrawVisibility::Visible, p0, p1, visibleColor, visibleColor);
+	if (drawOccluded)
+	{
+		drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, occludedColor, occludedColor);
+	}
+
+	p0 = position + glm::vec3(-scale, scale, -scale);
+	p1 = position + -glm::vec3(-scale, scale, -scale);
+	drawDebugLine(DebugDrawVisibility::Visible, p0, p1, visibleColor, visibleColor);
+	if (drawOccluded)
+	{
+		drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, occludedColor, occludedColor);
 	}
 }

@@ -15,6 +15,7 @@
 #define A_CPU 1
 #include <ffx_a.h>
 #include <ffx_cas.h>
+#include "graphics/IrradianceVolumeManager.h"
 
 using namespace gal;
 
@@ -89,6 +90,15 @@ namespace
 		float time;
 		uint32_t inputTextureIndex;
 		uint32_t resultTextureIndex;
+	};
+
+	struct IrradianceVolumeDebugPushConsts
+	{
+		glm::mat4 viewProjection;
+		float worldSpacePosition[3];
+		uint32_t irradianceVolumeTextureIndex;
+		uint32_t probeIdx[3];
+		uint32_t exposureBufferIndex;
 	};
 }
 
@@ -451,6 +461,38 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		device->createGraphicsPipelines(1, &pipelineCreateInfo, isSkinned ? &m_debugNormalsSkinnedPipeline : &m_debugNormalsPipeline);
 	}
 
+	// irradiance volume debug
+	{
+		GraphicsPipelineCreateInfo pipelineCreateInfo;
+		GraphicsPipelineBuilder builder(pipelineCreateInfo);
+		builder.setVertexShader("assets/shaders/irradianceVolumeDebug_vs");
+		builder.setFragmentShader("assets/shaders/irradianceVolumeDebug_ps");
+		builder.setVertexBindingDescription({ 0, sizeof(float) * 3, VertexInputRate::VERTEX });
+		builder.setVertexAttributeDescription({ "POSITION", 0, 0, Format::R32G32B32_SFLOAT, 0 });
+		builder.setPolygonModeCullMode(PolygonMode::FILL, CullModeFlags::BACK_BIT, FrontFace::COUNTER_CLOCKWISE);
+		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
+		builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
+		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
+		builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
+
+		DescriptorSetLayoutBinding usedBindlessBindings[] =
+		{
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0, ShaderStageFlags::PIXEL_BIT),
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 1, ShaderStageFlags::PIXEL_BIT),
+		};
+
+		DescriptorSetLayoutDeclaration layoutDecls[]
+		{
+			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+		};
+
+		gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticLinearClampSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT);
+
+		builder.setPipelineLayoutDescription(1, layoutDecls, sizeof(IrradianceVolumeDebugPushConsts), ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 1, &staticSamplerDesc, 1);
+
+		device->createGraphicsPipelines(1, &pipelineCreateInfo, &m_irradianceVolumeDebugPipeline);
+	}
+
 	// debug draws
 	for (size_t triangle = 0; triangle < 2; ++triangle)
 	{
@@ -512,6 +554,7 @@ PostProcessModule::~PostProcessModule() noexcept
 	m_device->destroyGraphicsPipeline(m_outlineIDAlphaTestedPipeline);
 	m_device->destroyGraphicsPipeline(m_outlineIDSkinnedAlphaTestedPipeline);
 	m_device->destroyGraphicsPipeline(m_outlinePipeline);
+	m_device->destroyGraphicsPipeline(m_irradianceVolumeDebugPipeline);
 	m_device->destroyGraphicsPipeline(m_debugNormalsPipeline);
 	m_device->destroyGraphicsPipeline(m_debugNormalsSkinnedPipeline);
 	for (auto &pso : m_debugDrawPipelines)
@@ -935,7 +978,7 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				pushConsts.time = data.m_viewData->m_time;
 				pushConsts.inputTextureIndex = registry.getBindlessHandle(tonemapResultImageViewHandle, DescriptorType::TEXTURE);
 				pushConsts.resultTextureIndex = registry.getBindlessHandle(data.m_resultImageViewHandle, DescriptorType::RW_TEXTURE);
-				
+
 
 				cmdList->pushConstants(m_sharpenPipeline, ShaderStageFlags::COMPUTE_BIT, 0, sizeof(pushConsts), &pushConsts);
 
@@ -1135,6 +1178,70 @@ void PostProcessModule::record(rg::RenderGraph *graph, const Data &data, ResultD
 				cmdList->endRenderPass();
 			});
 	}
+
+#if 0
+	// irradiance volume debug
+	{
+		rg::ResourceUsageDesc usageDescs[] =
+		{
+			{data.m_resultImageViewHandle, {ResourceState::WRITE_COLOR_ATTACHMENT}},
+			{data.m_depthBufferImageViewHandle, {ResourceState::WRITE_DEPTH_STENCIL}},
+			{ data.m_viewData->m_exposureBufferHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+			//{ g_irradianceVolumeDiffuseTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} },
+		};
+		graph->addPass("Irradiance Volume Debug", rg::QueueType::GRAPHICS, eastl::size(usageDescs), usageDescs, [=](CommandList *cmdList, const rg::Registry &registry)
+			{
+				ProxyMeshInfo &sphereProxyMeshInfo = data.m_viewData->m_rendererResources->m_icoSphereProxyMeshInfo;
+
+				ColorAttachmentDescription attachmentDescs[]{ { registry.getImageView(data.m_resultImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE } };
+				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(data.m_depthBufferImageViewHandle), AttachmentLoadOp::LOAD, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
+				Rect renderRect{ {0, 0}, {width, height} };
+
+				cmdList->beginRenderPass(static_cast<uint32_t>(eastl::size(attachmentDescs)), attachmentDescs, &depthBufferDesc, renderRect, false);
+				{
+					Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
+					cmdList->setViewport(0, 1, &viewport);
+					Rect scissor{ {0, 0}, {width, height} };
+					cmdList->setScissor(0, 1, &scissor);
+
+					cmdList->bindPipeline(m_irradianceVolumeDebugPipeline);
+
+					cmdList->bindDescriptorSets(m_irradianceVolumeDebugPipeline, 0, 1, &data.m_viewData->m_bindlessSet, 0, nullptr);
+
+					cmdList->bindIndexBuffer(data.m_viewData->m_rendererResources->m_proxyMeshIndexBuffer, 0, IndexType::UINT16);
+
+					uint64_t vertexOffset = 0;
+					cmdList->bindVertexBuffers(0, 1, &data.m_viewData->m_rendererResources->m_proxyMeshVertexBuffer, &vertexOffset);
+
+					IrradianceVolumeDebugPushConsts pushConsts{};
+					pushConsts.viewProjection = data.m_viewData->m_viewProjectionMatrix;
+					pushConsts.irradianceVolumeTextureIndex = registry.getBindlessHandle(g_irradianceVolumeDiffuseTextureViewHandle, DescriptorType::TEXTURE);
+					pushConsts.exposureBufferIndex = registry.getBindlessHandle(data.m_viewData->m_exposureBufferHandle, DescriptorType::BYTE_BUFFER);
+
+					for (size_t z = 0; z < IrradianceVolumeManager::k_irradianceVolumeDepth; ++z)
+					{
+						for (size_t y = 0; y < IrradianceVolumeManager::k_irradianceVolumeHeight; ++y)
+						{
+							for (size_t x = 0; x < IrradianceVolumeManager::k_irradianceVolumeWidth; ++x)
+							{
+								pushConsts.worldSpacePosition[0] = x * 2.0f + -14.0f;
+								pushConsts.worldSpacePosition[1] = y * 2.0f + 1.0f;
+								pushConsts.worldSpacePosition[2] = z * 2.0f + -7.0f;
+								pushConsts.probeIdx[0] = x;
+								pushConsts.probeIdx[1] = y;
+								pushConsts.probeIdx[2] = z;
+
+								cmdList->pushConstants(m_irradianceVolumeDebugPipeline, ShaderStageFlags::PIXEL_BIT | ShaderStageFlags::VERTEX_BIT, 0, sizeof(pushConsts), &pushConsts);
+
+								cmdList->drawIndexed(sphereProxyMeshInfo.m_indexCount, 1, sphereProxyMeshInfo.m_firstIndex, sphereProxyMeshInfo.m_vertexOffset, 0);
+							}
+						}
+					}
+				}
+				cmdList->endRenderPass();
+			});
+	}
+#endif
 
 	if (data.m_debugNormals)
 	{

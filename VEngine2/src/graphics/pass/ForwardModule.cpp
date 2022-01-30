@@ -349,6 +349,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::BYTE_BUFFER, 3, ShaderStageFlags::PIXEL_BIT), // exposure buffer
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 4, ShaderStageFlags::PIXEL_BIT), // array textures
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 5, ShaderStageFlags::PIXEL_BIT), // reflection probe data
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 6, ShaderStageFlags::PIXEL_BIT), // irradiance volume data
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -586,9 +587,9 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 	{
 		forwardUsageDescs.push_back({ data.m_lightRecordData->m_punctualLightsShadowedTileTextureViewHandle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	}
-	for (size_t i = 0; i < data.m_lightRecordData->m_shadowMapViewHandleCount; ++i)
+	for (const auto &handle : data.m_lightRecordData->m_shadowMapViewHandles)
 	{
-		forwardUsageDescs.push_back({ data.m_lightRecordData->m_shadowMapViewHandles[i], {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+		forwardUsageDescs.push_back({ handle, {ResourceState::READ_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 	}
 
 	graph->addPass("Forward", rg::QueueType::GRAPHICS, forwardUsageDescs.size(), forwardUsageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
@@ -949,6 +950,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					uint32_t reflectionProbeDataBufferIndex;
 					uint32_t frame;
 					uint32_t reflectionProbeCount;
+					uint32_t irradianceVolumeCount;
+					uint32_t irradianceVolumeBufferIndex;
 				};
 
 				IndirectLightingConstants consts{};
@@ -972,6 +975,8 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				consts.reflectionProbeDataBufferIndex = data.m_reflectionProbeDataBufferHandle;
 				consts.frame = data.m_viewData->m_frame;
 				consts.reflectionProbeCount = data.m_reflectionProbeCount;
+				consts.irradianceVolumeCount = data.m_irradianceVolumeCount;
+				consts.irradianceVolumeBufferIndex = data.m_irradianceVolumeBufferHandle;
 
 				uint32_t constsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, consts);
 

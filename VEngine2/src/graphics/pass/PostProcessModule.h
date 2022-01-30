@@ -67,6 +67,7 @@ private:
 	gal::GraphicsPipeline *m_outlineIDAlphaTestedPipeline = nullptr;
 	gal::GraphicsPipeline *m_outlineIDSkinnedAlphaTestedPipeline = nullptr;
 	gal::GraphicsPipeline *m_outlinePipeline = nullptr;
+	gal::GraphicsPipeline *m_irradianceVolumeDebugPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugNormalsSkinnedPipeline = nullptr;
 	gal::GraphicsPipeline *m_debugDrawPipelines[6] = {};

@@ -82,6 +82,7 @@ void Editor::update(float deltaTime) noexcept
 		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 	}
 
+	bool startIrradianceVolumeBake = false;
 
 	if (ImGui::BeginMainMenuBar())
 	{
@@ -109,10 +110,43 @@ void Editor::update(float deltaTime) noexcept
 			//ImGui::MenuItem("Exposure Settings", "", &m_showExposureWindow);
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Scene"))
+		{
+			if (ImGui::MenuItem("Bake Irradiance Volumes"))
+			{
+				startIrradianceVolumeBake = true;
+			}
+			ImGui::EndMenu();
+		}
 		ImGui::EndMainMenuBar();
 	}
 
 	ImGui::End();
+
+	if (startIrradianceVolumeBake && m_engine->getRenderer()->startIrradianceVolumeBake())
+	{
+		ImGui::OpenPopup("Baking Irradiance Volumes");
+	}
+
+	if (ImGui::BeginPopupModal("Baking Irradiance Volumes", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
+	{
+		float progress = m_engine->getRenderer()->getIrradianceVolumeBakeProgress();
+		char progressLabel[32];
+		snprintf(progressLabel, sizeof(progressLabel), "%.3f%%", progress * 100.0f);
+		ImGui::ProgressBar(progress, ImVec2(0.0f, 0.0f), progressLabel);
+
+		if (ImGui::Button("Cancel"))
+		{
+			m_engine->getRenderer()->abortIrradianceVolumeBake();
+			ImGui::CloseCurrentPopup();
+		}
+		else if (!m_engine->getRenderer()->isBakingIrradianceVolumes())
+		{
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
 
 	// quick menu
 	{
@@ -143,7 +177,7 @@ void Editor::update(float deltaTime) noexcept
 		});
 
 	m_animationGraphWindow->draw(animGraph);
-	
+
 
 	m_gameLogic->update(deltaTime);
 

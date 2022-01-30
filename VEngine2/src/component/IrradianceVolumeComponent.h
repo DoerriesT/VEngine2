@@ -12,9 +12,10 @@ struct IrradianceVolumeComponent
 	uint32_t m_resolutionX = 4;
 	uint32_t m_resolutionY = 4;
 	uint32_t m_resolutionZ = 4;
+	float m_selfShadowBias = 0.3f;
 	float m_nearPlane = 0.1f;
 	float m_farPlane = 50.0f;
-	bool m_bake = false;
+	uint32_t m_internalHandle = 0;
 
 	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;

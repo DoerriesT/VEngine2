@@ -67,4 +67,12 @@ dxc.exe -T cs_6_0 -E main brdfLUT_cs.hlsl -Fo ./../brdfLUT_cs.cso -Zi -Fd ./../b
 dxc.exe -T cs_6_0 -E main irradianceProbeFilter_cs.hlsl -Fo ./../irradianceProbeFilter_diffuse_cs.cso -Zi -Fd ./../irradianceProbeFilter_diffuse_cs.pdb
 dxc.exe -T cs_6_0 -E main -D OUTPUT_VISIBILITY=1 irradianceProbeFilter_cs.hlsl -Fo ./../irradianceProbeFilter_visibility_cs.cso -Zi -Fd ./../irradianceProbeFilter_visibility_cs.pdb
 
+dxc.exe -T vs_6_0 -E main irradianceProbeForward_vs.hlsl -Fo ./../irradianceProbeForward_vs.cso -Zi -Fd ./../irradianceProbeForward_vs.pdb
+dxc.exe -T ps_6_0 -E main irradianceProbeForward_ps.hlsl -Fo ./../irradianceProbeForward_ps.cso -Zi -Fd ./../irradianceProbeForward_ps.pdb
+dxc.exe -T ps_6_0 -E main -D ALPHA_TESTED=1 irradianceProbeForward_ps.hlsl -Fo ./../irradianceProbeForward_alpha_tested_ps.cso -Zi -Fd ./../irradianceProbeForward_alpha_tested_ps.pdb
+dxc.exe -T ps_6_0 -E main irradianceProbeSky_ps.hlsl -Fo ./../irradianceProbeSky_ps.cso -Zi -Fd ./../irradianceProbeSky_ps.pdb
+
+dxc.exe -T vs_6_0 -E main irradianceVolumeDebug_vs.hlsl -Fo ./../irradianceVolumeDebug_vs.cso -Zi -Fd ./../irradianceVolumeDebug_vs.pdb
+dxc.exe -T ps_6_0 -E main irradianceVolumeDebug_ps.hlsl -Fo ./../irradianceVolumeDebug_ps.cso -Zi -Fd ./../irradianceVolumeDebug_ps.pdb
+
 pause

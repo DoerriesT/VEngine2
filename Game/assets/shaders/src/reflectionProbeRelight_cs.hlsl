@@ -2,6 +2,7 @@
 #include "packing.hlsli"
 #include "lightEvaluation.hlsli"
 #include "srgb.hlsli"
+#include "irradianceVolume.hlsli"
 
 struct Constants
 {
@@ -17,6 +18,8 @@ struct Constants
 	uint directionalLightBufferIndex;
 	uint directionalLightShadowedCount;
 	uint directionalLightShadowedBufferIndex;
+	uint irradianceVolumeCount;
+	uint irradianceVolumeBufferIndex;
 	uint albedoRoughnessTextureIndex;
 	uint normalDepthTextureIndex;
 	uint resultTextureIndex;
@@ -25,7 +28,9 @@ struct Constants
 ConstantBuffer<Constants> g_Constants : REGISTER_CBV(0, 0, 0);
 Texture2DArray<float4> g_Textures[65536] : REGISTER_SRV(0, 0, 1);
 StructuredBuffer<DirectionalLight> g_DirectionalLights[65536] : REGISTER_SRV(4, 1, 1);
-RWTexture2DArray<float4> g_RWTextures[65536] : REGISTER_UAV(1, 2, 1);
+Texture2D<float4> g_Textures2D[65536] : REGISTER_SRV(0, 2, 1);
+StructuredBuffer<IrradianceVolume> g_IrradianceVolumes[65536] : REGISTER_SRV(4, 3, 1);
+RWTexture2DArray<float4> g_RWTextures[65536] : REGISTER_UAV(1, 4, 1);
 
 SamplerState g_LinearClampSampler : REGISTER_SAMPLER(0, 0, 2);
 
@@ -95,7 +100,23 @@ void main(uint3 threadID : SV_DispatchThreadID)
 	
 	float3 result = 0.0f;
 	
-	result += Diffuse_Lambert(albedo);
+	// indirect diffuse
+	{
+		float4 sum = 0.0f;
+		for (uint i = 0; i < g_Constants.irradianceVolumeCount; ++i)
+		{
+			IrradianceVolume volume = g_IrradianceVolumes[g_Constants.irradianceVolumeBufferIndex][i];
+			Texture2D<float4> diffuseTex = g_Textures2D[volume.diffuseTextureIndex];
+			Texture2D<float4> visibilityTex = g_Textures2D[volume.visibilityTextureIndex];
+			
+			sum += sampleIrradianceVolume(diffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos, N, V);
+		}
+		
+		if (sum.a > 1e-5f)
+		{
+			result += (sum.rgb / sum.a) * albedo;
+		}
+	}
 
 	// directional lights
 	{

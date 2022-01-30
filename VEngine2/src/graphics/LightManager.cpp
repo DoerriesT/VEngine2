@@ -11,7 +11,6 @@
 #include "RenderData.h"
 #include "RenderGraph.h"
 #include "Mesh.h"
-#include "CommonViewData.h"
 #include "RendererResources.h"
 #include "ResourceViewRegistry.h"
 #include "LinearGPUBufferAllocator.h"
@@ -201,9 +200,9 @@ static void calculateCascadeViewProjectionMatrices(const glm::vec3 &lightDir,
 	}
 }
 
-static uint32_t calculateProjectedLightSize(const CommonViewData &viewData, const glm::mat4 &shadowMatrix) noexcept
+static uint32_t calculateProjectedLightSize(const LightManager::Data &data, const glm::mat4 &shadowMatrix) noexcept
 {
-	glm::mat4 shadowToScreenSpace = viewData.m_viewProjectionMatrix * glm::inverse(shadowMatrix);
+	glm::mat4 shadowToScreenSpace = data.m_viewProjectionMatrix * glm::inverse(shadowMatrix);
 
 	float maxX = -FLT_MAX;
 	float maxY = -FLT_MAX;
@@ -230,16 +229,20 @@ static uint32_t calculateProjectedLightSize(const CommonViewData &viewData, cons
 		minY = fminf(minY, y);
 	}
 
-	float width = (maxX - minX) * viewData.m_width;
-	float height = (maxY - minY) * viewData.m_height;
+	float width = (maxX - minX) * data.m_width;
+	float height = (maxY - minY) * data.m_height;
 	float maxDim = eastl::clamp(fmaxf(width, height), 16.0f, 2048.0f);
 
 	return util::alignUp<uint32_t>(static_cast<uint32_t>(ceilf(maxDim)), 16);
 }
 
-LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout *offsetBufferSetLayout, gal::DescriptorSetLayout *bindlessSetLayout) noexcept
-	:m_device(device)
+LightManager::LightManager(gal::GraphicsDevice *device, RendererResources *renderResources, ResourceViewRegistry *viewRegistry) noexcept
+	:m_device(device),
+	m_viewRegistry(viewRegistry),
+	m_rendererResources(renderResources)
 {
+	m_tmpDepthBinMemory.resize(k_numDepthBins);
+
 	// light tile assignment
 	{
 		GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -261,8 +264,8 @@ LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
 		{
-			{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-			{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+			{ renderResources->m_offsetBufferDescriptorSetLayout, 1, &usedOffsetBufferBinding },
+			{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 		};
 
 		uint32_t pushConstSize = sizeof(uint32_t) * 2;
@@ -335,8 +338,8 @@ LightManager::LightManager(gal::GraphicsDevice *device, gal::DescriptorSetLayout
 
 			DescriptorSetLayoutDeclaration layoutDecls[]
 			{
-				{ offsetBufferSetLayout, 1, &usedOffsetBufferBinding },
-				{ bindlessSetLayout, (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
+				{ renderResources->m_offsetBufferDescriptorSetLayout, 1, &usedOffsetBufferBinding },
+				{ viewRegistry->getDescriptorSetLayout(), (uint32_t)eastl::size(usedBindlessBindings), usedBindlessBindings },
 			};
 
 			gal::StaticSamplerDescription staticSamplerDesc = gal::Initializers::staticAnisotropicRepeatSampler(0, 0, gal::ShaderStageFlags::PIXEL_BIT);
@@ -383,25 +386,29 @@ LightManager::~LightManager()
 	m_device->destroyGraphicsPipeline(m_shadowSkinnedAlphaTestedPipeline);
 }
 
-void LightManager::update(const CommonViewData &viewData, ECS *ecs, rg::RenderGraph *graph) noexcept
+void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordData *resultLightRecordData) noexcept
 {
-	m_shadowMatrices.clear();
-	m_shadowTextureRenderHandles.clear();
-	m_shadowTextureSampleHandles.clear();
-	m_directionalLights.clear();
-	m_shadowedDirectionalLights.clear();
-	m_punctualLights.clear();
-	m_punctualLightsShadowed.clear();
-	m_lightTransforms.clear();
+	resultLightRecordData->m_shadowMapViewHandles.clear();
 
-
+	struct LightPointers
+	{
+		TransformComponent *m_tc;
+		LightComponent *m_lc;
+	};
 
 	eastl::vector<LightPointers> directionalLightPtrs;
 	eastl::vector<LightPointers> shadowedDirectionalLightPtrs;
 	eastl::vector<LightPointers> punctualLightPtrs;
 	eastl::vector<LightPointers> shadowedPunctualLightPtrs;
+	eastl::vector<glm::mat4> shadowMatrices;
+	eastl::vector<rg::ResourceViewHandle> shadowTextureRenderHandles;
+	eastl::vector<DirectionalLightGPU> directionalLights;
+	eastl::vector<DirectionalLightGPU> shadowedDirectionalLights;
+	eastl::vector<PunctualLightGPU> punctualLights;
+	eastl::vector<PunctualLightShadowedGPU> punctualLightsShadowed;
+	eastl::vector<glm::mat4> lightTransforms;
 
-	ecs->iterate<TransformComponent, LightComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, LightComponent *lightC)
+	data.m_ecs->iterate<TransformComponent, LightComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, LightComponent *lightC)
 		{
 			for (size_t i = 0; i < count; ++i)
 			{
@@ -441,22 +448,17 @@ void LightManager::update(const CommonViewData &viewData, ECS *ecs, rg::RenderGr
 			}
 		});
 
-	processDirectionalLights(viewData, graph, directionalLightPtrs);
-	processShadowedDirectionalLights(viewData, graph, shadowedDirectionalLightPtrs);
-	processPunctualLights(viewData, graph, punctualLightPtrs);
-	processShadowedPunctualLights(viewData, graph, shadowedPunctualLightPtrs);
-
 	auto createShaderResourceBuffer = [&](DescriptorType descriptorType, auto dataAsVector, bool copyNow = true, void **resultBufferPtr = nullptr)
 	{
 		const size_t elementSize = sizeof(dataAsVector[0]);
 
 		// prepare DescriptorBufferInfo
 		DescriptorBufferInfo bufferInfo = Initializers::structuredBufferInfo(elementSize, dataAsVector.size());
-		bufferInfo.m_buffer = viewData.m_shaderResourceAllocator->getBuffer();
+		bufferInfo.m_buffer = data.m_shaderResourceLinearAllocator->getBuffer();
 
 		// allocate memory
-		uint64_t alignment = viewData.m_device->getBufferAlignment(descriptorType, elementSize);
-		uint8_t *bufferPtr = viewData.m_shaderResourceAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+		uint64_t alignment = m_device->getBufferAlignment(descriptorType, elementSize);
+		uint8_t *bufferPtr = data.m_shaderResourceLinearAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
 
 		// copy to destination
 		if (copyNow && !dataAsVector.empty())
@@ -471,65 +473,306 @@ void LightManager::update(const CommonViewData &viewData, ECS *ecs, rg::RenderGr
 
 		// create a transient bindless handle
 		return descriptorType == DescriptorType::STRUCTURED_BUFFER ?
-			viewData.m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) :
-			viewData.m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
+			m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) :
+			m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
 	};
 
-	// punctual lights tile texture
-	const uint32_t punctualLightsTileTextureWidth = (viewData.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
-	const uint32_t punctualLightsTileTextureHeight = (viewData.m_height + k_lightingTileSize - 1) / k_lightingTileSize;
-	const uint32_t punctualLightsTileTextureLayerCount = eastl::max<uint32_t>(1, ((uint32_t)m_punctualLights.size() + 31) / 32);
-	rg::ResourceHandle punctualLightsTileTextureHandle = graph->createImage(rg::ImageDesc::create("Punctual Lights Tile Image", Format::R32_UINT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, punctualLightsTileTextureWidth, punctualLightsTileTextureHeight, 1, punctualLightsTileTextureLayerCount));
-	rg::ResourceViewHandle punctualLightsTileTextureViewHandle = graph->createImageView(rg::ImageViewDesc::create("Punctual Lights Tile Image", punctualLightsTileTextureHandle, { 0, 1, 0, punctualLightsTileTextureLayerCount }, ImageViewType::_2D_ARRAY));
+	// directional lights
+	{
+		for (const auto &lp : directionalLightPtrs)
+		{
+			auto &tc = *lp.m_tc;
+			auto &lc = *lp.m_lc;
 
-	// punctual lights shadowed tile texture
-	const uint32_t punctualLightsShadowedTileTextureLayerCount = eastl::max<uint32_t>(1, ((uint32_t)m_punctualLightsShadowed.size() + 31) / 32);
-	rg::ResourceHandle punctualLightsShadowedTileTextureHandle = graph->createImage(rg::ImageDesc::create("Punctual Lights Shadowed Tile Image", Format::R32_UINT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, punctualLightsTileTextureWidth, punctualLightsTileTextureHeight, 1, punctualLightsShadowedTileTextureLayerCount));
-	rg::ResourceViewHandle punctualLightsShadowedTileTextureViewHandle = graph->createImageView(rg::ImageViewDesc::create("Punctual Lights Shadowed Tile Image", punctualLightsShadowedTileTextureHandle, { 0, 1, 0, punctualLightsTileTextureLayerCount }, ImageViewType::_2D_ARRAY));
+			DirectionalLightGPU directionalLight{};
+			directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
+			directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+			directionalLight.m_cascadeCount = 0;
 
-	m_lightRecordData.m_directionalLightCount = static_cast<uint32_t>(m_directionalLights.size());
-	m_lightRecordData.m_directionalLightsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_directionalLights);
+			directionalLights.push_back(directionalLight);
+		}
 
-	m_lightRecordData.m_directionalLightShadowedCount = static_cast<uint32_t>(m_shadowedDirectionalLights.size());
+		resultLightRecordData->m_directionalLightCount = static_cast<uint32_t>(directionalLights.size());
+		resultLightRecordData->m_directionalLightsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, directionalLights);
+	}
+
+	// shadowed directional lights
 	void *directionalLightsShadowedBufferPtr = nullptr;
-	m_lightRecordData.m_directionalLightsShadowedBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_shadowedDirectionalLights, false, &directionalLightsShadowedBufferPtr);
+	{
+		for (const auto &lp : shadowedDirectionalLightPtrs)
+		{
+			auto &tc = *lp.m_tc;
+			auto &lc = *lp.m_lc;
 
-	m_lightRecordData.m_punctualLightCount = static_cast<uint32_t>(m_punctualLights.size());
-	m_lightRecordData.m_punctualLightsTileTextureViewHandle = punctualLightsTileTextureViewHandle;
-	m_lightRecordData.m_punctualLightsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_punctualLights);
-	m_lightRecordData.m_punctualLightsDepthBinsBufferViewHandle = (ByteBufferViewHandle)createShaderResourceBuffer(DescriptorType::BYTE_BUFFER, m_punctualLightsDepthBins);
+			DirectionalLightGPU directionalLight{};
+			directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
+			directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+			directionalLight.m_cascadeCount = lc.m_cascadeCount;
 
-	m_lightRecordData.m_punctualLightShadowedCount = static_cast<uint32_t>(m_punctualLightsShadowed.size());
-	m_lightRecordData.m_punctualLightsShadowedTileTextureViewHandle = punctualLightsShadowedTileTextureViewHandle;
+			glm::vec4 cascadeParams[LightComponent::k_maxCascades];
+			glm::vec4 depthRows[LightComponent::k_maxCascades];
+
+			assert(lc.m_cascadeCount <= LightComponent::k_maxCascades);
+
+			for (size_t j = 0; j < lc.m_cascadeCount; ++j)
+			{
+				cascadeParams[j].x = lc.m_depthBias[j];
+				cascadeParams[j].y = lc.m_normalOffsetBias[j];
+			}
+
+			calculateCascadeViewProjectionMatrices(directionalLight.m_direction,
+				data.m_near,
+				data.m_far,
+				data.m_fovy,
+				data.m_invViewMatrix,
+				data.m_width,
+				data.m_height,
+				lc.m_maxShadowDistance,
+				lc.m_splitLambda,
+				2048.0f,
+				lc.m_cascadeCount,
+				directionalLight.m_shadowMatrices,
+				cascadeParams,
+				depthRows);
+
+			rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Cascaded Shadow Maps", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, 2048, 2048, 1, lc.m_cascadeCount));
+			rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Cascaded Shadow Maps", shadowMapHandle, { 0, 1, 0, lc.m_cascadeCount }, ImageViewType::_2D_ARRAY));
+			static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+			directionalLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(shadowMapViewHandle); // we later correct these to be actual TextureViewHandles
+			resultLightRecordData->m_shadowMapViewHandles.push_back(shadowMapViewHandle);
+
+			for (size_t j = 0; j < lc.m_cascadeCount; ++j)
+			{
+				shadowMatrices.push_back(directionalLight.m_shadowMatrices[j]);
+				shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Shadow Cascade", shadowMapHandle, { 0, 1, static_cast<uint32_t>(j), 1 }, ImageViewType::_2D)));
+			}
+
+			shadowedDirectionalLights.push_back(directionalLight);
+		}
+
+		resultLightRecordData->m_directionalLightShadowedCount = static_cast<uint32_t>(shadowedDirectionalLights.size());
+		resultLightRecordData->m_directionalLightsShadowedBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, shadowedDirectionalLights, false, &directionalLightsShadowedBufferPtr);
+	}
+
+
+	const uint32_t punctualLightsTileTextureWidth = (data.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
+	const uint32_t punctualLightsTileTextureHeight = (data.m_height + k_lightingTileSize - 1) / k_lightingTileSize;
+
+	// punctual lights
+	{
+		eastl::vector<uint64_t> punctualLightsOrder;
+		punctualLightsOrder.reserve(punctualLightPtrs.size());
+		for (size_t i = 0; i < punctualLightPtrs.size(); ++i)
+		{
+			auto &tc = *punctualLightPtrs[i].m_tc;
+
+			// TODO: cull lights here
+			punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, data.m_viewMatrixDepthRow, i));
+		}
+
+		// sort by distance to camera
+		eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
+
+		// clear depth bins
+		eastl::fill(m_tmpDepthBinMemory.begin(), m_tmpDepthBinMemory.end(), k_emptyBin);
+
+		for (auto sortIndex : punctualLightsOrder)
+		{
+			const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
+			const auto &lp = punctualLightPtrs[lightIndex];
+			const auto &tc = *lp.m_tc;
+			const auto &lc = *lp.m_lc;
+
+			PunctualLightGPU punctualLight = createPunctualLightGPU(tc, lc);
+			if (lc.m_type == LightComponent::Type::Spot)
+			{
+				lightTransforms.push_back(data.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), punctualLight.m_direction)) * glm::scale(glm::vec3(lc.m_radius)));
+			}
+			else
+			{
+				lightTransforms.push_back(data.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::scale(glm::vec3(lc.m_radius)));
+			}
+
+			punctualLights.push_back(punctualLight);
+
+			insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_tmpDepthBinMemory.data());
+		}
+
+		resultLightRecordData->m_punctualLightCount = static_cast<uint32_t>(punctualLights.size());
+
+		// punctual lights tile texture
+		const uint32_t punctualLightsTileTextureLayerCount = eastl::max<uint32_t>(1, ((uint32_t)punctualLights.size() + 31) / 32);
+		rg::ResourceHandle punctualLightsTileTextureHandle = graph->createImage(rg::ImageDesc::create("Punctual Lights Tile Image", Format::R32_UINT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, punctualLightsTileTextureWidth, punctualLightsTileTextureHeight, 1, punctualLightsTileTextureLayerCount));
+		resultLightRecordData->m_punctualLightsTileTextureViewHandle = graph->createImageView(rg::ImageViewDesc::create("Punctual Lights Tile Image", punctualLightsTileTextureHandle, { 0, 1, 0, punctualLightsTileTextureLayerCount }, ImageViewType::_2D_ARRAY));
+
+		resultLightRecordData->m_punctualLightsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, punctualLights);
+		resultLightRecordData->m_punctualLightsDepthBinsBufferViewHandle = (ByteBufferViewHandle)createShaderResourceBuffer(DescriptorType::BYTE_BUFFER, m_tmpDepthBinMemory);
+	}
+
+	// shadowed punctual lights
 	void *punctualLightsShadowedBufferPtr = nullptr;
-	m_lightRecordData.m_punctualLightsShadowedBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_punctualLightsShadowed, false, &punctualLightsShadowedBufferPtr);
-	m_lightRecordData.m_punctualLightsShadowedDepthBinsBufferViewHandle = (ByteBufferViewHandle)createShaderResourceBuffer(DescriptorType::BYTE_BUFFER, m_punctualLightsShadowedDepthBins);
+	{
+		eastl::vector<uint64_t> punctualLightsOrder;
+		punctualLightsOrder.reserve(shadowedPunctualLightPtrs.size());
+		for (size_t i = 0; i < shadowedPunctualLightPtrs.size(); ++i)
+		{
+			auto &tc = *shadowedPunctualLightPtrs[i].m_tc;
 
-	m_lightRecordData.m_shadowMapViewHandles = m_shadowTextureSampleHandles.data();
-	m_lightRecordData.m_shadowMapViewHandleCount = static_cast<uint32_t>(m_shadowTextureSampleHandles.size());
+			// TODO: cull lights here
+			punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, data.m_viewMatrixDepthRow, i));
+		}
 
-	m_lightTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, m_lightTransforms);
+		// sort by distance to camera
+		eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
+
+		// clear depth bins
+		eastl::fill(m_tmpDepthBinMemory.begin(), m_tmpDepthBinMemory.end(), k_emptyBin);
+
+		for (auto sortIndex : punctualLightsOrder)
+		{
+			const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
+			const auto &lp = shadowedPunctualLightPtrs[lightIndex];
+			const auto &tc = *lp.m_tc;
+			const auto &lc = *lp.m_lc;
+
+			const bool isSpotLight = lc.m_type == LightComponent::Type::Spot;
+
+			constexpr float k_nearPlane = 0.5f;
+			glm::mat4 projection = glm::perspective(isSpotLight ? lc.m_outerAngle : glm::radians(90.0f), 1.0f, lc.m_radius, k_nearPlane);
+			glm::mat4 invProjection = glm::inverse(projection);
+
+			PunctualLightShadowedGPU punctualLight{};
+			punctualLight.m_light = createPunctualLightGPU(tc, lc);
+			punctualLight.m_depthProjectionParam0 = projection[2][2];
+			punctualLight.m_depthProjectionParam1 = projection[3][2];
+			punctualLight.m_depthUnprojectParam0 = invProjection[2][3];
+			punctualLight.m_depthUnprojectParam1 = invProjection[3][3];
+			punctualLight.m_lightRadius = lc.m_radius;
+			punctualLight.m_invLightRadius = 1.0f / lc.m_radius;
+			punctualLight.m_pcfRadius = calculatePenumbraRadiusNDC(calculateMaxPenumbraPercentage(0.5f), isSpotLight ? (0.5f * lc.m_outerAngle) : glm::quarter_pi<float>());
+
+			// spot light
+			if (isSpotLight)
+			{
+				glm::vec3 upDir(0.0f, 1.0f, 0.0f);
+				// choose different up vector if light direction would be linearly dependent otherwise
+				if (fabsf(punctualLight.m_light.m_direction.x) < 0.001f && fabsf(punctualLight.m_light.m_direction.z) < 0.001f)
+				{
+					upDir = glm::vec3(1.0f, 0.0f, 0.0f);
+				}
+
+				glm::mat4 shadowViewMatrix = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + punctualLight.m_light.m_direction, upDir);
+				glm::mat4 shadowMatrix = projection * shadowViewMatrix;
+				glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
+
+				// project shadow far plane to screen space to get the optimal size of the shadow map
+				uint32_t resolution = calculateProjectedLightSize(data, shadowMatrix);
+
+				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
+				rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle));
+				static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+
+				shadowMatrices.push_back(shadowMatrix);
+				resultLightRecordData->m_shadowMapViewHandles.push_back(shadowMapViewHandle);
+				shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle)));
+
+				punctualLight.m_shadowMatrix0 = shadowMatrixTransposed[0];
+				punctualLight.m_shadowMatrix1 = shadowMatrixTransposed[1];
+				punctualLight.m_shadowMatrix2 = shadowMatrixTransposed[2];
+				punctualLight.m_shadowMatrix3 = shadowMatrixTransposed[3];
+				punctualLight.m_shadowTextureHandle = shadowMapViewHandle; // we later correct these to be actual TextureViewHandles
+
+				lightTransforms.push_back(data.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), punctualLight.m_light.m_direction)) * glm::scale(glm::vec3(lc.m_radius)));
+			}
+			// point light
+			else
+			{
+				glm::mat4 viewMatrices[6];
+				viewMatrices[0] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrices[1] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrices[2] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+				viewMatrices[3] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+				viewMatrices[4] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				viewMatrices[5] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				constexpr const char *resourceNames[]
+				{
+					"Point Light Shadow Map +X",
+					"Point Light Shadow Map -X",
+					"Point Light Shadow Map +Y",
+					"Point Light Shadow Map -Y",
+					"Point Light Shadow Map +Z",
+					"Point Light Shadow Map -Z",
+				};
+
+				for (size_t i = 0; i < 6; ++i)
+				{
+					glm::mat4 shadowMatrix = projection * viewMatrices[i];
+
+					// project shadow far plane to screen space to get the optimal size of the shadow map
+					uint32_t resolution = calculateProjectedLightSize(data, shadowMatrix);
+
+					rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create(resourceNames[i], Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
+					rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle));
+					static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
+
+					shadowMatrices.push_back(shadowMatrix);
+					resultLightRecordData->m_shadowMapViewHandles.push_back(shadowMapViewHandle);
+					shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
+
+					// we later correct these to be actual TextureViewHandles
+					if (i < 4)
+					{
+						punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(shadowMapViewHandle);
+					}
+					else
+					{
+						punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(shadowMapViewHandle);
+					}
+				}
+
+				lightTransforms.push_back(data.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::scale(glm::vec3(lc.m_radius)));
+			}
+
+			punctualLightsShadowed.push_back(punctualLight);
+
+			insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_tmpDepthBinMemory.data());
+		}
+
+		resultLightRecordData->m_punctualLightShadowedCount = static_cast<uint32_t>(punctualLightsShadowed.size());
+
+		// punctual lights shadowed tile texture
+		const uint32_t punctualLightsShadowedTileTextureLayerCount = eastl::max<uint32_t>(1, ((uint32_t)punctualLightsShadowed.size() + 31) / 32);
+		rg::ResourceHandle punctualLightsShadowedTileTextureHandle = graph->createImage(rg::ImageDesc::create("Punctual Lights Shadowed Tile Image", Format::R32_UINT, ImageUsageFlags::RW_TEXTURE_BIT | ImageUsageFlags::TEXTURE_BIT, punctualLightsTileTextureWidth, punctualLightsTileTextureHeight, 1, punctualLightsShadowedTileTextureLayerCount));
+		resultLightRecordData->m_punctualLightsShadowedTileTextureViewHandle = graph->createImageView(rg::ImageViewDesc::create("Punctual Lights Shadowed Tile Image", punctualLightsShadowedTileTextureHandle, { 0, 1, 0, punctualLightsShadowedTileTextureLayerCount }, ImageViewType::_2D_ARRAY));
+
+
+		resultLightRecordData->m_punctualLightsShadowedBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, punctualLightsShadowed, false, &punctualLightsShadowedBufferPtr);
+		resultLightRecordData->m_punctualLightsShadowedDepthBinsBufferViewHandle = (ByteBufferViewHandle)createShaderResourceBuffer(DescriptorType::BYTE_BUFFER, m_tmpDepthBinMemory);
+	}
+
+	StructuredBufferViewHandle lightTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(DescriptorType::STRUCTURED_BUFFER, lightTransforms);
 
 	graph->addPass("Prepare Light Data", rg::QueueType::GRAPHICS, 0, nullptr, [=](gal::CommandList *cmdList, const rg::Registry &registry)
 		{
 			// correct render graph handles to be actual bindless handles
-			for (auto &dirLight : m_shadowedDirectionalLights)
+			void *bufferPtr = directionalLightsShadowedBufferPtr;
+			for (auto &dirLight : shadowedDirectionalLights)
 			{
-				dirLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(dirLight.m_shadowTextureHandle), DescriptorType::TEXTURE));
+				auto light = dirLight;
+				light.m_shadowTextureHandle = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(light.m_shadowTextureHandle), DescriptorType::TEXTURE));
+				memcpy(bufferPtr, &light, sizeof(light));
+				bufferPtr = reinterpret_cast<decltype(light) *>(bufferPtr) + 1;
 			}
-
-			if (!m_shadowedDirectionalLights.empty())
-			{
-				memcpy(directionalLightsShadowedBufferPtr, m_shadowedDirectionalLights.data(), m_shadowedDirectionalLights.size() * sizeof(DirectionalLightGPU));
-			}
-
 
 			// correct render graph handles to be actual bindless handles
-			for (auto &punctualLight : m_punctualLightsShadowed)
+			bufferPtr = punctualLightsShadowedBufferPtr;
+			for (auto &punctualLight : punctualLightsShadowed)
 			{
-				if (punctualLight.m_light.m_angleScale != -1.0f)
+				auto light = punctualLight;
+				if (light.m_light.m_angleScale != -1.0f)
 				{
-					punctualLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(punctualLight.m_shadowTextureHandle), DescriptorType::TEXTURE));
+					light.m_shadowTextureHandle = static_cast<TextureViewHandle>(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(light.m_shadowTextureHandle), DescriptorType::TEXTURE));
 				}
 				else
 				{
@@ -537,35 +780,31 @@ void LightManager::update(const CommonViewData &viewData, ECS *ecs, rg::RenderGr
 					{
 						if (i < 4)
 						{
-							punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix0[(int)i])), DescriptorType::TEXTURE));
+							light.m_shadowMatrix0[(int)i] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(light.m_shadowMatrix0[(int)i])), DescriptorType::TEXTURE));
 						}
 						else
 						{
-							punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(punctualLight.m_shadowMatrix1[(int)i - 4])), DescriptorType::TEXTURE));
+							light.m_shadowMatrix1[(int)i - 4] = util::asfloat(registry.getBindlessHandle(static_cast<rg::ResourceViewHandle>(util::asuint(light.m_shadowMatrix1[(int)i - 4])), DescriptorType::TEXTURE));
 						}
 					}
 				}
-			}
 
-			if (!m_punctualLightsShadowed.empty())
-			{
-				memcpy(punctualLightsShadowedBufferPtr, m_punctualLightsShadowed.data(), m_punctualLightsShadowed.size() * sizeof(PunctualLightShadowedGPU));
+				memcpy(bufferPtr, &light, sizeof(light));
+				bufferPtr = reinterpret_cast<decltype(light) *>(bufferPtr) + 1;
 			}
 		});
-}
 
-void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const CommonViewData &viewData) noexcept
-{
-	if (!m_punctualLights.empty() || !m_punctualLightsShadowed.empty())
+	// record light tile assignment
+	if (!punctualLights.empty() || !punctualLightsShadowed.empty())
 	{
 		eastl::fixed_vector<rg::ResourceUsageDesc, 2> usageDescs;
-		if (!m_punctualLights.empty())
+		if (!punctualLights.empty())
 		{
-			usageDescs.push_back({ m_lightRecordData.m_punctualLightsTileTextureViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+			usageDescs.push_back({ resultLightRecordData->m_punctualLightsTileTextureViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 		}
-		if (!m_punctualLightsShadowed.empty())
+		if (!punctualLightsShadowed.empty())
 		{
-			usageDescs.push_back({ m_lightRecordData.m_punctualLightsShadowedTileTextureViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
+			usageDescs.push_back({ resultLightRecordData->m_punctualLightsShadowedTileTextureViewHandle, {ResourceState::CLEAR_RESOURCE}, {ResourceState::RW_RESOURCE, PipelineStageFlags::PIXEL_SHADER_BIT} });
 		}
 		graph->addPass("Light Tile Assignment", rg::QueueType::GRAPHICS, usageDescs.size(), usageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 			{
@@ -573,25 +812,25 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 				PROFILING_GPU_ZONE_SCOPED_N(m_device->getProfilingContext(), cmdList, "Light Tile Assignment");
 				PROFILING_ZONE_SCOPED;
 
-				const uint32_t lightWordCount = eastl::max<uint32_t>(1, ((uint32_t)m_punctualLights.size() + 31) / 32);
-				const uint32_t lightShadowedWordCount = eastl::max<uint32_t>(1, ((uint32_t)m_punctualLightsShadowed.size() + 31) / 32);
+				const uint32_t lightWordCount = eastl::max<uint32_t>(1, ((uint32_t)punctualLights.size() + 31) / 32);
+				const uint32_t lightShadowedWordCount = eastl::max<uint32_t>(1, ((uint32_t)punctualLightsShadowed.size() + 31) / 32);
 
 				// clear tile textures
 				{
 					eastl::fixed_vector<Image *, 2> images;
 					eastl::fixed_vector<ImageSubresourceRange, 2> ranges;
-					if (!m_punctualLights.empty())
+					if (!punctualLights.empty())
 					{
-						Image *image = registry.getImage(m_lightRecordData.m_punctualLightsTileTextureViewHandle);
+						Image *image = registry.getImage(resultLightRecordData->m_punctualLightsTileTextureViewHandle);
 						ClearColorValue clearColor{};
 						ImageSubresourceRange range = { 0, 1, 0, lightWordCount };
 						cmdList->clearColorImage(image, &clearColor, 1, &range);
 						images.push_back(image);
 						ranges.push_back(range);
 					}
-					if (!m_punctualLightsShadowed.empty())
+					if (!punctualLightsShadowed.empty())
 					{
-						Image *image = registry.getImage(m_lightRecordData.m_punctualLightsShadowedTileTextureViewHandle);
+						Image *image = registry.getImage(resultLightRecordData->m_punctualLightsShadowedTileTextureViewHandle);
 						ClearColorValue clearColor{};
 						ImageSubresourceRange range = { 0, 1, 0, lightShadowedWordCount };
 						cmdList->clearColorImage(image, &clearColor, 1, &range);
@@ -615,17 +854,17 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 					uint32_t resultTextureIndex;
 				};
 
-				ProxyMeshInfo &pointLightProxyMeshInfo = viewData.m_rendererResources->m_icoSphereProxyMeshInfo;
+				ProxyMeshInfo &pointLightProxyMeshInfo = m_rendererResources->m_icoSphereProxyMeshInfo;
 				ProxyMeshInfo *spotLightProxyMeshInfo[]
 				{
-					&viewData.m_rendererResources->m_cone45ProxyMeshInfo,
-					&viewData.m_rendererResources->m_cone90ProxyMeshInfo,
-					&viewData.m_rendererResources->m_cone135ProxyMeshInfo,
-					&viewData.m_rendererResources->m_cone180ProxyMeshInfo,
+					&m_rendererResources->m_cone45ProxyMeshInfo,
+					&m_rendererResources->m_cone90ProxyMeshInfo,
+					&m_rendererResources->m_cone135ProxyMeshInfo,
+					&m_rendererResources->m_cone180ProxyMeshInfo,
 				};
 
-				const uint32_t width = (viewData.m_width + 1) / 2;
-				const uint32_t height = (viewData.m_height + 1) / 2;
+				const uint32_t width = (data.m_width + 1) / 2;
+				const uint32_t height = (data.m_height + 1) / 2;
 				Rect renderRect{ {0, 0}, {width, height} };
 
 				cmdList->beginRenderPass(0, nullptr, nullptr, renderRect, true);
@@ -637,19 +876,19 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 
 					cmdList->bindPipeline(m_lightTileAssignmentPipeline);
 
-					gal::DescriptorSet *sets[] = { viewData.m_offsetBufferSet, viewData.m_viewRegistry->getCurrentFrameDescriptorSet() };
+					gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
 					cmdList->bindDescriptorSets(m_lightTileAssignmentPipeline, 1, 1, &sets[1], 0, nullptr);
 
-					cmdList->bindIndexBuffer(viewData.m_rendererResources->m_proxyMeshIndexBuffer, 0, IndexType::UINT16);
+					cmdList->bindIndexBuffer(m_rendererResources->m_proxyMeshIndexBuffer, 0, IndexType::UINT16);
 
 					uint64_t vertexOffset = 0;
-					cmdList->bindVertexBuffers(0, 1, &viewData.m_rendererResources->m_proxyMeshVertexBuffer, &vertexOffset);
+					cmdList->bindVertexBuffers(0, 1, &m_rendererResources->m_proxyMeshVertexBuffer, &vertexOffset);
 
 					for (size_t shadowed = 0; shadowed < 2; ++shadowed)
 					{
 						const bool isShadowed = shadowed != 0;
 
-						const size_t lightCount = isShadowed ? m_punctualLightsShadowed.size() : m_punctualLights.size();
+						const size_t lightCount = isShadowed ? punctualLightsShadowed.size() : punctualLights.size();
 
 						if (lightCount == 0)
 						{
@@ -657,12 +896,12 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 						}
 
 						PassConstants passConsts{};
-						passConsts.tileCountX = (viewData.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
-						passConsts.transformBufferIndex = m_lightTransformsBufferViewHandle;
+						passConsts.tileCountX = (data.m_width + k_lightingTileSize - 1) / k_lightingTileSize;
+						passConsts.transformBufferIndex = lightTransformsBufferViewHandle;
 						passConsts.wordCount = isShadowed ? lightShadowedWordCount : lightWordCount;
-						passConsts.resultTextureIndex = registry.getBindlessHandle(isShadowed ? m_lightRecordData.m_punctualLightsShadowedTileTextureViewHandle : m_lightRecordData.m_punctualLightsTileTextureViewHandle, DescriptorType::RW_TEXTURE);
+						passConsts.resultTextureIndex = registry.getBindlessHandle(isShadowed ? resultLightRecordData->m_punctualLightsShadowedTileTextureViewHandle : resultLightRecordData->m_punctualLightsTileTextureViewHandle, DescriptorType::RW_TEXTURE);
 
-						uint32_t passConstsAddress = (uint32_t)viewData.m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
+						uint32_t passConstsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
 						cmdList->bindDescriptorSets(m_lightTileAssignmentPipeline, 0, 1, &sets[0], 1, &passConstsAddress);
 
@@ -676,11 +915,11 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 
 							PushConsts pushConsts{};
 							pushConsts.lightIndex = static_cast<uint32_t>(i);
-							pushConsts.transformIndex = pushConsts.lightIndex + (isShadowed ? static_cast<uint32_t>(m_punctualLights.size()) : 0);
+							pushConsts.transformIndex = pushConsts.lightIndex + (isShadowed ? static_cast<uint32_t>(punctualLights.size()) : 0);
 
 							cmdList->pushConstants(m_lightTileAssignmentPipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(pushConsts), &pushConsts);
 
-							const auto &light = isShadowed ? m_punctualLightsShadowed[i].m_light : m_punctualLights[i];
+							const auto &light = isShadowed ? punctualLightsShadowed[i].m_light : punctualLights[i];
 							const bool spotLight = light.m_angleScale != -1.0f;
 							size_t spotLightProxyMeshIndex = -1;
 							if (spotLight)
@@ -698,395 +937,147 @@ void LightManager::recordLightTileAssignment(rg::RenderGraph *graph, const Commo
 				cmdList->endRenderPass();
 			});
 	}
-}
 
-void LightManager::recordShadows(rg::RenderGraph *graph, const CommonViewData &viewData, const ShadowRecordData &data) noexcept
-{
-	eastl::fixed_vector<rg::ResourceUsageDesc, 32> usageDescs;
-
-	for (auto h : m_shadowTextureRenderHandles)
+	// record shadows
 	{
-		usageDescs.push_back({ h, {ResourceState::WRITE_DEPTH_STENCIL} });
-	}
+		eastl::fixed_vector<rg::ResourceUsageDesc, 32> usageDescs;
 
-	graph->addPass("Shadows", rg::QueueType::GRAPHICS, usageDescs.size(), usageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
+		for (auto h : shadowTextureRenderHandles)
 		{
-			GAL_SCOPED_GPU_LABEL(cmdList, "Shadows");
-			PROFILING_GPU_ZONE_SCOPED_N(m_device->getProfilingContext(), cmdList, "Shadows");
-			PROFILING_ZONE_SCOPED;
+			usageDescs.push_back({ h, {ResourceState::WRITE_DEPTH_STENCIL} });
+		}
 
-			size_t curDepthBufferHandleOffset = 0;
-
-			// iterate over all shadow map jobs
-			for (auto &shadowMatrix : m_shadowMatrices)
+		graph->addPass("Shadows", rg::QueueType::GRAPHICS, usageDescs.size(), usageDescs.data(), [=](CommandList *cmdList, const rg::Registry &registry)
 			{
-				auto shadowTextureHandle = m_shadowTextureRenderHandles[curDepthBufferHandleOffset++];
+				GAL_SCOPED_GPU_LABEL(cmdList, "Shadows");
+				PROFILING_GPU_ZONE_SCOPED_N(m_device->getProfilingContext(), cmdList, "Shadows");
+				PROFILING_ZONE_SCOPED;
 
-				DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(shadowTextureHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
-				const auto &imageDesc = registry.getImage(shadowTextureHandle)->getDescription();
-				Rect renderRect{ {0, 0}, {imageDesc.m_width, imageDesc.m_height} };
+				size_t curDepthBufferHandleOffset = 0;
 
-				cmdList->beginRenderPass(0, nullptr, &depthBufferDesc, renderRect, false);
+				// iterate over all shadow map jobs
+				for (auto &shadowMatrix : shadowMatrices)
 				{
-					Viewport viewport{ 0.0f, 0.0f, (float)imageDesc.m_width, (float)imageDesc.m_height, 0.0f, 1.0f };
-					cmdList->setViewport(0, 1, &viewport);
-					Rect scissor{ {0, 0}, {imageDesc.m_width, imageDesc.m_height} };
-					cmdList->setScissor(0, 1, &scissor);
+					auto shadowTextureHandle = shadowTextureRenderHandles[curDepthBufferHandleOffset++];
 
-					struct PassConstants
+					DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(shadowTextureHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
+					const auto &imageDesc = registry.getImage(shadowTextureHandle)->getDescription();
+					Rect renderRect{ {0, 0}, {imageDesc.m_width, imageDesc.m_height} };
+
+					cmdList->beginRenderPass(0, nullptr, &depthBufferDesc, renderRect, false);
 					{
-						float viewProjectionMatrix[16];
-						uint32_t transformBufferIndex;
-						uint32_t skinningMatricesBufferIndex;
-						uint32_t materialBufferIndex;
-					};
+						Viewport viewport{ 0.0f, 0.0f, (float)imageDesc.m_width, (float)imageDesc.m_height, 0.0f, 1.0f };
+						cmdList->setViewport(0, 1, &viewport);
+						Rect scissor{ {0, 0}, {imageDesc.m_width, imageDesc.m_height} };
+						cmdList->setScissor(0, 1, &scissor);
 
-					PassConstants passConsts;
-					memcpy(passConsts.viewProjectionMatrix, &shadowMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
-					passConsts.transformBufferIndex = data.m_transformBufferHandle;
-					passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
-					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
-
-					uint32_t passConstsAddress = (uint32_t)viewData.m_constantBufferAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
-
-					const eastl::vector<SubMeshInstanceData> *instancesArr[]
-					{
-						&data.m_renderList->m_opaque,
-						&data.m_renderList->m_opaqueAlphaTested,
-						&data.m_renderList->m_opaqueSkinned,
-						&data.m_renderList->m_opaqueSkinnedAlphaTested,
-					};
-					GraphicsPipeline *pipelines[]
-					{
-						m_shadowPipeline,
-						m_shadowAlphaTestedPipeline,
-						m_shadowSkinnedPipeline,
-						m_shadowSkinnedAlphaTestedPipeline,
-					};
-
-					for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
-					{
-						if (instancesArr[listType]->empty())
+						struct PassConstants
 						{
-							continue;
-						}
-						const bool skinned = listType >= 2;
-						const bool alphaTested = (listType & 1) != 0;
-						auto *pipeline = pipelines[listType];
+							float viewProjectionMatrix[16];
+							uint32_t transformBufferIndex;
+							uint32_t skinningMatricesBufferIndex;
+							uint32_t materialBufferIndex;
+						};
 
-						cmdList->bindPipeline(pipeline);
+						PassConstants passConsts;
+						memcpy(passConsts.viewProjectionMatrix, &shadowMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
+						passConsts.transformBufferIndex = data.m_transformBufferHandle;
+						passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
+						passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
-						gal::DescriptorSet *sets[] = { viewData.m_offsetBufferSet, viewData.m_viewRegistry->getCurrentFrameDescriptorSet() };
-						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+						uint32_t passConstsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
-						for (const auto &instance : *instancesArr[listType])
+						const eastl::vector<SubMeshInstanceData> *instancesArr[]
 						{
-							struct MeshConstants
-							{
-								uint32_t transformIndex;
-								uint32_t uintData[2];
-							};
+							&data.m_renderList->m_opaque,
+							&data.m_renderList->m_opaqueAlphaTested,
+							&data.m_renderList->m_opaqueSkinned,
+							&data.m_renderList->m_opaqueSkinnedAlphaTested,
+						};
+						GraphicsPipeline *pipelines[]
+						{
+							m_shadowPipeline,
+							m_shadowAlphaTestedPipeline,
+							m_shadowSkinnedPipeline,
+							m_shadowSkinnedAlphaTestedPipeline,
+						};
 
-							MeshConstants consts{};
-							consts.transformIndex = instance.m_transformIndex;
-
-							size_t uintDataOffset = 0;
-							if (skinned)
+						for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
+						{
+							if (instancesArr[listType]->empty())
 							{
-								consts.uintData[uintDataOffset++] = instance.m_skinningMatricesOffset;
+								continue;
 							}
-							if (alphaTested)
+							const bool skinned = listType >= 2;
+							const bool alphaTested = (listType & 1) != 0;
+							auto *pipeline = pipelines[listType];
+
+							cmdList->bindPipeline(pipeline);
+
+							gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
+							cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+
+							for (const auto &instance : *instancesArr[listType])
 							{
-								consts.uintData[uintDataOffset++] = instance.m_materialHandle;
+								struct MeshConstants
+								{
+									uint32_t transformIndex;
+									uint32_t uintData[2];
+								};
+
+								MeshConstants consts{};
+								consts.transformIndex = instance.m_transformIndex;
+
+								size_t uintDataOffset = 0;
+								if (skinned)
+								{
+									consts.uintData[uintDataOffset++] = instance.m_skinningMatricesOffset;
+								}
+								if (alphaTested)
+								{
+									consts.uintData[uintDataOffset++] = instance.m_materialHandle;
+								}
+
+								cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
+
+
+								Buffer *vertexBuffers[]
+								{
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+								};
+
+								const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+
+								const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+								const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+								const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+								const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+								const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
+								const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
+
+								eastl::fixed_vector<uint64_t, 4> vertexBufferOffsets;
+								vertexBufferOffsets.push_back(0); // positions
+								if (alphaTested)
+								{
+									vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize); // texcoords
+								}
+								if (skinned)
+								{
+									vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize); // joint indices
+									vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize); // joint weights
+								}
+
+								cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
+								cmdList->bindVertexBuffers(0, static_cast<uint32_t>(vertexBufferOffsets.size()), vertexBuffers, vertexBufferOffsets.data());
+								cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 							}
-
-							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
-
-
-							Buffer *vertexBuffers[]
-							{
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							};
-
-							const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
-
-							const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-							const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-							const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-							const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
-							const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
-							const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
-
-							eastl::fixed_vector<uint64_t, 4> vertexBufferOffsets;
-							vertexBufferOffsets.push_back(0); // positions
-							if (alphaTested)
-							{
-								vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize); // texcoords
-							}
-							if (skinned)
-							{
-								vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize); // joint indices
-								vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize); // joint weights
-							}
-
-							cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
-							cmdList->bindVertexBuffers(0, static_cast<uint32_t>(vertexBufferOffsets.size()), vertexBuffers, vertexBufferOffsets.data());
-							cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 						}
 					}
+					cmdList->endRenderPass();
 				}
-				cmdList->endRenderPass();
-			}
-		});
-}
-
-const LightRecordData *LightManager::getLightRecordData() const noexcept
-{
-	return &m_lightRecordData;
-}
-
-void LightManager::processDirectionalLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
-{
-	for (const auto &lp : lightPtrs)
-	{
-		auto &tc = *lp.m_tc;
-		auto &lc = *lp.m_lc;
-
-		DirectionalLightGPU directionalLight{};
-		directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
-		directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
-		directionalLight.m_cascadeCount = 0;
-
-		m_directionalLights.push_back(directionalLight);
-	}
-}
-
-void LightManager::processShadowedDirectionalLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
-{
-	for (const auto &lp : lightPtrs)
-	{
-		auto &tc = *lp.m_tc;
-		auto &lc = *lp.m_lc;
-
-		DirectionalLightGPU directionalLight{};
-		directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
-		directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
-		directionalLight.m_cascadeCount = lc.m_cascadeCount;
-
-		glm::vec4 cascadeParams[LightComponent::k_maxCascades];
-		glm::vec4 depthRows[LightComponent::k_maxCascades];
-
-		assert(lc.m_cascadeCount <= LightComponent::k_maxCascades);
-
-		for (size_t j = 0; j < lc.m_cascadeCount; ++j)
-		{
-			cascadeParams[j].x = lc.m_depthBias[j];
-			cascadeParams[j].y = lc.m_normalOffsetBias[j];
-		}
-
-		calculateCascadeViewProjectionMatrices(directionalLight.m_direction,
-			viewData.m_near,
-			viewData.m_far,
-			viewData.m_fovy,
-			viewData.m_invViewMatrix,
-			viewData.m_width,
-			viewData.m_height,
-			lc.m_maxShadowDistance,
-			lc.m_splitLambda,
-			2048.0f,
-			lc.m_cascadeCount,
-			directionalLight.m_shadowMatrices,
-			cascadeParams,
-			depthRows);
-
-		rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Cascaded Shadow Maps", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, 2048, 2048, 1, lc.m_cascadeCount));
-		rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Cascaded Shadow Maps", shadowMapHandle, { 0, 1, 0, lc.m_cascadeCount }, ImageViewType::_2D_ARRAY));
-		static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
-		directionalLight.m_shadowTextureHandle = static_cast<TextureViewHandle>(shadowMapViewHandle); // we later correct these to be actual TextureViewHandles
-		m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
-
-		for (size_t j = 0; j < lc.m_cascadeCount; ++j)
-		{
-			m_shadowMatrices.push_back(directionalLight.m_shadowMatrices[j]);
-			m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Shadow Cascade", shadowMapHandle, { 0, 1, static_cast<uint32_t>(j), 1 }, ImageViewType::_2D)));
-		}
-
-		m_shadowedDirectionalLights.push_back(directionalLight);
-	}
-}
-
-void LightManager::processPunctualLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
-{
-	eastl::vector<uint64_t> punctualLightsOrder;
-	punctualLightsOrder.reserve(lightPtrs.size());
-	for (size_t i = 0; i < lightPtrs.size(); ++i)
-	{
-		auto &tc = *lightPtrs[i].m_tc;
-
-		// TODO: cull lights here
-		punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, viewData.m_viewMatrixDepthRow, i));
-	}
-
-	// sort by distance to camera
-	eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
-
-	// clear depth bins
-	m_punctualLightsDepthBins.resize(k_numDepthBins);
-	eastl::fill(m_punctualLightsDepthBins.begin(), m_punctualLightsDepthBins.end(), k_emptyBin);
-
-	for (auto sortIndex : punctualLightsOrder)
-	{
-		const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
-		const auto &lp = lightPtrs[lightIndex];
-		const auto &tc = *lp.m_tc;
-		const auto &lc = *lp.m_lc;
-
-		PunctualLightGPU punctualLight = createPunctualLightGPU(tc, lc);
-		if (lc.m_type == LightComponent::Type::Spot)
-		{
-			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), punctualLight.m_direction)) * glm::scale(glm::vec3(lc.m_radius)));
-		}
-		else
-		{
-			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::scale(glm::vec3(lc.m_radius)));
-		}
-
-		m_punctualLights.push_back(punctualLight);
-
-		insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_punctualLightsDepthBins.data());
-	}
-}
-
-void LightManager::processShadowedPunctualLights(const CommonViewData &viewData, rg::RenderGraph *graph, const eastl::vector<LightPointers> &lightPtrs) noexcept
-{
-	eastl::vector<uint64_t> punctualLightsOrder;
-	punctualLightsOrder.reserve(lightPtrs.size());
-	for (size_t i = 0; i < lightPtrs.size(); ++i)
-	{
-		auto &tc = *lightPtrs[i].m_tc;
-
-		// TODO: cull lights here
-		punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, viewData.m_viewMatrixDepthRow, i));
-	}
-
-	// sort by distance to camera
-	eastl::sort(punctualLightsOrder.begin(), punctualLightsOrder.end());
-
-	// clear depth bins
-	m_punctualLightsShadowedDepthBins.resize(k_numDepthBins);
-	eastl::fill(m_punctualLightsShadowedDepthBins.begin(), m_punctualLightsShadowedDepthBins.end(), k_emptyBin);
-
-	for (auto sortIndex : punctualLightsOrder)
-	{
-		const size_t lightIndex = static_cast<size_t>(sortIndex & 0xFFFFFFFF);
-		const auto &lp = lightPtrs[lightIndex];
-		const auto &tc = *lp.m_tc;
-		const auto &lc = *lp.m_lc;
-
-		const bool isSpotLight = lc.m_type == LightComponent::Type::Spot;
-
-		constexpr float k_nearPlane = 0.5f;
-		glm::mat4 projection = glm::perspective(isSpotLight ? lc.m_outerAngle : glm::radians(90.0f), 1.0f, lc.m_radius, k_nearPlane);
-		glm::mat4 invProjection = glm::inverse(projection);
-
-		PunctualLightShadowedGPU punctualLight{};
-		punctualLight.m_light = createPunctualLightGPU(tc, lc);
-		punctualLight.m_depthProjectionParam0 = projection[2][2];
-		punctualLight.m_depthProjectionParam1 = projection[3][2];
-		punctualLight.m_depthUnprojectParam0 = invProjection[2][3];
-		punctualLight.m_depthUnprojectParam1 = invProjection[3][3];
-		punctualLight.m_lightRadius = lc.m_radius;
-		punctualLight.m_invLightRadius = 1.0f / lc.m_radius;
-		punctualLight.m_pcfRadius = calculatePenumbraRadiusNDC(calculateMaxPenumbraPercentage(0.5f), isSpotLight ? (0.5f * lc.m_outerAngle) : glm::quarter_pi<float>());
-
-		// spot light
-		if (isSpotLight)
-		{
-			glm::vec3 upDir(0.0f, 1.0f, 0.0f);
-			// choose different up vector if light direction would be linearly dependent otherwise
-			if (fabsf(punctualLight.m_light.m_direction.x) < 0.001f && fabsf(punctualLight.m_light.m_direction.z) < 0.001f)
-			{
-				upDir = glm::vec3(1.0f, 0.0f, 0.0f);
-			}
-
-			glm::mat4 shadowViewMatrix = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + punctualLight.m_light.m_direction, upDir);
-			glm::mat4 shadowMatrix = projection * shadowViewMatrix;
-			glm::mat4 shadowMatrixTransposed = glm::transpose(shadowMatrix);
-
-			// project shadow far plane to screen space to get the optimal size of the shadow map
-			uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
-
-			rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create("Spot Light Shadow Map", Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
-			rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle));
-			static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
-
-			m_shadowMatrices.push_back(shadowMatrix);
-			m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
-			m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle)));
-
-			punctualLight.m_shadowMatrix0 = shadowMatrixTransposed[0];
-			punctualLight.m_shadowMatrix1 = shadowMatrixTransposed[1];
-			punctualLight.m_shadowMatrix2 = shadowMatrixTransposed[2];
-			punctualLight.m_shadowMatrix3 = shadowMatrixTransposed[3];
-			punctualLight.m_shadowTextureHandle = shadowMapViewHandle; // we later correct these to be actual TextureViewHandles
-
-			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(glm::rotation(glm::vec3(0.0f, -1.0f, 0.0f), punctualLight.m_light.m_direction)) * glm::scale(glm::vec3(lc.m_radius)));
-		}
-		// point light
-		else
-		{
-			glm::mat4 viewMatrices[6];
-			viewMatrices[0] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			viewMatrices[1] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			viewMatrices[2] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-			viewMatrices[3] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			viewMatrices[4] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			viewMatrices[5] = glm::lookAt(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_translation + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-
-			constexpr const char *resourceNames[]
-			{
-				"Point Light Shadow Map +X",
-				"Point Light Shadow Map -X",
-				"Point Light Shadow Map +Y",
-				"Point Light Shadow Map -Y",
-				"Point Light Shadow Map +Z",
-				"Point Light Shadow Map -Z",
-			};
-
-			for (size_t i = 0; i < 6; ++i)
-			{
-				glm::mat4 shadowMatrix = projection * viewMatrices[i];
-
-				// project shadow far plane to screen space to get the optimal size of the shadow map
-				uint32_t resolution = calculateProjectedLightSize(viewData, shadowMatrix);
-
-				rg::ResourceHandle shadowMapHandle = graph->createImage(rg::ImageDesc::create(resourceNames[i], Format::D16_UNORM, ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT_BIT | ImageUsageFlags::TEXTURE_BIT, resolution, resolution));
-				rg::ResourceViewHandle shadowMapViewHandle = graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle));
-				static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
-
-				m_shadowMatrices.push_back(shadowMatrix);
-				m_shadowTextureSampleHandles.push_back(shadowMapViewHandle);
-				m_shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
-
-				// we later correct these to be actual TextureViewHandles
-				if (i < 4)
-				{
-					punctualLight.m_shadowMatrix0[(int)i] = util::asfloat(shadowMapViewHandle);
-				}
-				else
-				{
-					punctualLight.m_shadowMatrix1[(int)i - 4] = util::asfloat(shadowMapViewHandle);
-				}
-			}
-
-			m_lightTransforms.push_back(viewData.m_viewProjectionMatrix * glm::translate(tc.m_curRenderTransform.m_translation) * glm::scale(glm::vec3(lc.m_radius)));
-		}
-
-		m_punctualLightsShadowed.push_back(punctualLight);
-
-		insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_punctualLightsShadowedDepthBins.data());
+			});
 	}
 }

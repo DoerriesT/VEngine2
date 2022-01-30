@@ -20,6 +20,7 @@ struct PushConsts
 {
 	uint2 baseOutputOffset;
 	float texelSize;
+	float maxDistance;
 	uint inputTextureIndex;
 	uint resultTextureIndex;
 };
@@ -59,7 +60,7 @@ void main(uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
 	const float epsilon = 1e-6f;
 	const float texelSize = g_PushConsts.texelSize;
 	
-	const float3 texelDir = decodeOctahedron((groupThreadID.xy + 0.5f) / float(PROBE_RESOLUTION) * 2.0f - 1.0f);
+	const float3 texelDir = decodeOctahedron(((groupThreadID.xy + 0.5f) / float(PROBE_RESOLUTION)) * 2.0f - 1.0f);
 	
 	float4 result = 0.0f;
 	
@@ -89,6 +90,7 @@ void main(uint3 groupID : SV_GroupID, uint3 groupThreadID : SV_GroupThreadID)
 				if (weight >= epsilon)
 				{
 					float tap = g_CubeTextures[g_PushConsts.inputTextureIndex].SampleLevel(g_PointClampSampler, sampleDir, 0.0f).x;
+					tap = min(tap, g_PushConsts.maxDistance);
 					result += float4(tap * weight, tap * tap * weight, 0.0f, weight);
 				}
 #endif

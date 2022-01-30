@@ -132,7 +132,9 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 		{
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 0), // textures
 			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 1), // directional lights
-			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 2), // result
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::TEXTURE, 2), // textures 2d
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::STRUCTURED_BUFFER, 3), // irradiance volumes
+			Initializers::bindlessDescriptorSetLayoutBinding(DescriptorType::RW_TEXTURE, 4), // result
 		};
 
 		DescriptorSetLayoutDeclaration layoutDecls[]
@@ -1092,6 +1094,8 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 				uint32_t directionalLightBufferIndex;
 				uint32_t directionalLightShadowedCount;
 				uint32_t directionalLightShadowedBufferIndex;
+				uint32_t irradianceVolumeCount;
+				uint32_t irradianceVolumeBufferIndex;
 				uint32_t albedoRoughnessTextureIndex;
 				uint32_t normalDepthTextureIndex;
 				uint32_t resultTextureIndex;
@@ -1117,6 +1121,8 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 			consts.directionalLightBufferIndex = directionalLightsBufferViewHandle;
 			consts.directionalLightShadowedCount = numDirectionalLightsShadowed;
 			consts.directionalLightShadowedBufferIndex = directionalLightsShadowedBufferViewHandle;
+			consts.irradianceVolumeCount = data.m_irradianceVolumeCount;
+			consts.irradianceVolumeBufferIndex = data.m_irradianceVolumeBufferViewHandle;
 			consts.albedoRoughnessTextureIndex = m_probeAlbedoRoughnessTextureViewHandle;
 			consts.normalDepthTextureIndex = m_probeNormalDepthTextureViewHandle;
 			consts.resultTextureIndex = m_probeTmpLitArrayRWTextureViewHandles[0]; // write into mip 0

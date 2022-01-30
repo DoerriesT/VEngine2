@@ -83,29 +83,7 @@ void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const T
 		renderer->drawDebugBox(boxTransform, k_visibleDebugColor, k_occludedDebugColor, true);
 
 		glm::vec3 capturePosition = transform.m_translation + c.m_captureOffset;
-
-		glm::vec3 p0;
-		glm::vec3 p1;
-
-		p0 = capturePosition + glm::vec3(0.2f, 0.2f, 0.2f);
-		p1 = capturePosition + -glm::vec3(0.2f, 0.2f, 0.2f);
-		renderer->drawDebugLine(DebugDrawVisibility::Visible, p0, p1, k_visibleDebugColor, k_visibleDebugColor);
-		renderer->drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, k_occludedDebugColor, k_occludedDebugColor);
-
-		p0 = capturePosition + glm::vec3(0.2f, 0.2f, -0.2f);
-		p1 = capturePosition + -glm::vec3(0.2f, 0.2f, -0.2f);
-		renderer->drawDebugLine(DebugDrawVisibility::Visible, p0, p1, k_visibleDebugColor, k_visibleDebugColor);
-		renderer->drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, k_occludedDebugColor, k_occludedDebugColor);
-
-		p0 = capturePosition + glm::vec3(-0.2f, 0.2f, 0.2f);
-		p1 = capturePosition + -glm::vec3(-0.2f, 0.2f, 0.2f);
-		renderer->drawDebugLine(DebugDrawVisibility::Visible, p0, p1, k_visibleDebugColor, k_visibleDebugColor);
-		renderer->drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, k_occludedDebugColor, k_occludedDebugColor);
-
-		p0 = capturePosition + glm::vec3(-0.2f, 0.2f, -0.2f);
-		p1 = capturePosition + -glm::vec3(-0.2f, 0.2f, -0.2f);
-		renderer->drawDebugLine(DebugDrawVisibility::Visible, p0, p1, k_visibleDebugColor, k_visibleDebugColor);
-		renderer->drawDebugLine(DebugDrawVisibility::Occluded, p0, p1, k_occludedDebugColor, k_occludedDebugColor);
+		renderer->drawDebugCross(capturePosition, 0.2f, k_visibleDebugColor, k_occludedDebugColor, true);
 	}
 }
 

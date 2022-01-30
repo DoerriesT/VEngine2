@@ -377,6 +377,7 @@ void rg::RenderGraph::addPass(const char *name, QueueType queueType, size_t usag
 	for (size_t i = 0; i < usageCount; ++i)
 	{
 		const auto &usage = usageDescs[i];
+		assert(usage.m_viewHandle != 0);
 		const auto &viewDesc = m_viewDescriptions[usage.m_viewHandle - 1];
 		const SubResourceUsage resUsage{ passIndex, usage.m_stateAndStage, usage.m_finalStateAndStage.m_resourceState == ResourceState::UNDEFINED ? usage.m_stateAndStage : usage.m_finalStateAndStage };
 

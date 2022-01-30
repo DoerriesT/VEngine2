@@ -24,6 +24,7 @@ class MaterialManager;
 class ImGuiPass;
 class ECS;
 class ReflectionProbeManager;
+class IrradianceVolumeManager;
 
 typedef void *ImTextureID;
 
@@ -54,6 +55,10 @@ public:
 	bool isEditorMode() const noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	uint64_t getPickedEntity() const noexcept;
+	bool startIrradianceVolumeBake() noexcept;
+	bool abortIrradianceVolumeBake() noexcept;
+	bool isBakingIrradianceVolumes() const noexcept;
+	float getIrradianceVolumeBakeProgress() const noexcept;
 	void clearDebugGeometry() noexcept;
 	void drawDebugLine(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec4 &color0, const glm::vec4 &color1) noexcept;
 	void drawDebugTriangle(DebugDrawVisibility visibility, const glm::vec3 &position0, const glm::vec3 &position1, const glm::vec3 &position2, const glm::vec4 &color0, const glm::vec4 &color1, const glm::vec4 &color2) noexcept;
@@ -61,6 +66,7 @@ public:
 	void drawDebugSphere(const glm::vec3 &position, const glm::quat &rotation, const glm::vec3 &scale, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
 	void drawDebugCappedCone(glm::vec3 position, glm::quat rotation, float coneLength, float coneAngle, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
 	void drawDebugArrow(glm::vec3 position, glm::quat rotation, float scale, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
+	void drawDebugCross(glm::vec3 position, float scale, const glm::vec4 &visibleColor, const glm::vec4 &occludedColor, bool drawOccluded) noexcept;
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
@@ -81,6 +87,7 @@ private:
 	TextureManager *m_textureManager = nullptr;
 	MaterialManager *m_materialManager = nullptr;
 	ReflectionProbeManager *m_reflectionProbeManager = nullptr;
+	IrradianceVolumeManager *m_irradianceVolumeManager = nullptr;
 	RenderView *m_renderView = nullptr;
 	ImGuiPass *m_imguiPass = nullptr;
 	bool m_editorMode = false;

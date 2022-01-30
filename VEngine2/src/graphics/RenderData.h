@@ -103,6 +103,21 @@ struct ReflectionProbeGPU
 	float m_pad1;
 };
 
+struct IrradianceVolumeGPU
+{
+	glm::vec4 worldToLocal0;
+	glm::vec4 worldToLocal1;
+	glm::vec4 worldToLocal2;
+	glm::vec4 localToWorld0;
+	glm::vec4 localToWorld1;
+	glm::vec4 localToWorld2;
+	glm::vec3 volumeSize;
+	float normalBias;
+	glm::vec2 volumeTexelSize;
+	uint32_t diffuseTextureIndex;
+	uint32_t visibilityTextureIndex;
+};
+
 enum class DebugDrawVisibility
 {
 	Always = 0, Visible = 1, Occluded = 2

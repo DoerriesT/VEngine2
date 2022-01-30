@@ -31,6 +31,8 @@ public:
 		gal::DescriptorSet *m_offsetBufferSet;
 		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
+		StructuredBufferViewHandle m_irradianceVolumeBufferViewHandle;
+		uint32_t m_irradianceVolumeCount;
 		const RenderList *m_renderList;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
