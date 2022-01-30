@@ -150,6 +150,13 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying, EntityID selected
 		float *snapVar = m_gizmoType == 0 ? &m_translateSnap : m_gizmoType == 1 ? &m_rotateSnap : &m_scaleSnap;
 		ImGui::DragFloat("Snap", snapVar, 0.01f, 0.0f, FLT_MAX);
 
+		ImGui::SameLine();
+		bool gridRenderingEnabled = m_engine->getRenderer()->isGridRenderingEnabled();
+		if (ImGui::Checkbox("Grid", &gridRenderingEnabled))
+		{
+			m_engine->getRenderer()->enableGridRendering(gridRenderingEnabled);
+		}
+
 		m_hasFocus = m_hasFocus && !ImGui::IsWindowFocused();
 	}
 	ImGui::End();

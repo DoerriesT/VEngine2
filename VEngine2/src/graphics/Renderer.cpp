@@ -375,7 +375,7 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 
 			RenderView::Data renderViewData{};
 			renderViewData.m_effectSettings.m_postProcessingEnabled = true;
-			renderViewData.m_effectSettings.m_renderEditorGrid = true;
+			renderViewData.m_effectSettings.m_renderEditorGrid = m_renderGrid;
 			renderViewData.m_effectSettings.m_renderDebugNormals = false;
 			renderViewData.m_effectSettings.m_taaEnabled = g_taaEnabled;
 			renderViewData.m_effectSettings.m_sharpenEnabled = g_sharpenEnabled;
@@ -588,6 +588,16 @@ void Renderer::setEditorMode(bool editorMode) noexcept
 bool Renderer::isEditorMode() const noexcept
 {
 	return m_editorMode;
+}
+
+void Renderer::enableGridRendering(bool enable) noexcept
+{
+	m_renderGrid = enable;
+}
+
+bool Renderer::isGridRenderingEnabled() const noexcept
+{
+	return m_renderGrid;
 }
 
 void Renderer::setPickingPos(uint32_t x, uint32_t y) noexcept

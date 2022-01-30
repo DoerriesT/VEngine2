@@ -53,6 +53,8 @@ public:
 	ImTextureID getEditorViewportTextureID() noexcept;
 	void setEditorMode(bool editorMode) noexcept;
 	bool isEditorMode() const noexcept;
+	void enableGridRendering(bool enable) noexcept;
+	bool isGridRenderingEnabled() const noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	uint64_t getPickedEntity() const noexcept;
 	bool startIrradianceVolumeBake() noexcept;
@@ -91,6 +93,7 @@ private:
 	RenderView *m_renderView = nullptr;
 	ImGuiPass *m_imguiPass = nullptr;
 	bool m_editorMode = false;
+	bool m_renderGrid = true;
 
 	eastl::vector<glm::mat4> m_modelMatrices;
 	eastl::vector<glm::mat4> m_prevModelMatrices;
