@@ -12,6 +12,8 @@ struct IrradianceVolumeComponent
 	uint32_t m_resolutionX = 4;
 	uint32_t m_resolutionY = 4;
 	uint32_t m_resolutionZ = 4;
+	float m_fadeoutStart = 0.0f;
+	float m_fadeoutEnd = 0.5f;
 	float m_selfShadowBias = 0.3f;
 	float m_nearPlane = 0.1f;
 	float m_farPlane = 50.0f;

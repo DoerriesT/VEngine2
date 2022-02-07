@@ -117,8 +117,8 @@ struct IrradianceVolumeGPU
 	uint32_t diffuseTextureIndex;
 	uint32_t visibilityTextureIndex;
 	uint32_t averageDiffuseTextureIndex;
-	float pad0;
-	float pad1;
+	float fadeoutStart;
+	float fadeoutEnd;
 	float pad2;
 };
 

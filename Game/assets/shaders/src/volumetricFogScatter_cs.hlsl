@@ -269,20 +269,21 @@ float4 inscattering(uint2 coord, float3 V, float3 worldSpacePos, float linearDep
 	{
 		// ambient
 		{
-			float4 sum = 0.0f;
-			for (uint i = 0; i < g_Constants.irradianceVolumeCount; ++i)
+			float alpha = 0.0f;
+			float3 sum = 0.0f;
+			for (uint i = 0; i < g_Constants.irradianceVolumeCount && alpha < 1.0f; ++i)
 			{
 				IrradianceVolume volume = g_IrradianceVolumes[g_Constants.irradianceVolumeBufferIndex][i];
 				Texture2D<float4> averageDiffuseTex = g_Textures[volume.averageDiffuseTextureIndex];
 				Texture2D<float4> visibilityTex = g_Textures[volume.visibilityTextureIndex];
 				
-				sum += sampleIrradianceVolumeDirectionless(averageDiffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos);
+				float4 tap = sampleIrradianceVolumeDirectionless(averageDiffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos);
+				float contribution = min(1.0f - alpha, tap.a);
+				sum += tap.rgb * contribution;
+				alpha += contribution;
 			}
 			
-			if (sum.a > 1e-5f)
-			{
-				lighting += (sum.rgb / sum.a);// / (4.0f * PI);
-			}
+			lighting += sum / (4.0f * PI);
 		}
 		
 		// directional lights

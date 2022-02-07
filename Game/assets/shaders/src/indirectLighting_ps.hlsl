@@ -139,20 +139,21 @@ float4 main(PSInput input) : SV_Target0
 	
 	// indirect diffuse
 	{
-		float4 sum = 0.0f;
-		for (uint i = 0; i < g_Constants.irradianceVolumeCount; ++i)
+		float alpha = 0.0f;
+		float3 sum = 0.0f;
+		for (uint i = 0; i < g_Constants.irradianceVolumeCount && alpha < 1.0f; ++i)
 		{
 			IrradianceVolume volume = g_IrradianceVolumes[g_Constants.irradianceVolumeBufferIndex][i];
 			Texture2D<float4> diffuseTex = g_Textures[volume.diffuseTextureIndex];
 			Texture2D<float4> visibilityTex = g_Textures[volume.visibilityTextureIndex];
 			
-			sum += sampleIrradianceVolume(diffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos, N, V);
+			float4 tap = sampleIrradianceVolume(diffuseTex, visibilityTex, g_LinearClampSampler, volume, worldSpacePos, N, V);
+			float contribution = min(1.0f - alpha, tap.a);
+			sum += tap.rgb * contribution;
+			alpha += contribution;
 		}
 		
-		if (sum.a > 1e-5f)
-		{
-			result += (sum.rgb / sum.a) * Diffuse_Lambert(albedo) * (1.0f - metalness) * gtao * exposure;
-		}
+		result += sum * Diffuse_Lambert(albedo) * (1.0f - metalness) * gtao * exposure;
 	}
 	
 	// reflection probe

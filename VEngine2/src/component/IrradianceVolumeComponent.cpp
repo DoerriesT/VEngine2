@@ -43,6 +43,12 @@ void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const 
 		c.m_resolutionZ = eastl::max<int>(ival, 1);
 	}
 
+	ImGui::DragFloat("Fadeout Start", &c.m_fadeoutStart, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+	if (ImGui::DragFloat("Fadeout End", &c.m_fadeoutEnd, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+	{
+		c.m_fadeoutEnd = fmaxf(c.m_fadeoutEnd, c.m_fadeoutStart + 1e-5f);
+	}
+
 	ImGui::DragFloat("Self Shadow Bias", &c.m_selfShadowBias, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 	ImGuiHelpers::Tooltip("Bias to avoid self shadowing in anti light leaking algorithm.");
 
@@ -57,14 +63,18 @@ void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const 
 		const glm::vec4 k_visibleDebugColor = glm::vec4(1.0f, 0.5f, 0.0f, 1.0f);
 		const glm::vec4 k_occludedDebugColor = glm::vec4(0.5f, 0.25f, 0.0f, 1.0f);
 
-		auto &transform = transformComponent->m_transform;
-		glm::mat4 boxTransform = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale);
-		renderer->drawDebugBox(boxTransform, k_visibleDebugColor, k_occludedDebugColor, true);
-		renderer->drawDebugBox(boxTransform, glm::vec4(1.0f, 0.5f, 0.0f, 0.125f), glm::vec4(0.5f, 0.25f, 0.0f, 0.125f), true, false);
-
+		const auto &transform = transformComponent->m_transform;
 		glm::vec3 probeSpacing = transform.m_scale / (glm::vec3(c.m_resolutionX, c.m_resolutionY, c.m_resolutionZ) * 0.5f);
 		glm::vec3 volumeOrigin = transform.m_translation - (glm::mat3_cast(transform.m_rotation) * transform.m_scale);
 		glm::mat4 localToWorld = glm::translate(volumeOrigin) * glm::mat4_cast(transform.m_rotation) * glm::scale(probeSpacing);
+
+		
+		glm::mat4 influenceBoxTransform = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale + probeSpacing * (-0.5f + c.m_fadeoutEnd));
+		renderer->drawDebugBox(influenceBoxTransform, k_visibleDebugColor, k_occludedDebugColor, true);
+		renderer->drawDebugBox(influenceBoxTransform, glm::vec4(1.0f, 0.5f, 0.0f, 0.125f), glm::vec4(0.5f, 0.25f, 0.0f, 0.125f), true, false);
+
+		glm::mat4 fadeStartBoxTransform = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale + probeSpacing * (-0.5f + c.m_fadeoutStart));
+		renderer->drawDebugBox(fadeStartBoxTransform, k_visibleDebugColor, k_occludedDebugColor, true);
 
 		for (size_t z = 0; z < c.m_resolutionZ; ++z)
 		{

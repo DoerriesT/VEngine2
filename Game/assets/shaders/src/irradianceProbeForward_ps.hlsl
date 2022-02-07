@@ -250,20 +250,21 @@ PSOutput main(PSInput input)
 	
 	// indirect diffuse
 	{
-		float4 sum = 0.0f;
-		for (uint i = 0; i < g_PassConstants.irradianceVolumeCount; ++i)
+		float alpha = 0.0f;
+		float3 sum = 0.0f;
+		for (uint i = 0; i < g_PassConstants.irradianceVolumeCount && alpha < 1.0f; ++i)
 		{
 			IrradianceVolume volume = g_IrradianceVolumes[g_PassConstants.irradianceVolumeBufferIndex][i];
 			Texture2D<float4> diffuseTex = g_Textures[volume.diffuseTextureIndex];
 			Texture2D<float4> visibilityTex = g_Textures[volume.visibilityTextureIndex];
 			
-			sum += sampleIrradianceVolume(diffuseTex, visibilityTex, g_LinearClampSampler, volume, lightingParams.position, lightingParams.N, lightingParams.V);
+			float4 tap = sampleIrradianceVolume(diffuseTex, visibilityTex, g_LinearClampSampler, volume, lightingParams.position, lightingParams.N, lightingParams.V);
+			float contribution = min(1.0f - alpha, tap.a);
+			sum += tap.rgb * contribution;
+			alpha += contribution;
 		}
 		
-		if (sum.a > 1e-5f)
-		{
-			result += (sum.rgb / sum.a) * Diffuse_Lambert(lightingParams.albedo);
-		}
+		result += sum * Diffuse_Lambert(lightingParams.albedo);
 	}
 	
 	PSOutput output = (PSOutput)0;

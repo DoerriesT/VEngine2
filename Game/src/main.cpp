@@ -371,6 +371,8 @@ public:
 			volumeC.m_resolutionX = 15;
 			volumeC.m_resolutionY = 6;
 			volumeC.m_resolutionZ = 8;
+			volumeC.m_fadeoutStart = 2.5f;
+			volumeC.m_fadeoutEnd = 3.0f;
 
 			float spacing = 2.0f;
 

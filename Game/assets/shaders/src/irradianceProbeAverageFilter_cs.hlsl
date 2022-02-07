@@ -1,4 +1,5 @@
 #include "bindings.hlsli"
+#include "brdf.hlsli"
 
 struct PushConsts
 {
@@ -32,5 +33,7 @@ void main(uint3 threadID : SV_DispatchThreadID)
 		}
 	}
 	
-	g_RWTextures[g_PushConsts.resultTextureIndex][threadID.xy] = float4(sum / (diffuseProbeRes * diffuseProbeRes), 1.0f);
+	sum *= (4.0f * PI) / (diffuseProbeRes * diffuseProbeRes);
+	
+	g_RWTextures[g_PushConsts.resultTextureIndex][threadID.xy] = float4(sum, 1.0f);
 }

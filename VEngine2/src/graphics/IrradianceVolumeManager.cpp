@@ -417,6 +417,8 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 					volume.m_resolutionX = eastl::max<uint32_t>(2, vc.m_resolutionX);
 					volume.m_resolutionY = eastl::max<uint32_t>(2, vc.m_resolutionY);
 					volume.m_resolutionZ = eastl::max<uint32_t>(2, vc.m_resolutionZ);
+					volume.m_fadeoutStart = fmaxf(vc.m_fadeoutStart, 0.0f);
+					volume.m_fadeoutEnd = fmaxf(vc.m_fadeoutEnd, volume.m_fadeoutStart + 1e-5f);
 					volume.m_selfShadowBias = vc.m_selfShadowBias;
 					volume.m_nearPlane = vc.m_nearPlane;
 					volume.m_farPlane = vc.m_farPlane;
@@ -561,6 +563,8 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 			volumeGPU.diffuseTextureIndex = volume.m_diffuseImageViewHandle;
 			volumeGPU.visibilityTextureIndex = volume.m_visibilityImageViewHandle;
 			volumeGPU.averageDiffuseTextureIndex = volume.m_averageDiffuseImageViewHandle;
+			volumeGPU.fadeoutStart = volume.m_fadeoutStart;
+			volumeGPU.fadeoutEnd = volume.m_fadeoutEnd;
 
 			m_sortedGPUVolumes.push_back(volumeGPU);
 		}
@@ -675,7 +679,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 		// copy in sorted order to gpu memory
 		if (!m_sortedGPUVolumes.empty())
 		{
-			memcpy(bufferPtr, m_sortedGPUVolumes.data(), sizeof(m_sortedGPUVolumes[0]));
+			memcpy(bufferPtr, m_sortedGPUVolumes.data(), m_sortedGPUVolumes.size() * sizeof(m_sortedGPUVolumes[0]));
 		}
 
 		// create a transient bindless handle
@@ -1140,5 +1144,3 @@ uint32_t IrradianceVolumeManager::getTotalProbeCount() const noexcept
 {
 	return m_totalProbes;
 }
-
-

@@ -76,6 +76,8 @@ private:
 		uint32_t m_resolutionX;
 		uint32_t m_resolutionY;
 		uint32_t m_resolutionZ;
+		float m_fadeoutStart;
+		float m_fadeoutEnd;
 		float m_selfShadowBias;
 		float m_nearPlane;
 		float m_farPlane;
