@@ -165,9 +165,9 @@ float4 main(PSInput input) : SV_Target0
 		const float brdfLUTMaxUV = (brdfLUTRes - 0.5f) / brdfLUTRes;
 		
 		float3 probeSum = 0.0f;
-		float weightSum = 0.0f;
+		float alpha = 0.0f;
 		
-		for (uint i = 0; i < g_Constants.reflectionProbeCount; ++i)
+		for (uint i = 0; i < g_Constants.reflectionProbeCount && alpha < 1.0f; ++i)
 		{
 			ReflectionProbe probeData = g_ReflectionProbes[g_Constants.reflectionProbeDataBufferIndex][i];
 			
@@ -183,17 +183,17 @@ float4 main(PSInput input) : SV_Target0
 			float mip = sqrt(roughness) * maxMip;
 			float3 probe = g_CubeArrayTextures[g_Constants.reflectionProbeTextureIndex].SampleLevel(g_LinearClampSampler, float4(sampleDir, probeData.arraySlot), mip).rgb;
 			
+			probeAlpha = min(1.0f - alpha, probeAlpha);
+			
 			probeSum += probe * probeAlpha;
-			weightSum += probeAlpha;
+			alpha += probeAlpha;
 		}
 		
-		if (weightSum > 1e-5f)
+		if (alpha > 0.0f)
 		{
 			// sample brdf LUT
 			float2 brdfLUTUV = clamp(float2(saturate(dot(N, V)), roughness), brdfLUTMinUV, brdfLUTMaxUV);
 			float2 brdfLut = g_Textures[g_Constants.brdfLUTIndex].SampleLevel(g_LinearClampSampler, brdfLUTUV, 0.0f).xy;
-			
-			probeSum /= weightSum;
 			
 			probeSum *= F0 * brdfLut.x + brdfLut.y;
 			result += probeSum * exposure;

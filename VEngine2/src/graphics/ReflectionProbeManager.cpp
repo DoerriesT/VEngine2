@@ -581,6 +581,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		float m_nearPlane;
 		float m_farPlane;
 		float m_cameraDist2;
+		float m_volumeSize;
 	};
 
 	// keep track of which slots were legitimately claimed by entities. all missing slots then belong to deleted entitites and we can free them.
@@ -610,6 +611,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 				probeSortData.m_nearPlane = pc.m_nearPlane;
 				probeSortData.m_farPlane = pc.m_farPlane;
 				probeSortData.m_cameraDist2 = glm::dot(cameraProbePosDiff, cameraProbePosDiff);
+				probeSortData.m_volumeSize = tc.m_transform.m_scale.x * 2.0f * tc.m_transform.m_scale.y * 2.0f * tc.m_transform.m_scale.z * 2.0f;
 
 				sortData.push_back(probeSortData);
 
@@ -761,6 +763,9 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		// create a transient bindless handle
 		m_reflectionProbesBufferHandle = m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true);
 	}
+
+	// sort by volume size
+	eastl::sort(sortData.begin(), sortData.begin() + activeProbeCount, [&](const auto &lhs, const auto &rhs) { return lhs.m_volumeSize < rhs.m_volumeSize; });
 
 	// build probe list for frame
 	for (size_t i = 0; i < activeProbeCount; ++i)
