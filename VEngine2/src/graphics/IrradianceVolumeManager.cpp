@@ -721,7 +721,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 	const uint32_t probeIdxX = m_curProbeIdx % curVolume.m_resolutionX;
 	const uint32_t probeIdxZ = (m_curProbeIdx / curVolume.m_resolutionX) % curVolume.m_resolutionZ;
 	const uint32_t probeIdxY = m_curProbeIdx / (curVolume.m_resolutionX * curVolume.m_resolutionZ);
-	const glm::vec3 probeGridCoord = glm::vec3(probeIdxX, probeIdxY, probeIdxZ);
+	const glm::vec3 probeGridCoord = glm::vec3(probeIdxX, probeIdxY, probeIdxZ) + 0.5f;
 
 	const glm::vec3 probeSpacing = curVolume.m_transform.m_scale / (glm::vec3(curVolume.m_resolutionX, curVolume.m_resolutionY, curVolume.m_resolutionZ) * 0.5f);
 	const float maxProbeDistance = glm::length(probeSpacing) * 1.2f;

@@ -51,7 +51,7 @@ float4 sampleIrradianceVolume(
 	pointGridCoord.x = dot(volume.worldToLocal0, float4(worldSpacePos, 1.0f));
 	pointGridCoord.y = dot(volume.worldToLocal1, float4(worldSpacePos, 1.0f));
 	pointGridCoord.z = dot(volume.worldToLocal2, float4(worldSpacePos, 1.0f));
-	pointGridCoord = clamp(pointGridCoord, 0.0f, volume.volumeSize - 1.0f);
+	pointGridCoord = clamp(pointGridCoord, 0.5f, volume.volumeSize - 0.5f);
 	
 	const float fadeoutRange = 0.5f; // starting from the outer most probes, fade out over this many irradiance volume space units
 	
@@ -64,7 +64,8 @@ float4 sampleIrradianceVolume(
 	
 	for (uint i = 0; i < 8; ++i)
 	{
-		const float3 probeGridCoord = floor(pointGridCoord) + (uint3(i, i >> 1, i >> 2) & 1);
+		// probes are located at .5f values in volume space, not .0f values
+		const float3 probeGridCoord = floor(pointGridCoord - 0.5f) + (uint3(i, i >> 1, i >> 2) & 1) + 0.5f;
 	
 		// transform probe position into world space
 		float3 probeWorldSpacePos;
@@ -92,7 +93,7 @@ float4 sampleIrradianceVolume(
 			const float3 biasedProbeToPoint = worldSpacePos - probeWorldSpacePos + (N + 3.0f * V) * volume.normalBias;
 			const float distToProbe = length(biasedProbeToPoint);
 			
-			float2 moments = sampleIrradianceProbe(visibilityTex, linearSampler, volume, (uint3)probeGridCoord, normalize(biasedProbeToPoint), 16.0f).xy;
+			float2 moments = sampleIrradianceProbe(visibilityTex, linearSampler, volume, (uint3)(probeGridCoord - 0.5f), normalize(biasedProbeToPoint), 16.0f).xy;
 				
 			float mean = moments.x;
 			float variance = abs(moments.x * moments.x - moments.y);
@@ -124,7 +125,7 @@ float4 sampleIrradianceVolume(
 		float3 tap = 0.0f;
 		if (weight > 0.0f)
 		{
-			tap = sampleIrradianceProbe(diffuseTex, linearSampler, volume, (uint3)probeGridCoord, N, 8.0f);
+			tap = sampleIrradianceProbe(diffuseTex, linearSampler, volume, (uint3)(probeGridCoord - 0.5f), N, 8.0f);
 			tap = sqrt(tap);
 		}
 		
@@ -155,7 +156,7 @@ float4 sampleIrradianceVolumeDirectionless(
 	pointGridCoord.x = dot(volume.worldToLocal0, float4(worldSpacePos, 1.0f));
 	pointGridCoord.y = dot(volume.worldToLocal1, float4(worldSpacePos, 1.0f));
 	pointGridCoord.z = dot(volume.worldToLocal2, float4(worldSpacePos, 1.0f));
-	pointGridCoord = clamp(pointGridCoord, 0.0f, volume.volumeSize - 1.0f);
+	pointGridCoord = clamp(pointGridCoord, 0.5f, volume.volumeSize - 0.5f);
 	
 	const float fadeoutRange = 0.5f; // starting from the outer most probes, fade out over this many irradiance volume space units
 	
@@ -168,7 +169,8 @@ float4 sampleIrradianceVolumeDirectionless(
 	
 	for (uint i = 0; i < 8; ++i)
 	{
-		const float3 probeGridCoord = floor(pointGridCoord) + (uint3(i, i >> 1, i >> 2) & 1);
+		// probes are located at .5f values in volume space, not .0f values
+		const float3 probeGridCoord = floor(pointGridCoord - 0.5f) + (uint3(i, i >> 1, i >> 2) & 1) + 0.5f;
 	
 		// transform probe position into world space
 		float3 probeWorldSpacePos;
@@ -187,7 +189,7 @@ float4 sampleIrradianceVolumeDirectionless(
 			const float3 biasedProbeToPoint = worldSpacePos - probeWorldSpacePos;// + (N + 3.0f * V) * volume.normalBias;
 			const float distToProbe = length(biasedProbeToPoint);
 			
-			float2 moments = sampleIrradianceProbe(visibilityTex, linearSampler, volume, (uint3)probeGridCoord, normalize(biasedProbeToPoint), 16.0f).xy;
+			float2 moments = sampleIrradianceProbe(visibilityTex, linearSampler, volume, (uint3)(probeGridCoord - 0.5f), normalize(biasedProbeToPoint), 16.0f).xy;
 				
 			float mean = moments.x;
 			float variance = abs(moments.x * moments.x - moments.y);
@@ -219,7 +221,7 @@ float4 sampleIrradianceVolumeDirectionless(
 		float3 tap = 0.0f;
 		if (weight > 0.0f)
 		{
-			uint3 probeIdx = (uint3)probeGridCoord;
+			uint3 probeIdx = (uint3)(probeGridCoord - 0.5f);
 			uint2 texelCoord = uint2(volume.volumeSize.x * probeIdx.y + probeIdx.x, probeIdx.z);
 			tap = averageDiffuseTex.Load(int3(texelCoord, 0)).rgb;
 			tap = sqrt(tap);

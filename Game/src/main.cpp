@@ -375,7 +375,7 @@ public:
 			float spacing = 2.0f;
 
 			TransformComponent transC{};
-			transC.m_transform.m_translation = glm::vec3(-14.0f, 1.0f, -7.0f) + glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
+			transC.m_transform.m_translation = glm::vec3(-15.0f, 0.0f, -8.0f) + glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
 			transC.m_transform.m_scale = glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
 
 			auto volumeEntity = m_engine->getECS()->createEntity<TransformComponent, IrradianceVolumeComponent>(transC, volumeC);

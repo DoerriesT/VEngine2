@@ -72,9 +72,7 @@ void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const 
 			{
 				for (size_t x = 0; x < c.m_resolutionX; ++x)
 				{
-					
-
-					glm::vec3 probeWorldSpacePos = glm::vec3(localToWorld * glm::vec4(x, y, z, 1.0f));
+					glm::vec3 probeWorldSpacePos = glm::vec3(localToWorld * glm::vec4(x + 0.5f, y + 0.5f, z + 0.5f, 1.0f));
 					renderer->drawDebugCross(probeWorldSpacePos, 0.1f, k_visibleDebugColor, k_occludedDebugColor, true);
 				}
 			}
