@@ -144,6 +144,8 @@ void AssetBrowserWindow::importButton() noexcept
 			ImGui::Checkbox("Import Animations", &m_importAssetTask.m_importOptions.m_importAnimations);
 			ImGui::Checkbox("Cook Convex Physics Mesh", &m_importAssetTask.m_importOptions.m_cookConvexPhysicsMesh);
 			ImGui::Checkbox("Cook Triangle Physics Mesh", &m_importAssetTask.m_importOptions.m_cookTrianglePhysicsMesh);
+			ImGui::InputFloat("Mesh Scale", &m_importAssetTask.m_importOptions.m_meshScale);
+			m_importAssetTask.m_importOptions.m_meshScale = fmaxf(m_importAssetTask.m_importOptions.m_meshScale, 0.000001f);
 
 			if (ImGui::Button("OK", ImVec2(120, 0)))
 			{

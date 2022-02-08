@@ -12,7 +12,7 @@ struct LoadedModel;
 
 namespace
 {
-	typedef bool (*LoaderFuncPtr)(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, LoadedModel &model);
+	typedef bool (*LoaderFuncPtr)(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, float scale, LoadedModel &model);
 }
 
 bool AssetImporter::importAsset(const ImportOptions &importOptions, Physics *physics, const char *nativeSrcPath, const char *dstPath) noexcept
@@ -34,7 +34,7 @@ bool AssetImporter::importAsset(const ImportOptions &importOptions, Physics *phy
 
 	// load model
 	LoadedModel model;
-	if (!loader(nativeSrcPath, importOptions.m_mergeByMaterial, importOptions.m_invertTexCoordY, importOptions.m_importMeshes, importOptions.m_importSkeletons, importOptions.m_importAnimations, model))
+	if (!loader(nativeSrcPath, importOptions.m_mergeByMaterial, importOptions.m_invertTexCoordY, importOptions.m_importMeshes, importOptions.m_importSkeletons, importOptions.m_importAnimations, importOptions.m_meshScale, model))
 	{
 		Log::err("Import of asset \"%s\" failed!", nativeSrcPath);
 		return false;

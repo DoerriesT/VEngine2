@@ -290,7 +290,7 @@ static glm::mat4 getLocalNodeTransform(const tinygltf::Model &gltfModel, int nod
 	return localTransform;
 }
 
-static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const eastl::vector<eastl::vector<int>> &jointMaps, eastl::vector<bool> &visitedNodes, bool invertTexcoordY, LoadedModel &resultModel)
+static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const tinygltf::Model &gltfModel, const eastl::vector<eastl::vector<int>> &jointMaps, eastl::vector<bool> &visitedNodes, bool invertTexcoordY, float scale, LoadedModel &resultModel)
 {
 	const auto &node = gltfModel.nodes[nodeIdx];
 
@@ -411,6 +411,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 						res = getFloatBufferData(gltfModel, positionsAccessor, index, 3, &position[0]);
 						assert(res);
 						//position = globalTransform * glm::vec4(position, 1.0f);
+						position *= scale;
 
 						// normal
 						glm::vec3 normal = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -489,7 +490,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 
 	for (auto childNodeIdx : node.children)
 	{
-		loadNodes(childNodeIdx, globalTransform, gltfModel, jointMaps, visitedNodes, invertTexcoordY, resultModel);
+		loadNodes(childNodeIdx, globalTransform, gltfModel, jointMaps, visitedNodes, invertTexcoordY, scale, resultModel);
 	}
 }
 
@@ -835,7 +836,7 @@ static eastl::vector<PerNodeData> generatePerNodeData(const tinygltf::Model &glt
 	return perNodeData;
 }
 
-bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, LoadedModel &model)
+bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, float scale, LoadedModel &model)
 {
 	tinygltf::Model gltfModel;
 	tinygltf::TinyGLTF loader;
@@ -936,7 +937,7 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 		{
 			if (!visitedNodes[i])
 			{
-				loadNodes(i, glm::identity<glm::mat4>(), gltfModel, jointMaps, visitedNodes, invertTexcoordY, model);
+				loadNodes(i, glm::identity<glm::mat4>(), gltfModel, jointMaps, visitedNodes, invertTexcoordY, scale, model);
 			}
 		}
 	}

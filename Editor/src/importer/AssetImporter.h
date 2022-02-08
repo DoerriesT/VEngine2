@@ -20,6 +20,7 @@ namespace AssetImporter
 		bool m_importAnimations;
 		bool m_cookConvexPhysicsMesh;
 		bool m_cookTrianglePhysicsMesh;
+		float m_meshScale = 1.0f;
 	};
 
 	bool importAsset(const ImportOptions &importOptions, Physics *physics, const char *nativeSrcPath, const char *dstPath) noexcept;

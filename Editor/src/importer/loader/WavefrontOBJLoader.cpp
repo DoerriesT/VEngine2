@@ -46,7 +46,7 @@
 //	};
 //}
 
-bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, LoadedModel &model)
+bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, bool invertTexcoordY, bool importMeshes, bool importSkeletons, bool importAnimations, float scale, LoadedModel &model)
 {
 	model = {};
 
@@ -186,6 +186,7 @@ bool WavefrontOBJLoader::loadModel(const char *filepath, bool mergeByMaterial, b
 			position.x = objAttrib.vertices[vertexIndex.vertex_index * 3 + 0];
 			position.y = objAttrib.vertices[vertexIndex.vertex_index * 3 + 1];
 			position.z = objAttrib.vertices[vertexIndex.vertex_index * 3 + 2];
+			position *= scale;
 
 			normal.x = objAttrib.normals[vertexIndex.normal_index * 3 + 0];
 			normal.y = objAttrib.normals[vertexIndex.normal_index * 3 + 1];
