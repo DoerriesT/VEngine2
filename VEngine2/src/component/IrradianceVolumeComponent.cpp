@@ -43,8 +43,8 @@ void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const 
 		c.m_resolutionZ = eastl::max<int>(ival, 1);
 	}
 
-	ImGui::DragFloat("Fadeout Start", &c.m_fadeoutStart, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-	if (ImGui::DragFloat("Fadeout End", &c.m_fadeoutEnd, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+	ImGui::DragFloat("Fadeout Start", &c.m_fadeoutStart, 0.01f, 0.0f, c.m_fadeoutEnd, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+	if (ImGui::DragFloat("Fadeout End", &c.m_fadeoutEnd, 0.01f, c.m_fadeoutStart, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp))
 	{
 		c.m_fadeoutEnd = fmaxf(c.m_fadeoutEnd, c.m_fadeoutStart + 1e-5f);
 	}

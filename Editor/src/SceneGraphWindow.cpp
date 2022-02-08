@@ -9,6 +9,7 @@
 #include <component/LightComponent.h>
 #include <component/ParticipatingMediumComponent.h>
 #include <component/ReflectionProbeComponent.h>
+#include <component/IrradianceVolumeComponent.h>
 
 #ifdef DELETE
 #undef DELETE
@@ -86,6 +87,14 @@ void SceneGraphWindow::draw(bool viewportHasFocus) noexcept
 				ReflectionProbeComponent pc{};
 				auto entity = ecs.createEntity<TransformComponent, ReflectionProbeComponent>(tc, pc);
 				level->addEntity(entity, "Reflection Probe");
+				m_selectedEntity = entity;
+			}
+			if (ImGui::Selectable("Irradiance Volume"))
+			{
+				TransformComponent tc{};
+				IrradianceVolumeComponent vc{};
+				auto entity = ecs.createEntity<TransformComponent, IrradianceVolumeComponent>(tc, vc);
+				level->addEntity(entity, "Irradiance Volume");
 				m_selectedEntity = entity;
 			}
 
