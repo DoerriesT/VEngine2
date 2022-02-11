@@ -3,6 +3,7 @@
 #include "ResourceViewRegistry.h"
 #include "gal/Initializers.h"
 #include "Log.h"
+#include <glm/gtc/type_ptr.hpp>
 
 MeshManager::MeshManager(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry) noexcept
 	:m_device(device),
@@ -60,6 +61,10 @@ void MeshManager::createSubMeshes(uint32_t count, const SubMeshCreateInfo *subMe
 		subMeshDrawInfo.m_vertexOffset = 0;
 		subMeshDrawInfo.m_vertexCount = subMesh.m_vertexCount;
 		subMeshDrawInfo.m_skinned = subMesh.m_jointIndices && subMesh.m_jointWeights;
+		subMeshDrawInfo.m_boundingSphere[0] = (subMesh.m_minCorner[0] + subMesh.m_maxCorner[0]) * 0.5f;
+		subMeshDrawInfo.m_boundingSphere[1] = (subMesh.m_minCorner[1] + subMesh.m_maxCorner[1]) * 0.5f;
+		subMeshDrawInfo.m_boundingSphere[2] = (subMesh.m_minCorner[2] + subMesh.m_maxCorner[2]) * 0.5f;
+		subMeshDrawInfo.m_boundingSphere[3] = glm::distance(glm::make_vec3(subMeshDrawInfo.m_boundingSphere), glm::make_vec3(subMesh.m_maxCorner));
 
 		SubMeshBufferHandles subMeshBufferHandles{};
 

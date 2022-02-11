@@ -4,8 +4,15 @@
 #include <EASTL/vector.h>
 #include <glm/mat4x4.hpp>
 #include "component/LightComponent.h"
+#include "component/TransformComponent.h"
 #include "ecs/ECSCommon.h"
 #include "ViewHandles.h"
+
+struct MeshInstanceData
+{
+	TransformComponent::Mobility m_mobility;
+	eastl::vector<uint32_t> m_subMeshInstanceHandles;
+};
 
 struct SubMeshInstanceData
 {
@@ -14,6 +21,9 @@ struct SubMeshInstanceData
 	uint32_t m_skinningMatricesOffset;
 	MaterialHandle m_materialHandle;
 	EntityID m_entityID;
+	bool m_skinned;
+	bool m_alphaTested;
+	bool m_outlined;
 };
 
 struct RenderList

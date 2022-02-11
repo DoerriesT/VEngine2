@@ -9,6 +9,7 @@
 #include "asset/AssetManager.h"
 #include "filesystem/VirtualFileSystem.h"
 #include <EASTL/fixed_vector.h>
+#include <glm/gtc/type_ptr.hpp>
 
 static AssetManager *s_assetManager = nullptr;
 static MeshAssetHandler s_meshAssetHandler;
@@ -221,6 +222,14 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 					}
 
 					m_renderer->createSubMeshes(static_cast<uint32_t>(subMeshes.size()), subMeshes.data(), meshAssetData->m_subMeshHandles.data());
+				}
+
+				// bounding sphere
+				{
+					meshAssetData->m_boundingSphere[0] = (header.m_aabbMinX + header.m_aabbMaxX) * 0.5f;
+					meshAssetData->m_boundingSphere[1] = (header.m_aabbMinY + header.m_aabbMaxY) * 0.5f;
+					meshAssetData->m_boundingSphere[2] = (header.m_aabbMinZ + header.m_aabbMaxZ) * 0.5f;
+					meshAssetData->m_boundingSphere[3] = glm::distance(glm::make_vec3(meshAssetData->m_boundingSphere), glm::vec3(header.m_aabbMaxX, header.m_aabbMaxY, header.m_aabbMaxZ));
 				}
 			}
 			else

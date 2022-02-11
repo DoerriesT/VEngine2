@@ -67,6 +67,7 @@ public:
 	PhysicsTriangleMeshHandle getPhysicsTriangleMeshhandle() const noexcept { return m_physicsTriangleMeshHandle; }
 	bool isSkinned() const noexcept { return m_isSkinned; }
 	size_t getMatrixPaletteSize() const noexcept { return m_matrixPaletteSize; }
+	void getBoundingSphere(float *result) const noexcept { memcpy(result, m_boundingSphere, sizeof(m_boundingSphere)); };
 
 private:
 	eastl::vector<SubMeshHandle> m_subMeshHandles;
@@ -74,5 +75,6 @@ private:
 	PhysicsConvexMeshHandle m_physicsConvexMeshHandle = {};
 	PhysicsTriangleMeshHandle m_physicsTriangleMeshHandle = {};
 	size_t m_matrixPaletteSize = 0;
+	float m_boundingSphere[4] = {};
 	bool m_isSkinned = false;
 };

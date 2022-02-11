@@ -287,7 +287,7 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 							instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
 							instanceData.m_entityID = entities[i];
 
-							const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialCreateInfo::Alpha::Mask;
+							const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialAlphaMode::Mask;
 
 							if (alphaTested)
 								if (skinned)

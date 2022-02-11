@@ -22,6 +22,7 @@ struct SubMeshCreateInfo
 
 struct SubMeshDrawInfo
 {
+	float m_boundingSphere[4];
 	uint32_t m_indexCount;
 	uint32_t m_firstIndex;
 	int32_t m_vertexOffset;

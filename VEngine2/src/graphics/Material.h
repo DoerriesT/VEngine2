@@ -2,14 +2,14 @@
 #include "Handles.h"
 #include "ViewHandles.h"
 
+enum class MaterialAlphaMode : uint32_t
+{
+	Opaque, Mask, Blended
+};
+
 struct MaterialCreateInfo
 {
-	enum class Alpha : uint32_t
-	{
-		Opaque, Mask, Blended
-	};
-
-	Alpha m_alpha;
+	MaterialAlphaMode m_alpha;
 	uint32_t m_albedoFactor;
 	float m_metallicFactor;
 	float m_roughnessFactor;
@@ -26,7 +26,7 @@ struct MaterialCreateInfo
 struct MaterialGPU
 {
 	float m_emissive[3];
-	MaterialCreateInfo::Alpha m_alphaMode;
+	MaterialAlphaMode m_alphaMode;
 	uint32_t m_albedo;
 	float m_metalness;
 	float m_roughness;

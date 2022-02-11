@@ -636,6 +636,12 @@
     <ClInclude Include="src\graphics\IrradianceVolumeManager.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\FrustumCulling.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\graphics\MeshRenderWorld.h">
+      <Filter>src\graphics</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -1122,6 +1128,12 @@
       <Filter>src\component</Filter>
     </ClCompile>
     <ClCompile Include="src\graphics\IrradianceVolumeManager.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\FrustumCulling.cpp">
+      <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphics\MeshRenderWorld.cpp">
       <Filter>src\graphics</Filter>
     </ClCompile>
   </ItemGroup>
