@@ -19,6 +19,7 @@
 #include "utility/Utility.h"
 #include "ecs/ECS.h"
 #include "MeshRenderWorld.h"
+#include "FrustumCulling.h"
 
 
 using namespace gal;
@@ -27,6 +28,24 @@ static constexpr size_t k_numDepthBins = 8192;
 static constexpr float k_depthBinRange = 1.0f; // each bin covers a depth range of 1 unit
 static constexpr uint32_t k_emptyBin = ((~0u & 0xFFFFu) << 16u);
 static constexpr uint32_t k_lightingTileSize = 8;
+
+// https://bartwronski.com/2017/04/13/cull-that-cone/
+static glm::vec4 calculateSpotLightBoundingSphere(const glm::vec3 position, const glm::quat &rotation, float radius, float spotHalfAngle) noexcept
+{
+	const glm::vec3 direction = glm::normalize(rotation * glm::vec3(0.0f, -1.0f, 0.0f));
+
+	const float cosAngle = cosf(spotHalfAngle);
+	if (spotHalfAngle > (glm::pi<float>() * 0.25f))
+	{
+		const float sinAngle = sqrtf(1.0f - cosAngle * cosAngle);
+		return glm::vec4(position + cosAngle * radius * direction, sinAngle * radius);
+	}
+	else
+	{
+		const float oneOverTwoCosAngle = 1.0f / (2.0f * cosAngle);
+		return glm::vec4(position + radius * oneOverTwoCosAngle * direction, radius * oneOverTwoCosAngle);
+	}
+}
 
 static float calculateMaxPenumbraPercentage(float bulbRadius = 0.1f) noexcept
 {
@@ -405,6 +424,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 	eastl::vector<LightPointers> shadowedDirectionalLightPtrs;
 	eastl::vector<LightPointers> punctualLightPtrs;
 	eastl::vector<LightPointers> shadowedPunctualLightPtrs;
+	eastl::vector<glm::vec4> punctualLightBoundingSpheres;
+	eastl::vector<glm::vec4> shadowedPunctualLightBoundingSpheres;
 	eastl::vector<glm::mat4> shadowMatrices;
 	eastl::vector<glm::mat4> shadowViewMatrices;
 	eastl::vector<float> shadowFarPlanes;
@@ -414,6 +435,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 	eastl::vector<PunctualLightGPU> punctualLights;
 	eastl::vector<PunctualLightShadowedGPU> punctualLightsShadowed;
 	eastl::vector<glm::mat4> lightTransforms;
+
+	const auto frustumInfo = FrustumCulling::createFrustumInfo(data.m_viewProjectionMatrix);
 
 	data.m_ecs->iterate<TransformComponent, LightComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, LightComponent *lightC)
 		{
@@ -441,13 +464,23 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 				case LightComponent::Type::Point:
 				case LightComponent::Type::Spot:
 				{
+					glm::vec4 bsphere = lc.m_type == LightComponent::Type::Point
+						? glm::vec4(tc.m_curRenderTransform.m_translation, lc.m_radius)
+						: calculateSpotLightBoundingSphere(tc.m_curRenderTransform.m_translation, tc.m_curRenderTransform.m_rotation, lc.m_radius, lc.m_outerAngle * 0.5f);
+
+					if (FrustumCulling::cull(frustumInfo, bsphere))
+					{
+						continue;
+					}
 					if (lc.m_shadows)
 					{
 						shadowedPunctualLightPtrs.push_back(lp);
+						shadowedPunctualLightBoundingSpheres.push_back(bsphere);
 					}
 					else
 					{
 						punctualLightPtrs.push_back(lp);
+						punctualLightBoundingSpheres.push_back(bsphere);
 					}
 					break;
 				}
@@ -577,10 +610,7 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 		punctualLightsOrder.reserve(punctualLightPtrs.size());
 		for (size_t i = 0; i < punctualLightPtrs.size(); ++i)
 		{
-			auto &tc = *punctualLightPtrs[i].m_tc;
-
-			// TODO: cull lights here
-			punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, data.m_viewMatrixDepthRow, i));
+			punctualLightsOrder.push_back(computePunctualLightSortValue(glm::vec3(punctualLightBoundingSpheres[i]), data.m_viewMatrixDepthRow, i));
 		}
 
 		// sort by distance to camera
@@ -608,7 +638,7 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 
 			punctualLights.push_back(punctualLight);
 
-			insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_tmpDepthBinMemory.data());
+			insertPunctualLightIntoDepthBins(punctualLightBoundingSpheres[lightIndex].w, lightIndex, sortIndex, m_tmpDepthBinMemory.data());
 		}
 
 		resultLightRecordData->m_punctualLightCount = static_cast<uint32_t>(punctualLights.size());
@@ -629,10 +659,7 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 		punctualLightsOrder.reserve(shadowedPunctualLightPtrs.size());
 		for (size_t i = 0; i < shadowedPunctualLightPtrs.size(); ++i)
 		{
-			auto &tc = *shadowedPunctualLightPtrs[i].m_tc;
-
-			// TODO: cull lights here
-			punctualLightsOrder.push_back(computePunctualLightSortValue(tc.m_curRenderTransform.m_translation, data.m_viewMatrixDepthRow, i));
+			punctualLightsOrder.push_back(computePunctualLightSortValue(glm::vec3(shadowedPunctualLightBoundingSpheres[i]), data.m_viewMatrixDepthRow, i));
 		}
 
 		// sort by distance to camera
@@ -753,7 +780,7 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 
 			punctualLightsShadowed.push_back(punctualLight);
 
-			insertPunctualLightIntoDepthBins(lc.m_radius, lightIndex, sortIndex, m_tmpDepthBinMemory.data());
+			insertPunctualLightIntoDepthBins(shadowedPunctualLightBoundingSpheres[lightIndex].w, lightIndex, sortIndex, m_tmpDepthBinMemory.data());
 		}
 
 		resultLightRecordData->m_punctualLightShadowedCount = static_cast<uint32_t>(punctualLightsShadowed.size());
