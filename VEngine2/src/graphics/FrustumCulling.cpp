@@ -2,9 +2,12 @@
 #include "job/ParallelFor.h"
 #include <EASTL/fixed_vector.h>
 #include <EASTL/atomic.h>
+#include "profiling/Profiling.h"
 
 size_t FrustumCulling::cull(size_t count, const uint32_t *inputIndices, const glm::vec4 *boundingSpheres, const glm::mat4 &viewProjection, uint32_t *resultIndices) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	// extract frustum planes from matrix
 	glm::mat4 transposed = glm::transpose(viewProjection);
 	glm::vec4 planes[6];
@@ -24,6 +27,7 @@ size_t FrustumCulling::cull(size_t count, const uint32_t *inputIndices, const gl
 
 	job::parallelFor(count, 32, [&](size_t startIdx, size_t endIdx)
 		{
+			PROFILING_ZONE_SCOPED_N("Frustum Culling Job");
 			for (size_t j = startIdx; j < endIdx; ++j)
 			{
 				const auto &bsphere = boundingSpheres[j];

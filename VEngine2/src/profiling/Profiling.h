@@ -11,18 +11,18 @@
 #include <tracy/TracyC.h>
 
 #define PROFILING_FRAME_MARK FrameMark
-#define PROFILING_ZONE_SCOPED ZoneScopedS(25)
-#define PROFILING_ZONE_SCOPED_N(name) ZoneScopedNS(name, 25)
-#define PROFILING_ZONE_BEGIN(zoneVarName) TracyCZoneS(zoneVarName, 25, true)
-#define PROFILING_ZONE_BEGIN_N(zoneVarName, name) TracyCZoneNS(zoneVarName, name, 25, true)
+#define PROFILING_ZONE_SCOPED ZoneScopedS(50)
+#define PROFILING_ZONE_SCOPED_N(name) ZoneScopedNS(name, 50)
+#define PROFILING_ZONE_BEGIN(zoneVarName) TracyCZoneS(zoneVarName, 50, true)
+#define PROFILING_ZONE_BEGIN_N(zoneVarName, name) TracyCZoneNS(zoneVarName, name, 50, true)
 #define PROFILING_ZONE_END(zoneVarName) TracyCZoneEnd(zoneVarName)
-#define PROFILING_MEM_ALLOC(ptr, count) TracyAllocS(ptr, count, 25)
-#define PROFILING_MEM_FREE(ptr) TracyFreeS(ptr, 25)
+#define PROFILING_MEM_ALLOC(ptr, count) TracyAllocS(ptr, count, 50)
+#define PROFILING_MEM_FREE(ptr) TracyFreeS(ptr, 50)
 
 #ifdef PROFILING_GPU_ENABLE
 
 // need to set define PROFILING_VULKAN or PROFILING_D3D12 when PROFILING_GPU_ENABLE is defined
-#define PROFILING_VULKAN
+#define PROFILING_D3D12
 
 // VULKAN
 

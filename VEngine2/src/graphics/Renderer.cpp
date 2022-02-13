@@ -59,7 +59,7 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 	m_width = width;
 	m_height = height;
 
-	m_device = gal::GraphicsDevice::create(windowHandle, true, gal::GraphicsBackendType::D3D12);
+	m_device = gal::GraphicsDevice::create(windowHandle, false, gal::GraphicsBackendType::D3D12);
 	m_device->createSwapChain(m_device->getGraphicsQueue(), m_swapchainWidth, m_swapchainHeight, false, gal::PresentMode::V_SYNC, &m_swapChain);
 
 	m_device->createSemaphore(0, &m_semaphores[0]);

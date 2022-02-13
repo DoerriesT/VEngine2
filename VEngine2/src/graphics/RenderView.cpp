@@ -28,6 +28,8 @@
 #include "graphics/Camera.h"
 #include "ecs/ECS.h"
 #include "MeshRenderWorld.h"
+#define PROFILING_GPU_ENABLE
+#include "profiling/Profiling.h"
 
 using namespace gal;
 
@@ -67,6 +69,8 @@ RenderView::~RenderView()
 
 void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	if (m_width == 0 || m_height == 0)
 	{
 		return;

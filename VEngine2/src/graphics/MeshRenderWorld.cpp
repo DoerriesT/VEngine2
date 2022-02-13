@@ -15,6 +15,7 @@
 #include "gal/GraphicsAbstractionLayer.h"
 #include "gal/Initializers.h"
 #include "LinearGPUBufferAllocator.h"
+#include "profiling/Profiling.h"
 
 MeshRenderWorld::MeshRenderWorld(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager) noexcept
 	:m_device(device),
@@ -26,6 +27,8 @@ MeshRenderWorld::MeshRenderWorld(gal::GraphicsDevice *device, ResourceViewRegist
 
 void MeshRenderWorld::update(ECS *ecs, LinearGPUBufferAllocator *shaderResourceBufferAllocator) noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	m_meshInstanceBoundingSpheres.clear();
 	m_submeshInstanceBoundingSpheres.clear();
 	m_meshInstances.clear();
@@ -149,6 +152,8 @@ void MeshRenderWorld::update(ECS *ecs, LinearGPUBufferAllocator *shaderResourceB
 
 void MeshRenderWorld::createMeshRenderList(const glm::mat4 &viewMatrix, const glm::mat4 &viewProjectionMatrix, float farPlane, MeshRenderList2 *result) const noexcept
 {
+	PROFILING_ZONE_SCOPED;
+
 	assert(result);
 	*result = {};
 	result->m_submeshInstances = m_submeshInstances.data();
