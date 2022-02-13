@@ -25,6 +25,7 @@ class ImGuiPass;
 class ECS;
 class ReflectionProbeManager;
 class IrradianceVolumeManager;
+class MeshRenderWorld;
 
 typedef void *ImTextureID;
 
@@ -95,11 +96,6 @@ private:
 	bool m_editorMode = false;
 	bool m_renderGrid = true;
 
-	eastl::vector<glm::mat4> m_modelMatrices;
-	eastl::vector<glm::mat4> m_prevModelMatrices;
-	eastl::vector<glm::mat4> m_skinningMatrices;
-	eastl::vector<glm::mat4> m_prevSkinningMatrices;
 	eastl::vector<GlobalParticipatingMediumGPU> m_globalMedia;
-	RenderList m_renderList;
-	RenderList m_outlineRenderList;
+	MeshRenderWorld *m_meshRenderWorld = nullptr;
 };

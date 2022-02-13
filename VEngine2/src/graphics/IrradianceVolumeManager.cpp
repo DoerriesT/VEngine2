@@ -16,6 +16,7 @@
 #include "LightManager.h"
 #include "component/TransformComponent.h"
 #include "component/IrradianceVolumeComponent.h"
+#include "MeshRenderWorld.h"
 
 using namespace gal;
 
@@ -759,6 +760,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 		lightMgrData.m_near = curVolume.m_nearPlane;
 		lightMgrData.m_far = curVolume.m_farPlane;
 		lightMgrData.m_fovy = glm::radians(90.0f);
+		lightMgrData.m_staticMeshShadowsOnly = true;
 		lightMgrData.m_viewProjectionMatrix = viewProjectionMatrix;
 		lightMgrData.m_invViewMatrix = glm::inverse(viewMatrices[face]);
 		lightMgrData.m_viewMatrixDepthRow = glm::transpose(viewMatrices[face])[2];
@@ -766,10 +768,8 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 		lightMgrData.m_shaderResourceLinearAllocator = data.m_shaderResourceLinearAllocator;
 		lightMgrData.m_constantBufferLinearAllocator = data.m_constantBufferLinearAllocator;
 		lightMgrData.m_offsetBufferSet = data.m_offsetBufferSet;
-		lightMgrData.m_transformBufferHandle = data.m_transformBufferHandle;
-		lightMgrData.m_skinningMatrixBufferHandle = data.m_skinningMatrixBufferHandle;
 		lightMgrData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-		lightMgrData.m_renderList = data.m_renderList;
+		lightMgrData.m_meshRenderWorld = data.m_meshRenderWorld;
 		lightMgrData.m_meshDrawInfo = data.m_meshDrawInfo;
 		lightMgrData.m_meshBufferHandles = data.m_meshBufferHandles;
 
@@ -787,6 +787,9 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 				GAL_SCOPED_GPU_LABEL(cmdList, "Irradiance Volume Render Probe Face");
 				PROFILING_GPU_ZONE_SCOPED_N(data.m_gpuProfilingCtx, cmdList, "Irradiance Volume Render Probe Face");
 				PROFILING_ZONE_SCOPED;
+
+				MeshRenderList2 renderList;
+				data.m_meshRenderWorld->createMeshRenderList(viewMatrices[face], viewProjectionMatrix, m_volumes[curVolumeIdx].m_farPlane, &renderList);
 
 				ColorAttachmentDescription attachmentDescs[]
 				{
@@ -836,7 +839,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 						passConsts.viewMatrixDepthRow[2] = viewMatrices[face][2][2];
 						passConsts.viewMatrixDepthRow[3] = viewMatrices[face][3][2];
 						memcpy(passConsts.cameraPosition, &probeWorldSpacePos.x, sizeof(passConsts.cameraPosition));
-						passConsts.transformBufferIndex = data.m_transformBufferHandle;
+						passConsts.transformBufferIndex = renderList.m_transformsBufferViewHandle;
 						passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 						passConsts.directionalLightCount = m_lightRecordData[face].m_directionalLightCount;
 						passConsts.directionalLightBufferIndex = m_lightRecordData[face].m_directionalLightsBufferViewHandle;
@@ -856,65 +859,66 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 
 						uint32_t passConstsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
-						const eastl::vector<SubMeshInstanceData> *instancesArr[]
-						{
-							&data.m_renderList->m_opaque,
-							&data.m_renderList->m_opaqueAlphaTested,
-						};
 						GraphicsPipeline *pipelines[]
 						{
 							m_forwardPipeline,
 							m_forwardAlphaTestedPipeline,
 						};
 
-						for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
+						for (size_t alphaTested = 0; alphaTested < 2; ++alphaTested)
 						{
-							if (instancesArr[listType]->empty())
+							for (size_t outlined = 0; outlined < 2; ++outlined)
 							{
-								continue;
-							}
-							const bool alphaTested = (listType & 1) != 0;
-							auto *pipeline = pipelines[listType];
+								const size_t listIdx = MeshRenderList2::getListIndex(false, alphaTested == 0 ? MaterialAlphaMode::Opaque : MaterialAlphaMode::Mask, false, outlined != 0);
 
-							cmdList->bindPipeline(pipeline);
-
-							gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
-							cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
-
-							for (const auto &instance : *instancesArr[listType])
-							{
-								ForwardPushConstants consts{};
-								consts.transformIndex = instance.m_transformIndex;
-								consts.materialIndex = instance.m_materialHandle;
-
-								cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(consts), &consts);
-
-								Buffer *vertexBuffers[]
+								if (renderList.m_counts[listIdx] == 0)
 								{
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								};
+									continue;
+								}
+								auto *pipeline = alphaTested == 0 ? m_forwardPipeline : m_forwardAlphaTestedPipeline;
 
-								const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+								cmdList->bindPipeline(pipeline);
 
-								const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-								const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-								const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-								const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+								gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
+								cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
-								uint64_t vertexBufferOffsets[]
+								for (size_t i = 0; i < renderList.m_counts[listIdx]; ++i)
 								{
-									0, // positions
-									alignedPositionsBufferSize, // normals
-									alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
-									alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
-								};
+									const auto &instance = renderList.m_submeshInstances[renderList.m_indices[renderList.m_offsets[listIdx] + i]];
 
-								cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
-								cmdList->bindVertexBuffers(0, 4, vertexBuffers, vertexBufferOffsets);
-								cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+									ForwardPushConstants consts{};
+									consts.transformIndex = instance.m_transformIndex;
+									consts.materialIndex = instance.m_materialHandle;
+
+									cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(consts), &consts);
+
+									Buffer *vertexBuffers[]
+									{
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									};
+
+									const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+
+									const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+									const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+									const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+									const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+
+									uint64_t vertexBufferOffsets[]
+									{
+										0, // positions
+										alignedPositionsBufferSize, // normals
+										alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
+										alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
+									};
+
+									cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
+									cmdList->bindVertexBuffers(0, 4, vertexBuffers, vertexBufferOffsets);
+									cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+								}
 							}
 						}
 					}
@@ -963,7 +967,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 				cmdList->bindDescriptorSets(m_diffuseFilterPipeline, 0, 1, &bindlessSet, 0, nullptr);
 
 				ProbeFilterPushConsts pushConsts{};
-				pushConsts.baseOutputOffset[0] = (probeIdxY * curVolume.m_resolutionX + probeIdxX) * (k_diffuseProbeResolution + 2);
+				pushConsts.baseOutputOffset[0] = (probeIdxY * m_volumes[curVolumeIdx].m_resolutionX + probeIdxX) * (k_diffuseProbeResolution + 2);
 				pushConsts.baseOutputOffset[1] = (probeIdxZ) * (k_diffuseProbeResolution + 2);
 				pushConsts.texelSize = 1.0f / k_diffuseProbeResolution;
 				pushConsts.inputTextureIndex = registry.getBindlessHandle(colorImageCubeViewHandle, DescriptorType::TEXTURE);
@@ -983,7 +987,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 				cmdList->bindDescriptorSets(m_visibilityFilterPipeline, 0, 1, &bindlessSet, 0, nullptr);
 
 				ProbeFilterPushConsts pushConsts{};
-				pushConsts.baseOutputOffset[0] = (probeIdxY * curVolume.m_resolutionX + probeIdxX) * (k_visibilityProbeResolution + 2);
+				pushConsts.baseOutputOffset[0] = (probeIdxY * m_volumes[curVolumeIdx].m_resolutionX + probeIdxX) * (k_visibilityProbeResolution + 2);
 				pushConsts.baseOutputOffset[1] = (probeIdxZ) * (k_visibilityProbeResolution + 2);
 				pushConsts.texelSize = 1.0f / k_visibilityProbeResolution;
 				pushConsts.inputTextureIndex = registry.getBindlessHandle(distanceImageCubeViewHandle, DescriptorType::TEXTURE);

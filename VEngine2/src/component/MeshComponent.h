@@ -11,6 +11,7 @@ class SerializationReadStream;
 struct MeshComponent
 {
 	Asset<MeshAssetData> m_mesh;
+	float m_boundingSphereSizeFactor = 1.0f;
 
 	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;

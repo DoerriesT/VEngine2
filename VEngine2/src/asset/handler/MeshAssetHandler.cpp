@@ -159,6 +159,13 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 					}
 				}
 
+				float meshAABBMaxX = -FLT_MAX;
+				float meshAABBMaxY = -FLT_MAX;
+				float meshAABBMaxZ = -FLT_MAX;
+				float meshAABBMinX = FLT_MAX;
+				float meshAABBMinY = FLT_MAX;
+				float meshAABBMinZ = FLT_MAX;
+
 				// graphics submeshes
 				{
 					eastl::vector<SubMeshCreateInfo> subMeshes;
@@ -184,6 +191,13 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 						subMesh.m_maxTexCoord[1] = subMeshHeader.m_uvMaxY;
 						subMesh.m_vertexCount = subMeshHeader.m_vertexCount;
 						subMesh.m_indexCount = subMeshHeader.m_indexCount;
+
+						meshAABBMaxX = fmaxf(meshAABBMaxX, subMeshHeader.m_aabbMaxX);
+						meshAABBMaxY = fmaxf(meshAABBMaxY, subMeshHeader.m_aabbMaxY);
+						meshAABBMaxZ = fmaxf(meshAABBMaxZ, subMeshHeader.m_aabbMaxZ);
+						meshAABBMinX = fminf(meshAABBMinX, subMeshHeader.m_aabbMinX);
+						meshAABBMinY = fminf(meshAABBMinY, subMeshHeader.m_aabbMinY);
+						meshAABBMinZ = fminf(meshAABBMinZ, subMeshHeader.m_aabbMinZ);
 
 						meshAssetData->m_materials[i] = materialAssets[subMeshHeader.m_materialIndex];
 
@@ -226,10 +240,10 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 				// bounding sphere
 				{
-					meshAssetData->m_boundingSphere[0] = (header.m_aabbMinX + header.m_aabbMaxX) * 0.5f;
-					meshAssetData->m_boundingSphere[1] = (header.m_aabbMinY + header.m_aabbMaxY) * 0.5f;
-					meshAssetData->m_boundingSphere[2] = (header.m_aabbMinZ + header.m_aabbMaxZ) * 0.5f;
-					meshAssetData->m_boundingSphere[3] = glm::distance(glm::make_vec3(meshAssetData->m_boundingSphere), glm::vec3(header.m_aabbMaxX, header.m_aabbMaxY, header.m_aabbMaxZ));
+					meshAssetData->m_boundingSphere[0] = (meshAABBMinX + meshAABBMaxX) * 0.5f;
+					meshAssetData->m_boundingSphere[1] = (meshAABBMinY + meshAABBMaxY) * 0.5f;
+					meshAssetData->m_boundingSphere[2] = (meshAABBMinZ + meshAABBMaxZ) * 0.5f;
+					meshAssetData->m_boundingSphere[3] = glm::distance(glm::make_vec3(meshAssetData->m_boundingSphere), glm::vec3(meshAABBMaxX, meshAABBMaxY, meshAABBMaxZ));
 				}
 			}
 			else

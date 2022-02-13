@@ -7,7 +7,7 @@
 class ECS;
 class RendererResources;
 struct SubMeshDrawInfo;
-struct RenderList;
+class MeshRenderWorld;
 struct SubMeshBufferHandles;
 struct LightRecordData;
 class ResourceViewRegistry;
@@ -29,11 +29,10 @@ public:
 		LinearGPUBufferAllocator *m_shaderResourceLinearAllocator;
 		LinearGPUBufferAllocator *m_constantBufferLinearAllocator;
 		gal::DescriptorSet *m_offsetBufferSet;
-		StructuredBufferViewHandle m_transformBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_irradianceVolumeBufferViewHandle;
 		uint32_t m_irradianceVolumeCount;
-		const RenderList *m_renderList;
+		const MeshRenderWorld *m_meshRenderWorld;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 	};
@@ -95,11 +94,13 @@ private:
 	eastl::fixed_vector<uint32_t, k_cacheSize> m_freeCacheSlots;
 	EntityID m_cacheSlotOwners[k_cacheSize] = {};
 	uint32_t m_internalFrame = 0;
-	glm::mat4 m_currentRenderProbeViewProjMatrices[6] = {};
-	glm::mat4 m_currentRelightProbeWorldToLocalTransposed = {};
-	glm::vec3 m_currentRelightProbePosition = {};
-	float m_currentRelightProbeNearPlane = 0.5f;
-	float m_currentRelightProbeFarPlane = 50.0f;
+	glm::mat4 m_curRenderProbeViewProjMatrices[6] = {};
+	glm::mat4 m_curRenderProbeViewMatrices[6] = {};
+	glm::mat4 m_curRelightProbeWorldToLocalTransposed = {};
+	glm::vec3 m_curRelightProbePosition = {};
+	float m_curRelightProbeNearPlane = 0.5f;
+	float m_curRelightProbeFarPlane = 50.0f;
+	float m_curRenderProbeFarPlane = 50.0f;
 
 	uint32_t allocateCacheSlot(EntityID entity) noexcept;
 	void freeCacheSlot(uint32_t slot) noexcept;

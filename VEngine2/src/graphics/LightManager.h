@@ -7,7 +7,7 @@
 
 class RenderGraph;
 struct SubMeshDrawInfo;
-struct RenderList;
+class MeshRenderWorld;
 struct SubMeshBufferHandles;
 class ECS;
 struct TransformComponent;
@@ -43,6 +43,7 @@ public:
 		float m_near;
 		float m_far;
 		float m_fovy;
+		bool m_staticMeshShadowsOnly;
 		glm::mat4 m_viewProjectionMatrix;
 		glm::mat4 m_invViewMatrix;
 		glm::vec4 m_viewMatrixDepthRow;
@@ -50,10 +51,8 @@ public:
 		LinearGPUBufferAllocator *m_shaderResourceLinearAllocator;
 		LinearGPUBufferAllocator *m_constantBufferLinearAllocator;
 		gal::DescriptorSet *m_offsetBufferSet;
-		StructuredBufferViewHandle m_transformBufferHandle;
-		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
-		const RenderList *m_renderList;
+		const MeshRenderWorld *m_meshRenderWorld;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 	};

@@ -6,7 +6,7 @@
 #include "Handles.h"
 
 struct SubMeshDrawInfo;
-struct RenderList;
+struct MeshRenderList2;
 struct SubMeshBufferHandles;
 class VolumetricFogModule;
 struct LightRecordData;
@@ -18,10 +18,6 @@ public:
 	struct Data
 	{
 		const CommonViewData *m_viewData;
-		StructuredBufferViewHandle m_transformBufferHandle;
-		StructuredBufferViewHandle m_prevTransformBufferHandle;
-		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
-		StructuredBufferViewHandle m_prevSkinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
 		StructuredBufferViewHandle m_globalMediaBufferHandle;
 		StructuredBufferViewHandle m_reflectionProbeDataBufferHandle;
@@ -29,7 +25,7 @@ public:
 		uint32_t m_globalMediaCount;
 		uint32_t m_reflectionProbeCount;
 		uint32_t m_irradianceVolumeCount;
-		const RenderList *m_renderList;
+		const MeshRenderList2 *m_renderList;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 		const LightRecordData *m_lightRecordData;

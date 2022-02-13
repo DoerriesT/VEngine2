@@ -18,6 +18,7 @@
 #include "profiling/Profiling.h"
 #include "utility/Utility.h"
 #include "ecs/ECS.h"
+#include "MeshRenderWorld.h"
 
 
 using namespace gal;
@@ -119,6 +120,8 @@ static void calculateCascadeViewProjectionMatrices(const glm::vec3 &lightDir,
 	float shadowTextureSize,
 	size_t cascadeCount,
 	glm::mat4 *viewProjectionMatrices,
+	glm::mat4 *viewMatrices,
+	float *farPlanes,
 	glm::vec4 *cascadeParams,
 	glm::vec4 *viewMatrixDepthRows) noexcept
 {
@@ -189,6 +192,8 @@ static void calculateCascadeViewProjectionMatrices(const glm::vec3 &lightDir,
 		viewMatrixDepthRows[i] = glm::vec4(lightView[0][2], lightView[1][2], lightView[2][2], lightView[3][2]);
 
 		viewProjectionMatrices[i] = glm::ortho(-radius, radius, -radius, radius, depthRange, 0.1f) * lightView;
+		viewMatrices[i] = lightView;
+		farPlanes[i] = depthRange;
 
 		// depthNormalBiases[i] holds the depth/normal offset biases in texel units
 		const float unitsPerTexel = radius * 2.0f / shadowTextureSize;
@@ -401,6 +406,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 	eastl::vector<LightPointers> punctualLightPtrs;
 	eastl::vector<LightPointers> shadowedPunctualLightPtrs;
 	eastl::vector<glm::mat4> shadowMatrices;
+	eastl::vector<glm::mat4> shadowViewMatrices;
+	eastl::vector<float> shadowFarPlanes;
 	eastl::vector<rg::ResourceViewHandle> shadowTextureRenderHandles;
 	eastl::vector<DirectionalLightGPU> directionalLights;
 	eastl::vector<DirectionalLightGPU> shadowedDirectionalLights;
@@ -511,6 +518,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 
 			glm::vec4 cascadeParams[LightComponent::k_maxCascades];
 			glm::vec4 depthRows[LightComponent::k_maxCascades];
+			glm::mat4 cascadeViewMatrices[LightComponent::k_maxCascades];
+			float cascadeFarPlanes[LightComponent::k_maxCascades];
 
 			assert(lc.m_cascadeCount <= LightComponent::k_maxCascades);
 
@@ -532,6 +541,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 				2048.0f,
 				lc.m_cascadeCount,
 				directionalLight.m_shadowMatrices,
+				cascadeViewMatrices,
+				cascadeFarPlanes,
 				cascadeParams,
 				depthRows);
 
@@ -544,6 +555,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 			for (size_t j = 0; j < lc.m_cascadeCount; ++j)
 			{
 				shadowMatrices.push_back(directionalLight.m_shadowMatrices[j]);
+				shadowViewMatrices.push_back(cascadeViewMatrices[j]);
+				shadowFarPlanes.push_back(cascadeFarPlanes[j]);
 				shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Shadow Cascade", shadowMapHandle, { 0, 1, static_cast<uint32_t>(j), 1 }, ImageViewType::_2D)));
 			}
 
@@ -673,6 +686,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 				static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
 
 				shadowMatrices.push_back(shadowMatrix);
+				shadowViewMatrices.push_back(shadowViewMatrix);
+				shadowFarPlanes.push_back(lc.m_radius);
 				resultLightRecordData->m_shadowMapViewHandles.push_back(shadowMapViewHandle);
 				shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create("Spot Light Shadow Map", shadowMapHandle)));
 
@@ -717,6 +732,8 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 					static_assert(sizeof(TextureViewHandle) == sizeof(shadowMapViewHandle));
 
 					shadowMatrices.push_back(shadowMatrix);
+					shadowViewMatrices.push_back(viewMatrices[i]);
+					shadowFarPlanes.push_back(lc.m_radius);
 					resultLightRecordData->m_shadowMapViewHandles.push_back(shadowMapViewHandle);
 					shadowTextureRenderHandles.push_back(graph->createImageView(rg::ImageViewDesc::create(resourceNames[i], shadowMapHandle)));
 
@@ -953,12 +970,13 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 				PROFILING_GPU_ZONE_SCOPED_N(m_device->getProfilingContext(), cmdList, "Shadows");
 				PROFILING_ZONE_SCOPED;
 
-				size_t curDepthBufferHandleOffset = 0;
-
 				// iterate over all shadow map jobs
-				for (auto &shadowMatrix : shadowMatrices)
+				for (size_t shadowJobIdx = 0; shadowJobIdx < shadowMatrices.size(); ++shadowJobIdx)
 				{
-					auto shadowTextureHandle = shadowTextureRenderHandles[curDepthBufferHandleOffset++];
+					auto shadowTextureHandle = shadowTextureRenderHandles[shadowJobIdx];
+
+					MeshRenderList2 renderList;
+					data.m_meshRenderWorld->createMeshRenderList(shadowViewMatrices[shadowJobIdx], shadowMatrices[shadowJobIdx], shadowFarPlanes[shadowJobIdx], &renderList);
 
 					DepthStencilAttachmentDescription depthBufferDesc{ registry.getImageView(shadowTextureHandle), AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE, AttachmentLoadOp::DONT_CARE, AttachmentStoreOp::DONT_CARE };
 					const auto &imageDesc = registry.getImage(shadowTextureHandle)->getDescription();
@@ -980,20 +998,13 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 						};
 
 						PassConstants passConsts;
-						memcpy(passConsts.viewProjectionMatrix, &shadowMatrix[0][0], sizeof(passConsts.viewProjectionMatrix));
-						passConsts.transformBufferIndex = data.m_transformBufferHandle;
-						passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
+						memcpy(passConsts.viewProjectionMatrix, &shadowMatrices[shadowJobIdx][0][0], sizeof(passConsts.viewProjectionMatrix));
+						passConsts.transformBufferIndex = renderList.m_transformsBufferViewHandle;
+						passConsts.skinningMatricesBufferIndex = renderList.m_skinningMatricesBufferViewHandle;
 						passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
 						uint32_t passConstsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(gal::DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
-						const eastl::vector<SubMeshInstanceData> *instancesArr[]
-						{
-							&data.m_renderList->m_opaque,
-							&data.m_renderList->m_opaqueAlphaTested,
-							&data.m_renderList->m_opaqueSkinned,
-							&data.m_renderList->m_opaqueSkinnedAlphaTested,
-						};
 						GraphicsPipeline *pipelines[]
 						{
 							m_shadowPipeline,
@@ -1002,77 +1013,99 @@ void LightManager::update(const Data &data, rg::RenderGraph *graph, LightRecordD
 							m_shadowSkinnedAlphaTestedPipeline,
 						};
 
-						for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
+						GraphicsPipeline *pipeline = nullptr;
+
+						for (size_t skinned = 0; skinned < 2; ++skinned)
 						{
-							if (instancesArr[listType]->empty())
+							for (size_t alphaTested = 0; alphaTested < 2; ++alphaTested)
 							{
-								continue;
-							}
-							const bool skinned = listType >= 2;
-							const bool alphaTested = (listType & 1) != 0;
-							auto *pipeline = pipelines[listType];
-
-							cmdList->bindPipeline(pipeline);
-
-							gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
-							cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
-
-							for (const auto &instance : *instancesArr[listType])
-							{
-								struct MeshConstants
+								for (size_t dynamic = 0; dynamic < 2; ++dynamic)
 								{
-									uint32_t transformIndex;
-									uint32_t uintData[2];
-								};
+									for (size_t outlined = 0; outlined < 2; ++outlined)
+									{
+										if (data.m_staticMeshShadowsOnly && (dynamic != 0 || skinned != 0))
+										{
+											continue;
+										}
 
-								MeshConstants consts{};
-								consts.transformIndex = instance.m_transformIndex;
+										const size_t listIdx = MeshRenderList2::getListIndex(dynamic != 0, alphaTested != 0 ? MaterialAlphaMode::Mask : MaterialAlphaMode::Opaque, skinned != 0, outlined != 0);
+										if (renderList.m_counts[listIdx] == 0)
+										{
+											continue;
+										}
 
-								size_t uintDataOffset = 0;
-								if (skinned)
-								{
-									consts.uintData[uintDataOffset++] = instance.m_skinningMatricesOffset;
+										GraphicsPipeline *nextPipeline = pipelines[(skinned != 0 ? 2 : 0) + (alphaTested != 0 ? 1 : 0)];
+										if (nextPipeline != pipeline)
+										{
+											pipeline = nextPipeline;
+
+											cmdList->bindPipeline(pipeline);
+
+											gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
+											cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+										}
+
+										for (size_t i = 0; i < renderList.m_counts[listIdx]; ++i)
+										{
+											const auto &instance = renderList.m_submeshInstances[renderList.m_indices[renderList.m_offsets[listIdx] + i]];
+
+											struct MeshConstants
+											{
+												uint32_t transformIndex;
+												uint32_t uintData[2];
+											};
+
+											MeshConstants consts{};
+											consts.transformIndex = instance.m_transformIndex;
+
+											size_t uintDataOffset = 0;
+											if (skinned)
+											{
+												consts.uintData[uintDataOffset++] = instance.m_skinningMatricesOffset;
+											}
+											if (alphaTested)
+											{
+												consts.uintData[uintDataOffset++] = instance.m_materialHandle;
+											}
+
+											cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
+
+
+											Buffer *vertexBuffers[]
+											{
+												data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+												data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+												data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+												data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+											};
+
+											const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+
+											const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+											const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+											const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+											const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+											const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
+											const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
+
+											eastl::fixed_vector<uint64_t, 4> vertexBufferOffsets;
+											vertexBufferOffsets.push_back(0); // positions
+											if (alphaTested)
+											{
+												vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize); // texcoords
+											}
+											if (skinned)
+											{
+												vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize); // joint indices
+												vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize); // joint weights
+											}
+
+											cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
+											cmdList->bindVertexBuffers(0, static_cast<uint32_t>(vertexBufferOffsets.size()), vertexBuffers, vertexBufferOffsets.data());
+											cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+										}
+									}
 								}
-								if (alphaTested)
-								{
-									consts.uintData[uintDataOffset++] = instance.m_materialHandle;
-								}
-
-								cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
-
-
-								Buffer *vertexBuffers[]
-								{
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								};
-
-								const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
-
-								const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-								const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-								const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-								const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
-								const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
-								const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
-
-								eastl::fixed_vector<uint64_t, 4> vertexBufferOffsets;
-								vertexBufferOffsets.push_back(0); // positions
-								if (alphaTested)
-								{
-									vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize); // texcoords
-								}
-								if (skinned)
-								{
-									vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize); // joint indices
-									vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize); // joint weights
-								}
-
-								cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
-								cmdList->bindVertexBuffers(0, static_cast<uint32_t>(vertexBufferOffsets.size()), vertexBuffers, vertexBufferOffsets.data());
-								cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 							}
 						}
 					}

@@ -15,6 +15,7 @@
 #include "VolumetricFogModule.h"
 #include "graphics/LightManager.h"
 #include "graphics/CommonViewData.h"
+#include "graphics/MeshRenderWorld.h"
 
 using namespace gal;
 
@@ -458,19 +459,12 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 				PassConstants passConsts;
 				memcpy(passConsts.jitteredViewProjectionMatrix, &data.m_viewData->m_jitteredViewProjectionMatrix[0][0], sizeof(passConsts.jitteredViewProjectionMatrix));
-				passConsts.transformBufferIndex = data.m_transformBufferHandle;
-				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
+				passConsts.transformBufferIndex = data.m_renderList->m_transformsBufferViewHandle;
+				passConsts.skinningMatricesBufferIndex = data.m_renderList->m_skinningMatricesBufferViewHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
 				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
-				const eastl::vector<SubMeshInstanceData> *instancesArr[]
-				{
-					&data.m_renderList->m_opaque,
-					&data.m_renderList->m_opaqueAlphaTested,
-					&data.m_renderList->m_opaqueSkinned,
-					&data.m_renderList->m_opaqueSkinnedAlphaTested,
-				};
 				GraphicsPipeline *pipelines[]
 				{
 					m_depthPrepassPipeline,
@@ -479,77 +473,94 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 					m_depthPrepassSkinnedAlphaTestedPipeline,
 				};
 
-				for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
+				GraphicsPipeline *pipeline = nullptr;
+
+				for (size_t skinned = 0; skinned < 2; ++skinned)
 				{
-					if (instancesArr[listType]->empty())
+					for (size_t alphaTested = 0; alphaTested < 2; ++alphaTested)
 					{
-						continue;
-					}
-					const bool skinned = listType >= 2;
-					const bool alphaTested = (listType & 1) != 0;
-					auto *pipeline = pipelines[listType];
-
-					cmdList->bindPipeline(pipeline);
-
-					gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
-					cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
-
-					for (const auto &instance : *instancesArr[listType])
-					{
-						struct MeshConstants
+						for (size_t dynamic = 0; dynamic < 2; ++dynamic)
 						{
-							uint32_t transformIndex;
-							uint32_t uintData[2];
-						};
+							for (size_t outlined = 0; outlined < 2; ++outlined)
+							{
+								const size_t listIdx = MeshRenderList2::getListIndex(dynamic != 0, alphaTested != 0 ? MaterialAlphaMode::Mask : MaterialAlphaMode::Opaque, skinned != 0, outlined != 0);
+								if (data.m_renderList->m_counts[listIdx] == 0)
+								{
+									continue;
+								}
 
-						MeshConstants consts{};
-						consts.transformIndex = instance.m_transformIndex;
+								GraphicsPipeline *nextPipeline = pipelines[(skinned != 0 ? 2 : 0) + (alphaTested != 0 ? 1 : 0)];
+								if (nextPipeline != pipeline)
+								{
+									pipeline = nextPipeline;
 
-						size_t uintDataOffset = 0;
-						if (skinned)
-						{
-							consts.uintData[uintDataOffset++] = instance.m_skinningMatricesOffset;
+									cmdList->bindPipeline(pipeline);
+
+									gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
+									cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+								}
+
+								for (size_t i = 0; i < data.m_renderList->m_counts[listIdx]; ++i)
+								{
+									const auto &instance = data.m_renderList->m_submeshInstances[data.m_renderList->m_indices[data.m_renderList->m_offsets[listIdx] + i]];
+
+									struct MeshConstants
+									{
+										uint32_t transformIndex;
+										uint32_t uintData[2];
+									};
+
+									MeshConstants consts{};
+									consts.transformIndex = instance.m_transformIndex;
+
+									size_t uintDataOffset = 0;
+									if (skinned != 0)
+									{
+										consts.uintData[uintDataOffset++] = instance.m_skinningMatricesOffset;
+									}
+									if (alphaTested != 0)
+									{
+										consts.uintData[uintDataOffset++] = instance.m_materialHandle;
+									}
+
+									cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
+
+
+									Buffer *vertexBuffers[]
+									{
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									};
+
+									const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+
+									const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+									const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+									const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+									const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+									const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
+									const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
+
+									eastl::fixed_vector<uint64_t, 4> vertexBufferOffsets;
+									vertexBufferOffsets.push_back(0); // positions
+									if (alphaTested != 0)
+									{
+										vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize); // texcoords
+									}
+									if (skinned != 0)
+									{
+										vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize); // joint indices
+										vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize); // joint weights
+									}
+
+									cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
+									cmdList->bindVertexBuffers(0, static_cast<uint32_t>(vertexBufferOffsets.size()), vertexBuffers, vertexBufferOffsets.data());
+									cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+								}
+							}
 						}
-						if (alphaTested)
-						{
-							consts.uintData[uintDataOffset++] = instance.m_materialHandle;
-						}
-
-						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT, 0, static_cast<uint32_t>(sizeof(uint32_t) + sizeof(uint32_t) * uintDataOffset), &consts);
-
-
-						Buffer *vertexBuffers[]
-						{
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-						};
-
-						const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
-
-						const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-						const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-						const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-						const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
-						const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
-						const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
-
-						eastl::fixed_vector<uint64_t, 4> vertexBufferOffsets;
-						vertexBufferOffsets.push_back(0); // positions
-						if (alphaTested)
-						{
-							vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize); // texcoords
-						}
-						if (skinned)
-						{
-							vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize); // joint indices
-							vertexBufferOffsets.push_back(alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize); // joint weights
-						}
-
-						cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
-						cmdList->bindVertexBuffers(0, static_cast<uint32_t>(vertexBufferOffsets.size()), vertexBuffers, vertexBufferOffsets.data());
-						cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 					}
 				}
 			}
@@ -657,10 +668,10 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 				passConsts.viewMatrixDepthRow[2] = data.m_viewData->m_viewMatrixDepthRow[2];
 				passConsts.viewMatrixDepthRow[3] = data.m_viewData->m_viewMatrixDepthRow[3];
 				memcpy(passConsts.cameraPosition, &data.m_viewData->m_cameraPosition[0], sizeof(passConsts.cameraPosition));
-				passConsts.transformBufferIndex = data.m_transformBufferHandle;
-				passConsts.prevTransformBufferIndex = data.m_prevTransformBufferHandle;
-				passConsts.skinningMatricesBufferIndex = data.m_skinningMatrixBufferHandle;
-				passConsts.prevSkinningMatricesBufferIndex = data.m_prevSkinningMatrixBufferHandle;
+				passConsts.transformBufferIndex = data.m_renderList->m_transformsBufferViewHandle;
+				passConsts.prevTransformBufferIndex = data.m_renderList->m_prevTransformsBufferViewHandle;
+				passConsts.skinningMatricesBufferIndex = data.m_renderList->m_skinningMatricesBufferViewHandle;
+				passConsts.prevSkinningMatricesBufferIndex = data.m_renderList->m_prevSkinningMatricesBufferViewHandle;
 				passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 				passConsts.directionalLightCount = data.m_lightRecordData->m_directionalLightCount;
 				passConsts.directionalLightBufferIndex = data.m_lightRecordData->m_directionalLightsBufferViewHandle;
@@ -682,111 +693,107 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 
 				uint32_t passConstsAddress = (uint32_t)data.m_viewData->m_constantBufferAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
-				const eastl::vector<SubMeshInstanceData> *instancesArr[]
+				GraphicsPipeline *pipeline = nullptr;
+
+				for (size_t skinned = 0; skinned < 2; ++skinned)
 				{
-					&data.m_renderList->m_opaque,
-					&data.m_renderList->m_opaqueAlphaTested,
-					&data.m_renderList->m_opaqueSkinned,
-					&data.m_renderList->m_opaqueSkinnedAlphaTested,
-				};
-				GraphicsPipeline *pipelines[]
-				{
-					m_forwardPipeline,
-					m_forwardPipeline,
-					m_forwardSkinnedPipeline,
-					m_forwardSkinnedPipeline,
-				};
-
-				GraphicsPipeline *prevPipeline = nullptr;
-				for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
-				{
-					if (instancesArr[listType]->empty())
+					for (size_t alphaTested = 0; alphaTested < 2; ++alphaTested)
 					{
-						continue;
-					}
-
-					const bool skinned = listType >= 2;
-					auto *pipeline = pipelines[listType];
-
-					if (pipeline != prevPipeline)
-					{
-						cmdList->bindPipeline(pipeline);
-
-						gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
-						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
-
-						prevPipeline = pipeline;
-					}
-
-					for (const auto &instance : *instancesArr[listType])
-					{
-						struct MeshConstants
+						for (size_t dynamic = 0; dynamic < 2; ++dynamic)
 						{
-							uint32_t transformIndex;
-							uint32_t materialIndex;
-							uint32_t entityID;
-						};
+							for (size_t outlined = 0; outlined < 2; ++outlined)
+							{
+								const size_t listIdx = MeshRenderList2::getListIndex(dynamic != 0, alphaTested != 0 ? MaterialAlphaMode::Mask : MaterialAlphaMode::Opaque, skinned != 0, outlined != 0);
+								if (data.m_renderList->m_counts[listIdx] == 0)
+								{
+									continue;
+								}
 
-						struct SkinnedMeshConstants
-						{
-							uint32_t transformIndex;
-							uint32_t materialIndex;
-							uint32_t entityID;
-							uint32_t skinningMatricesOffset;
-						};
+								GraphicsPipeline *nextPipeline = skinned != 0 ? m_forwardSkinnedPipeline : m_forwardPipeline;
+								if (nextPipeline != pipeline)
+								{
+									pipeline = nextPipeline;
 
-						MeshConstants consts{};
-						SkinnedMeshConstants skinnedConsts{};
+									cmdList->bindPipeline(pipeline);
 
-						if (skinned)
-						{
-							skinnedConsts.transformIndex = instance.m_transformIndex;
-							skinnedConsts.materialIndex = instance.m_materialHandle;
-							skinnedConsts.entityID = static_cast<uint32_t>(instance.m_entityID);
-							skinnedConsts.skinningMatricesOffset = instance.m_skinningMatricesOffset;
+									gal::DescriptorSet *sets[] = { data.m_viewData->m_offsetBufferSet, data.m_viewData->m_bindlessSet };
+									cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
+								}
+
+								for (size_t i = 0; i < data.m_renderList->m_counts[listIdx]; ++i)
+								{
+									const auto &instance = data.m_renderList->m_submeshInstances[data.m_renderList->m_indices[data.m_renderList->m_offsets[listIdx] + i]];
+
+									struct MeshConstants
+									{
+										uint32_t transformIndex;
+										uint32_t materialIndex;
+										uint32_t entityID;
+									};
+
+									struct SkinnedMeshConstants
+									{
+										uint32_t transformIndex;
+										uint32_t materialIndex;
+										uint32_t entityID;
+										uint32_t skinningMatricesOffset;
+									};
+
+									MeshConstants consts{};
+									SkinnedMeshConstants skinnedConsts{};
+
+									if (skinned)
+									{
+										skinnedConsts.transformIndex = instance.m_transformIndex;
+										skinnedConsts.materialIndex = instance.m_materialHandle;
+										skinnedConsts.entityID = static_cast<uint32_t>(instance.m_entityID);
+										skinnedConsts.skinningMatricesOffset = instance.m_skinningMatricesOffset;
+									}
+									else
+									{
+										consts.transformIndex = instance.m_transformIndex;
+										consts.materialIndex = instance.m_materialHandle;
+										consts.entityID = static_cast<uint32_t>(instance.m_entityID);
+									}
+
+									cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
+
+
+									Buffer *vertexBuffers[]
+									{
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+										data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									};
+
+									const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+
+									const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+									const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+									const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+									const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+									const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
+									const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
+
+									uint64_t vertexBufferOffsets[]
+									{
+										0, // positions
+										alignedPositionsBufferSize, // normals
+										alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
+										alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
+										alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize, // joint indices
+										alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize, // joint weights
+									};
+
+									cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
+									cmdList->bindVertexBuffers(0, skinned ? 6 : 4, vertexBuffers, vertexBufferOffsets);
+									cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+								}
+							}
 						}
-						else
-						{
-							consts.transformIndex = instance.m_transformIndex;
-							consts.materialIndex = instance.m_materialHandle;
-							consts.entityID = static_cast<uint32_t>(instance.m_entityID);
-						}
-
-						cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);
-
-
-						Buffer *vertexBuffers[]
-						{
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-						};
-
-						const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
-
-						const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-						const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-						const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-						const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
-						const size_t alignedJointIndicesBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t) * 2, sizeof(float) * 4);
-						const size_t alignedJointWeightsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(uint32_t), sizeof(float) * 4);
-
-						uint64_t vertexBufferOffsets[]
-						{
-							0, // positions
-							alignedPositionsBufferSize, // normals
-							alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
-							alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
-							alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize, // joint indices
-							alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize + alignedTexCoordsBufferSize + alignedJointIndicesBufferSize, // joint weights
-						};
-
-						cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
-						cmdList->bindVertexBuffers(0, skinned ? 6 : 4, vertexBuffers, vertexBufferOffsets);
-						cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
 					}
 				}
 
@@ -884,7 +891,7 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_viewData->m_gpuProfilingCtx, cmdList, "GTAO Blur");
 			PROFILING_ZONE_SCOPED;
 
-			
+
 
 			GTAOBlurPushConsts consts{};
 			consts.resolution[0] = width;

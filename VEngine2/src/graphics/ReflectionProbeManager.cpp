@@ -18,6 +18,7 @@
 #include "utility/Utility.h"
 #include "ecs/ECS.h"
 #include "LightManager.h"
+#include "MeshRenderWorld.h"
 
 #define A_CPU
 #include <ffx_a.h>
@@ -723,8 +724,10 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		glm::mat4 projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, sData.m_farPlane, sData.m_nearPlane);
 		for (size_t i = 0; i < 6; ++i)
 		{
-			m_currentRenderProbeViewProjMatrices[i] = projection * viewMatrices[i];
+			m_curRenderProbeViewProjMatrices[i] = projection * viewMatrices[i];
+			m_curRenderProbeViewMatrices[i] = viewMatrices[i];
 		}
+		m_curRenderProbeFarPlane = sData.m_farPlane;
 
 		renderProbeGBuffer(graph, data, sData.m_probeComp->m_cacheSlot);
 	}
@@ -736,11 +739,11 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		// keep track of the frame where the probe was lit
 		sData.m_probeComp->m_lastLit = m_internalFrame;
 
-		m_currentRelightProbePosition = sData.m_capturePosition;
-		m_currentRelightProbeNearPlane = sData.m_nearPlane;
-		m_currentRelightProbeFarPlane = sData.m_farPlane;
+		m_curRelightProbePosition = sData.m_capturePosition;
+		m_curRelightProbeNearPlane = sData.m_nearPlane;
+		m_curRelightProbeFarPlane = sData.m_farPlane;
 
-		m_currentRelightProbeWorldToLocalTransposed =
+		m_curRelightProbeWorldToLocalTransposed =
 			glm::transpose(glm::scale(1.0f / sData.m_transformComp->m_curRenderTransform.m_scale)
 				* glm::mat4_cast(glm::inverse(sData.m_transformComp->m_curRenderTransform.m_rotation))
 				* glm::translate(-sData.m_transformComp->m_curRenderTransform.m_translation));
@@ -872,8 +875,12 @@ void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Da
 				cmdList->barrier(2, barriers);
 			}
 
+			MeshRenderList2 renderList;
+
 			for (size_t face = 0; face < 6; ++face)
 			{
+				data.m_meshRenderWorld->createMeshRenderList(m_curRenderProbeViewMatrices[face], m_curRenderProbeViewProjMatrices[face], m_curRenderProbeFarPlane, &renderList);
+
 				ColorAttachmentDescription attachmentDescs[]
 				{
 					 { m_probeAlbedoRoughnessSliceViews[probeIdx * 6 + face], AttachmentLoadOp::CLEAR, AttachmentStoreOp::STORE },
@@ -897,77 +904,78 @@ void ReflectionProbeManager::renderProbeGBuffer(rg::RenderGraph *graph, const Da
 					};
 
 					PassConstants passConsts;
-					memcpy(passConsts.viewProjectionMatrix, &m_currentRenderProbeViewProjMatrices[face][0][0], sizeof(passConsts.viewProjectionMatrix));
-					passConsts.transformBufferIndex = data.m_transformBufferHandle;
+					memcpy(passConsts.viewProjectionMatrix, &m_curRenderProbeViewProjMatrices[face][0][0], sizeof(passConsts.viewProjectionMatrix));
+					passConsts.transformBufferIndex = renderList.m_transformsBufferViewHandle;
 					passConsts.materialBufferIndex = data.m_materialsBufferHandle;
 
 					uint32_t passConstsAddress = (uint32_t)data.m_constantBufferLinearAllocator->uploadStruct(DescriptorType::OFFSET_CONSTANT_BUFFER, passConsts);
 
-					const eastl::vector<SubMeshInstanceData> *instancesArr[]
-					{
-						&data.m_renderList->m_opaque,
-						&data.m_renderList->m_opaqueAlphaTested,
-					};
 					GraphicsPipeline *pipelines[]
 					{
 						m_probeGbufferPipeline,
 						m_probeGbufferAlphaTestedPipeline,
 					};
 
-					for (size_t listType = 0; listType < eastl::size(instancesArr); ++listType)
+					for (size_t alphaTested = 0; alphaTested < 2; ++alphaTested)
 					{
-						if (instancesArr[listType]->empty())
+						for (size_t outlined = 0; outlined < 2; ++outlined)
 						{
-							continue;
-						}
-						const bool alphaTested = (listType & 1) != 0;
-						auto *pipeline = pipelines[listType];
+							const size_t listIdx = MeshRenderList2::getListIndex(false, alphaTested == 0 ? MaterialAlphaMode::Opaque : MaterialAlphaMode::Mask, false, outlined != 0);
 
-						cmdList->bindPipeline(pipeline);
-
-						gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
-						cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
-
-						for (const auto &instance : *instancesArr[listType])
-						{
-							struct MeshConstants
+							if (renderList.m_counts[listIdx] == 0)
 							{
-								uint32_t transformIndex;
-								uint32_t materialIndex;
-							};
+								continue;
+							}
+							auto *pipeline = alphaTested == 0 ? m_probeGbufferPipeline : m_probeGbufferAlphaTestedPipeline;
 
-							MeshConstants consts{};
-							consts.transformIndex = instance.m_transformIndex;
-							consts.materialIndex = instance.m_materialHandle;
+							cmdList->bindPipeline(pipeline);
 
-							cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(consts), &consts);
+							gal::DescriptorSet *sets[] = { data.m_offsetBufferSet, m_viewRegistry->getCurrentFrameDescriptorSet() };
+							cmdList->bindDescriptorSets(pipeline, 0, 2, sets, 1, &passConstsAddress);
 
-							Buffer *vertexBuffers[]
+							for (size_t i = 0; i < renderList.m_counts[listIdx]; ++i)
 							{
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-								data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
-							};
+								const auto &instance = renderList.m_submeshInstances[renderList.m_indices[renderList.m_offsets[listIdx] + i]];
 
-							const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+								struct MeshConstants
+								{
+									uint32_t transformIndex;
+									uint32_t materialIndex;
+								};
 
-							const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-							const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
-							const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
-							const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+								MeshConstants consts{};
+								consts.transformIndex = instance.m_transformIndex;
+								consts.materialIndex = instance.m_materialHandle;
 
-							uint64_t vertexBufferOffsets[]
-							{
-								0, // positions
-								alignedPositionsBufferSize, // normals
-								alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
-								alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
-							};
+								cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, sizeof(consts), &consts);
 
-							cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
-							cmdList->bindVertexBuffers(0, 4, vertexBuffers, vertexBufferOffsets);
-							cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+								Buffer *vertexBuffers[]
+								{
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+									data.m_meshBufferHandles[instance.m_subMeshHandle].m_vertexBuffer,
+								};
+
+								const uint32_t vertexCount = data.m_meshDrawInfo[instance.m_subMeshHandle].m_vertexCount;
+
+								const size_t alignedPositionsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+								const size_t alignedNormalsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 3, sizeof(float) * 4);
+								const size_t alignedTangentsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 4, sizeof(float) * 4);
+								const size_t alignedTexCoordsBufferSize = util::alignUp<size_t>(vertexCount * sizeof(float) * 2, sizeof(float) * 4);
+
+								uint64_t vertexBufferOffsets[]
+								{
+									0, // positions
+									alignedPositionsBufferSize, // normals
+									alignedPositionsBufferSize + alignedNormalsBufferSize, // tangents
+									alignedPositionsBufferSize + alignedNormalsBufferSize + alignedTangentsBufferSize, // texcoords
+								};
+
+								cmdList->bindIndexBuffer(data.m_meshBufferHandles[instance.m_subMeshHandle].m_indexBuffer, 0, IndexType::UINT16);
+								cmdList->bindVertexBuffers(0, 4, vertexBuffers, vertexBufferOffsets);
+								cmdList->drawIndexed(data.m_meshDrawInfo[instance.m_subMeshHandle].m_indexCount, 1, 0, 0, 0);
+							}
 						}
 					}
 				}
@@ -1106,19 +1114,19 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 				uint32_t resultTextureIndex;
 			};
 
-			glm::mat4 projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, m_currentRelightProbeFarPlane, m_currentRelightProbeNearPlane);
+			glm::mat4 projection = glm::perspectiveLH(glm::radians(90.0f), 1.0f, m_curRelightProbeFarPlane, m_curRelightProbeNearPlane);
 
 			RelightConstants consts{};
-			consts.probeFaceToWorldSpace[0] = glm::inverse(projection * glm::lookAtLH(m_currentRelightProbePosition, m_currentRelightProbePosition + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-			consts.probeFaceToWorldSpace[1] = glm::inverse(projection * glm::lookAtLH(m_currentRelightProbePosition, m_currentRelightProbePosition + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-			consts.probeFaceToWorldSpace[2] = glm::inverse(projection * glm::lookAtLH(m_currentRelightProbePosition, m_currentRelightProbePosition + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
-			consts.probeFaceToWorldSpace[3] = glm::inverse(projection * glm::lookAtLH(m_currentRelightProbePosition, m_currentRelightProbePosition + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
-			consts.probeFaceToWorldSpace[4] = glm::inverse(projection * glm::lookAtLH(m_currentRelightProbePosition, m_currentRelightProbePosition + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-			consts.probeFaceToWorldSpace[5] = glm::inverse(projection * glm::lookAtLH(m_currentRelightProbePosition, m_currentRelightProbePosition + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-			consts.worldToLocal0 = m_currentRelightProbeWorldToLocalTransposed[0];
-			consts.worldToLocal1 = m_currentRelightProbeWorldToLocalTransposed[1];
-			consts.worldToLocal2 = m_currentRelightProbeWorldToLocalTransposed[2];
-			consts.probePosition = m_currentRelightProbePosition;
+			consts.probeFaceToWorldSpace[0] = glm::inverse(projection * glm::lookAtLH(m_curRelightProbePosition, m_curRelightProbePosition + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+			consts.probeFaceToWorldSpace[1] = glm::inverse(projection * glm::lookAtLH(m_curRelightProbePosition, m_curRelightProbePosition + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+			consts.probeFaceToWorldSpace[2] = glm::inverse(projection * glm::lookAtLH(m_curRelightProbePosition, m_curRelightProbePosition + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
+			consts.probeFaceToWorldSpace[3] = glm::inverse(projection * glm::lookAtLH(m_curRelightProbePosition, m_curRelightProbePosition + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+			consts.probeFaceToWorldSpace[4] = glm::inverse(projection * glm::lookAtLH(m_curRelightProbePosition, m_curRelightProbePosition + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+			consts.probeFaceToWorldSpace[5] = glm::inverse(projection * glm::lookAtLH(m_curRelightProbePosition, m_curRelightProbePosition + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+			consts.worldToLocal0 = m_curRelightProbeWorldToLocalTransposed[0];
+			consts.worldToLocal1 = m_curRelightProbeWorldToLocalTransposed[1];
+			consts.worldToLocal2 = m_curRelightProbeWorldToLocalTransposed[2];
+			consts.probePosition = m_curRelightProbePosition;
 			consts.texelSize = 1.0f / k_resolution;
 			consts.resolution = static_cast<uint32_t>(k_resolution);
 			consts.probeArraySlot = static_cast<uint32_t>(probeIdx);

@@ -7,6 +7,7 @@
 #include "RenderData.h"
 #include "CommonViewData.h"
 #include "LightManager.h"
+#include "MeshRenderWorld.h"
 
 struct RenderViewResources;
 class ResourceViewRegistry;
@@ -25,6 +26,7 @@ struct Transform;
 struct CameraComponent;
 class LightManager;
 class ECS;
+class MeshRenderWorld;
 
 class RenderView
 {
@@ -38,6 +40,7 @@ public:
 		bool m_sharpenEnabled;
 		bool m_bloomEnabled;
 		bool m_pickingEnabled;
+		bool m_renderOutlines;
 		bool m_autoExposureEnabled;
 		float m_manualExposure;
 	};
@@ -51,16 +54,11 @@ public:
 		TextureViewHandle m_reflectionProbeCacheTextureViewHandle;
 		StructuredBufferViewHandle m_reflectionProbeDataBufferHandle;
 		uint32_t m_reflectionProbeCount;
-		StructuredBufferViewHandle m_transformsBufferViewHandle;
-		StructuredBufferViewHandle m_prevTransformsBufferViewHandle;
-		StructuredBufferViewHandle m_skinningMatricesBufferViewHandle;
-		StructuredBufferViewHandle m_prevSkinningMatricesBufferViewHandle;
 		StructuredBufferViewHandle m_globalMediaBufferViewHandle;
 		uint32_t m_globalMediaCount;
 		StructuredBufferViewHandle m_irradianceVolumeBufferViewHandle;
 		uint32_t m_irradianceVolumeCount;
-		const RenderList *m_renderList;
-		const RenderList *m_outlineRenderList;
+		const MeshRenderWorld *m_meshRenderWorld;
 		glm::mat4 m_viewMatrix;
 		glm::mat4 m_projectionMatrix;
 		glm::vec3 m_cameraPosition;
@@ -111,4 +109,5 @@ private:
 	GridPass *m_gridPass = nullptr;
 
 	LightRecordData m_lightRecordData = {};
+	MeshRenderList2 m_meshRenderList = {};
 };

@@ -27,6 +27,7 @@
 #include "component/TransformComponent.h"
 #include "component/SkinnedMeshComponent.h"
 #include "Camera.h"
+#include "MeshRenderWorld.h"
 
 bool g_taaEnabled = true;
 bool g_sharpenEnabled = true;
@@ -84,6 +85,8 @@ Renderer::Renderer(void *windowHandle, uint32_t width, uint32_t height) noexcept
 	m_renderView = new RenderView(m_device, m_viewRegistry, m_meshManager, m_materialManager, m_rendererResources, m_rendererResources->m_offsetBufferDescriptorSetLayout, width, height);
 
 	m_imguiPass = new ImGuiPass(m_device, m_viewRegistry->getDescriptorSetLayout());
+
+	m_meshRenderWorld = new MeshRenderWorld(m_device, m_viewRegistry, m_meshManager, m_materialManager);
 }
 
 Renderer::~Renderer() noexcept
@@ -92,6 +95,7 @@ Renderer::~Renderer() noexcept
 	delete m_renderGraph;
 	m_renderGraph = nullptr;
 
+	delete m_meshRenderWorld;
 	delete m_imguiPass;
 	delete m_renderView;
 	delete m_irradianceVolumeManager;
@@ -203,12 +207,6 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 		};
 
 		m_globalMedia.clear();
-		m_modelMatrices.clear();
-		m_prevModelMatrices.clear();
-		m_skinningMatrices.clear();
-		m_prevSkinningMatrices.clear();
-		m_renderList.clear();
-		m_outlineRenderList.clear();
 
 		// process global participating media
 		ecs->iterate<ParticipatingMediumComponent>([&](size_t count, const EntityID *entities, ParticipatingMediumComponent *mediaC)
@@ -237,92 +235,9 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				}
 			});
 
-		// fill mesh render lists
-		{
-			IterateQuery meshIterateQuery;
-			ecs->setIterateQueryRequiredComponents<TransformComponent>(meshIterateQuery);
-			ecs->setIterateQueryOptionalComponents<MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(meshIterateQuery);
-			ecs->iterate<TransformComponent, MeshComponent, SkinnedMeshComponent, OutlineComponent, EditorOutlineComponent>(
-				meshIterateQuery,
-				[&](size_t count, const EntityID *entities, TransformComponent *transC, MeshComponent *meshC, SkinnedMeshComponent *sMeshC, OutlineComponent *outlineC, EditorOutlineComponent *editorOutlineC)
-				{
-					// we need either one of these
-					if (!meshC && !sMeshC)
-					{
-						return;
-					}
-					const bool skinned = sMeshC != nullptr;
-					for (size_t i = 0; i < count; ++i)
-					{
-						auto &tc = transC[i];
-						const auto &meshAsset = skinned ? sMeshC[i].m_mesh : meshC[i].m_mesh;
-						if (!meshAsset.get())
-						{
-							continue;
-						}
-
-						// model transform
-						const auto transformIndex = m_modelMatrices.size();
-						m_modelMatrices.push_back(glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(tc.m_curRenderTransform.m_rotation) * glm::scale(tc.m_curRenderTransform.m_scale));
-						m_prevModelMatrices.push_back(glm::translate(tc.m_prevRenderTransform.m_translation) * glm::mat4_cast(tc.m_prevRenderTransform.m_rotation) * glm::scale(tc.m_prevRenderTransform.m_scale));
-
-						// skinning matrices
-						const auto skinningMatricesOffset = m_skinningMatrices.size();
-						if (skinned)
-						{
-							m_skinningMatrices.insert(m_skinningMatrices.end(), sMeshC[i].m_curRenderMatrixPalette.begin(), sMeshC[i].m_curRenderMatrixPalette.end());
-							m_prevSkinningMatrices.insert(m_prevSkinningMatrices.end(), sMeshC[i].m_prevRenderMatrixPalette.begin(), sMeshC[i].m_prevRenderMatrixPalette.end());
-						}
-
-						const bool outlined = (outlineC && outlineC[i].m_outlined) || (editorOutlineC && editorOutlineC[i].m_outlined);
-
-						const auto &submeshhandles = meshAsset->getSubMeshhandles();
-						const auto &materialAssets = meshAsset->getMaterials();
-						for (size_t j = 0; j < submeshhandles.size(); ++j)
-						{
-							SubMeshInstanceData instanceData{};
-							instanceData.m_subMeshHandle = submeshhandles[j];
-							instanceData.m_transformIndex = static_cast<uint32_t>(transformIndex);
-							instanceData.m_skinningMatricesOffset = static_cast<uint32_t>(skinningMatricesOffset);
-							instanceData.m_materialHandle = materialAssets[j]->getMaterialHandle();
-							instanceData.m_entityID = entities[i];
-
-							const bool alphaTested = m_materialManager->getMaterial(instanceData.m_materialHandle).m_alphaMode == MaterialAlphaMode::Mask;
-
-							if (alphaTested)
-								if (skinned)
-									m_renderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-								else
-									m_renderList.m_opaqueAlphaTested.push_back(instanceData);
-							else
-								if (skinned)
-									m_renderList.m_opaqueSkinned.push_back(instanceData);
-								else
-									m_renderList.m_opaque.push_back(instanceData);
-
-							if (outlined)
-							{
-								if (alphaTested)
-									if (skinned)
-										m_outlineRenderList.m_opaqueSkinnedAlphaTested.push_back(instanceData);
-									else
-										m_outlineRenderList.m_opaqueAlphaTested.push_back(instanceData);
-								else
-									if (skinned)
-										m_outlineRenderList.m_opaqueSkinned.push_back(instanceData);
-									else
-										m_outlineRenderList.m_opaque.push_back(instanceData);
-							}
-						}
-					}
-				});
-		}
-
-		StructuredBufferViewHandle transformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_modelMatrices);
-		StructuredBufferViewHandle prevTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_prevModelMatrices);
-		StructuredBufferViewHandle skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_skinningMatrices);
-		StructuredBufferViewHandle prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_prevSkinningMatrices);
 		StructuredBufferViewHandle globalMediaBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_globalMedia);
+
+		m_meshRenderWorld->update(ecs, m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1]);
 
 		// render views
 		if (cameraEntity != k_nullEntity)
@@ -340,10 +255,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				irradianceVolumeMgrData.m_shaderResourceLinearAllocator = m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1];
 				irradianceVolumeMgrData.m_constantBufferLinearAllocator = m_rendererResources->m_constantBufferLinearAllocators[m_frame & 1];
 				irradianceVolumeMgrData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1];
-				irradianceVolumeMgrData.m_transformBufferHandle = transformsBufferViewHandle;
-				irradianceVolumeMgrData.m_skinningMatrixBufferHandle = skinningMatricesBufferViewHandle;
 				irradianceVolumeMgrData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-				irradianceVolumeMgrData.m_renderList = &m_renderList;
+				irradianceVolumeMgrData.m_meshRenderWorld = m_meshRenderWorld;
 				irradianceVolumeMgrData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 				irradianceVolumeMgrData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 				irradianceVolumeMgrData.m_frame = m_frame;
@@ -362,11 +275,10 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				reflectionProbeManagerData.m_shaderResourceLinearAllocator = m_rendererResources->m_shaderResourceBufferLinearAllocators[m_frame & 1];
 				reflectionProbeManagerData.m_constantBufferLinearAllocator = m_rendererResources->m_constantBufferLinearAllocators[m_frame & 1];
 				reflectionProbeManagerData.m_offsetBufferSet = m_rendererResources->m_offsetBufferDescriptorSets[m_frame & 1];
-				reflectionProbeManagerData.m_transformBufferHandle = transformsBufferViewHandle;
 				reflectionProbeManagerData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 				reflectionProbeManagerData.m_irradianceVolumeCount = m_irradianceVolumeManager->getIrradianceVolumeCount();
 				reflectionProbeManagerData.m_irradianceVolumeBufferViewHandle = m_irradianceVolumeManager->getIrradianceVolumeBufferViewHandle();
-				reflectionProbeManagerData.m_renderList = &m_renderList;
+				reflectionProbeManagerData.m_meshRenderWorld = m_meshRenderWorld;
 				reflectionProbeManagerData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 				reflectionProbeManagerData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 
@@ -381,6 +293,7 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 			renderViewData.m_effectSettings.m_sharpenEnabled = g_sharpenEnabled;
 			renderViewData.m_effectSettings.m_bloomEnabled = true;
 			renderViewData.m_effectSettings.m_pickingEnabled = true;
+			renderViewData.m_effectSettings.m_renderOutlines = true;
 			renderViewData.m_effectSettings.m_autoExposureEnabled = true;
 			renderViewData.m_effectSettings.m_manualExposure = 1.0f;
 			renderViewData.m_ecs = ecs;
@@ -389,16 +302,11 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 			renderViewData.m_reflectionProbeCacheTextureViewHandle = m_reflectionProbeManager->getReflectionProbeArrayTextureViewHandle();
 			renderViewData.m_reflectionProbeDataBufferHandle = m_reflectionProbeManager->getReflectionProbeDataBufferhandle();
 			renderViewData.m_reflectionProbeCount = m_reflectionProbeManager->getReflectionProbeCount();
-			renderViewData.m_transformsBufferViewHandle = transformsBufferViewHandle;
-			renderViewData.m_prevTransformsBufferViewHandle = prevTransformsBufferViewHandle;
-			renderViewData.m_skinningMatricesBufferViewHandle = skinningMatricesBufferViewHandle;
-			renderViewData.m_prevSkinningMatricesBufferViewHandle = prevSkinningMatricesBufferViewHandle;
 			renderViewData.m_globalMediaBufferViewHandle = globalMediaBufferViewHandle;
 			renderViewData.m_globalMediaCount = static_cast<uint32_t>(m_globalMedia.size());
 			renderViewData.m_irradianceVolumeBufferViewHandle = m_irradianceVolumeManager->getIrradianceVolumeBufferViewHandle();
 			renderViewData.m_irradianceVolumeCount = m_irradianceVolumeManager->getIrradianceVolumeCount();
-			renderViewData.m_renderList = &m_renderList;
-			renderViewData.m_outlineRenderList = &m_outlineRenderList;
+			renderViewData.m_meshRenderWorld = m_meshRenderWorld;
 			renderViewData.m_viewMatrix = camera.getViewMatrix();
 			renderViewData.m_projectionMatrix = camera.getProjectionMatrix();
 			renderViewData.m_cameraPosition = camera.getPosition();

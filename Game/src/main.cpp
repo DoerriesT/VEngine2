@@ -126,6 +126,7 @@ public:
 			meshC.m_mesh = m_cesiumManAsset;
 			meshC.m_skeleton = m_skeleton;
 			meshC.m_animationGraph = m_customAnimGraph;
+			meshC.m_boundingSphereSizeFactor = 100.0f;
 
 			CharacterControllerComponent ccC{};
 			ccC.m_translationHeightOffset = 0.0f;
@@ -156,6 +157,7 @@ public:
 
 			TransformComponent transC{};
 			transC.m_transform.m_translation = glm::vec3(0.65f, 0.0f, 0.35f);
+			transC.m_mobility = TransformComponent::Mobility::STATIC;
 
 			MeshComponent meshC{ m_sponzaAsset };
 

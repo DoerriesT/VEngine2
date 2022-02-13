@@ -27,6 +27,7 @@
 #include "utility/Utility.h"
 #include "graphics/Camera.h"
 #include "ecs/ECS.h"
+#include "MeshRenderWorld.h"
 
 using namespace gal;
 
@@ -168,6 +169,8 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	viewData.m_exposureBufferHandle = exposureBufferViewHandle;
 	viewData.m_reflectionProbeArrayTextureViewHandle = data.m_reflectionProbeCacheTextureViewHandle;
 
+	data.m_meshRenderWorld->createMeshRenderList(viewData.m_viewMatrix, viewData.m_jitteredViewProjectionMatrix, viewData.m_far, &m_meshRenderList);
+
 	// prepare data
 	const bool initializeExposureBuffer = m_frame < 2;
 	eastl::fixed_vector<rg::ResourceUsageDesc, 8> prepareFrameDataPassUsages;
@@ -197,6 +200,7 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	lightMgrData.m_near = data.m_nearPlane;
 	lightMgrData.m_far = data.m_farPlane;
 	lightMgrData.m_fovy = data.m_fovy;
+	lightMgrData.m_staticMeshShadowsOnly = false;
 	lightMgrData.m_viewProjectionMatrix = viewData.m_jitteredViewProjectionMatrix;
 	lightMgrData.m_invViewMatrix = viewData.m_invViewMatrix;
 	lightMgrData.m_viewMatrixDepthRow = viewData.m_viewMatrixDepthRow;
@@ -204,10 +208,8 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	lightMgrData.m_shaderResourceLinearAllocator = viewData.m_shaderResourceAllocator;
 	lightMgrData.m_constantBufferLinearAllocator = viewData.m_constantBufferAllocator;
 	lightMgrData.m_offsetBufferSet = viewData.m_offsetBufferSet;
-	lightMgrData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
-	lightMgrData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
 	lightMgrData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	lightMgrData.m_renderList = data.m_renderList;
+	lightMgrData.m_meshRenderWorld = data.m_meshRenderWorld;
 	lightMgrData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	lightMgrData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 
@@ -217,10 +219,6 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	ForwardModule::ResultData forwardModuleResultData;
 	ForwardModule::Data forwardModuleData{};
 	forwardModuleData.m_viewData = &viewData;
-	forwardModuleData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
-	forwardModuleData.m_prevTransformBufferHandle = data.m_prevTransformsBufferViewHandle;
-	forwardModuleData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
-	forwardModuleData.m_prevSkinningMatrixBufferHandle = data.m_prevSkinningMatricesBufferViewHandle;
 	forwardModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
 	forwardModuleData.m_globalMediaBufferHandle = data.m_globalMediaBufferViewHandle;
 	forwardModuleData.m_reflectionProbeDataBufferHandle = data.m_reflectionProbeDataBufferHandle;
@@ -228,7 +226,7 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	forwardModuleData.m_globalMediaCount = data.m_globalMediaCount;
 	forwardModuleData.m_reflectionProbeCount = data.m_reflectionProbeCount;
 	forwardModuleData.m_irradianceVolumeCount = data.m_irradianceVolumeCount;
-	forwardModuleData.m_renderList = data.m_renderList;
+	forwardModuleData.m_renderList = &m_meshRenderList;
 	forwardModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	forwardModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	forwardModuleData.m_lightRecordData = &m_lightRecordData;
@@ -236,7 +234,6 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	forwardModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 
 	m_forwardModule->record(graph, forwardModuleData, &forwardModuleResultData);
-
 
 	PostProcessModule::Data postProcessModuleData{};
 	postProcessModuleData.m_viewData = &viewData;
@@ -246,19 +243,12 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 	postProcessModuleData.m_temporalAAResultImageViewHandle = taaResultImageViewHandle;
 	postProcessModuleData.m_temporalAAHistoryImageViewHandle = taaHistoryImageViewHandle;
 	postProcessModuleData.m_resultImageViewHandle = resultImageViewHandle;
-	postProcessModuleData.m_transformBufferHandle = data.m_transformsBufferViewHandle;
-	postProcessModuleData.m_skinningMatrixBufferHandle = data.m_skinningMatricesBufferViewHandle;
 	postProcessModuleData.m_materialsBufferHandle = m_rendererResources->m_materialsBufferViewHandle;
-	postProcessModuleData.m_renderList = data.m_renderList;
-	postProcessModuleData.m_outlineRenderList = data.m_outlineRenderList;
+	postProcessModuleData.m_renderList = &m_meshRenderList;
 	postProcessModuleData.m_meshDrawInfo = m_meshManager->getSubMeshDrawInfoTable();
 	postProcessModuleData.m_meshBufferHandles = m_meshManager->getSubMeshBufferHandleTable();
 	postProcessModuleData.m_debugNormals = data.m_effectSettings.m_renderDebugNormals;
-	postProcessModuleData.m_renderOutlines = data.m_outlineRenderList && 
-		(!data.m_outlineRenderList->m_opaque.empty()
-		|| !data.m_outlineRenderList->m_opaqueAlphaTested.empty() 
-		|| !data.m_outlineRenderList->m_opaqueSkinned.empty() 
-		|| !data.m_outlineRenderList->m_opaqueSkinnedAlphaTested.empty());
+	postProcessModuleData.m_renderOutlines = data.m_effectSettings.m_renderOutlines;
 	postProcessModuleData.m_ignoreHistory = m_framesSinceLastResize < 2 || m_ignoreHistory;
 	postProcessModuleData.m_taaEnabled = data.m_effectSettings.m_taaEnabled;
 	postProcessModuleData.m_sharpenEnabled = data.m_effectSettings.m_sharpenEnabled;

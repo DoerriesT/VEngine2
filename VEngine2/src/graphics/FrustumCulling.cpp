@@ -8,12 +8,12 @@ size_t FrustumCulling::cull(size_t count, const uint32_t *inputIndices, const gl
 	// extract frustum planes from matrix
 	glm::mat4 transposed = glm::transpose(viewProjection);
 	glm::vec4 planes[6];
-	planes[0] = (transposed[3] + transposed[0]);	// left
-	planes[1] = (transposed[3] - transposed[0]);	// right
-	planes[2] = (transposed[3] + transposed[1]);	// bottom
-	planes[3] = (transposed[3] - transposed[1]);	// top
-	planes[4] = (transposed[3] - transposed[2]);	// far
-	planes[5] = (transposed[2]);			// near
+	planes[0] = -(transposed[3] + transposed[0]);	// left
+	planes[1] = -(transposed[3] - transposed[0]);	// right
+	planes[2] = -(transposed[3] + transposed[1]);	// bottom
+	planes[3] = -(transposed[3] - transposed[1]);	// top
+	planes[4] = -(transposed[3] - transposed[2]);	// far
+	planes[5] = -(transposed[2]);			// near
 
 	for (auto &p : planes)
 	{

@@ -11,7 +11,7 @@
 class ECS;
 class RendererResources;
 struct SubMeshDrawInfo;
-struct RenderList;
+class MeshRenderWorld;
 struct SubMeshBufferHandles;
 struct LightRecordData;
 class ResourceViewRegistry;
@@ -32,10 +32,8 @@ public:
 		LinearGPUBufferAllocator *m_shaderResourceLinearAllocator;
 		LinearGPUBufferAllocator *m_constantBufferLinearAllocator;
 		gal::DescriptorSet *m_offsetBufferSet;
-		StructuredBufferViewHandle m_transformBufferHandle;
-		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
-		const RenderList *m_renderList;
+		const MeshRenderWorld *m_meshRenderWorld;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 		uint32_t m_frame;

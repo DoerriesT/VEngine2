@@ -11,14 +11,20 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "MaterialManager.h"
 #include "MeshManager.h"
+#include "ResourceViewRegistry.h"
+#include "gal/GraphicsAbstractionLayer.h"
+#include "gal/Initializers.h"
+#include "LinearGPUBufferAllocator.h"
 
-MeshRenderWorld::MeshRenderWorld(MeshManager *meshManager, MaterialManager *materialManager) noexcept
-	:m_meshManager(meshManager),
+MeshRenderWorld::MeshRenderWorld(gal::GraphicsDevice *device, ResourceViewRegistry *viewRegistry, MeshManager *meshManager, MaterialManager *materialManager) noexcept
+	:m_device(device),
+	m_viewRegistry(viewRegistry),
+	m_meshManager(meshManager),
 	m_materialManager(materialManager)
 {
 }
 
-void MeshRenderWorld::update(ECS *ecs) noexcept
+void MeshRenderWorld::update(ECS *ecs, LinearGPUBufferAllocator *shaderResourceBufferAllocator) noexcept
 {
 	m_meshInstanceBoundingSpheres.clear();
 	m_submeshInstanceBoundingSpheres.clear();
@@ -59,7 +65,8 @@ void MeshRenderWorld::update(ECS *ecs) noexcept
 				m_prevModelMatrices.push_back(glm::translate(tc.m_prevRenderTransform.m_translation) * glm::mat4_cast(tc.m_prevRenderTransform.m_rotation) * glm::scale(tc.m_prevRenderTransform.m_scale));
 
 				const auto absScale = glm::abs(tc.m_curRenderTransform.m_scale);
-				const float boundingSphereScale = fmaxf(absScale.x, fmaxf(absScale.y, absScale.z));
+				const float boundingSphereScale = fmaxf(absScale.x, fmaxf(absScale.y, absScale.z)) * (skinned ? sMeshC[i].m_boundingSphereSizeFactor : meshC[i].m_boundingSphereSizeFactor);
+				const auto bsphereTransform = glm::translate(tc.m_curRenderTransform.m_translation) * glm::mat4_cast(tc.m_curRenderTransform.m_rotation);
 
 				// skinning matrices
 				const auto skinningMatricesOffset = m_skinningMatrices.size();
@@ -96,9 +103,8 @@ void MeshRenderWorld::update(ECS *ecs) noexcept
 					// create transformed bounding sphere of submesh instance
 					{
 						glm::vec4 bsphere = glm::make_vec4(subMeshDrawInfoTable[instanceData.m_subMeshHandle].m_boundingSphere);
-						bsphere += glm::vec4(tc.m_curRenderTransform.m_translation, 0.0f);
-						bsphere.w *= boundingSphereScale;
-						m_submeshInstanceBoundingSpheres.push_back(bsphere);
+						glm::vec3 pos = bsphereTransform * glm::vec4(glm::vec3(bsphere), 1.0f);
+						m_submeshInstanceBoundingSpheres.push_back(glm::vec4(pos, bsphere.w *= boundingSphereScale));
 					}
 				}
 
@@ -108,19 +114,48 @@ void MeshRenderWorld::update(ECS *ecs) noexcept
 				{
 					glm::vec4 bsphere{};
 					meshAsset->getBoundingSphere(&bsphere.x);
-					bsphere += glm::vec4(tc.m_curRenderTransform.m_translation, 0.0f);
-					bsphere.w *= boundingSphereScale;
-					m_meshInstanceBoundingSpheres.push_back(bsphere);
+					glm::vec3 pos = bsphereTransform * glm::vec4(glm::vec3(bsphere), 1.0f);
+					m_meshInstanceBoundingSpheres.push_back(glm::vec4(pos, bsphere.w *= boundingSphereScale));
 				}
 			}
 		});
+
+	auto createShaderResourceBuffer = [&](gal::DescriptorType descriptorType, auto dataAsVector)
+	{
+		const size_t elementSize = sizeof(dataAsVector[0]);
+
+		// prepare DescriptorBufferInfo
+		gal::DescriptorBufferInfo bufferInfo = gal::Initializers::structuredBufferInfo(elementSize, dataAsVector.size());
+		bufferInfo.m_buffer = shaderResourceBufferAllocator->getBuffer();
+
+		// allocate memory
+		uint64_t alignment = m_device->getBufferAlignment(descriptorType, elementSize);
+		uint8_t *bufferPtr = shaderResourceBufferAllocator->allocate(alignment, &bufferInfo.m_range, &bufferInfo.m_offset);
+
+		// copy to destination
+		memcpy(bufferPtr, dataAsVector.data(), dataAsVector.size() * elementSize);
+
+		// create a transient bindless handle
+		return descriptorType == gal::DescriptorType::STRUCTURED_BUFFER ?
+			m_viewRegistry->createStructuredBufferViewHandle(bufferInfo, true) :
+			m_viewRegistry->createByteBufferViewHandle(bufferInfo, true);
+	};
+
+	m_transformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_modelMatrices);
+	m_prevTransformsBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_prevModelMatrices);
+	m_skinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_skinningMatrices);
+	m_prevSkinningMatricesBufferViewHandle = (StructuredBufferViewHandle)createShaderResourceBuffer(gal::DescriptorType::STRUCTURED_BUFFER, m_prevSkinningMatrices);
 }
 
 void MeshRenderWorld::createMeshRenderList(const glm::mat4 &viewMatrix, const glm::mat4 &viewProjectionMatrix, float farPlane, MeshRenderList2 *result) const noexcept
 {
 	assert(result);
-	result = {};
+	*result = {};
 	result->m_submeshInstances = m_submeshInstances.data();
+	result->m_transformsBufferViewHandle = m_transformsBufferViewHandle;
+	result->m_prevTransformsBufferViewHandle = m_prevTransformsBufferViewHandle;
+	result->m_skinningMatricesBufferViewHandle = m_skinningMatricesBufferViewHandle;
+	result->m_prevSkinningMatricesBufferViewHandle = m_prevSkinningMatricesBufferViewHandle;
 
 	// frustum cull mesh instances
 	eastl::vector<uint32_t> survivingMeshInstances(m_meshInstances.size());
@@ -149,6 +184,7 @@ void MeshRenderWorld::createMeshRenderList(const glm::mat4 &viewMatrix, const gl
 
 	// frustum cull submesh instances
 	result->m_indices.clear();
+	result->m_indices.resize(submeshInstanceCount);
 	result->m_indices.resize(FrustumCulling::cull(submeshInstanceCount, expandedSubmeshInstances.data(), subMeshBoundingSpheres.data(), viewProjectionMatrix, result->m_indices.data()));
 
 	const glm::vec4 viewMatDepthRow = glm::vec4(viewMatrix[0][2], viewMatrix[1][2], viewMatrix[2][2], viewMatrix[3][2]);
@@ -190,7 +226,7 @@ void MeshRenderWorld::createMeshRenderList(const glm::mat4 &viewMatrix, const gl
 
 		result->m_indices[i] = static_cast<uint32_t>(key); // extract instance idx from key
 
-		size_t listIdx = static_cast<size_t>(key >> 60);
+		size_t listIdx = static_cast<size_t>(key >> 56);
 		if (listIdx != curListIdx)
 		{
 			result->m_offsets[listIdx] = static_cast<uint32_t>(i);
@@ -201,7 +237,7 @@ void MeshRenderWorld::createMeshRenderList(const glm::mat4 &viewMatrix, const gl
 	}
 }
 
-constexpr size_t MeshRenderList2::getListIndex(bool dynamic, MaterialAlphaMode alphaMode, bool skinned, bool outlined) noexcept
+size_t MeshRenderList2::getListIndex(bool dynamic, MaterialAlphaMode alphaMode, bool skinned, bool outlined) noexcept
 {
 	size_t index = 0;
 

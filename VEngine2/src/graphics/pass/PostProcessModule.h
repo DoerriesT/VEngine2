@@ -9,7 +9,7 @@
 class LinearGPUBufferAllocator;
 struct SubMeshDrawInfo;
 struct SubMeshBufferHandles;
-struct RenderList;
+struct MeshRenderList2;
 struct CommonViewData;
 
 class PostProcessModule
@@ -24,11 +24,8 @@ public:
 		rg::ResourceViewHandle m_temporalAAResultImageViewHandle;
 		rg::ResourceViewHandle m_temporalAAHistoryImageViewHandle;
 		rg::ResourceViewHandle m_resultImageViewHandle;
-		StructuredBufferViewHandle m_transformBufferHandle;
-		StructuredBufferViewHandle m_skinningMatrixBufferHandle;
 		StructuredBufferViewHandle m_materialsBufferHandle;
-		const RenderList *m_renderList;
-		const RenderList *m_outlineRenderList;
+		const MeshRenderList2 *m_renderList;
 		const SubMeshDrawInfo *m_meshDrawInfo;
 		const SubMeshBufferHandles *m_meshBufferHandles;
 		bool m_debugNormals;

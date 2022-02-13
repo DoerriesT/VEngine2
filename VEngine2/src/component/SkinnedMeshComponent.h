@@ -22,6 +22,7 @@ struct SkinnedMeshComponent
 	eastl::vector<glm::mat4> m_prevMatrixPalette;
 	eastl::vector<glm::mat4> m_curRenderMatrixPalette;
 	eastl::vector<glm::mat4> m_prevRenderMatrixPalette;
+	float m_boundingSphereSizeFactor = 1.0f;
 
 	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
 	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;

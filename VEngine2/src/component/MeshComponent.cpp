@@ -4,11 +4,13 @@
 #include "asset/AssetManager.h"
 #include "utility/Serialization.h"
 #include "utility/Memory.h"
+#include "script/LuaUtil.h"
 
 template<typename Stream>
 static bool serialize(MeshComponent &c, Stream &stream) noexcept
 {
 	serializeAsset(stream, c.m_mesh, MeshAssetData);
+	serializeFloat(stream, c.m_boundingSphereSizeFactor);
 
 	return true;
 }
@@ -22,6 +24,8 @@ void MeshComponent::onGUI(void *instance, Renderer *renderer, const TransformCom
 	{
 		c.m_mesh = AssetManager::get()->getAsset<MeshAssetData>(resultAssetID);
 	}
+
+	ImGui::DragFloat("Bounding Sphere Size Factor", &c.m_boundingSphereSizeFactor, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 }
 
 bool MeshComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
@@ -36,8 +40,12 @@ bool MeshComponent::onDeserialize(void *instance, SerializationReadStream &strea
 
 void MeshComponent::toLua(lua_State *L, void *instance) noexcept
 {
+	MeshComponent &c = *reinterpret_cast<MeshComponent *>(instance);
+	LuaUtil::setTableNumberField(L, "m_boundingSphereSizeFactor", (lua_Number)c.m_boundingSphereSizeFactor);
 }
 
 void MeshComponent::fromLua(lua_State *L, void *instance) noexcept
 {
+	MeshComponent &c = *reinterpret_cast<MeshComponent *>(instance);
+	c.m_boundingSphereSizeFactor = (float)LuaUtil::getTableNumberField(L, "m_boundingSphereSizeFactor");
 }
