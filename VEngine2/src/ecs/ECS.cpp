@@ -9,9 +9,7 @@ eastl::bitset<k_ecsMaxComponentTypes> ECS::s_singletonComponentsBitset;
 
 EntityID ECS::createEntity() noexcept
 {
-	EntityID id = m_nextFreeEntityId++;
-	m_entityRecords[id] = {};
-	return id;
+	return createEntityInternal(0, nullptr, nullptr, ComponentConstructorType::DEFAULT);
 }
 
 EntityID ECS::createEntityTypeless(size_t componentCount, const ComponentID *componentIDs) noexcept
@@ -211,12 +209,6 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 {
 	EntityID entityID = m_nextFreeEntityId++;
 
-	if (componentCount == 0)
-	{
-		m_entityRecords[entityID] = {};
-		return entityID;
-	}
-
 	// build component mask
 	ComponentMask compMask = 0;
 
@@ -380,34 +372,17 @@ bool ECS::removeComponentsInternal(EntityID entity, size_t componentCount, const
 		return false;
 	}
 
-	if (newMask.none())
-	{
-		// entity has no more components, so we cant migrate() it to another Archetype
-		// and rely on migrate() to call destructors, so we have to call them manually here
-		// and free the slot in the old archetype:
+	// find archetype
+	Archetype *newArchetype = findOrCreateArchetype(newMask);
 
-		entityRecord.m_archetype->callDestructors(entityRecord.m_slot);
-		entityRecord.m_archetype->freeDataSlot(entityRecord.m_slot);
-
-		// entity has no more components, so set the archetype to null
-		entityRecord = {};
-	}
-	else
-	{
-		// find archetype
-		Archetype *newArchetype = findOrCreateArchetype(newMask);
-
-		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord);
-	}
+	// migrate to new archetype
+	entityRecord = newArchetype->migrate(entity, entityRecord);
 
 	return true;
 }
 
 Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
 {
-	assert(mask.any());
-
 	// find archetype
 	Archetype *archetype = nullptr;
 	for (auto &atPtr : m_archetypes)

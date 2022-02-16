@@ -21,9 +21,15 @@ inline EntityID ECS::createEntity() noexcept
 	assert(isRegisteredComponent<T...>());
 	assert(isNotSingletonComponent<T...>());
 
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-
-	return createEntityInternal(sizeof...(T), ids, nullptr, ComponentConstructorType::DEFAULT);
+	if constexpr (sizeof...(T) != 0)
+	{
+		ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+		return createEntityInternal(sizeof...(T), ids, nullptr, ComponentConstructorType::DEFAULT);
+	}
+	else
+	{
+		return createEntityInternal(0, nullptr, nullptr, ComponentConstructorType::DEFAULT);
+	}
 }
 
 template<typename ...T>
@@ -324,11 +330,14 @@ inline void ECS::iterate(F &&func) noexcept
 	// build search mask
 	ComponentMask searchMask = 0;
 
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-
-	for (size_t j = 0; j < sizeof...(T); ++j)
+	if constexpr (sizeof...(T) != 0)
 	{
-		searchMask.set(ids[j], true);
+		ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+
+		for (size_t j = 0; j < sizeof...(T); ++j)
+		{
+			searchMask.set(ids[j], true);
+		}
 	}
 
 	// search through all archetypes and look for matching masks
@@ -357,10 +366,14 @@ inline void ECS::iterate(const IterateQuery &query, F &&func) noexcept
 	assert(isNotSingletonComponent<T...>());
 
 	ComponentMask functionSignatureMask = 0;
-	ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
-	for (size_t j = 0; j < sizeof...(T); ++j)
+
+	if constexpr (sizeof...(T) != 0)
 	{
-		functionSignatureMask.set(ids[j], true);
+		ComponentID ids[sizeof...(T)] = { (ComponentIDGenerator::getID<T>())... };
+		for (size_t j = 0; j < sizeof...(T); ++j)
+		{
+			functionSignatureMask.set(ids[j], true);
+		}
 	}
 
 	ComponentMask combinedRequiredOptionalMask = query.m_requiredComponents | query.m_optionalComponents;

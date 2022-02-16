@@ -707,3 +707,165 @@ TEST(ECSTestSuite, DestructorCallDestroyEntityMultipleComponents)
 	EXPECT_EQ(counter0, 1);
 	EXPECT_EQ(counter1, 1);
 }
+
+TEST(ECSTestSuite, EmptyEntityCreate)
+{
+	ECS ecs;
+
+	auto entity = ecs.createEntity();
+	EXPECT_NE(entity, k_nullEntity);
+}
+
+TEST(ECSTestSuite, EmptyEntityCreateTemplated)
+{
+	ECS ecs;
+
+	auto entity = ecs.createEntity<>();
+	EXPECT_NE(entity, k_nullEntity);
+}
+
+TEST(ECSTestSuite, EmptyEntityIterate)
+{
+	ECS ecs;
+
+	const auto entity = ecs.createEntity();
+
+	size_t iterationCount = 0;
+	ecs.iterate<>([&](size_t count, const EntityID *entities)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				EXPECT_EQ(entities[0], entity);
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 1);
+}
+
+TEST(ECSTestSuite, EmptyEntityAddComponentIterate)
+{
+	ECS ecs;
+	ecs.registerComponent<CompA>();
+
+	const auto entity = ecs.createEntity();
+	ecs.addComponent<CompA>(entity);
+
+	size_t iterationCount = 0;
+	ecs.iterate<CompA>([&](size_t count, const EntityID *entities, CompA *c)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				EXPECT_EQ(entities[0], entity);
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 1);
+}
+
+TEST(ECSTestSuite, EmptyEntityAddComponentIterateRemoveComponentIterate)
+{
+	ECS ecs;
+	ecs.registerComponent<CompA>();
+
+	const auto entity = ecs.createEntity();
+	ecs.addComponent<CompA>(entity);
+
+	size_t iterationCount = 0;
+	ecs.iterate<CompA>([&](size_t count, const EntityID *entities, CompA *c)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				EXPECT_EQ(entities[0], entity);
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 1);
+
+	ecs.removeComponent<CompA>(entity);
+
+	iterationCount = 0;
+	ecs.iterate<>([&](size_t count, const EntityID *entities)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				EXPECT_EQ(entities[0], entity);
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 1);
+}
+
+TEST(ECSTestSuite, EmptyEntityIterateRemoveComponentIterate)
+{
+	ECS ecs;
+	ecs.registerComponent<CompA>();
+
+	const auto entity = ecs.createEntity<CompA>();
+
+	size_t iterationCount = 0;
+	ecs.iterate<CompA>([&](size_t count, const EntityID *entities, CompA *c)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				EXPECT_EQ(entities[0], entity);
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 1);
+
+	ecs.removeComponent<CompA>(entity);
+
+	iterationCount = 0;
+	ecs.iterate<>([&](size_t count, const EntityID *entities)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				EXPECT_EQ(entities[0], entity);
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 1);
+}
+
+TEST(ECSTestSuite, EmptyEntityIterateOptional)
+{
+	ECS ecs;
+	ecs.registerComponent<CompA>();
+
+	const auto entity0 = ecs.createEntity<CompA>();
+	const auto entity1 = ecs.createEntity<>();
+
+	size_t iterationCount = 0;
+	IterateQuery query;
+	ecs.setIterateQueryOptionalComponents<CompA>(query);
+	ecs.iterate<CompA>(query, [&](size_t count, const EntityID *entities, CompA *c)
+		{
+			EXPECT_EQ(count, 1);
+			if (count >= 1)
+			{
+				if (c)
+				{
+					EXPECT_EQ(entities[0], entity0);
+				}
+				else
+				{
+					EXPECT_EQ(entities[0], entity1);
+				}
+			}
+			++iterationCount;
+		});
+
+	EXPECT_EQ(iterationCount, 2);
+}
