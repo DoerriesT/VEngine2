@@ -116,6 +116,10 @@ void Editor::update(float deltaTime) noexcept
 			{
 				startIrradianceVolumeBake = true;
 			}
+			if (ImGui::MenuItem("Refresh Reflection Probes"))
+			{
+				m_engine->getRenderer()->invalidateAllReflectionProbes();
+			}
 			ImGui::EndMenu();
 		}
 		ImGui::EndMainMenuBar();

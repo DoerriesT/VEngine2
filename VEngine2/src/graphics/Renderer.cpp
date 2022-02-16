@@ -518,6 +518,11 @@ uint64_t Renderer::getPickedEntity() const noexcept
 	return static_cast<uint64_t>(m_renderView->getPickedEntity());
 }
 
+void Renderer::invalidateAllReflectionProbes() noexcept
+{
+	m_reflectionProbeManager->invalidateAllReflectionProbes();
+}
+
 bool Renderer::startIrradianceVolumeBake() noexcept
 {
 	return m_irradianceVolumeManager->startBake();

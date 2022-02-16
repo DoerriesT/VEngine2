@@ -45,6 +45,7 @@ public:
 	TextureViewHandle getReflectionProbeArrayTextureViewHandle() const noexcept;
 	StructuredBufferViewHandle getReflectionProbeDataBufferhandle() const noexcept;
 	uint32_t getReflectionProbeCount() const noexcept;
+	void invalidateAllReflectionProbes() noexcept;
 
 private:
 	gal::GraphicsDevice *m_device = nullptr;
@@ -94,6 +95,7 @@ private:
 	eastl::fixed_vector<uint32_t, k_cacheSize> m_freeCacheSlots;
 	EntityID m_cacheSlotOwners[k_cacheSize] = {};
 	uint32_t m_internalFrame = 0;
+	bool m_invalidateAllProbes = false;;
 	glm::mat4 m_curRenderProbeViewProjMatrices[6] = {};
 	glm::mat4 m_curRenderProbeViewMatrices[6] = {};
 	glm::mat4 m_curRelightProbeWorldToLocalTransposed = {};

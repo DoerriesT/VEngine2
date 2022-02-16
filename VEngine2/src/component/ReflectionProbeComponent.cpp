@@ -82,7 +82,7 @@ void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const T
 		boxTransform = glm::translate(fadeDistCenter) * glm::mat4_cast(transform.m_rotation) * glm::scale(fadeDistExtent);
 		renderer->drawDebugBox(boxTransform, k_visibleDebugColor, k_occludedDebugColor, true);
 
-		glm::vec3 capturePosition = transform.m_translation + c.m_captureOffset;
+		glm::vec3 capturePosition = transform.m_translation + transform.m_rotation * c.m_captureOffset;
 		renderer->drawDebugCross(capturePosition, 0.2f, k_visibleDebugColor, k_occludedDebugColor, true);
 	}
 }

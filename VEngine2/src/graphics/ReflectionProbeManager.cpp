@@ -596,7 +596,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 				auto &tc = transC[i];
 				auto &pc = probeC[i];
 
-				if (pc.m_recapture)
+				if (m_invalidateAllProbes || pc.m_recapture)
 				{
 					pc.m_rendered = false;
 					pc.m_recapture = false;
@@ -608,7 +608,7 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 				probeSortData.m_entity = entities[i];
 				probeSortData.m_transformComp = &tc;
 				probeSortData.m_probeComp = &pc;
-				probeSortData.m_capturePosition = tc.m_curRenderTransform.m_translation + pc.m_captureOffset;
+				probeSortData.m_capturePosition = tc.m_curRenderTransform.m_translation + tc.m_curRenderTransform.m_rotation * pc.m_captureOffset;
 				probeSortData.m_nearPlane = pc.m_nearPlane;
 				probeSortData.m_farPlane = pc.m_farPlane;
 				probeSortData.m_cameraDist2 = glm::dot(cameraProbePosDiff, cameraProbePosDiff);
@@ -634,6 +634,8 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 				}
 			}
 		});
+
+	m_invalidateAllProbes = false;
 
 	// free all unclaimed slots
 	for (size_t i = 0; i < k_cacheSize; ++i)
@@ -823,6 +825,11 @@ StructuredBufferViewHandle ReflectionProbeManager::getReflectionProbeDataBufferh
 uint32_t ReflectionProbeManager::getReflectionProbeCount() const noexcept
 {
 	return m_reflectionProbeCount;
+}
+
+void ReflectionProbeManager::invalidateAllReflectionProbes() noexcept
+{
+	m_invalidateAllProbes = true;
 }
 
 uint32_t ReflectionProbeManager::allocateCacheSlot(EntityID entity) noexcept

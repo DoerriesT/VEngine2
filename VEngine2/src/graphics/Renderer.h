@@ -58,6 +58,7 @@ public:
 	bool isGridRenderingEnabled() const noexcept;
 	void setPickingPos(uint32_t x, uint32_t y) noexcept;
 	uint64_t getPickedEntity() const noexcept;
+	void invalidateAllReflectionProbes() noexcept;
 	bool startIrradianceVolumeBake() noexcept;
 	bool abortIrradianceVolumeBake() noexcept;
 	bool isBakingIrradianceVolumes() const noexcept;
