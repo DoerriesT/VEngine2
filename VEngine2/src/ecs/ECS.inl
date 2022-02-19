@@ -57,7 +57,7 @@ inline EntityID ECS::createEntity(T && ...components) noexcept
 }
 
 template<typename T, typename ...Args>
-inline T &ECS::addComponent(EntityID entity, Args &&...args) noexcept
+inline T *ECS::addComponent(EntityID entity, Args &&...args) noexcept
 {
 	const ComponentID componentID = ComponentIDGenerator::getID<T>();
 
@@ -65,22 +65,27 @@ inline T &ECS::addComponent(EntityID entity, Args &&...args) noexcept
 	assert(isNotSingletonComponent<T>());
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	EntityRecord &entityRecord = m_entityRecords[entity];
+	auto *entityRecord = getEntityRecord(entity);
+	if (!entityRecord)
+	{
+		return nullptr;
+	}
+	auto *archetype = entityRecord->m_archetype;
 
 	T *newComponent = nullptr;
 
 	// component already exists
-	if (entityRecord.m_archetype && entityRecord.m_archetype->getComponentMask()[componentID])
+	if (archetype && archetype->getComponentMask()[componentID])
 	{
-		newComponent = (T *)entityRecord.m_archetype->getComponentMemory(entityRecord.m_slot, componentID);
-		
+		newComponent = (T *)archetype->getComponentMemory(entityRecord->m_slot, componentID);
+
 		// move assign
 		*newComponent = eastl::move(T(eastl::forward<Args>(args)...));
 	}
 	// migration to new archetype: skip ctor call in migrate() and manually call ctor afterwards
 	else
 	{
-		ComponentMask newMask = entityRecord.m_archetype ? entityRecord.m_archetype->getComponentMask() : 0;
+		ComponentMask newMask = archetype ? archetype->getComponentMask() : 0;
 		newMask.set(componentID, true);
 
 		// find archetype
@@ -90,14 +95,14 @@ inline T &ECS::addComponent(EntityID entity, Args &&...args) noexcept
 		newCompMask.set(componentID, true);
 
 		// migrate to new archetype and skip constructor of new component
-		entityRecord = newArchetype->migrate(entity, entityRecord, &newCompMask);
-		newComponent = (T *)newArchetype->getComponentMemory(entityRecord.m_slot, componentID);
+		*entityRecord = newArchetype->migrate(entity, *entityRecord, &newCompMask);
+		newComponent = (T *)newArchetype->getComponentMemory(entityRecord->m_slot, componentID);
 
 		// call constructor
 		new (newComponent) T(eastl::forward<Args>(args)...);
 	}
 
-	return *newComponent;
+	return newComponent;
 }
 
 template<typename ...T>
@@ -154,7 +159,7 @@ inline bool ECS::removeComponents(EntityID entity) noexcept
 }
 
 template<typename TAdd, typename TRemove, typename ...Args>
-inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
+inline TAdd *ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 {
 	assert(isRegisteredComponent<TAdd>());
 	assert(isRegisteredComponent<TRemove>());
@@ -165,10 +170,15 @@ inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 	const ComponentID addComponentID = ComponentIDGenerator::getID<TAdd>();
 	const ComponentID removeComponentID = ComponentIDGenerator::getID<TRemove>();
 
-	EntityRecord &entityRecord = m_entityRecords[entity];
+	auto *entityRecord = getEntityRecord(entity);
+	if (!entityRecord)
+	{
+		return nullptr;
+	}
+	auto *archetype = entityRecord->m_archetype;
 
 	// build new component mask
-	ComponentMask oldMask = entityRecord.m_archetype ? entityRecord.m_archetype->getComponentMask() : 0;
+	ComponentMask oldMask = archetype ? archetype->getComponentMask() : 0;
 	ComponentMask newMask = oldMask;
 	newMask.set(removeComponentID, false);
 	newMask.set(addComponentID, true);
@@ -178,7 +188,7 @@ inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 	// archetype didnt change: overwrite old component
 	if (oldMask == newMask)
 	{
-		newComponent = (TAdd *)entityRecord.m_archetype->getComponentMemory(entityRecord.m_slot, addComponentID);
+		newComponent = (TAdd *)archetype->getComponentMemory(entityRecord->m_slot, addComponentID);
 
 		// move assign
 		*newComponent = eastl::move(TAdd(eastl::forward<Args>(args)...));
@@ -193,30 +203,28 @@ inline TAdd &ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 		newCompMask.set(addComponentID, true);
 
 		// migrate to new archetype
-		entityRecord = newArchetype->migrate(entity, entityRecord, &newCompMask);
-		newComponent = (TAdd *)newArchetype->getComponentMemory(entityRecord.m_slot, addComponentID);
+		*entityRecord = newArchetype->migrate(entity, *entityRecord, &newCompMask);
+		newComponent = (TAdd *)newArchetype->getComponentMemory(entityRecord->m_slot, addComponentID);
 
 		// call constructor
 		new (newComponent) TAdd(eastl::forward<Args>(args)...);
 	}
 
-	return *newComponent;
+	return newComponent;
 }
 
 template<typename T>
 inline T *ECS::getComponent(EntityID entity) noexcept
 {
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	auto record = m_entityRecords[entity];
-
-	if (record.m_archetype)
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+	auto *entityRecord = getEntityRecord(entity);
+	if (entityRecord && entityRecord->m_archetype)
 	{
-		return (T *)record.m_archetype->getComponentMemory(record.m_slot, componentID);
+		return (T *)entityRecord->m_archetype->getComponentMemory(entityRecord->m_slot, componentID);
 	}
 
 	return nullptr;
@@ -225,33 +233,41 @@ inline T *ECS::getComponent(EntityID entity) noexcept
 template<typename T>
 inline const T *ECS::getComponent(EntityID entity) const noexcept
 {
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	const auto record = m_entityRecords.find(entity)->second;
-
-	if (record.m_archetype)
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+	auto *entityRecord = getEntityRecord(entity);
+	if (entityRecord && entityRecord->m_archetype)
 	{
-		return (const T *)record.m_archetype->getComponentMemory(record.m_slot, componentID);
+		return (T *)entityRecord->m_archetype->getComponentMemory(entityRecord->m_slot, componentID);
 	}
 
 	return nullptr;
 }
 
 template<typename T>
-inline bool ECS::hasComponent(EntityID entity) const noexcept
+inline T *ECS::getOrAddComponent(EntityID entity) noexcept
 {
-	const ComponentID componentID = ComponentIDGenerator::getID<T>();
-
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	const auto record = m_entityRecords.find(entity)->second;
-	return record.m_archetype && record.m_archetype->getComponentMask()[componentID];
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+	return (T *)getOrAddComponentTypeless(entity, componentID);
+}
+
+template<typename T>
+inline bool ECS::hasComponent(EntityID entity) const noexcept
+{
+	assert(isRegisteredComponent<T>());
+	assert(isNotSingletonComponent<T>());
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	const ComponentID componentID = ComponentIDGenerator::getID<T>();
+	const auto *record = getEntityRecord(entity);
+	return record && record->m_archetype && record->m_archetype->getComponentMask()[componentID];
 }
 
 template<typename ...T>
@@ -266,8 +282,8 @@ inline bool ECS::hasComponents(EntityID entity) const noexcept
 		return true;
 	}
 
-	const auto record = m_entityRecords.find(entity)->second;
-	return record.m_archetype && (... && (record.m_archetype->getComponentMask()[ComponentIDGenerator::getID<T>()]));
+	const auto *record = getEntityRecord(entity);
+	return record && record->m_archetype && (... && (record->m_archetype->getComponentMask()[ComponentIDGenerator::getID<T>()]));
 }
 
 template<typename ...T>

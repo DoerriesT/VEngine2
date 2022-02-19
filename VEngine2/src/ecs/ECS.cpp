@@ -28,6 +28,10 @@ EntityID ECS::createEntityTypeless(size_t componentCount, const ComponentID *com
 
 void ECS::destroyEntity(EntityID entity) noexcept
 {
+	if (entity == k_nullEntity)
+	{
+		return;
+	}
 	auto it = m_entityRecords.find(entity);
 	if (it != m_entityRecords.end() && it->second.m_archetype)
 	{
@@ -42,7 +46,7 @@ void ECS::destroyEntity(EntityID entity) noexcept
 
 bool ECS::isValid(EntityID entity) const noexcept
 {
-	return m_entityRecords.find(entity) != m_entityRecords.end();
+	return entity != k_nullEntity && m_entityRecords.find(entity) != m_entityRecords.end();
 }
 
 void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
@@ -72,11 +76,10 @@ void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) noexce
 	assert(isNotSingletonComponent(1, &componentID));
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	auto record = m_entityRecords[entity];
-
-	if (record.m_archetype)
+	auto *entityRecord = getEntityRecord(entity);
+	if (entityRecord && entityRecord->m_archetype)
 	{
-		return record.m_archetype->getComponentMemory(record.m_slot, componentID);
+		return entityRecord->m_archetype->getComponentMemory(entityRecord->m_slot, componentID);
 	}
 
 	return nullptr;
@@ -88,14 +91,50 @@ const void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) 
 	assert(isNotSingletonComponent(1, &componentID));
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	const auto record = m_entityRecords.find(entity)->second;
-
-	if (record.m_archetype)
+	auto *entityRecord = getEntityRecord(entity);
+	if (entityRecord && entityRecord->m_archetype)
 	{
-		return record.m_archetype->getComponentMemory(record.m_slot, componentID);
+		return entityRecord->m_archetype->getComponentMemory(entityRecord->m_slot, componentID);
 	}
 
 	return nullptr;
+}
+
+void *ECS::getOrAddComponentTypeless(EntityID entity, ComponentID componentID) noexcept
+{
+	assert(isRegisteredComponent(1, &componentID));
+	assert(isNotSingletonComponent(1, &componentID));
+	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+
+	auto *entityRecord = getEntityRecord(entity);
+	if (!entityRecord)
+	{
+		return nullptr;
+	}
+	auto *archetype = entityRecord->m_archetype;
+
+	void *component = nullptr;
+
+	// component already exists
+	if (archetype && archetype->getComponentMask()[componentID])
+	{
+		component = archetype->getComponentMemory(entityRecord->m_slot, componentID);
+	}
+	// add component and migrate to new archetype
+	else
+	{
+		ComponentMask newMask = archetype ? archetype->getComponentMask() : 0;
+		newMask.set(componentID, true);
+
+		// find archetype
+		Archetype *newArchetype = findOrCreateArchetype(newMask);
+
+		// migrate to new archetype
+		*entityRecord = newArchetype->migrate(entity, *entityRecord);
+		component = newArchetype->getComponentMemory(entityRecord->m_slot, componentID);
+	}
+
+	return component;
 }
 
 bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) const noexcept
@@ -110,16 +149,20 @@ bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const Co
 		return true;
 	}
 
-	auto record = m_entityRecords.find(entity)->second;
+	auto *entityRecord = getEntityRecord(entity);
+	if (!entityRecord)
+	{
+		return false;
+	}
 
 	// entity has no components at all
-	if (componentCount > 0 && !record.m_archetype)
+	if (componentCount > 0 && !entityRecord->m_archetype)
 	{
 		return false;
 	}
 
 	// check of all requested components are present in the mask
-	const auto &archetypeMask = record.m_archetype->getComponentMask();
+	const auto &archetypeMask = entityRecord->m_archetype->getComponentMask();
 	for (size_t j = 0; j < componentCount; ++j)
 	{
 		if (!archetypeMask[componentIDs[j]])
@@ -134,9 +177,9 @@ bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const Co
 ComponentMask ECS::getComponentMask(EntityID entity) const noexcept
 {
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
-	auto record = m_entityRecords.find(entity)->second;
 
-	return record.m_archetype ? record.m_archetype->getComponentMask() : 0;
+	auto *entityRecord = getEntityRecord(entity);
+	return entityRecord && entityRecord->m_archetype ? entityRecord->m_archetype->getComponentMask() : 0;
 }
 
 ComponentMask ECS::getRegisteredComponentMask() const noexcept
@@ -272,10 +315,15 @@ void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const Co
 	assert(componentCount > 0);
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	EntityRecord &entityRecord = m_entityRecords[entity];
+	auto *entityRecord = getEntityRecord(entity);
+	if (!entityRecord)
+	{
+		return;
+	}
+	auto *archetype = entityRecord->m_archetype;
 
 	// build new component mask
-	ComponentMask oldMask = entityRecord.m_archetype ? entityRecord.m_archetype->getComponentMask() : 0;
+	ComponentMask oldMask = archetype ? archetype->getComponentMask() : 0;
 	ComponentMask newMask = oldMask;
 	ComponentMask addedComponentsMask = 0;
 
@@ -286,17 +334,17 @@ void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const Co
 	}
 
 	const bool needToMigrate = oldMask != newMask;
-	Archetype *newArchetype = needToMigrate ? findOrCreateArchetype(newMask) : entityRecord.m_archetype;
+	Archetype *newArchetype = needToMigrate ? findOrCreateArchetype(newMask) : archetype;
 	if (needToMigrate)
 	{
 		// pass a mask of all our new components so that their default/move constructor is skipped.
 		// this allows us to call our own constructors without having to call a destructor on the memory first.
-		entityRecord = newArchetype->migrate(entity, entityRecord, &addedComponentsMask);
+		*entityRecord = newArchetype->migrate(entity, *entityRecord, &addedComponentsMask);
 	}
 
 	for (size_t j = 0; j < componentCount; ++j)
 	{
-		auto *componentMem = newArchetype->getComponentMemory(entityRecord.m_slot, componentIDs[j]);
+		auto *componentMem = newArchetype->getComponentMemory(entityRecord->m_slot, componentIDs[j]);
 
 		// entity was migrated and we passed a mask of all new components, so the memory is still raw -> we may call our constructors.
 		if (needToMigrate)
@@ -349,16 +397,21 @@ bool ECS::removeComponentsInternal(EntityID entity, size_t componentCount, const
 {
 	assert(m_entityRecords.find(entity) != m_entityRecords.end());
 
-	EntityRecord &entityRecord = m_entityRecords[entity];
+	auto *entityRecord = getEntityRecord(entity);
+	if (!entityRecord)
+	{
+		return false;
+	}
+	auto *archetype = entityRecord->m_archetype;
 
 	// entity has no components at all
-	if (!entityRecord.m_archetype)
+	if (!archetype)
 	{
 		return false;
 	}
 
 	// build new component mask
-	ComponentMask oldMask = entityRecord.m_archetype->getComponentMask();
+	ComponentMask oldMask = archetype->getComponentMask();
 	ComponentMask newMask = oldMask;
 
 	for (size_t j = 0; j < componentCount; ++j)
@@ -376,7 +429,7 @@ bool ECS::removeComponentsInternal(EntityID entity, size_t componentCount, const
 	Archetype *newArchetype = findOrCreateArchetype(newMask);
 
 	// migrate to new archetype
-	entityRecord = newArchetype->migrate(entity, entityRecord);
+	*entityRecord = newArchetype->migrate(entity, *entityRecord);
 
 	return true;
 }
@@ -402,4 +455,24 @@ Archetype *ECS::findOrCreateArchetype(const ComponentMask &mask) noexcept
 	}
 
 	return archetype;
+}
+
+EntityRecord *ECS::getEntityRecord(EntityID entity) noexcept
+{
+	if (entity != k_nullEntity)
+	{
+		auto it = m_entityRecords.find(entity);
+		return it != m_entityRecords.end() ? &it->second : nullptr;
+	}
+	return nullptr;
+}
+
+const EntityRecord *ECS::getEntityRecord(EntityID entity) const noexcept
+{
+	if (entity != k_nullEntity)
+	{
+		auto it = m_entityRecords.find(entity);
+		return it != m_entityRecords.end() ? &it->second : nullptr;
+	}
+	return nullptr;
 }

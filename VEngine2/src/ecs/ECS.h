@@ -124,9 +124,9 @@ public:
 	/// <typeparam name="...Args">The types of the arguments for constructing the new component.</typeparam>
 	/// <param name="entity">The entity to add the component to.</param>
 	/// <param name="...args">The arguments for constructing the new component.</param>
-	/// <returns>A reference to the new component.</returns>
+	/// <returns>A pointer to the new component.</returns>
 	template<typename T, typename ...Args>
-	inline T &addComponent(EntityID entity, Args &&...args) noexcept;
+	inline T *addComponent(EntityID entity, Args &&...args) noexcept;
 
 	/// <summary>
 	/// Adds one or more default constructed components to an entity.
@@ -208,9 +208,9 @@ public:
 	/// <typeparam name="TRemove">The type of the component to remove.</typeparam>
 	/// <param name="entity">The entity to add/remove components to/from.</param>
 	/// <param name="...args">The arguments for constructing the new component.</param>
-	/// <returns>A reference to the new component.</returns>
+	/// <returns>A pointer to the new component.</returns>
 	template<typename TAdd, typename TRemove, typename ...Args>
-	inline TAdd &addRemoveComponent(EntityID entity, Args &&...args) noexcept;
+	inline TAdd *addRemoveComponent(EntityID entity, Args &&...args) noexcept;
 
 	/// <summary>
 	/// Gets a component from an entity.
@@ -231,6 +231,15 @@ public:
 	inline const T *getComponent(EntityID entity) const noexcept;
 
 	/// <summary>
+	/// Gets a component from an entity or default constructs a new one
+	/// </summary>
+	/// <typeparam name="T">The type of the component to get.</typeparam>
+	/// <param name="entity">The entity from which to get the component.</param>
+	/// <returns>A pointer to the requested component or nullptr if the entity is invalid.</returns>
+	template<typename T>
+	inline T *getOrAddComponent(EntityID entity) noexcept;
+
+	/// <summary>
 	/// Gets a void * to a component of an entity.
 	/// </summary>
 	/// <param name="entity">The entity from which to get the component.</param>
@@ -245,6 +254,14 @@ public:
 	/// <param name="componentID">The ComponentID of the component to get.</param>
 	/// <returns>A pointer to the requested component or nullptr if no such component is attached to the entity.</returns>
 	const void *getComponentTypeless(EntityID entity, ComponentID componentID) const noexcept;
+
+	/// <summary>
+	/// Gets a component from an entity or default constructs a new one
+	/// </summary>
+	/// <param name="entity">The entity from which to get the component.</param>
+	/// <param name="componentID">The ComponentID of the component to get.</param>
+	/// <returns>A pointer to the requested component or nullptr if the entity is invalid.</returns>
+	void *getOrAddComponentTypeless(EntityID entity, ComponentID componentID) noexcept;
 
 	/// <summary>
 	/// Tests if a given entity has a certain component.
@@ -380,6 +397,8 @@ private:
 	void addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	bool removeComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;
 	Archetype *findOrCreateArchetype(const ComponentMask &mask) noexcept;
+	EntityRecord *getEntityRecord(EntityID entity) noexcept;
+	const EntityRecord *getEntityRecord(EntityID entity) const noexcept;
 };
 
 #include "ECS.inl"

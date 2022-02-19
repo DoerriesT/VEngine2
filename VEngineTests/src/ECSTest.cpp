@@ -538,9 +538,9 @@ TEST(ECSTestSuite, GetComponentPresent)
 	EXPECT_NE(entity, k_nullEntity);
 	EXPECT_FALSE(ecs.hasComponent<CompA>(entity));
 
-	CompA &c = ecs.addComponent<CompA>(entity);
+	CompA *c = ecs.addComponent<CompA>(entity);
 	EXPECT_TRUE(ecs.hasComponent<CompA>(entity));
-	EXPECT_EQ(&c, ecs.getComponent<CompA>(entity));
+	EXPECT_EQ(c, ecs.getComponent<CompA>(entity));
 }
 
 TEST(ECSTestSuite, GetComponentNotPresent)
