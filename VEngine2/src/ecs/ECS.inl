@@ -357,19 +357,21 @@ inline void ECS::iterate(F &&func) noexcept
 	}
 
 	// search through all archetypes and look for matching masks
-	for (auto &atPtr : m_archetypes)
+	for (auto archetype : m_archetypes)
 	{
-		auto &at = *atPtr;
 		// archetype matches search mask
-		if ((at.getComponentMask() & searchMask) == searchMask)
+		if ((archetype->getComponentMask() & searchMask) == searchMask)
 		{
-			const auto &memoryChunks = at.getMemoryChunks();
-			for (auto &chunk : memoryChunks)
+			auto *chunk = archetype->getMemoryChunkList();
+			while (chunk)
 			{
-				if (chunk.m_size > 0)
+				auto chunkSize = chunk->size();
+				auto *chunkMem = chunk->getMemory();
+				if (chunkSize > 0)
 				{
-					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(chunk.m_memory + at.getComponentArrayOffset(ComponentIDGenerator::getID<T>())))...);
+					func(chunkSize, reinterpret_cast<const EntityID *>(chunkMem), (reinterpret_cast<T *>(chunkMem + archetype->getComponentArrayOffset(ComponentIDGenerator::getID<T>())))...);
 				}
+				chunk = chunk->getNext();
 			}
 		}
 	}
@@ -396,23 +398,25 @@ inline void ECS::iterate(const IterateQuery &query, F &&func) noexcept
 	assert((combinedRequiredOptionalMask & functionSignatureMask) == functionSignatureMask);
 
 	// search through all archetypes and look for matching masks
-	for (auto &atPtr : m_archetypes)
+	for (auto archetype : m_archetypes)
 	{
-		auto &at = *atPtr;
-		const auto &atMask = at.getComponentMask();
+		const auto &archetypeMask = archetype->getComponentMask();
 
 		if (
-			((atMask & query.m_requiredComponents) == query.m_requiredComponents) && // all required components present
-			((atMask & query.m_disallowedComponents) == 0) // no disallowed components present
+			((archetypeMask & query.m_requiredComponents) == query.m_requiredComponents) && // all required components present
+			((archetypeMask & query.m_disallowedComponents) == 0) // no disallowed components present
 			)
 		{
-			const auto &memoryChunks = at.getMemoryChunks();
-			for (auto &chunk : memoryChunks)
+			auto *chunk = archetype->getMemoryChunkList();
+			while (chunk)
 			{
-				if (chunk.m_size > 0)
+				auto chunkSize = chunk->size();
+				auto *chunkMem = chunk->getMemory();
+				if (chunkSize > 0)
 				{
-					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), (reinterpret_cast<T *>(atMask[ComponentIDGenerator::getID<T>()] ? (chunk.m_memory + at.getComponentArrayOffset(ComponentIDGenerator::getID<T>())) : nullptr))...);
+					func(chunkSize, reinterpret_cast<const EntityID *>(chunkMem), (reinterpret_cast<T *>(archetypeMask[ComponentIDGenerator::getID<T>()] ? (chunkMem + archetype->getComponentArrayOffset(ComponentIDGenerator::getID<T>())) : nullptr))...);
 				}
+				chunk = chunk->getNext();
 			}
 		}
 	}
@@ -435,23 +439,25 @@ inline void ECS::iterateTypeless(size_t componentCount, const ComponentID *compo
 	void **componentArrayPointers = ALLOC_A_T(void *, componentCount);
 
 	// search through all archetypes and look for matching masks
-	for (auto &atPtr : m_archetypes)
+	for (auto archetype : m_archetypes)
 	{
-		auto &at = *atPtr;
 		// archetype matches search mask
-		if ((at.getComponentMask() & searchMask) == searchMask)
+		if ((archetype->getComponentMask() & searchMask) == searchMask)
 		{
-			const auto &memoryChunks = at.getMemoryChunks();
-			for (auto &chunk : memoryChunks)
+			auto *chunk = archetype->getMemoryChunkList();
+			while (chunk)
 			{
-				if (chunk.m_size > 0)
+				auto chunkSize = chunk->size();
+				auto *chunkMem = chunk->getMemory();
+				if (chunkSize > 0)
 				{
 					for (size_t j = 0; j < componentCount; ++j)
 					{
-						componentArrayPointers[j] = chunk.m_memory + at.getComponentArrayOffset(componentIDs[j]);
+						componentArrayPointers[j] = chunkMem + archetype->getComponentArrayOffset(componentIDs[j]);
 					}
-					func(chunk.m_size, reinterpret_cast<const EntityID *>(chunk.m_memory), componentArrayPointers);
+					func(chunkSize, reinterpret_cast<const EntityID *>(chunkMem), componentArrayPointers);
 				}
+				chunk = chunk->getNext();
 			}
 		}
 	}

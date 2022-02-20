@@ -23,11 +23,11 @@ template<size_t DUMMY>
 struct DestructorTestComp
 {
 	int *destructorCallCounter = nullptr;
-	
+
 	DestructorTestComp() = default;
-	
-	DestructorTestComp(int *p) 
-		:destructorCallCounter(p) 
+
+	DestructorTestComp(int *p)
+		:destructorCallCounter(p)
 	{
 	};
 
@@ -39,7 +39,7 @@ struct DestructorTestComp
 		other.destructorCallCounter = nullptr;
 	}
 
-	
+
 	DestructorTestComp &operator=(const DestructorTestComp &) = default;
 
 	DestructorTestComp &operator=(DestructorTestComp &&other) noexcept
@@ -65,7 +65,7 @@ struct DestructorTestComp
 TEST(ECSTestSuite, CreateEntity)
 {
 	ECS ecs;
-	
+
 	auto entity = ecs.createEntity();
 	EXPECT_NE(entity, k_nullEntity);
 }
@@ -158,7 +158,7 @@ TEST(ECSTestSuite, CreateNonemptyEntityMultipleMove)
 	EXPECT_EQ(ecs.getComponent<CompB>(entity)->b, 5);
 }
 
-TEST(ECSTestSuite, AddComponent) 
+TEST(ECSTestSuite, AddComponent)
 {
 	ECS ecs;
 	ecs.registerComponent<CompA>();
@@ -368,7 +368,7 @@ TEST(ECSTestSuite, AddComponentMultipleMove)
 	ECS ecs;
 	ecs.registerComponent<CompA>();
 	ecs.registerComponent<CompB>();
-	
+
 	auto entity = ecs.createEntity();
 	EXPECT_NE(entity, k_nullEntity);
 	EXPECT_FALSE(ecs.hasComponent<CompA>(entity));

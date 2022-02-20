@@ -5,6 +5,7 @@
 #include "utility/ErasedType.h"
 #include "ECSCommon.h"
 #include "Archetype.h"
+#include "utility/allocator/PoolAllocator.h"
 
 class Archetype;
 
@@ -34,6 +35,10 @@ class ECS
 {
 	friend class Archetype;
 public:
+	static constexpr size_t k_componentMemoryChunkSize = 1024 * 16;
+
+	explicit ECS() noexcept;
+
 	/// <summary>
 	///  Registers a component with the ECS. Must be called on a component type before it can be used in any way.
 	/// </summary>
@@ -383,6 +388,7 @@ private:
 	eastl::vector<uint32_t> m_freeEntityIDIndices;
 	eastl::vector<Archetype *> m_archetypes;
 	eastl::vector<EntityRecord> m_entityRecords;
+	DynamicPoolAllocator m_componentMemoryAllocator;
 	mutable void *m_singletonComponents[k_ecsMaxComponentTypes] = {}; // mutable so that lazy construction of singleton components works even if the const version getSingletonComponent() is called
 
 	template<typename ...T>
@@ -400,6 +406,8 @@ private:
 	Archetype *findOrCreateArchetype(const ComponentMask &mask) noexcept;
 	EntityRecord *getEntityRecord(EntityID entity) noexcept;
 	const EntityRecord *getEntityRecord(EntityID entity) const noexcept;
+	void *allocateComponentMemoryChunk() noexcept;
+	void freeComponentMemoryChunk(void *ptr) noexcept;
 };
 
 #include "ECS.inl"

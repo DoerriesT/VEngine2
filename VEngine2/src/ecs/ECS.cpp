@@ -7,6 +7,11 @@ ComponentID ComponentIDGenerator::m_idCount = 0;
 ErasedType ECS::s_componentInfo[k_ecsMaxComponentTypes];
 eastl::bitset<k_ecsMaxComponentTypes> ECS::s_singletonComponentsBitset;
 
+ECS::ECS() noexcept
+	:m_componentMemoryAllocator(k_componentMemoryChunkSize, 256, "ECS Component Memory Allocator")
+{
+}
+
 EntityID ECS::createEntity() noexcept
 {
 	return createEntityInternal(0, nullptr, nullptr, ComponentConstructorType::DEFAULT);
@@ -216,6 +221,24 @@ ComponentMask ECS::getRegisteredComponentMaskWithSingletons() const noexcept
 	return mask;
 }
 
+void ECS::clear() noexcept
+{
+	m_freeEntityIDIndices.clear();
+	for (auto archetype : m_archetypes)
+	{
+		archetype->clear(false);
+	}
+	m_entityRecords.clear();
+	for (auto &sc : m_singletonComponents)
+	{
+		if (sc)
+		{
+			delete[] reinterpret_cast<char *>(sc);
+			sc = nullptr;
+		}
+	}
+}
+
 bool ECS::isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept
 {
 	for (size_t i = 0; i < count; ++i)
@@ -240,20 +263,48 @@ bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs)
 	return true;
 }
 
-void ECS::clear() noexcept
+EntityID ECS::allocateEntityID() noexcept
 {
-	m_freeEntityIDIndices.clear();
-	for (auto archetype : m_archetypes)
+	uint32_t entityIndex;
+	uint32_t generation;
+	if (m_freeEntityIDIndices.empty())
 	{
-		archetype->clear(false);
+		entityIndex = static_cast<uint32_t>(m_entityRecords.size());
+		generation = 1;
+
+		m_entityRecords.push_back();
 	}
-	m_entityRecords.clear();
-	for (auto &sc : m_singletonComponents)
+	else
 	{
-		if (sc)
+		entityIndex = m_freeEntityIDIndices.back();
+		m_freeEntityIDIndices.pop_back();
+		assert(entityIndex < m_entityRecords.size());
+		generation = m_entityRecords[entityIndex].m_generation + 1;
+	}
+
+	EntityRecord record{};
+	record.m_generation = generation;
+	m_entityRecords[entityIndex] = record;
+
+	uint64_t id = 0;
+	id |= generation;
+	id |= static_cast<uint64_t>(entityIndex) << 32;
+
+	return id;
+}
+
+void ECS::freeEntityID(EntityID entity) noexcept
+{
+	if (entity != k_nullEntity)
+	{
+		const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
+		const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
+
+		assert(entityIndex < m_entityRecords.size());
+
+		if (m_entityRecords[entityIndex].m_generation == generation)
 		{
-			delete[] reinterpret_cast<char *>(sc);
-			sc = nullptr;
+			m_freeEntityIDIndices.push_back(entityIndex);
 		}
 	}
 }
@@ -309,7 +360,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 	}
 
 	// store entity
-	reinterpret_cast<EntityID *>(archetype->getMemoryChunks()[slot.m_chunkIdx].m_memory)[slot.m_chunkSlotIdx] = entityID;
+	reinterpret_cast<EntityID *>(slot.m_memoryChunk->getMemory())[slot.m_chunkSlotIdx] = entityID;
 
 	EntityRecord record{};
 	record.m_archetype = archetype;
@@ -486,55 +537,20 @@ const EntityRecord *ECS::getEntityRecord(EntityID entity) const noexcept
 	{
 		const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
 		const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
-		
+
 		assert(entityIndex < m_entityRecords.size());
 		return m_entityRecords[entityIndex].m_generation == generation ? &m_entityRecords[entityIndex] : nullptr;
 	}
 	return nullptr;
 }
 
-EntityID ECS::allocateEntityID() noexcept
+void *ECS::allocateComponentMemoryChunk() noexcept
 {
-	uint32_t entityIndex;
-	uint32_t generation;
-	if (m_freeEntityIDIndices.empty())
-	{
-		entityIndex = static_cast<uint32_t>(m_entityRecords.size());
-		generation = 1;
-
-		m_entityRecords.push_back();
-	}
-	else
-	{
-		entityIndex = m_freeEntityIDIndices.back();
-		m_freeEntityIDIndices.pop_back();
-		assert(entityIndex < m_entityRecords.size());
-		generation = m_entityRecords[entityIndex].m_generation + 1;
-	}
-
-	EntityRecord record{};
-	record.m_generation = generation;
-	m_entityRecords[entityIndex] = record;
-
-	uint64_t id = 0;
-	id |= generation;
-	id |= static_cast<uint64_t>(entityIndex) << 32;
-
-	return id;
+	return m_componentMemoryAllocator.allocate(k_componentMemoryChunkSize);
 }
 
-void ECS::freeEntityID(EntityID entity) noexcept
+void ECS::freeComponentMemoryChunk(void *ptr) noexcept
 {
-	if (entity != k_nullEntity)
-	{
-		const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
-		const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
-
-		assert(entityIndex < m_entityRecords.size());
-
-		if (m_entityRecords[entityIndex].m_generation == generation)
-		{
-			m_freeEntityIDIndices.push_back(entityIndex);
-		}
-	}
+	m_componentMemoryAllocator.deallocate(ptr, k_componentMemoryChunkSize);
 }
+

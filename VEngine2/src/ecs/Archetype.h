@@ -7,13 +7,14 @@
 
 class ECS;
 class Archetype;
+struct ArchetypeMemoryChunk;
 
 /// <summary>
 /// Describes a memory location for storing an entity and its components inside an Archetype.
 /// </summary>
 struct ArchetypeSlot
 {
-	uint32_t m_chunkIdx = 0;
+	ArchetypeMemoryChunk *m_memoryChunk;
 	uint32_t m_chunkSlotIdx = 0;
 };
 
@@ -28,12 +29,45 @@ struct EntityRecord
 };
 
 /// <summary>
-/// A chunk of memory for storing k_ecsComponentsPerMemoryChunk entities and components in consecutive arrays.
+/// A chunk of memory for storing entities and components in consecutive arrays.
 /// </summary>
 struct ArchetypeMemoryChunk
 {
-	uint8_t *m_memory = nullptr;
+	friend class Archetype;
+
+	static constexpr size_t getDataOffset() noexcept
+	{
+		// align offset to the alignment of the EntityID following the header
+		const size_t alignment = alignof(EntityID);
+		const size_t mask = alignment - 1;
+		static_assert((alignment & mask) == 0);
+		return (sizeof(ArchetypeMemoryChunk) + mask) & ~mask;
+	}
+
+	size_t size() const noexcept
+	{
+		return m_size;
+	}
+
+	ArchetypeMemoryChunk *getNext() const noexcept
+	{
+		return m_next;
+	}
+
+	uint8_t *getMemory() noexcept
+	{
+		return reinterpret_cast<uint8_t *>(this) + getDataOffset();
+	}
+
+	const uint8_t *getMemory() const noexcept
+	{
+		return reinterpret_cast<const uint8_t *>(this) + getDataOffset();
+	}
+
+private:
 	size_t m_size = 0;
+	ArchetypeMemoryChunk *m_prev = nullptr;
+	ArchetypeMemoryChunk *m_next = nullptr;
 };
 
 /// <summary>
@@ -74,9 +108,9 @@ public:
 	/// <param name="componentMask">The ComponentMask defining this Archetype.</param>
 	/// <param name="componentInfo">An array of ErasedType corresponding to each bit of the ComponentMask.</param>
 	explicit Archetype(ECS *ecs, const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept;
-
-	DELETED_COPY_MOVE(Archetype);
-
+	Archetype(Archetype &&other) noexcept;
+	Archetype &operator=(Archetype &&other) noexcept;
+	DELETED_COPY(Archetype);
 	~Archetype() noexcept;
 
 	/// <summary>
@@ -86,10 +120,10 @@ public:
 	const ComponentMask &getComponentMask() const noexcept;
 
 	/// <summary>
-	/// Gets the vector of ArchetypeMemoryChunks. 
+	/// Gets the head of the linked list of memory chunks.
 	/// </summary>
-	/// <returns>The vector of ArchetypeMemoryChunks</returns>
-	const eastl::vector<ArchetypeMemoryChunk> &getMemoryChunks() noexcept;
+	/// <returns>A pointer to the head of the linked list of memory chunks or a nullptr if the list is empty.</returns>
+	ArchetypeMemoryChunk *getMemoryChunkList() noexcept;
 
 	/// <summary>
 	/// Gets the byte offset into memory chunks where the array of components of the given type starts.
@@ -158,9 +192,8 @@ public:
 
 private:
 	ECS *m_ecs = nullptr;
+	ArchetypeMemoryChunk *m_memoryChunkList = nullptr;
 	ComponentMask m_componentMask = {};
-	const ErasedType *m_componentInfo = nullptr;
-	size_t m_entitiesPerChunk = 0;
-	eastl::vector<ArchetypeMemoryChunk> m_memoryChunks;
 	size_t m_componentArrayOffsets[k_ecsMaxComponentTypes] = {};
+	size_t m_entitiesPerChunk = 0;
 };
