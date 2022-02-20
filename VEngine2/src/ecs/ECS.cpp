@@ -32,21 +32,31 @@ void ECS::destroyEntity(EntityID entity) noexcept
 	{
 		return;
 	}
-	auto it = m_entityRecords.find(entity);
-	if (it != m_entityRecords.end() && it->second.m_archetype)
+
+	const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
+	const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
+
+	assert(entityIndex < m_entityRecords.size());
+
+	if (m_entityRecords[entityIndex].m_generation == generation && m_entityRecords[entityIndex].m_archetype)
 	{
 		// delete components
-		it->second.m_archetype->callDestructors(it->second.m_slot);
-		it->second.m_archetype->freeDataSlot(it->second.m_slot);
+		m_entityRecords[entityIndex].m_archetype->callDestructors(m_entityRecords[entityIndex].m_slot);
+		m_entityRecords[entityIndex].m_archetype->freeDataSlot(m_entityRecords[entityIndex].m_slot);
 
 		// delete entity
-		m_entityRecords.erase(it);
+		freeEntityID(entity);
 	}
 }
 
 bool ECS::isValid(EntityID entity) const noexcept
 {
-	return entity != k_nullEntity && m_entityRecords.find(entity) != m_entityRecords.end();
+	const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
+	const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
+
+	assert(entity == k_nullEntity || entityIndex < m_entityRecords.size());
+
+	return entity != k_nullEntity && m_entityRecords[entityIndex].m_generation == generation;
 }
 
 void ECS::addComponentsTypeless(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
@@ -74,7 +84,7 @@ void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) noexce
 {
 	assert(isRegisteredComponent(1, &componentID));
 	assert(isNotSingletonComponent(1, &componentID));
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	if (entityRecord && entityRecord->m_archetype)
@@ -89,7 +99,7 @@ const void *ECS::getComponentTypeless(EntityID entity, ComponentID componentID) 
 {
 	assert(isRegisteredComponent(1, &componentID));
 	assert(isNotSingletonComponent(1, &componentID));
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	if (entityRecord && entityRecord->m_archetype)
@@ -104,7 +114,7 @@ void *ECS::getOrAddComponentTypeless(EntityID entity, ComponentID componentID) n
 {
 	assert(isRegisteredComponent(1, &componentID));
 	assert(isNotSingletonComponent(1, &componentID));
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	if (!entityRecord)
@@ -141,7 +151,7 @@ bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const Co
 {
 	assert(isRegisteredComponent(componentCount, componentIDs));
 	assert(isNotSingletonComponent(componentCount, componentIDs));
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	// simple case
 	if (componentCount == 0)
@@ -176,7 +186,7 @@ bool ECS::hasComponentsTypeless(EntityID entity, size_t componentCount, const Co
 
 ComponentMask ECS::getComponentMask(EntityID entity) const noexcept
 {
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	return entityRecord && entityRecord->m_archetype ? entityRecord->m_archetype->getComponentMask() : 0;
@@ -232,7 +242,7 @@ bool ECS::isNotSingletonComponent(size_t count, const ComponentID *componentIDs)
 
 void ECS::clear() noexcept
 {
-	m_nextFreeEntityId = 1;
+	m_freeEntityIDIndices.clear();
 	for (auto archetype : m_archetypes)
 	{
 		archetype->clear(false);
@@ -250,7 +260,7 @@ void ECS::clear() noexcept
 
 EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept
 {
-	EntityID entityID = m_nextFreeEntityId++;
+	EntityID entityID = allocateEntityID();
 
 	// build component mask
 	ComponentMask compMask = 0;
@@ -305,7 +315,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 	record.m_archetype = archetype;
 	record.m_slot = slot;
 
-	m_entityRecords[entityID] = record;
+	m_entityRecords[entityID >> 32] = record;
 
 	return entityID;
 }
@@ -313,7 +323,7 @@ EntityID ECS::createEntityInternal(size_t componentCount, const ComponentID *com
 void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept
 {
 	assert(componentCount > 0);
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	if (!entityRecord)
@@ -395,7 +405,7 @@ void ECS::addComponentsInternal(EntityID entity, size_t componentCount, const Co
 
 bool ECS::removeComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept
 {
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	if (!entityRecord)
@@ -461,8 +471,11 @@ EntityRecord *ECS::getEntityRecord(EntityID entity) noexcept
 {
 	if (entity != k_nullEntity)
 	{
-		auto it = m_entityRecords.find(entity);
-		return it != m_entityRecords.end() ? &it->second : nullptr;
+		const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
+		const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
+
+		assert(entityIndex < m_entityRecords.size());
+		return m_entityRecords[entityIndex].m_generation == generation ? &m_entityRecords[entityIndex] : nullptr;
 	}
 	return nullptr;
 }
@@ -471,8 +484,57 @@ const EntityRecord *ECS::getEntityRecord(EntityID entity) const noexcept
 {
 	if (entity != k_nullEntity)
 	{
-		auto it = m_entityRecords.find(entity);
-		return it != m_entityRecords.end() ? &it->second : nullptr;
+		const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
+		const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
+		
+		assert(entityIndex < m_entityRecords.size());
+		return m_entityRecords[entityIndex].m_generation == generation ? &m_entityRecords[entityIndex] : nullptr;
 	}
 	return nullptr;
+}
+
+EntityID ECS::allocateEntityID() noexcept
+{
+	uint32_t entityIndex;
+	uint32_t generation;
+	if (m_freeEntityIDIndices.empty())
+	{
+		entityIndex = static_cast<uint32_t>(m_entityRecords.size());
+		generation = 1;
+
+		m_entityRecords.push_back();
+	}
+	else
+	{
+		entityIndex = m_freeEntityIDIndices.back();
+		m_freeEntityIDIndices.pop_back();
+		assert(entityIndex < m_entityRecords.size());
+		generation = m_entityRecords[entityIndex].m_generation + 1;
+	}
+
+	EntityRecord record{};
+	record.m_generation = generation;
+	m_entityRecords[entityIndex] = record;
+
+	uint64_t id = 0;
+	id |= generation;
+	id |= static_cast<uint64_t>(entityIndex) << 32;
+
+	return id;
+}
+
+void ECS::freeEntityID(EntityID entity) noexcept
+{
+	if (entity != k_nullEntity)
+	{
+		const uint32_t entityIndex = static_cast<uint32_t>(entity >> 32);
+		const uint32_t generation = static_cast<uint32_t>(entity & 0xFFFFFFFF);
+
+		assert(entityIndex < m_entityRecords.size());
+
+		if (m_entityRecords[entityIndex].m_generation == generation)
+		{
+			m_freeEntityIDIndices.push_back(entityIndex);
+		}
+	}
 }

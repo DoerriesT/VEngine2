@@ -24,6 +24,7 @@ struct EntityRecord
 {
 	Archetype *m_archetype = nullptr;
 	ArchetypeSlot m_slot = {};
+	uint32_t m_generation = 1;
 };
 
 /// <summary>
@@ -159,7 +160,7 @@ private:
 	ECS *m_ecs = nullptr;
 	ComponentMask m_componentMask = {};
 	const ErasedType *m_componentInfo = nullptr;
-	size_t m_memoryChunkSize = 0;
+	size_t m_entitiesPerChunk = 0;
 	eastl::vector<ArchetypeMemoryChunk> m_memoryChunks;
-	eastl::vector<size_t> m_componentArrayOffsets;
+	size_t m_componentArrayOffsets[k_ecsMaxComponentTypes] = {};
 };

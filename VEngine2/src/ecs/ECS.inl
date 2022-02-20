@@ -63,7 +63,7 @@ inline T *ECS::addComponent(EntityID entity, Args &&...args) noexcept
 
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	auto *entityRecord = getEntityRecord(entity);
 	if (!entityRecord)
@@ -165,7 +165,7 @@ inline TAdd *ECS::addRemoveComponent(EntityID entity, Args && ...args) noexcept
 	assert(isRegisteredComponent<TRemove>());
 	assert(isNotSingletonComponent<TAdd>());
 	assert(isNotSingletonComponent<TRemove>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	const ComponentID addComponentID = ComponentIDGenerator::getID<TAdd>();
 	const ComponentID removeComponentID = ComponentIDGenerator::getID<TRemove>();
@@ -218,7 +218,7 @@ inline T *ECS::getComponent(EntityID entity) noexcept
 {
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	const ComponentID componentID = ComponentIDGenerator::getID<T>();
 	auto *entityRecord = getEntityRecord(entity);
@@ -235,7 +235,7 @@ inline const T *ECS::getComponent(EntityID entity) const noexcept
 {
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	const ComponentID componentID = ComponentIDGenerator::getID<T>();
 	auto *entityRecord = getEntityRecord(entity);
@@ -252,7 +252,7 @@ inline T *ECS::getOrAddComponent(EntityID entity) noexcept
 {
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	const ComponentID componentID = ComponentIDGenerator::getID<T>();
 	return (T *)getOrAddComponentTypeless(entity, componentID);
@@ -263,7 +263,7 @@ inline bool ECS::hasComponent(EntityID entity) const noexcept
 {
 	assert(isRegisteredComponent<T>());
 	assert(isNotSingletonComponent<T>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	const ComponentID componentID = ComponentIDGenerator::getID<T>();
 	const auto *record = getEntityRecord(entity);
@@ -275,7 +275,7 @@ inline bool ECS::hasComponents(EntityID entity) const noexcept
 {
 	assert(isRegisteredComponent<T...>());
 	assert(isNotSingletonComponent<T...>());
-	assert(m_entityRecords.find(entity) != m_entityRecords.end());
+	assert(getEntityRecord(entity));
 
 	if (sizeof...(T) == 0)
 	{

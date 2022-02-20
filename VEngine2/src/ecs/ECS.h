@@ -1,7 +1,6 @@
 #pragma once
 #include <EASTL/vector.h>
 #include <EASTL/bitset.h>
-#include <EASTL/hash_map.h>
 #include <assert.h>
 #include "utility/ErasedType.h"
 #include "ECSCommon.h"
@@ -381,9 +380,9 @@ private:
 	static ErasedType s_componentInfo[k_ecsMaxComponentTypes];
 	static eastl::bitset<k_ecsMaxComponentTypes> s_singletonComponentsBitset;
 
-	EntityID m_nextFreeEntityId = 1;
+	eastl::vector<uint32_t> m_freeEntityIDIndices;
 	eastl::vector<Archetype *> m_archetypes;
-	eastl::hash_map<EntityID, EntityRecord> m_entityRecords;
+	eastl::vector<EntityRecord> m_entityRecords;
 	mutable void *m_singletonComponents[k_ecsMaxComponentTypes] = {}; // mutable so that lazy construction of singleton components works even if the const version getSingletonComponent() is called
 
 	template<typename ...T>
@@ -393,6 +392,8 @@ private:
 	static bool isRegisteredComponent(size_t count, const ComponentID *componentIDs) noexcept;
 	static bool isNotSingletonComponent(size_t count, const ComponentID *componentIDs) noexcept;
 
+	EntityID allocateEntityID() noexcept;
+	void freeEntityID(EntityID entity) noexcept;
 	EntityID createEntityInternal(size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	void addComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs, const void *const *componentData, ComponentConstructorType constructorType) noexcept;
 	bool removeComponentsInternal(EntityID entity, size_t componentCount, const ComponentID *componentIDs) noexcept;

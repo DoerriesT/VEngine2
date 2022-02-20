@@ -2,26 +2,43 @@
 #include "utility/Utility.h"
 #include "ECS.h"
 
+static constexpr size_t k_ecsComponentMemoryChunkSize = 1024 * 16;
+
 Archetype::Archetype(ECS *ecs, const ComponentMask &componentMask, const ErasedType *componentInfo) noexcept
 	:m_ecs(ecs),
 	m_componentMask(componentMask),
-	m_componentInfo(componentInfo),
-	m_memoryChunkSize(),
-	m_memoryChunks(),
-	m_componentArrayOffsets()
+	m_componentInfo(componentInfo)
 {
-	constexpr size_t k_baseArrayOffset = sizeof(EntityID) * k_ecsComponentsPerMemoryChunk;
-
-	// compute total chunk size and array offsets by looping over all components of this archetype
-	m_memoryChunkSize += k_baseArrayOffset;
-
-	forEachComponentType(m_componentMask, [this](size_t index, ComponentID componentID)
+	// compute memory requirements of a single entity
+	size_t entityMemoryRequirements = sizeof(EntityID);
+	size_t worstCasePaddingRequirements = 0;
+	size_t prevAlignment = alignof(EntityID);
+	forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
 		{
 			const auto &compInfo = m_componentInfo[componentID];
-			m_memoryChunkSize = util::alignPow2Up<size_t>(m_memoryChunkSize, compInfo.m_alignment);
-			m_componentArrayOffsets.push_back(m_memoryChunkSize);
-			m_memoryChunkSize += compInfo.m_size * k_ecsComponentsPerMemoryChunk;
+			entityMemoryRequirements += compInfo.m_size;
+
+			// if the alignment of the previous array is a multiple of our alignment, there is no need for padding
+			worstCasePaddingRequirements += compInfo.m_alignment > prevAlignment ? compInfo.m_alignment - 1 : 0;
+			prevAlignment = compInfo.m_alignment;
 		});
+
+	assert(entityMemoryRequirements < k_ecsComponentMemoryChunkSize);
+	assert(k_ecsComponentMemoryChunkSize > worstCasePaddingRequirements);
+	m_entitiesPerChunk = (k_ecsComponentMemoryChunkSize - worstCasePaddingRequirements) / entityMemoryRequirements;
+	assert(m_entitiesPerChunk > 0);
+
+	// compute array offsets by looping over all components of this archetype
+	size_t currentOffset = sizeof(EntityID) * m_entitiesPerChunk;
+
+	forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
+		{
+			const auto &compInfo = m_componentInfo[componentID];
+			currentOffset = util::alignPow2Up<size_t>(currentOffset, compInfo.m_alignment);
+			m_componentArrayOffsets[componentID] = currentOffset;
+			currentOffset += compInfo.m_size * m_entitiesPerChunk;
+		});
+	assert(currentOffset <= k_ecsComponentMemoryChunkSize);
 }
 
 Archetype::~Archetype() noexcept
@@ -32,7 +49,7 @@ Archetype::~Archetype() noexcept
 		forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
 			{
 				const auto &compInfo = m_componentInfo[componentID];
-				const auto arrayOffset = m_componentArrayOffsets[index];
+				const auto arrayOffset = m_componentArrayOffsets[componentID];
 
 				uint8_t *arr = chunk.m_memory + arrayOffset;
 
@@ -64,16 +81,7 @@ const eastl::vector<ArchetypeMemoryChunk> &Archetype::getMemoryChunks() noexcept
 size_t Archetype::getComponentArrayOffset(ComponentID componentID) const noexcept
 {
 	assert(m_componentMask[componentID]);
-
-	size_t lastFoundComponentID = componentID;
-	size_t numPrevComponents = 0;
-	while (lastFoundComponentID != k_ecsMaxComponentTypes)
-	{
-		lastFoundComponentID = m_componentMask.DoFindPrev(lastFoundComponentID);
-		++numPrevComponents;
-	}
-
-	return m_componentArrayOffsets[numPrevComponents - 1];
+	return m_componentArrayOffsets[componentID];
 }
 
 ArchetypeSlot Archetype::allocateDataSlot() noexcept
@@ -83,7 +91,7 @@ ArchetypeSlot Archetype::allocateDataSlot() noexcept
 	for (auto &chunk : m_memoryChunks)
 	{
 		// found an existing chunk with space for our entity
-		if (chunk.m_size < k_ecsComponentsPerMemoryChunk)
+		if (chunk.m_size < m_entitiesPerChunk)
 		{
 			resultSlot.m_chunkSlotIdx = (uint32_t)chunk.m_size++;
 			return resultSlot;
@@ -93,7 +101,7 @@ ArchetypeSlot Archetype::allocateDataSlot() noexcept
 
 	// no more space in existing memory chunks -> create a new one
 	ArchetypeMemoryChunk chunk{};
-	chunk.m_memory = new uint8_t[m_memoryChunkSize];
+	chunk.m_memory = new uint8_t[k_ecsComponentMemoryChunkSize];
 	chunk.m_size = 1;
 
 	m_memoryChunks.push_back(chunk);
@@ -117,8 +125,8 @@ void Archetype::freeDataSlot(const ArchetypeSlot &slot) noexcept
 		forEachComponentType(m_componentMask, [&](size_t index, ComponentID componentID)
 			{
 				const auto &compInfo = m_componentInfo[componentID];
-				uint8_t *freedComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * chunkSlotIdx;
-				uint8_t *lastComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * (chunk.m_size - 1);
+				uint8_t *freedComp = chunk.m_memory + m_componentArrayOffsets[componentID] + compInfo.m_size * chunkSlotIdx;
+				uint8_t *lastComp = chunk.m_memory + m_componentArrayOffsets[componentID] + compInfo.m_size * (chunk.m_size - 1);
 
 				if (freedComp != lastComp)
 				{
@@ -134,7 +142,13 @@ void Archetype::freeDataSlot(const ArchetypeSlot &slot) noexcept
 		reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx] = reinterpret_cast<EntityID *>(chunk.m_memory)[chunk.m_size - 1];
 
 		// update entity record of last entity that got swapped into the freed slot
-		m_ecs->m_entityRecords[reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx]].m_slot = slot;
+		{
+			auto *swappedEntityRecord = m_ecs->getEntityRecord(reinterpret_cast<EntityID *>(chunk.m_memory)[chunkSlotIdx]);
+			assert(swappedEntityRecord);
+			
+			swappedEntityRecord->m_slot = slot;
+		}
+		
 	}
 
 	// reduce chunk size
@@ -175,7 +189,7 @@ EntityRecord Archetype::migrate(EntityID entity, const EntityRecord &oldRecord, 
 
 			const auto &compInfo = m_componentInfo[componentID];
 
-			uint8_t *newComp = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * chunkSlotIdx;
+			uint8_t *newComp = chunk.m_memory + m_componentArrayOffsets[componentID] + compInfo.m_size * chunkSlotIdx;
 
 			// old archetype shares this component -> move it
 			if (oldRecord.m_archetype && oldRecord.m_archetype->m_componentMask[componentID])
@@ -220,7 +234,7 @@ void Archetype::callDestructors(const ArchetypeSlot &slot) noexcept
 		{
 			const auto &compInfo = m_componentInfo[componentID];
 
-			uint8_t *compMem = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * slotIdx;
+			uint8_t *compMem = chunk.m_memory + m_componentArrayOffsets[componentID] + compInfo.m_size * slotIdx;
 			compInfo.m_destructor(compMem);
 		});
 }
@@ -262,7 +276,7 @@ void Archetype::clear(bool clearReferenceInECS) noexcept
 
 					for (uint32_t i = 0; i < chunk.m_size; ++i)
 					{
-						uint8_t *compMem = chunk.m_memory + m_componentArrayOffsets[index] + compInfo.m_size * i;
+						uint8_t *compMem = chunk.m_memory + m_componentArrayOffsets[componentID] + compInfo.m_size * i;
 						compInfo.m_destructor(compMem);
 					}
 				});
@@ -272,7 +286,10 @@ void Archetype::clear(bool clearReferenceInECS) noexcept
 				// clear EntityRecords in ECS
 				for (size_t i = 0; i < chunk.m_size; ++i)
 				{
-					m_ecs->m_entityRecords[reinterpret_cast<EntityID *>(chunk.m_memory)[i]] = {};
+					auto *record = m_ecs->getEntityRecord(reinterpret_cast<EntityID *>(chunk.m_memory)[i]);
+					assert(record);
+					record->m_archetype = nullptr;
+					record->m_slot = {};
 				}
 			}
 
