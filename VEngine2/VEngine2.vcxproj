@@ -247,6 +247,7 @@
     <ClInclude Include="src\component\CameraComponent.h" />
     <ClInclude Include="src\component\CharacterControllerComponent.h" />
     <ClInclude Include="src\component\ComponentRegistration.h" />
+    <ClInclude Include="src\component\EntityMetaComponent.h" />
     <ClInclude Include="src\component\InputStateComponent.h" />
     <ClInclude Include="src\component\IrradianceVolumeComponent.h" />
     <ClInclude Include="src\component\OutlineComponent.h" />
@@ -355,7 +356,6 @@
     <ClInclude Include="src\input\UserInput.h" />
     <ClInclude Include="src\job\JobSystem.h" />
     <ClInclude Include="src\job\ParallelFor.h" />
-    <ClInclude Include="src\Level.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\physics\Physics.h" />
     <ClInclude Include="src\profiling\Profiling.h" />
@@ -389,6 +389,7 @@
     <ClInclude Include="src\script\lua-5.4.3\lzio.h" />
     <ClInclude Include="src\script\LuaUtil.h" />
     <ClInclude Include="src\script\ScriptSystem.h" />
+    <ClInclude Include="src\TransformHierarchy.h" />
     <ClInclude Include="src\utility\allocator\DefaultAllocator.h" />
     <ClInclude Include="src\utility\allocator\IAllocator.h" />
     <ClInclude Include="src\utility\allocator\LinearAllocator.h" />
@@ -406,6 +407,7 @@
     <ClInclude Include="src\utility\Thread.h" />
     <ClInclude Include="src\utility\Timer.h" />
     <ClInclude Include="src\utility\TLSFAllocator.h" />
+    <ClInclude Include="src\utility\Transform.h" />
     <ClInclude Include="src\utility\Utility.h" />
     <ClInclude Include="src\utility\WideNarrowStringConversion.h" />
     <ClInclude Include="src\UUID.h" />
@@ -433,8 +435,8 @@
     <ClCompile Include="src\component\CameraComponent.cpp" />
     <ClCompile Include="src\component\CharacterControllerComponent.cpp" />
     <ClCompile Include="src\component\ComponentRegistration.cpp" />
+    <ClCompile Include="src\component\EntityMetaComponent.cpp" />
     <ClCompile Include="src\component\IrradianceVolumeComponent.cpp" />
-    <ClCompile Include="src\component\Level.cpp" />
     <ClCompile Include="src\component\LightComponent.cpp" />
     <ClCompile Include="src\component\MeshComponent.cpp" />
     <ClCompile Include="src\component\OutlineComponent.cpp" />
@@ -560,6 +562,7 @@
     <ClCompile Include="src\script\lua-5.4.3\lzio.c" />
     <ClCompile Include="src\script\LuaUtil.cpp" />
     <ClCompile Include="src\script\ScriptSystem.cpp" />
+    <ClCompile Include="src\TransformHierarchy.cpp" />
     <ClCompile Include="src\utility\allocator\DefaultAllocator.cpp" />
     <ClCompile Include="src\utility\allocator\IAllocator.cpp" />
     <ClCompile Include="src\utility\allocator\LinearAllocator.cpp" />
@@ -572,6 +575,7 @@
     <ClCompile Include="src\utility\Thread.cpp" />
     <ClCompile Include="src\utility\Timer.cpp" />
     <ClCompile Include="src\utility\TLSFAllocator.cpp" />
+    <ClCompile Include="src\utility\Transform.cpp" />
     <ClCompile Include="src\utility\Utility.cpp" />
     <ClCompile Include="src\utility\WideNarrowStringConversion.cpp" />
     <ClCompile Include="src\UUID.cpp" />

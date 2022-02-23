@@ -6,6 +6,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "Log.h"
 #include "profiling/Profiling.h"
+#include "TransformHierarchy.h"
 
 CharacterMovementSystem::CharacterMovementSystem(ECS *ecs) noexcept
 	:m_ecs(ecs)
@@ -17,7 +18,7 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 	PROFILING_ZONE_SCOPED;
 
 	m_ecs->iterate<TransformComponent, CharacterMovementComponent, CharacterControllerComponent>(
-		[timeDelta](size_t count, const EntityID *entities, TransformComponent *transformComps, CharacterMovementComponent *movementComps, CharacterControllerComponent *controllerComps)
+		[&](size_t count, const EntityID *entities, TransformComponent *transformComps, CharacterMovementComponent *movementComps, CharacterControllerComponent *controllerComps)
 		{
 			for (size_t i = 0; i < count; ++i)
 			{
@@ -33,7 +34,9 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 				// rotation
 				{
 					glm::quat turnQuat = glm::quat(glm::angleAxis(-mc.m_turnRightInputAxis, glm::vec3(0.0f, 1.0f, 0.0f)));
-					tc.m_transform.m_rotation = glm::normalize(turnQuat * tc.m_transform.m_rotation);
+					Transform transform = tc.m_transform;
+					transform.m_rotation = glm::normalize(turnQuat * tc.m_transform.m_rotation);
+					TransformHierarchy::setLocalTransform(m_ecs, entities[i], transform, &tc);
 				}
 
 				mc.m_velocityX = 0.0f;

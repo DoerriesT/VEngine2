@@ -23,9 +23,10 @@ void Editor::init(Engine *engine) noexcept
 	AssetMetaDataRegistry::get()->init();
 	m_engine = engine;
 
-	TransformComponent transC{};
-	transC.m_transform.m_translation = glm::vec3(-12.0f, 2.0f, 0.0f);
-	transC.m_transform.m_rotation = glm::quat(glm::vec3(0.0f, glm::radians(-90.0f), 0.0f));
+	Transform transform{};
+	transform.m_translation = glm::vec3(-12.0f, 2.0f, 0.0f);
+	transform.m_rotation = glm::quat(glm::vec3(0.0f, glm::radians(-90.0f), 0.0f));
+	TransformComponent transC(transform, Mobility::Dynamic);
 	CameraComponent cameraC{};
 	cameraC.m_fovy = glm::radians(60.0f);
 

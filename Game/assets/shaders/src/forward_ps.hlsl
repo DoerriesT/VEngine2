@@ -60,7 +60,7 @@ struct DrawConstants
 {
 	uint transformIndex;
 	uint materialIndex;
-	uint entityID;
+	uint2 entityID;
 };
 
 ConstantBuffer<PassConstants> g_PassConstants : REGISTER_CBV(0, 0, 0);

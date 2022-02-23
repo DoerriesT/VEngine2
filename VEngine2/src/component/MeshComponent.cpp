@@ -15,7 +15,7 @@ static bool serialize(MeshComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void MeshComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void MeshComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	MeshComponent &c = *reinterpret_cast<MeshComponent *>(instance);
 
@@ -28,23 +28,23 @@ void MeshComponent::onGUI(void *instance, Renderer *renderer, const TransformCom
 	ImGui::DragFloat("Bounding Sphere Size Factor", &c.m_boundingSphereSizeFactor, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 }
 
-bool MeshComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool MeshComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<MeshComponent *>(instance), stream);
 }
 
-bool MeshComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool MeshComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<MeshComponent *>(instance), stream);
 }
 
-void MeshComponent::toLua(lua_State *L, void *instance) noexcept
+void MeshComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	MeshComponent &c = *reinterpret_cast<MeshComponent *>(instance);
 	LuaUtil::setTableNumberField(L, "m_boundingSphereSizeFactor", (lua_Number)c.m_boundingSphereSizeFactor);
 }
 
-void MeshComponent::fromLua(lua_State *L, void *instance) noexcept
+void MeshComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	MeshComponent &c = *reinterpret_cast<MeshComponent *>(instance);
 	c.m_boundingSphereSizeFactor = (float)LuaUtil::getTableNumberField(L, "m_boundingSphereSizeFactor");

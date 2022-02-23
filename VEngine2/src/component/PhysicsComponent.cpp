@@ -142,7 +142,7 @@ PhysicsComponent::~PhysicsComponent() noexcept
 	}
 }
 
-void PhysicsComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void PhysicsComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	PhysicsComponent &c = *reinterpret_cast<PhysicsComponent *>(instance);
 
@@ -197,20 +197,20 @@ void PhysicsComponent::onGUI(void *instance, Renderer *renderer, const Transform
 	ImGui::DragFloat("Density", &c.m_density, 0.01f, 0.01f, FLT_MAX);
 }
 
-bool PhysicsComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool PhysicsComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<PhysicsComponent *>(instance), stream);
 }
 
-bool PhysicsComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool PhysicsComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<PhysicsComponent *>(instance), stream);
 }
 
-void PhysicsComponent::toLua(lua_State *L, void *instance) noexcept
+void PhysicsComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }
 
-void PhysicsComponent::fromLua(lua_State *L, void *instance) noexcept
+void PhysicsComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }

@@ -11,6 +11,8 @@
 #include <input/FlyCameraController.h>
 #include <graphics/Camera.h>
 #include <glm/gtx/transform.hpp>
+#include <utility/Transform.h>
+#include <TransformHierarchy.h>
 
 ViewportWindow::ViewportWindow(Engine *engine, const EntityID *editorCameraEntity) noexcept
 	:m_engine(engine),
@@ -96,7 +98,7 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying, EntityID selected
 					ImGuizmo::SetDrawlist();
 					ImGuizmo::SetRect(viewportOffset.x, viewportOffset.y, viewportSize.x, viewportSize.y);
 
-					glm::mat4 transform = glm::translate(tc->m_transform.m_translation) * glm::mat4_cast(tc->m_transform.m_rotation) * glm::scale(tc->m_transform.m_scale);
+					glm::mat4 transform = glm::translate(tc->m_globalTransform.m_translation) * glm::mat4_cast(tc->m_globalTransform.m_rotation) * glm::scale(tc->m_globalTransform.m_scale);
 
 					float snapVar = m_gizmoType == 0 ? m_translateSnap : m_gizmoType == 1 ? m_rotateSnap : m_scaleSnap;
 					float snapArr[] = { snapVar, snapVar, snapVar };
@@ -107,22 +109,26 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying, EntityID selected
 					glm::vec3 scale;
 					ImGuizmo::DecomposeMatrixToComponents((float *)&transform, (float *)&position, (float *)&eulerAngles, (float *)&scale);
 
+					Transform newTransform = tc->m_globalTransform;
+
 					switch (op)
 					{
 					case ImGuizmo::TRANSLATE:
-						tc->m_transform.m_translation = position;
+						newTransform.m_translation = position;
 						break;
 					case ImGuizmo::ROTATE:
-						tc->m_transform.m_rotation = glm::quat(glm::radians(eulerAngles));
+						newTransform.m_rotation = glm::quat(glm::radians(eulerAngles));
 						break;
 					case ImGuizmo::SCALE:
-						tc->m_transform.m_scale = scale;
+						newTransform.m_scale = scale;
 						break;
 					case ImGuizmo::BOUNDS:
 						break;
 					default:
 						break;
 					}
+
+					TransformHierarchy::setGlobalTransform(&ecs, selectedEntity, newTransform, tc);
 				}
 			}
 		}

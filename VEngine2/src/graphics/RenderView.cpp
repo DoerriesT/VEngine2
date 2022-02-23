@@ -87,7 +87,11 @@ void RenderView::render(const Data &data, rg::RenderGraph *graph) noexcept
 		{
 			MemoryRange range{ 0, sizeof(uint32_t) * 4 };
 			buffer->invalidate(1, &range);
-			m_pickedEntity = pickingReadbackData[1]; // [0] is depth, [1] is the picked entity
+
+			// [0] is depth, [1] and [2] is the picked entity
+			m_pickedEntity = 0;
+			m_pickedEntity |= static_cast<EntityID>(pickingReadbackData[1]); 
+			m_pickedEntity |= static_cast<EntityID>(pickingReadbackData[2]) << 32; 
 		}
 		buffer->unmap();
 	}

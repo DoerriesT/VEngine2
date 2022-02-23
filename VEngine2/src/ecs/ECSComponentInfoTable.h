@@ -10,11 +10,11 @@ class SerializationReadStream;
 struct ECSComponentInfo
 {
 	ErasedType m_erasedType;
-	void (*m_onGUI)(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
-	bool (*m_onSerialize)(void *instance, SerializationWriteStream &stream) noexcept;
-	bool (*m_onDeserialize)(void *instance, SerializationReadStream &stream) noexcept;
-	void (*m_toLua)(lua_State *L, void *instance) noexcept;
-	void (*m_fromLua)(lua_State *L, void *instance) noexcept;
+	void (*m_onGUI)(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
+	bool (*m_onSerialize)(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept;
+	bool (*m_onDeserialize)(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept;
+	void (*m_toLua)(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept;
+	void (*m_fromLua)(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept;
 	const char *m_name;
 	const char *m_displayName;
 	const char *m_tooltip;

@@ -16,7 +16,7 @@ static bool serialize(SkinnedMeshComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void SkinnedMeshComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void SkinnedMeshComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	SkinnedMeshComponent &c = *reinterpret_cast<SkinnedMeshComponent *>(instance);
 
@@ -35,23 +35,23 @@ void SkinnedMeshComponent::onGUI(void *instance, Renderer *renderer, const Trans
 	ImGui::DragFloat("Bounding Sphere Size Factor", &c.m_boundingSphereSizeFactor, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);
 }
 
-bool SkinnedMeshComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool SkinnedMeshComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<SkinnedMeshComponent *>(instance), stream);
 }
 
-bool SkinnedMeshComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool SkinnedMeshComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<SkinnedMeshComponent *>(instance), stream);
 }
 
-void SkinnedMeshComponent::toLua(lua_State *L, void *instance) noexcept
+void SkinnedMeshComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	SkinnedMeshComponent &c = *reinterpret_cast<SkinnedMeshComponent *>(instance);
 	LuaUtil::setTableNumberField(L, "m_boundingSphereSizeFactor", (lua_Number)c.m_boundingSphereSizeFactor);
 }
 
-void SkinnedMeshComponent::fromLua(lua_State *L, void *instance) noexcept
+void SkinnedMeshComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	SkinnedMeshComponent &c = *reinterpret_cast<SkinnedMeshComponent *>(instance);
 	c.m_boundingSphereSizeFactor = (float)LuaUtil::getTableNumberField(L, "m_boundingSphereSizeFactor");

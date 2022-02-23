@@ -2,6 +2,7 @@
 #include <glm/gtx/transform.hpp>
 #include "component/TransformComponent.h"
 #include "component/CameraComponent.h"
+#include "TransformHierarchy.h"
 
 Camera::Camera(TransformComponent &transformComponent, CameraComponent &cameraComponent) noexcept
 	:m_transformComponent(transformComponent),
@@ -14,12 +15,14 @@ Camera::Camera(TransformComponent &transformComponent, CameraComponent &cameraCo
 void Camera::setRotation(const glm::quat &rotation) noexcept
 {
 	m_transformComponent.m_transform.m_rotation = rotation;
+	m_transformComponent.m_globalTransform.m_rotation = rotation;
 	updateViewMatrix();
 }
 
 void Camera::setPosition(const glm::vec3 &position) noexcept
 {
 	m_transformComponent.m_transform.m_translation = position;
+	m_transformComponent.m_globalTransform.m_translation = position;
 	updateViewMatrix();
 }
 
@@ -40,6 +43,7 @@ void Camera::rotate(const glm::vec3 &pitchYawRollOffset) noexcept
 	glm::quat tmp = glm::quat(glm::vec3(-pitchYawRollOffset.x, 0.0f, 0.0f));
 	glm::quat tmp1 = glm::quat(glm::angleAxis(-pitchYawRollOffset.y, glm::vec3(0.0f, 1.0f, 0.0f)));
 	m_transformComponent.m_transform.m_rotation = glm::normalize(tmp1 * m_transformComponent.m_transform.m_rotation * tmp);
+	m_transformComponent.m_globalTransform.m_rotation = m_transformComponent.m_transform.m_rotation;
 
 	updateViewMatrix();
 }
@@ -51,6 +55,7 @@ void Camera::translate(const glm::vec3 &translationOffset) noexcept
 	glm::vec3 forward(m_cameraComponent.m_viewMatrix[0][2], m_cameraComponent.m_viewMatrix[1][2], m_cameraComponent.m_viewMatrix[2][2]);
 
 	m_transformComponent.m_transform.m_translation += translationOffset.z * forward + translationOffset.x * strafe + translationOffset.y * up;
+	m_transformComponent.m_globalTransform.m_translation = m_transformComponent.m_transform.m_translation;
 	updateViewMatrix();
 }
 
@@ -60,6 +65,7 @@ void Camera::lookAt(const glm::vec3 &targetPosition)
 
 	m_cameraComponent.m_viewMatrix = glm::lookAt(m_transformComponent.m_transform.m_translation, targetPosition, up);
 	m_transformComponent.m_transform.m_rotation = glm::inverse(glm::quat_cast(m_cameraComponent.m_viewMatrix));
+	m_transformComponent.m_globalTransform.m_rotation = m_transformComponent.m_transform.m_rotation;
 }
 
 glm::mat4 Camera::getViewMatrix() const noexcept

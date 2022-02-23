@@ -62,7 +62,7 @@ struct DrawConstants
 {
 	uint transformIndex;
 	uint materialIndex;
-	uint entityID;
+	uint2 entityID;
 #if SKINNED
 	uint skinningMatricesOffset;
 #endif

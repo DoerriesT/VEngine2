@@ -413,7 +413,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 					auto &vc = volumeC[i];
 
 					InternalIrradianceVolume volume{};
-					volume.m_transform = tc.m_transform;
+					volume.m_transform = tc.m_globalTransform;
 					volume.m_entity = entities[i];
 					volume.m_resolutionX = eastl::max<uint32_t>(2, vc.m_resolutionX);
 					volume.m_resolutionY = eastl::max<uint32_t>(2, vc.m_resolutionY);

@@ -306,9 +306,6 @@
     <ClInclude Include="src\asset\MeshAsset.h">
       <Filter>src\asset</Filter>
     </ClInclude>
-    <ClInclude Include="src\Level.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\graphics\MeshManager.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
@@ -642,6 +639,15 @@
     <ClInclude Include="src\graphics\MeshRenderWorld.h">
       <Filter>src\graphics</Filter>
     </ClInclude>
+    <ClInclude Include="src\utility\Transform.h">
+      <Filter>src\utility</Filter>
+    </ClInclude>
+    <ClInclude Include="src\component\EntityMetaComponent.h">
+      <Filter>src\component</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TransformHierarchy.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Engine.cpp">
@@ -838,9 +844,6 @@
     </ClCompile>
     <ClCompile Include="src\input\FPSCameraController.cpp">
       <Filter>src\input</Filter>
-    </ClCompile>
-    <ClCompile Include="src\component\Level.cpp">
-      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\graphics\MeshManager.cpp">
       <Filter>src\graphics</Filter>
@@ -1135,6 +1138,15 @@
     </ClCompile>
     <ClCompile Include="src\graphics\MeshRenderWorld.cpp">
       <Filter>src\graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\component\EntityMetaComponent.cpp">
+      <Filter>src\component</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Transform.cpp">
+      <Filter>src\utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TransformHierarchy.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

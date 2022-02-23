@@ -602,13 +602,13 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 					pc.m_recapture = false;
 				}
 
-				glm::vec3 cameraProbePosDiff = *data.m_cameraPosition - tc.m_curRenderTransform.m_translation;
+				glm::vec3 cameraProbePosDiff = *data.m_cameraPosition - tc.m_globalTransform.m_translation;
 
 				ProbeSortData probeSortData{};
 				probeSortData.m_entity = entities[i];
 				probeSortData.m_transformComp = &tc;
 				probeSortData.m_probeComp = &pc;
-				probeSortData.m_capturePosition = tc.m_curRenderTransform.m_translation + tc.m_curRenderTransform.m_rotation * pc.m_captureOffset;
+				probeSortData.m_capturePosition = tc.m_globalTransform.m_translation + tc.m_globalTransform.m_rotation * pc.m_captureOffset;
 				probeSortData.m_nearPlane = pc.m_nearPlane;
 				probeSortData.m_farPlane = pc.m_farPlane;
 				probeSortData.m_cameraDist2 = glm::dot(cameraProbePosDiff, cameraProbePosDiff);
@@ -746,9 +746,9 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		m_curRelightProbeFarPlane = sData.m_farPlane;
 
 		m_curRelightProbeWorldToLocalTransposed =
-			glm::transpose(glm::scale(1.0f / sData.m_transformComp->m_curRenderTransform.m_scale)
-				* glm::mat4_cast(glm::inverse(sData.m_transformComp->m_curRenderTransform.m_rotation))
-				* glm::translate(-sData.m_transformComp->m_curRenderTransform.m_translation));
+			glm::transpose(glm::scale(1.0f / sData.m_transformComp->m_globalTransform.m_scale)
+				* glm::mat4_cast(glm::inverse(sData.m_transformComp->m_globalTransform.m_rotation))
+				* glm::translate(-sData.m_transformComp->m_globalTransform.m_translation));
 
 		relightProbe(graph, data, sData.m_probeComp->m_cacheSlot);
 	}
@@ -786,9 +786,9 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		// TODO: frustum cull
 
 		glm::mat4 worldToLocalTransposed =
-			glm::transpose(glm::scale(1.0f / sData.m_transformComp->m_curRenderTransform.m_scale)
-				* glm::mat4_cast(glm::inverse(sData.m_transformComp->m_curRenderTransform.m_rotation))
-				* glm::translate(-sData.m_transformComp->m_curRenderTransform.m_translation));
+			glm::transpose(glm::scale(1.0f / sData.m_transformComp->m_globalTransform.m_scale)
+				* glm::mat4_cast(glm::inverse(sData.m_transformComp->m_globalTransform.m_rotation))
+				* glm::translate(-sData.m_transformComp->m_globalTransform.m_translation));
 
 		ReflectionProbeGPU probe{};
 		probe.m_worldToLocal0 = worldToLocalTransposed[0];
@@ -796,12 +796,12 @@ void ReflectionProbeManager::update(rg::RenderGraph *graph, const Data &data) no
 		probe.m_worldToLocal2 = worldToLocalTransposed[2];
 		probe.m_capturePosition = sData.m_capturePosition;
 		probe.m_arraySlot = static_cast<float>(sData.m_probeComp->m_cacheSlot);
-		probe.m_boxInvFadeDist0 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[0], 1e-5f, sData.m_transformComp->m_curRenderTransform.m_scale.x) / sData.m_transformComp->m_curRenderTransform.m_scale.x);
-		probe.m_boxInvFadeDist1 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[1], 1e-5f, sData.m_transformComp->m_curRenderTransform.m_scale.x) / sData.m_transformComp->m_curRenderTransform.m_scale.x);
-		probe.m_boxInvFadeDist2 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[2], 1e-5f, sData.m_transformComp->m_curRenderTransform.m_scale.y) / sData.m_transformComp->m_curRenderTransform.m_scale.y);
-		probe.m_boxInvFadeDist3 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[3], 1e-5f, sData.m_transformComp->m_curRenderTransform.m_scale.y) / sData.m_transformComp->m_curRenderTransform.m_scale.y);
-		probe.m_boxInvFadeDist4 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[4], 1e-5f, sData.m_transformComp->m_curRenderTransform.m_scale.z) / sData.m_transformComp->m_curRenderTransform.m_scale.z);
-		probe.m_boxInvFadeDist5 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[5], 1e-5f, sData.m_transformComp->m_curRenderTransform.m_scale.z) / sData.m_transformComp->m_curRenderTransform.m_scale.z);
+		probe.m_boxInvFadeDist0 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[0], 1e-5f, sData.m_transformComp->m_globalTransform.m_scale.x) / sData.m_transformComp->m_globalTransform.m_scale.x);
+		probe.m_boxInvFadeDist1 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[1], 1e-5f, sData.m_transformComp->m_globalTransform.m_scale.x) / sData.m_transformComp->m_globalTransform.m_scale.x);
+		probe.m_boxInvFadeDist2 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[2], 1e-5f, sData.m_transformComp->m_globalTransform.m_scale.y) / sData.m_transformComp->m_globalTransform.m_scale.y);
+		probe.m_boxInvFadeDist3 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[3], 1e-5f, sData.m_transformComp->m_globalTransform.m_scale.y) / sData.m_transformComp->m_globalTransform.m_scale.y);
+		probe.m_boxInvFadeDist4 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[4], 1e-5f, sData.m_transformComp->m_globalTransform.m_scale.z) / sData.m_transformComp->m_globalTransform.m_scale.z);
+		probe.m_boxInvFadeDist5 = 1.0f / (eastl::clamp(sData.m_probeComp->m_boxFadeDistances[5], 1e-5f, sData.m_transformComp->m_globalTransform.m_scale.z) / sData.m_transformComp->m_globalTransform.m_scale.z);
 
 		*reflectionProbesBufferPtr = probe;
 		++reflectionProbesBufferPtr;
@@ -1028,7 +1028,7 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 				{
 					DirectionalLightGPU directionalLight{};
 					directionalLight.m_color = glm::vec3(glm::unpackUnorm4x8(lc.m_color)) * lc.m_intensity;
-					directionalLight.m_direction = glm::normalize(tc.m_curRenderTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+					directionalLight.m_direction = glm::normalize(tc.m_globalTransform.m_rotation * glm::vec3(0.0f, 1.0f, 0.0f));
 					directionalLight.m_cascadeCount = 0;
 
 					if (lc.m_shadows)

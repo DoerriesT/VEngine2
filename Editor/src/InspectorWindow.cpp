@@ -3,8 +3,8 @@
 #include <graphics/imgui/gui_helpers.h>
 #include <Engine.h>
 #include <graphics/Renderer.h>
-#include <Level.h>
 #include <ecs/ECSComponentInfoTable.h>
+#include <component/EntityMetaComponent.h>
 #include <component/OutlineComponent.h>
 #include <component/TransformComponent.h>
 
@@ -22,39 +22,44 @@ void InspectorWindow::draw(EntityID entity) noexcept
 
 	ImGui::Begin("Inspector");
 	{
+		ECS &ecs = *m_engine->getECS();
+
+		// get meta component of currently selected entity
+		EntityMetaComponent *metaComp = nullptr;
+		if (entity != k_nullEntity)
+		{
+			metaComp = ecs.getComponent<EntityMetaComponent>(entity);
+		}
+
+		// copy entity name to scratch memory
 		if (entity != m_lastDisplayedEntity)
 		{
 			m_lastDisplayedEntity = entity;
 			memset(m_nameStringTemp, 0, sizeof(m_nameStringTemp));
 
-			// look up name of selected entity
-			if (entity != k_nullEntity)
+			if (metaComp)
 			{
-				Level *level = m_engine->getLevel();
-
-				const auto &sceneGraphNodes = level->getSceneGraphNodes();
-
-				for (auto *n : sceneGraphNodes)
-				{
-					if (n->m_entity == entity)
-					{
-						m_currentSceneGraphNode = n;
-						break;
-					}
-				}
-
-				static_assert(sizeof(m_nameStringTemp) == SceneGraphNode::k_maxNameLength);
-				strcpy_s(m_nameStringTemp, m_currentSceneGraphNode->m_name);
+				static_assert(sizeof(m_nameStringTemp) == EntityMetaComponent::k_maxNameLength);
+				strcpy_s(m_nameStringTemp, metaComp->m_name);
+			}
+			else
+			{
+				strcpy_s(m_nameStringTemp, "*Nameless Entity*");
 			}
 		}
 
 		if (entity != k_nullEntity)
 		{
-			ECS &ecs = *m_engine->getECS();
-
-			if (ImGui::InputText("Entity Name", m_nameStringTemp, IM_ARRAYSIZE(m_nameStringTemp), ImGuiInputTextFlags_EnterReturnsTrue))
+			if (metaComp)
 			{
-				strcpy_s(m_currentSceneGraphNode->m_name, m_nameStringTemp);
+				if (ImGui::InputText("Entity Name", m_nameStringTemp, IM_ARRAYSIZE(m_nameStringTemp), ImGuiInputTextFlags_EnterReturnsTrue))
+				{
+					strcpy_s(metaComp->m_name, m_nameStringTemp);
+				}
+
+				char uuidStr[TUUID::k_uuidStringSize];
+				metaComp->m_uuid.toString(uuidStr);
+				ImGui::InputText("ID", uuidStr, sizeof(uuidStr), ImGuiInputTextFlags_ReadOnly);
 			}
 
 			auto compMask = ecs.getComponentMask(entity);
@@ -75,7 +80,9 @@ void InspectorWindow::draw(EntityID entity) noexcept
 				forEachComponentType(registeredComponentMask, [&](size_t, ComponentID componentID)
 					{
 						// skip components already present on the entity and hidden editor components
-						if (compMask[componentID] || componentID == ComponentIDGenerator::getID<EditorOutlineComponent>())
+						if (compMask[componentID]
+							|| componentID == ComponentIDGenerator::getID<EditorOutlineComponent>()
+							|| componentID == ComponentIDGenerator::getID<EntityMetaComponent>())
 						{
 							return;
 						}
@@ -96,7 +103,8 @@ void InspectorWindow::draw(EntityID entity) noexcept
 				[&](size_t, ComponentID componentID)
 				{
 					// skip hidden editor components
-					if (componentID == ComponentIDGenerator::getID<EditorOutlineComponent>())
+					if (componentID == ComponentIDGenerator::getID<EditorOutlineComponent>()
+						|| componentID == ComponentIDGenerator::getID<EntityMetaComponent>())
 					{
 						return;
 					}
@@ -139,7 +147,7 @@ void InspectorWindow::draw(EntityID entity) noexcept
 					if (displayComponent)
 					{
 						auto *tc = ecs.getComponent<TransformComponent>(entity);
-						compInfo.m_onGUI(component, m_engine->getRenderer(), tc);
+						compInfo.m_onGUI(&ecs, entity, component, m_engine->getRenderer(), tc);
 					}
 
 				});

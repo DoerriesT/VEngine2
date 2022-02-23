@@ -131,8 +131,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 				for (size_t i = 0; i < count; ++i)
 				{
 					auto &tc = transC[i];
-					tc.m_prevRenderTransform = tc.m_curRenderTransform;
-					tc.m_curRenderTransform = lerp(tc.m_prevTransform, tc.m_transform, fractionalSimFrameTime);
+					tc.m_prevRenderTransform = tc.m_mobility == Mobility::Static ? tc.m_globalTransform : tc.m_curRenderTransform;
+					tc.m_curRenderTransform = tc.m_mobility == Mobility::Static ? tc.m_globalTransform : lerp(tc.m_prevGlobalTransform, tc.m_globalTransform, fractionalSimFrameTime);
 
 					if (skinnedMeshC)
 					{

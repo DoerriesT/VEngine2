@@ -31,7 +31,7 @@ static bool serialize(ParticipatingMediumComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void ParticipatingMediumComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void ParticipatingMediumComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	ParticipatingMediumComponent &c = *reinterpret_cast<ParticipatingMediumComponent *>(instance);
 
@@ -68,20 +68,20 @@ void ParticipatingMediumComponent::onGUI(void *instance, Renderer *renderer, con
 	}
 }
 
-bool ParticipatingMediumComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool ParticipatingMediumComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<ParticipatingMediumComponent *>(instance), stream);
 }
 
-bool ParticipatingMediumComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool ParticipatingMediumComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<ParticipatingMediumComponent *>(instance), stream);
 }
 
-void ParticipatingMediumComponent::toLua(lua_State *L, void *instance) noexcept
+void ParticipatingMediumComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }
 
-void ParticipatingMediumComponent::fromLua(lua_State *L, void *instance) noexcept
+void ParticipatingMediumComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }

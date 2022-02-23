@@ -1,7 +1,9 @@
 #pragma once
 #include <stdint.h>
+#include "ecs/ECSCommon.h"
 
 struct lua_State;
+class ECS;
 struct TransformComponent;
 class Renderer;
 class SerializationWriteStream;
@@ -19,11 +21,11 @@ struct IrradianceVolumeComponent
 	float m_farPlane = 50.0f;
 	uint32_t m_internalHandle = 0;
 
-	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
-	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;
-	static bool onDeserialize(void *instance, SerializationReadStream &stream) noexcept;
-	static void toLua(lua_State *L, void *instance) noexcept;
-	static void fromLua(lua_State *L, void *instance) noexcept;
+	static void onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
+	static bool onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept;
+	static bool onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept;
+	static void toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept;
+	static void fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept;
 	static const char *getComponentName() noexcept { return "IrradianceVolumeComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Irradiance Volume Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

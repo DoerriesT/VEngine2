@@ -7,6 +7,7 @@
 #include "TransformComponent.h"
 #include "graphics/Renderer.h"
 #include "utility/Serialization.h"
+#include "ecs/ECSCommon.h"
 
 template<typename Stream>
 static bool serialize(ReflectionProbeComponent &c, Stream &stream) noexcept
@@ -25,7 +26,7 @@ static bool serialize(ReflectionProbeComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void ReflectionProbeComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	ReflectionProbeComponent &c = *reinterpret_cast<ReflectionProbeComponent *>(instance);
 
@@ -66,7 +67,7 @@ void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const T
 		const glm::vec4 k_visibleDebugColor = glm::vec4(1.0f, 0.5f, 0.0f, 1.0f);
 		const glm::vec4 k_occludedDebugColor = glm::vec4(0.5f, 0.25f, 0.0f, 1.0f);
 
-		auto &transform = transformComponent->m_transform;
+		auto &transform = transformComponent->m_globalTransform;
 		glm::mat4 boxTransform = glm::translate(transform.m_translation) * glm::mat4_cast(transform.m_rotation) * glm::scale(transform.m_scale);
 		renderer->drawDebugBox(boxTransform, k_visibleDebugColor, k_occludedDebugColor, true);
 		renderer->drawDebugBox(boxTransform, glm::vec4(1.0f, 0.5f, 0.0f, 0.125f), glm::vec4(0.5f, 0.25f, 0.0f, 0.125f), true, false);
@@ -87,17 +88,17 @@ void ReflectionProbeComponent::onGUI(void *instance, Renderer *renderer, const T
 	}
 }
 
-bool ReflectionProbeComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool ReflectionProbeComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<ReflectionProbeComponent *>(instance), stream);
 }
 
-bool ReflectionProbeComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool ReflectionProbeComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<ReflectionProbeComponent *>(instance), stream);
 }
 
-void ReflectionProbeComponent::toLua(lua_State *L, void *instance) noexcept
+void ReflectionProbeComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	ReflectionProbeComponent &c = *reinterpret_cast<ReflectionProbeComponent *>(instance);
 
@@ -111,7 +112,7 @@ void ReflectionProbeComponent::toLua(lua_State *L, void *instance) noexcept
 	LuaUtil::setTableBoolField(L, "m_recapture", c.m_recapture);
 }
 
-void ReflectionProbeComponent::fromLua(lua_State *L, void *instance) noexcept
+void ReflectionProbeComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	ReflectionProbeComponent &c = *reinterpret_cast<ReflectionProbeComponent *>(instance);
 

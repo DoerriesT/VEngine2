@@ -116,7 +116,7 @@ CharacterControllerComponent::~CharacterControllerComponent() noexcept
 	}
 }
 
-void CharacterControllerComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void CharacterControllerComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	CharacterControllerComponent &c = *reinterpret_cast<CharacterControllerComponent *>(instance);
 
@@ -159,20 +159,20 @@ void CharacterControllerComponent::onGUI(void *instance, Renderer *renderer, con
 	ImGui::Checkbox("Collision Down", &collisionDown);
 }
 
-bool CharacterControllerComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool CharacterControllerComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<CharacterControllerComponent *>(instance), stream);
 }
 
-bool CharacterControllerComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool CharacterControllerComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<CharacterControllerComponent *>(instance), stream);
 }
 
-void CharacterControllerComponent::toLua(lua_State *L, void *instance) noexcept
+void CharacterControllerComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }
 
-void CharacterControllerComponent::fromLua(lua_State *L, void *instance) noexcept
+void CharacterControllerComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }

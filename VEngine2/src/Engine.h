@@ -8,7 +8,6 @@ class AnimationSystem;
 class UserInput;
 class IGameLogic;
 class ECS;
-class Level;
 
 class Engine
 {
@@ -18,7 +17,6 @@ public:
 	Renderer *getRenderer() noexcept;
 	Physics *getPhysics() noexcept;
 	//UserInput *getUserInput() noexcept;
-	Level *getLevel() noexcept;
 	void setEditorMode(bool editorMode) noexcept;
 	bool isEditorMode() const noexcept;
 	void setEditorViewport(int32_t offsetX, int32_t offsetY, uint32_t width, uint32_t height) noexcept;
@@ -36,7 +34,6 @@ private:
 	Physics *m_physics = nullptr;
 	AnimationSystem *m_animationSystem = nullptr;
 	UserInput *m_userInput = nullptr;
-	Level *m_level = nullptr;
 	bool m_editorMode = false;
 	bool m_viewportParamsDirty = true;
 	int32_t m_editorViewportOffsetX = 0;

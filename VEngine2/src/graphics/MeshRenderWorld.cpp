@@ -205,7 +205,7 @@ void MeshRenderWorld::createMeshRenderList(const glm::mat4 &viewMatrix, const gl
 
 		const auto &submeshInstance = m_submeshInstances[idx];
 
-		const bool dynamic = m_meshInstances[submeshInstance.m_transformIndex].m_mobility == TransformComponent::Mobility::DYNAMIC;
+		const bool dynamic = m_meshInstances[submeshInstance.m_transformIndex].m_mobility == Mobility::Dynamic;
 		const auto alphaMode = submeshInstance.m_alphaTested ? MaterialAlphaMode::Mask : MaterialAlphaMode::Opaque;
 
 		const uint64_t listIdx = MeshRenderList2::getListIndex(dynamic, alphaMode, submeshInstance.m_skinned, submeshInstance.m_outlined);

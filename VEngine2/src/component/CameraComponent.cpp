@@ -16,7 +16,7 @@ static bool serialize(CameraComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void CameraComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void CameraComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	CameraComponent &cc = *reinterpret_cast<CameraComponent *>(instance);
 
@@ -32,17 +32,17 @@ void CameraComponent::onGUI(void *instance, Renderer *renderer, const TransformC
 	ImGuiHelpers::Tooltip("The distance of the camera far plane.");
 }
 
-bool CameraComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool CameraComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<CameraComponent *>(instance), stream);
 }
 
-bool CameraComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool CameraComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<CameraComponent *>(instance), stream);
 }
 
-void CameraComponent::toLua(lua_State *L, void *instance) noexcept
+void CameraComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	CameraComponent &c = *reinterpret_cast<CameraComponent *>(instance);
 
@@ -54,7 +54,7 @@ void CameraComponent::toLua(lua_State *L, void *instance) noexcept
 	LuaUtil::setTableNumberArrayField(L, "m_projectionMatrix", &c.m_projectionMatrix[0][0], 16);
 }
 
-void CameraComponent::fromLua(lua_State *L, void *instance) noexcept
+void CameraComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	CameraComponent &c = *reinterpret_cast<CameraComponent *>(instance);
 

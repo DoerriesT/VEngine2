@@ -7,6 +7,7 @@
 #include <glm/mat4x4.hpp>
 #include <IGameLogic.h>
 #include <graphics/imgui/imgui.h>
+#include <component/EntityMetaComponent.h>
 #include <component/TransformComponent.h>
 #include <component/CameraComponent.h>
 #include <component/LightComponent.h>
@@ -25,7 +26,6 @@
 #include <input/FPSCameraController.h>
 #include <input/ThirdPersonCameraController.h>
 #include <graphics/Camera.h>
-#include <Level.h>
 #include <physics/Physics.h>
 #include <animation/AnimationGraph.h>
 #include <filesystem/VirtualFileSystem.h>
@@ -33,6 +33,7 @@
 #include <iostream>
 #include <filesystem/Path.h>
 #include <profiling/Profiling.h>
+#include <TransformHierarchy.h>
 
 static AnimationGraph *setupAnimationGraph()
 {
@@ -96,18 +97,16 @@ public:
 
 		// camera
 		{
-			TransformComponent transC1{};
-			transC1.m_transform.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+			Transform transform{};
+			transform.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+			TransformComponent transC1(transform, Mobility::Dynamic);
 
 			CameraComponent cameraC1{};
 			cameraC1.m_fovy = glm::radians(60.0f);
 
-
-
 			Camera cam(transC1, cameraC1);
-			m_cameraEntity = m_engine->getECS()->createEntity<TransformComponent, CameraComponent>(transC1, cameraC1);
+			m_cameraEntity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, CameraComponent>(EntityMetaComponent("Camera"), transC1, cameraC1);
 			m_engine->setCameraEntity(m_cameraEntity);
-			m_engine->getLevel()->addEntity(m_cameraEntity, "Camera");
 		}
 
 		// player character
@@ -117,10 +116,11 @@ public:
 
 			m_customAnimGraph = setupAnimationGraph();
 
-			TransformComponent transC{};
-			transC.m_transform.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
-			transC.m_transform.m_scale = glm::vec3(0.01f);
-			transC.m_transform.m_translation.y = 4.0f;
+			Transform transform{};
+			transform.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
+			transform.m_scale = glm::vec3(0.01f);
+			transform.m_translation.y = 4.0f;
+			TransformComponent transC(transform, Mobility::Dynamic);
 
 			SkinnedMeshComponent meshC{};
 			meshC.m_mesh = m_cesiumManAsset;
@@ -134,8 +134,7 @@ public:
 			CharacterMovementComponent movC{};
 			movC.m_active = true;
 
-			m_playerEntity = m_engine->getECS()->createEntity<TransformComponent, SkinnedMeshComponent, CharacterControllerComponent, CharacterMovementComponent>(transC, meshC, ccC, movC);
-			m_engine->getLevel()->addEntity(m_playerEntity, "Player");
+			m_playerEntity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, SkinnedMeshComponent, CharacterControllerComponent, CharacterMovementComponent>(EntityMetaComponent("Player"), transC, meshC, ccC, movC);
 		}
 
 		// ground plane
@@ -147,17 +146,17 @@ public:
 			physicsC.m_physicsShapeType = PhysicsShapeType::PLANE;
 			//physicsC.m_materialHandle = m_physicsMaterial;
 
-			auto entity = m_engine->getECS()->createEntity<TransformComponent, PhysicsComponent>(transC, physicsC);
-			m_engine->getLevel()->addEntity(entity, "Ground Plane");
+			auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, PhysicsComponent>(EntityMetaComponent("Ground Plane"), transC, physicsC);
 		}
 
 		// sponza
+		EntityID sponzaEntity = {};
 		{
 			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza.mesh"));
 
-			TransformComponent transC{};
-			transC.m_transform.m_translation = glm::vec3(0.65f, 0.0f, 0.35f);
-			transC.m_mobility = TransformComponent::Mobility::STATIC;
+			Transform transform{};
+			transform.m_translation = glm::vec3(0.65f, 0.0f, 0.35f);
+			TransformComponent transC(transform);
 
 			MeshComponent meshC{ m_sponzaAsset };
 
@@ -168,8 +167,7 @@ public:
 			//physicsC.m_triangleMeshHandle = m_sponzaAsset->getPhysicsTriangleMeshhandle();
 			//physicsC.m_materialHandle = m_physicsMaterial;
 
-			auto entity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
-			m_engine->getLevel()->addEntity(entity, "Sponza");
+			sponzaEntity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, MeshComponent, PhysicsComponent>(EntityMetaComponent("Sponza"), transC, meshC, physicsC);
 		}
 
 		//// cesium man
@@ -218,8 +216,9 @@ public:
 
 		// light
 		{
-			TransformComponent transC{};
-			transC.m_transform.m_rotation = glm::quat(glm::vec3(glm::radians(-18.0f), 0.0f, 0.0f));
+			Transform transform{};
+			transform.m_rotation = glm::quat(glm::vec3(glm::radians(-18.0f), 0.0f, 0.0f));
+			TransformComponent transC(transform);
 
 			LightComponent lightC{};
 			lightC.m_type = LightComponent::Type::Directional;
@@ -227,17 +226,18 @@ public:
 			lightC.m_cascadeCount = 4;
 			lightC.m_intensity = 10.0f;
 
-			auto entity = m_engine->getECS()->createEntity<TransformComponent, LightComponent>(transC, lightC);
-			m_engine->getLevel()->addEntity(entity, "Directional Light");
+			auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, LightComponent>(EntityMetaComponent("Directional Light"), transC, lightC);
+			TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 		}
 
 		// reflection probes
 		{
 			// center
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(0.0f, 6.475f, 0.0f);
-				transC.m_transform.m_scale = glm::vec3(10.0f, 6.525f, 2.4f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(0.0f, 6.475f, 0.0f);
+				transform.m_scale = glm::vec3(10.0f, 6.525f, 2.4f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_captureOffset = glm::vec3(0.0f, -4.475, 0.0f);
@@ -246,14 +246,16 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.5f;
 				probeC.m_boxFadeDistances[5] = 0.5f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Center");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Center"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 
 			// lower halls
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(0.0f, 1.925f, 4.26f);
-				transC.m_transform.m_scale = glm::vec3(10.0f, 1.975f, 2.0f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(0.0f, 1.925f, 4.26f);
+				transform.m_scale = glm::vec3(10.0f, 1.975f, 2.0f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_boxFadeDistances[0] = 0.5f;
@@ -261,12 +263,14 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.0f;
 				probeC.m_boxFadeDistances[5] = 0.2f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Halls 0");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Lower Halls 0"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(0.0f, 1.925f, -4.22f);
-				transC.m_transform.m_scale = glm::vec3(10.0f, 1.975f, 1.95f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(0.0f, 1.925f, -4.22f);
+				transform.m_scale = glm::vec3(10.0f, 1.975f, 1.95f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_boxFadeDistances[0] = 0.5f;
@@ -274,14 +278,16 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.2f;
 				probeC.m_boxFadeDistances[5] = 0.0f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Halls 1");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Lower Halls 1"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 
 			// lower ends
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(-11.330, 1.925f, 0.0f);
-				transC.m_transform.m_scale = glm::vec3(2.35f, 1.975f, 6.15f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(-11.330, 1.925f, 0.0f);
+				transform.m_scale = glm::vec3(2.35f, 1.975f, 6.15f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_boxFadeDistances[0] = 0.5f;
@@ -289,12 +295,14 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.0f;
 				probeC.m_boxFadeDistances[5] = 0.0f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Ends 0");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Lower Ends 0"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(11.375f, 1.925f, 0.0f);
-				transC.m_transform.m_scale = glm::vec3(2.325f, 1.975f, 6.15f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(11.375f, 1.925f, 0.0f);
+				transform.m_scale = glm::vec3(2.325f, 1.975f, 6.15f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_boxFadeDistances[0] = 0.0f;
@@ -302,15 +310,17 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.0f;
 				probeC.m_boxFadeDistances[5] = 0.0f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Lower Ends 1");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Lower Ends 1"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 
 
 			// upper halls
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(0.0f, 6.415f, 4.23f);
-				transC.m_transform.m_scale = glm::vec3(10.3f, 2.275f, 1.9f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(0.0f, 6.415f, 4.23f);
+				transform.m_scale = glm::vec3(10.3f, 2.275f, 1.9f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
@@ -319,12 +329,14 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.0f;
 				probeC.m_boxFadeDistances[5] = 0.2f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Halls 0");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Upper Halls 0"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(0.0f, 6.415f, -4.210f);
-				transC.m_transform.m_scale = glm::vec3(10.3f, 2.275f, 1.9f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(0.0f, 6.415f, -4.210f);
+				transform.m_scale = glm::vec3(10.3f, 2.275f, 1.9f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
@@ -333,14 +345,16 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.2f;
 				probeC.m_boxFadeDistances[5] = 0.0f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Halls 1");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Upper Halls 1"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 
 			// upper ends
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(-11.38f, 6.415f, 0.0f);
-				transC.m_transform.m_scale = glm::vec3(2.3f, 2.275f, 6.125f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(-11.38f, 6.415f, 0.0f);
+				transform.m_scale = glm::vec3(2.3f, 2.275f, 6.125f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
@@ -349,12 +363,14 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.0f;
 				probeC.m_boxFadeDistances[5] = 0.0f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Ends 0");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Upper Ends 0"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 			{
-				TransformComponent transC{};
-				transC.m_transform.m_translation = glm::vec3(11.495f, 6.415f, 0.0f);
-				transC.m_transform.m_scale = glm::vec3(2.3f, 2.275f, 6.125f);
+				Transform transform{};
+				transform.m_translation = glm::vec3(11.495f, 6.415f, 0.0f);
+				transform.m_scale = glm::vec3(2.3f, 2.275f, 6.125f);
+				TransformComponent transC(transform);
 
 				ReflectionProbeComponent probeC{};
 				probeC.m_captureOffset = glm::vec3(0.0f, -1.5f, 0.0f);
@@ -363,7 +379,8 @@ public:
 				probeC.m_boxFadeDistances[4] = 0.0f;
 				probeC.m_boxFadeDistances[5] = 0.0f;
 
-				m_engine->getLevel()->addEntity(m_engine->getECS()->createEntity<TransformComponent, ReflectionProbeComponent>(transC, probeC), "Reflection Probe Upper Ends 1");
+				auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, ReflectionProbeComponent>(EntityMetaComponent("Reflection Probe Upper Ends 1"), transC, probeC);
+				TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 			}
 		}
 
@@ -378,12 +395,13 @@ public:
 
 			float spacing = 2.0f;
 
-			TransformComponent transC{};
-			transC.m_transform.m_translation = glm::vec3(-15.0f, 0.0f, -8.0f) + glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
-			transC.m_transform.m_scale = glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
-
-			auto volumeEntity = m_engine->getECS()->createEntity<TransformComponent, IrradianceVolumeComponent>(transC, volumeC);
-			m_engine->getLevel()->addEntity(volumeEntity, "Irradiance Volume");
+			Transform transform{};
+			transform.m_translation = glm::vec3(-15.0f, 0.0f, -8.0f) + glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
+			transform.m_scale = glm::vec3(volumeC.m_resolutionX, volumeC.m_resolutionY, volumeC.m_resolutionZ) * spacing * 0.5f;
+			TransformComponent transC(transform);
+			
+			auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, IrradianceVolumeComponent>(EntityMetaComponent("Irradiance Volume"), transC, volumeC);
+			TransformHierarchy::attach(m_engine->getECS(), entity, sponzaEntity, true);
 		}
 	}
 
@@ -448,10 +466,12 @@ public:
 
 	void shutdown() noexcept override
 	{
-		for (auto n : m_engine->getLevel()->getSceneGraphNodes())
-		{
-			m_engine->getECS()->destroyEntity(n->m_entity);
-		}
+		//for (auto n : m_engine->getLevel()->getSceneGraphNodes())
+		//{
+		//	m_engine->getECS()->destroyEntity(n->m_entity);
+		//}
+
+		m_engine->getECS()->clear();
 
 		delete m_customAnimGraph;
 		m_customAnimGraph = nullptr;
@@ -484,11 +504,12 @@ private:
 
 	void createPhysicsObject(const glm::vec3 &pos, const glm::vec3 &vel, PhysicsMobility mobility)
 	{
-		TransformComponent transC{};
-		transC.m_transform.m_translation.x = pos.x;
-		transC.m_transform.m_translation.y = pos.y;
-		transC.m_transform.m_translation.z = pos.z;
-		transC.m_transform.m_scale = glm::vec3(0.25f);
+		Transform transform{};
+		transform.m_translation.x = pos.x;
+		transform.m_translation.y = pos.y;
+		transform.m_translation.z = pos.z;
+		transform.m_scale = glm::vec3(0.25f);
+		TransformComponent transC(transform, Mobility::Dynamic);
 
 		MeshComponent meshC{ m_meshAsset };
 
@@ -503,8 +524,7 @@ private:
 		physicsC.m_initialVelocityZ = vel.z;
 		//physicsC.m_materialHandle = m_physicsMaterial;
 
-		auto entity = m_engine->getECS()->createEntity<TransformComponent, MeshComponent, PhysicsComponent>(transC, meshC, physicsC);
-		m_engine->getLevel()->addEntity(entity, "Physics Sphere");
+		auto entity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, MeshComponent, PhysicsComponent>(EntityMetaComponent("Physics Sphere"), transC, meshC, physicsC);
 	}
 };
 

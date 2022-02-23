@@ -67,7 +67,7 @@ ScriptComponent::~ScriptComponent() noexcept
 	}
 }
 
-void ScriptComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void ScriptComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	ScriptComponent &c = *reinterpret_cast<ScriptComponent *>(instance);
 
@@ -144,22 +144,22 @@ void ScriptComponent::onGUI(void *instance, Renderer *renderer, const TransformC
 	}
 }
 
-bool ScriptComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool ScriptComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<ScriptComponent *>(instance), stream);
 }
 
-bool ScriptComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool ScriptComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<ScriptComponent *>(instance), stream);
 }
 
-void ScriptComponent::toLua(lua_State *L, void *instance) noexcept
+void ScriptComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	// TODO: nothing?
 }
 
-void ScriptComponent::fromLua(lua_State *L, void *instance) noexcept
+void ScriptComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	// TODO: nothing?
 }

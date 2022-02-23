@@ -10,7 +10,7 @@
 
 struct MeshInstanceData
 {
-	TransformComponent::Mobility m_mobility;
+	Mobility m_mobility;
 	eastl::vector<uint32_t> m_subMeshInstanceHandles;
 };
 

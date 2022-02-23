@@ -6,6 +6,7 @@
 #include "component/PhysicsComponent.h"
 #include "component/TransformComponent.h"
 #include "component/CharacterControllerComponent.h"
+#include "TransformHierarchy.h"
 #include "profiling/Profiling.h"
 #include "job/JobSystem.h"
 #include "job/ParallelFor.h"
@@ -197,13 +198,13 @@ void Physics::update(float deltaTime) noexcept
 
 					// create transform
 					PxTransform pxTransform{};
-					pxTransform.p.x = tc.m_transform.m_translation.x;
-					pxTransform.p.y = tc.m_transform.m_translation.y;
-					pxTransform.p.z = tc.m_transform.m_translation.z;
-					pxTransform.q.x = tc.m_transform.m_rotation.x;
-					pxTransform.q.y = tc.m_transform.m_rotation.y;
-					pxTransform.q.z = tc.m_transform.m_rotation.z;
-					pxTransform.q.w = tc.m_transform.m_rotation.w;
+					pxTransform.p.x = tc.m_globalTransform.m_translation.x;
+					pxTransform.p.y = tc.m_globalTransform.m_translation.y;
+					pxTransform.p.z = tc.m_globalTransform.m_translation.z;
+					pxTransform.q.x = tc.m_globalTransform.m_rotation.x;
+					pxTransform.q.y = tc.m_globalTransform.m_rotation.y;
+					pxTransform.q.z = tc.m_globalTransform.m_rotation.z;
+					pxTransform.q.w = tc.m_globalTransform.m_rotation.w;
 
 
 					// create actor
@@ -272,13 +273,13 @@ void Physics::update(float deltaTime) noexcept
 				{
 					// create transform
 					PxTransform pxTransform{};
-					pxTransform.p.x = tc.m_transform.m_translation.x;
-					pxTransform.p.y = tc.m_transform.m_translation.y;
-					pxTransform.p.z = tc.m_transform.m_translation.z;
-					pxTransform.q.x = tc.m_transform.m_rotation.x;
-					pxTransform.q.y = tc.m_transform.m_rotation.y;
-					pxTransform.q.z = tc.m_transform.m_rotation.z;
-					pxTransform.q.w = tc.m_transform.m_rotation.w;
+					pxTransform.p.x = tc.m_globalTransform.m_translation.x;
+					pxTransform.p.y = tc.m_globalTransform.m_translation.y;
+					pxTransform.p.z = tc.m_globalTransform.m_translation.z;
+					pxTransform.q.x = tc.m_globalTransform.m_rotation.x;
+					pxTransform.q.y = tc.m_globalTransform.m_rotation.y;
+					pxTransform.q.z = tc.m_globalTransform.m_rotation.z;
+					pxTransform.q.w = tc.m_globalTransform.m_rotation.w;
 
 					((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->setKinematicTarget(pxTransform);
 				}
@@ -302,7 +303,7 @@ void Physics::update(float deltaTime) noexcept
 					PxCapsuleControllerDesc  controllerDesc{};
 					controllerDesc.radius = adjustedRadius;
 					controllerDesc.height = adjustedHeight - 2.0f * adjustedRadius;
-					controllerDesc.position.set(tc.m_transform.m_translation.x, tc.m_transform.m_translation.y - centerToTranslationCompHeight, tc.m_transform.m_translation.z);
+					controllerDesc.position.set(tc.m_globalTransform.m_translation.x, tc.m_globalTransform.m_translation.y - centerToTranslationCompHeight, tc.m_globalTransform.m_translation.z);
 					controllerDesc.slopeLimit = cosf(cc.m_slopeLimit);
 					controllerDesc.contactOffset = cc.m_contactOffset;
 					controllerDesc.stepOffset = cc.m_stepOffset;
@@ -326,17 +327,19 @@ void Physics::update(float deltaTime) noexcept
 					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_SIDES) ? CharacterControllerCollisionFlags::SIDES : CharacterControllerCollisionFlags::NONE;
 					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_UP) ? CharacterControllerCollisionFlags::UP : CharacterControllerCollisionFlags::NONE;
 					cc.m_collisionFlags |= collisionFlags.isSet(PxControllerCollisionFlag::eCOLLISION_DOWN) ? CharacterControllerCollisionFlags::DOWN : CharacterControllerCollisionFlags::NONE;
-				
+
 					auto centerPos = controller->getPosition();
-					tc.m_transform.m_translation.x = (float)centerPos.x;
-					tc.m_transform.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
-					tc.m_transform.m_translation.z = (float)centerPos.z;
+					auto newTransform = tc.m_globalTransform;
+					newTransform.m_translation.x = (float)centerPos.x;
+					newTransform.m_translation.y = (float)centerPos.y + centerToTranslationCompHeight;
+					newTransform.m_translation.z = (float)centerPos.z;
+					TransformHierarchy::setGlobalTransform(m_ecs, entities[i], newTransform, &tc);
 				}
 				else
 				{
-					controller->setPosition(PxExtendedVec3(tc.m_transform.m_translation.x, tc.m_transform.m_translation.y - centerToTranslationCompHeight, tc.m_transform.m_translation.z));
+					controller->setPosition(PxExtendedVec3(tc.m_globalTransform.m_translation.x, tc.m_globalTransform.m_translation.y - centerToTranslationCompHeight, tc.m_globalTransform.m_translation.z));
 				}
-				
+
 				// movement has been consumed
 				cc.m_movementDeltaX = 0.0f;
 				cc.m_movementDeltaY = 0.0f;
@@ -360,27 +363,25 @@ void Physics::update(float deltaTime) noexcept
 	// sync entities with physics state
 	m_ecs->iterate<TransformComponent, PhysicsComponent>([&](size_t count, const EntityID *entities, TransformComponent *transC, PhysicsComponent *physicsC)
 		{
-			job::parallelFor(count, 1,
-				[&](size_t startIdx, size_t endIdx)
-				{
-					for (size_t i = startIdx; i < endIdx; ++i)
-					{
-						auto &tc = transC[i];
-						auto &pc = physicsC[i];
+			for (size_t i = 0; i < count; ++i)
+			{
+				auto &tc = transC[i];
+				auto &pc = physicsC[i];
 
-						if (pc.m_mobility == PhysicsMobility::DYNAMIC)
-						{
-							auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
-							tc.m_transform.m_translation.x = pxTc.p.x;
-							tc.m_transform.m_translation.y = pxTc.p.y;
-							tc.m_transform.m_translation.z = pxTc.p.z;
-							tc.m_transform.m_rotation.x = pxTc.q.x;
-							tc.m_transform.m_rotation.y = pxTc.q.y;
-							tc.m_transform.m_rotation.z = pxTc.q.z;
-							tc.m_transform.m_rotation.w = pxTc.q.w;
-						}
-					}
-				});
+				if (pc.m_mobility == PhysicsMobility::DYNAMIC)
+				{
+					auto pxTc = ((PxRigidDynamic *)pc.m_internalPhysicsActorHandle)->getGlobalPose();
+					Transform newTransform = tc.m_globalTransform;
+					newTransform.m_translation.x = pxTc.p.x;
+					newTransform.m_translation.y = pxTc.p.y;
+					newTransform.m_translation.z = pxTc.p.z;
+					newTransform.m_rotation.x = pxTc.q.x;
+					newTransform.m_rotation.y = pxTc.q.y;
+					newTransform.m_rotation.z = pxTc.q.z;
+					newTransform.m_rotation.w = pxTc.q.w;
+					TransformHierarchy::setGlobalTransform(m_ecs, entities[i], newTransform, &tc);
+				}
+			}
 		});
 }
 
@@ -395,7 +396,7 @@ bool Physics::raycast(const float *origin, const float *dir, float maxT, RayCast
 		maxT,
 		hit))
 	{
-		
+
 		result->m_hit = true;
 		result->m_rayT = hit.block.distance;
 		memcpy(result->m_hitNormal, &hit.block.normal.x, sizeof(float) * 3);
@@ -404,7 +405,7 @@ bool Physics::raycast(const float *origin, const float *dir, float maxT, RayCast
 		return true;
 	}
 
-	
+
 	return false;
 }
 

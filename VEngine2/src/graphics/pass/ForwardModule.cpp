@@ -227,7 +227,7 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 			staticSamplerDescs[2].m_compareEnable = true;
 			staticSamplerDescs[2].m_compareOp = CompareOp::GREATER_OR_EQUAL;
 
-			uint32_t pushConstSize = sizeof(uint32_t) * 3;
+			uint32_t pushConstSize = sizeof(uint32_t) * 4;
 			pushConstSize += isSkinned ? sizeof(uint32_t) : 0;
 			builder.setPipelineLayoutDescription(2, layoutDecls, pushConstSize, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, static_cast<uint32_t>(eastl::size(staticSamplerDescs)), staticSamplerDescs, 2);
 
@@ -728,14 +728,14 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 									{
 										uint32_t transformIndex;
 										uint32_t materialIndex;
-										uint32_t entityID;
+										uint32_t entityID[2];
 									};
 
 									struct SkinnedMeshConstants
 									{
 										uint32_t transformIndex;
 										uint32_t materialIndex;
-										uint32_t entityID;
+										uint32_t entityID[2];
 										uint32_t skinningMatricesOffset;
 									};
 
@@ -746,14 +746,16 @@ void ForwardModule::record(rg::RenderGraph *graph, const Data &data, ResultData 
 									{
 										skinnedConsts.transformIndex = instance.m_transformIndex;
 										skinnedConsts.materialIndex = instance.m_materialHandle;
-										skinnedConsts.entityID = static_cast<uint32_t>(instance.m_entityID);
+										skinnedConsts.entityID[0] = static_cast<uint32_t>(instance.m_entityID);
+										skinnedConsts.entityID[1] = static_cast<uint32_t>(instance.m_entityID >> 32);
 										skinnedConsts.skinningMatricesOffset = instance.m_skinningMatricesOffset;
 									}
 									else
 									{
 										consts.transformIndex = instance.m_transformIndex;
 										consts.materialIndex = instance.m_materialHandle;
-										consts.entityID = static_cast<uint32_t>(instance.m_entityID);
+										consts.entityID[0] = static_cast<uint32_t>(instance.m_entityID);
+										consts.entityID[1] = static_cast<uint32_t>(instance.m_entityID >> 32);
 									}
 
 									cmdList->pushConstants(pipeline, ShaderStageFlags::VERTEX_BIT | ShaderStageFlags::PIXEL_BIT, 0, skinned ? sizeof(skinnedConsts) : sizeof(consts), skinned ? (void *)&skinnedConsts : (void *)&consts);

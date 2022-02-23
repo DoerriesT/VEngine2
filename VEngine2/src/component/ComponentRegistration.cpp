@@ -1,4 +1,5 @@
 #include "ComponentRegistration.h"
+#include "EntityMetaComponent.h"
 #include "TransformComponent.h"
 #include "CameraComponent.h"
 #include "LightComponent.h"
@@ -27,6 +28,7 @@ static void registerComponent()
 void ComponentRegistration::registerAllComponents() noexcept
 {
 	// regular components
+	registerComponent<EntityMetaComponent>();
 	registerComponent<TransformComponent>();
 	registerComponent<CameraComponent>();
 	registerComponent<LightComponent>();

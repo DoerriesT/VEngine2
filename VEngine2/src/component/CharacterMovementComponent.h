@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include "ecs/ECSCommon.h"
 
+class ECS;
 struct lua_State;
 struct TransformComponent;
 class Renderer;
@@ -34,11 +36,11 @@ struct CharacterMovementComponent
 	bool m_enterCrouchInputAction;
 	bool m_exitCrouchInputAction;
 
-	static void onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
-	static bool onSerialize(void *instance, SerializationWriteStream &stream) noexcept;
-	static bool onDeserialize(void *instance, SerializationReadStream &stream) noexcept;
-	static void toLua(lua_State *L, void *instance) noexcept;
-	static void fromLua(lua_State *L, void *instance) noexcept;
+	static void onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept;
+	static bool onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept;
+	static bool onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept;
+	static void toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept;
+	static void fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept;
 	static const char *getComponentName() noexcept { return "CharacterMovementComponent"; }
 	static const char *getComponentDisplayName() noexcept { return "Character Movement Component"; }
 	static const char *getComponentTooltip() noexcept { return nullptr; }

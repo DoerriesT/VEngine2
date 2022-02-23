@@ -32,7 +32,7 @@ static bool serialize(LightComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void LightComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void LightComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	LightComponent &c = *reinterpret_cast<LightComponent *>(instance);
 
@@ -100,7 +100,7 @@ void LightComponent::onGUI(void *instance, Renderer *renderer, const TransformCo
 		const glm::vec4 k_visibleLightDebugColor = glm::vec4(1.0f, 0.5f, 0.0f, 1.0f);
 		const glm::vec4 k_occludedLightDebugColor = glm::vec4(0.5f, 0.25f, 0.0f, 1.0f);
 
-		const auto &transform = transformComponent->m_transform;
+		const auto &transform = transformComponent->m_globalTransform;
 
 		switch (c.m_type)
 		{
@@ -114,20 +114,20 @@ void LightComponent::onGUI(void *instance, Renderer *renderer, const TransformCo
 	}
 }
 
-bool LightComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool LightComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<LightComponent *>(instance), stream);
 }
 
-bool LightComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool LightComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<LightComponent *>(instance), stream);
 }
 
-void LightComponent::toLua(lua_State *L, void *instance) noexcept
+void LightComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }
 
-void LightComponent::fromLua(lua_State *L, void *instance) noexcept
+void LightComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 }

@@ -109,7 +109,7 @@ static int luaECSGetComponent(lua_State *L) noexcept
 	if (component)
 	{
 		lua_newtable(L);
-		ECSComponentInfoTable::getComponentInfo(compID).m_toLua(L, component);
+		ECSComponentInfoTable::getComponentInfo(compID).m_toLua(ecs, entity, component, L);
 	}
 	else
 	{
@@ -131,7 +131,7 @@ static int luaECSSetComponent(lua_State *L) noexcept
 
 	if (component)
 	{
-		ECSComponentInfoTable::getComponentInfo(compID).m_fromLua(L, component);
+		ECSComponentInfoTable::getComponentInfo(compID).m_fromLua(ecs, entity, component, L);
 	}
 
 	lua_pushboolean(L, component != nullptr);
@@ -198,7 +198,7 @@ static int luaECSIterate(lua_State *L) noexcept
 
 					// create lua representation of component
 					lua_newtable(L);
-					compInfo.m_toLua(L, comp);
+					compInfo.m_toLua(ecs, entities[i], comp, L);
 				}
 
 				// call callback

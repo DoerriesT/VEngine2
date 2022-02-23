@@ -10,7 +10,7 @@ static bool serialize(CharacterMovementComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void CharacterMovementComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void CharacterMovementComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	CharacterMovementComponent &c = *reinterpret_cast<CharacterMovementComponent *>(instance);
 
@@ -48,17 +48,17 @@ void CharacterMovementComponent::onGUI(void *instance, Renderer *renderer, const
 	ImGui::Checkbox("Exit Crouch Input", &exitCrouchInput);
 }
 
-bool CharacterMovementComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool CharacterMovementComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<CharacterMovementComponent *>(instance), stream);
 }
 
-bool CharacterMovementComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool CharacterMovementComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<CharacterMovementComponent *>(instance), stream);
 }
 
-void CharacterMovementComponent::toLua(lua_State *L, void *instance) noexcept
+void CharacterMovementComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	CharacterMovementComponent &c = *reinterpret_cast<CharacterMovementComponent *>(instance);
 
@@ -77,7 +77,7 @@ void CharacterMovementComponent::toLua(lua_State *L, void *instance) noexcept
 	LuaUtil::setTableBoolField(L, "m_exitCrouchInputAction", c.m_exitCrouchInputAction);
 }
 
-void CharacterMovementComponent::fromLua(lua_State *L, void *instance) noexcept
+void CharacterMovementComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	CharacterMovementComponent &c = *reinterpret_cast<CharacterMovementComponent *>(instance);
 

@@ -17,7 +17,6 @@
 #include "component/TransformComponent.h"
 #include "physics/Physics.h"
 #include "animation/AnimationSystem.h"
-#include "Level.h"
 #include "asset/handler/AssetHandlerRegistration.h"
 #include "file/FileDialog.h"
 #include "CharacterMovementSystem.h"
@@ -103,7 +102,6 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	ComponentRegistration::registerAllComponents();
 
 	m_ecs = new ECS();
-	m_level = new Level(m_ecs);
 
 	Renderer renderer(m_window->getWindowHandle(), m_window->getWidth(), m_window->getHeight());
 	m_renderer = &renderer;
@@ -176,31 +174,31 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 			{
 				ImGui::Checkbox("TAA", &g_taaEnabled);
 				ImGui::Checkbox("Sharpen", &g_sharpenEnabled);
-				if (ImGui::Button("Save"))
-				{
-					Log::info("Saving level...");
-					if (m_level->save("/levels/level.bin"))
-					{
-						Log::info("Done saving level.");
-					}
-					else
-					{
-						Log::err("Failed to save level!");
-					}
-				}
-				if (ImGui::Button("Load"))
-				{
-					//m_ecs->clear();
-					Log::info("Loading level...");
-					if (m_level->load("/levels/level.bin"))
-					{
-						Log::info("Done loading level.");
-					}
-					else
-					{
-						Log::err("Failed to load level!");
-					}
-				}
+				//if (ImGui::Button("Save"))
+				//{
+				//	Log::info("Saving level...");
+				//	if (m_level->save("/levels/level.bin"))
+				//	{
+				//		Log::info("Done saving level.");
+				//	}
+				//	else
+				//	{
+				//		Log::err("Failed to save level!");
+				//	}
+				//}
+				//if (ImGui::Button("Load"))
+				//{
+				//	//m_ecs->clear();
+				//	Log::info("Loading level...");
+				//	if (m_level->load("/levels/level.bin"))
+				//	{
+				//		Log::info("Done loading level.");
+				//	}
+				//	else
+				//	{
+				//		Log::err("Failed to load level!");
+				//	}
+				//}
 			}
 			ImGui::End();
 
@@ -209,7 +207,7 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 				{
 					for (size_t i = 0; i < count; ++i)
 					{
-						transC[i].m_prevTransform = transC[i].m_transform;
+						transC[i].m_prevGlobalTransform = transC[i].m_globalTransform;
 					}
 				});
 
@@ -233,8 +231,6 @@ int Engine::start(int argc, char *argv[], IGameLogic *gameLogic) noexcept
 	}
 
 	m_gameLogic->shutdown();
-
-	delete m_level;
 
 	AssetManager::shutdown();
 	AssetHandlerRegistration::shutdownHandlers();
@@ -273,11 +269,6 @@ Physics *Engine::getPhysics() noexcept
 //{
 //	return m_userInput;
 //}
-
-Level *Engine::getLevel() noexcept
-{
-	return m_level;
-}
 
 void Engine::setEditorMode(bool editorMode) noexcept
 {

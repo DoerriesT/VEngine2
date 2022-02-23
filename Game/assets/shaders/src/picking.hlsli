@@ -2,7 +2,7 @@
 #define PICKING_H
 
 // TODO: use atomics to guard against concurrent access
-void updatePickingBuffer(RWByteAddressBuffer pickingBuffer, uint2 pixelCoord, uint2 pickingPos, uint entityID, float depth)
+void updatePickingBuffer(RWByteAddressBuffer pickingBuffer, uint2 pixelCoord, uint2 pickingPos, uint2 entityID, float depth)
 {
 	// early out if this pixel is not under the mouse cursor
 	if (any(pixelCoord != pickingPos))
@@ -18,7 +18,7 @@ void updatePickingBuffer(RWByteAddressBuffer pickingBuffer, uint2 pixelCoord, ui
 		return;
 	}
 	
-	pickingBuffer.Store2(0, uint2(depthUI, entityID));
+	pickingBuffer.Store3(0, uint3(depthUI, entityID));
 }
 
 #endif // PICKING_H

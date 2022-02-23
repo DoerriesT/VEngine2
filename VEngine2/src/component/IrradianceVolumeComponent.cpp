@@ -21,7 +21,7 @@ static bool serialize(IrradianceVolumeComponent &c, Stream &stream) noexcept
 	return true;
 }
 
-void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
+void IrradianceVolumeComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer *renderer, const TransformComponent *transformComponent) noexcept
 {
 	IrradianceVolumeComponent &c = *reinterpret_cast<IrradianceVolumeComponent *>(instance);
 
@@ -63,7 +63,7 @@ void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const 
 		const glm::vec4 k_visibleDebugColor = glm::vec4(1.0f, 0.5f, 0.0f, 1.0f);
 		const glm::vec4 k_occludedDebugColor = glm::vec4(0.5f, 0.25f, 0.0f, 1.0f);
 
-		const auto &transform = transformComponent->m_transform;
+		const auto &transform = transformComponent->m_globalTransform;
 		glm::vec3 probeSpacing = transform.m_scale / (glm::vec3(c.m_resolutionX, c.m_resolutionY, c.m_resolutionZ) * 0.5f);
 		glm::vec3 volumeOrigin = transform.m_translation - (glm::mat3_cast(transform.m_rotation) * transform.m_scale);
 		glm::mat4 localToWorld = glm::translate(volumeOrigin) * glm::mat4_cast(transform.m_rotation) * glm::scale(probeSpacing);
@@ -90,17 +90,17 @@ void IrradianceVolumeComponent::onGUI(void *instance, Renderer *renderer, const 
 	}
 }
 
-bool IrradianceVolumeComponent::onSerialize(void *instance, SerializationWriteStream &stream) noexcept
+bool IrradianceVolumeComponent::onSerialize(ECS *ecs, EntityID entity, void *instance, SerializationWriteStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<IrradianceVolumeComponent *>(instance), stream);
 }
 
-bool IrradianceVolumeComponent::onDeserialize(void *instance, SerializationReadStream &stream) noexcept
+bool IrradianceVolumeComponent::onDeserialize(ECS *ecs, EntityID entity, void *instance, SerializationReadStream &stream) noexcept
 {
 	return serialize(*reinterpret_cast<IrradianceVolumeComponent *>(instance), stream);
 }
 
-void IrradianceVolumeComponent::toLua(lua_State *L, void *instance) noexcept
+void IrradianceVolumeComponent::toLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	IrradianceVolumeComponent &c = *reinterpret_cast<IrradianceVolumeComponent *>(instance);
 
@@ -112,7 +112,7 @@ void IrradianceVolumeComponent::toLua(lua_State *L, void *instance) noexcept
 	LuaUtil::setTableNumberField(L, "m_farPlane", (lua_Number)c.m_farPlane);
 }
 
-void IrradianceVolumeComponent::fromLua(lua_State *L, void *instance) noexcept
+void IrradianceVolumeComponent::fromLua(ECS *ecs, EntityID entity, void *instance, lua_State *L) noexcept
 {
 	IrradianceVolumeComponent &c = *reinterpret_cast<IrradianceVolumeComponent *>(instance);
 

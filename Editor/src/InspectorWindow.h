@@ -2,7 +2,6 @@
 #include <ecs/ECS.h>
 
 class Engine;
-struct SceneGraphNode;
 
 class InspectorWindow
 {
@@ -16,6 +15,5 @@ private:
 	Engine *m_engine = nullptr;
 	char m_nameStringTemp[256] = {};
 	EntityID m_lastDisplayedEntity = k_nullEntity;
-	SceneGraphNode *m_currentSceneGraphNode = nullptr;
 	bool m_visible = true;
 };
