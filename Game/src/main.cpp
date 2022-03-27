@@ -98,13 +98,12 @@ public:
 		// camera
 		{
 			Transform transform{};
-			transform.m_translation = glm::vec3(0.0f, 2.0f, 12.0f);
+			transform.m_translation = glm::vec3(-12.0f, 2.0f, 0.0f);
 			TransformComponent transC1(transform, Mobility::Dynamic);
 
 			CameraComponent cameraC1{};
 			cameraC1.m_fovy = glm::radians(60.0f);
 
-			Camera cam(transC1, cameraC1);
 			m_cameraEntity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, CameraComponent>(EntityMetaComponent("Camera"), transC1, cameraC1);
 			m_engine->setCameraEntity(m_cameraEntity);
 		}
@@ -428,10 +427,11 @@ public:
 			// make sure aspect ratio of editor camera is correct
 			cc->m_aspectRatio = (w > 0 && h > 0) ? w / (float)h : 1.0f;
 
-			Camera camera(*tc, *cc);
+			Camera camera = CameraECSAdapter::createFromComponents(tc, cc);
 
 			auto *playerMovementComponent = m_engine->getECS()->getComponent<CharacterMovementComponent>(m_playerEntity);
 			m_thirdPersonCameraController->update(deltaTime, camera, m_engine->getECS()->getComponent<TransformComponent>(m_playerEntity), playerMovementComponent, m_engine->getPhysics());
+			CameraECSAdapter::updateComponents(camera, m_engine->getECS(), m_cameraEntity);
 
 			const auto *inputState = m_engine->getECS()->getSingletonComponent<InputStateComponent>();
 

@@ -153,6 +153,13 @@ float4 main(PSInput input) : SV_Target0
 			alpha += contribution;
 		}
 		
+		if (alpha < 1.0f)
+		{
+			float3 skyColor = accurateSRGBToLinear(float3(0.529f, 0.808f, 0.922f));
+			float3 groundColor = accurateSRGBToLinear(float3(240.0f, 216.0f, 195.0f) / 255.0f);
+			sum += lerp(groundColor, skyColor, N.y * 0.5f + 0.5f) * (1.0f - alpha);
+		}
+		
 		result += sum * Diffuse_Lambert(albedo) * (1.0f - metalness) * gtao * exposure;
 	}
 	

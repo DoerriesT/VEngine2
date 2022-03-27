@@ -54,29 +54,30 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying, EntityID selected
 		// texture with rendered scene
 		ImGui::Image(renderer->getEditorViewportTextureID(), viewportSize);
 
+		auto *ecs = m_engine->getECS();
+
 		// update editor camera
 		if (!gameIsPlaying)
 		{
-			TransformComponent *tc = m_engine->getECS()->getComponent<TransformComponent>(*m_editorCameraEntityPtr);
-			CameraComponent *cc = m_engine->getECS()->getComponent<CameraComponent>(*m_editorCameraEntityPtr);
+			TransformComponent *tc = ecs->getComponent<TransformComponent>(*m_editorCameraEntityPtr);
+			CameraComponent *cc = ecs->getComponent<CameraComponent>(*m_editorCameraEntityPtr);
 			assert(tc && cc);
 
 			// make sure aspect ratio of editor camera is correct
 			cc->m_aspectRatio = (viewportSize.x > 0 && viewportSize.y > 0) ? viewportSize.x / (float)viewportSize.y : 1.0f;
 
-			Camera camera(*tc, *cc);
-
+			Camera camera = CameraECSAdapter::createFromComponents(tc, cc);
 			m_flyCameraController->update(deltaTime, camera);
+			CameraECSAdapter::updateComponents(camera, ecs, *m_editorCameraEntityPtr);
 		}
 
 		// render gizmo
 		if (selectedEntity != k_nullEntity)
 		{
-			ECS &ecs = *m_engine->getECS();
-			if (auto *tc = ecs.getComponent<TransformComponent>(selectedEntity); tc != nullptr)
+			if (auto *tc = ecs->getComponent<TransformComponent>(selectedEntity); tc != nullptr)
 			{
 				auto cameraEntity = m_engine->getCameraEntity();
-				if (ecs.hasComponents<TransformComponent, CameraComponent>(cameraEntity))
+				if (ecs->hasComponents<TransformComponent, CameraComponent>(cameraEntity))
 				{
 					ImGuizmo::OPERATION op = ImGuizmo::OPERATION::TRANSLATE;
 					switch (m_gizmoType)
@@ -89,8 +90,8 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying, EntityID selected
 					}
 
 					// compute matrices
-					auto *camC = ecs.getComponent<CameraComponent>(cameraEntity);
-					Camera camera(*ecs.getComponent<TransformComponent>(cameraEntity), *camC);
+					auto *camC = ecs->getComponent<CameraComponent>(cameraEntity);
+					Camera camera = CameraECSAdapter::createFromComponents(ecs->getComponent<TransformComponent>(cameraEntity), camC);
 					auto viewMatrix = camera.getViewMatrix();
 					auto projMatrix = glm::perspective(camC->m_fovy, camC->m_aspectRatio, camC->m_near, camC->m_far);
 
@@ -128,7 +129,7 @@ void ViewportWindow::draw(float deltaTime, bool gameIsPlaying, EntityID selected
 						break;
 					}
 
-					TransformHierarchy::setGlobalTransform(&ecs, selectedEntity, newTransform, tc);
+					TransformHierarchy::setGlobalTransform(ecs, selectedEntity, newTransform, tc);
 				}
 			}
 		}

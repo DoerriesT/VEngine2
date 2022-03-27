@@ -244,8 +244,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 		{
 			auto *cameraComponent = ecs->getComponent<CameraComponent>(cameraEntity);
 			auto cameraTransformComponent = *ecs->getComponent<TransformComponent>(cameraEntity);
-			cameraTransformComponent.m_transform = cameraTransformComponent.m_curRenderTransform;
-			Camera camera(cameraTransformComponent, *cameraComponent);
+			cameraTransformComponent.m_globalTransform = cameraTransformComponent.m_curRenderTransform;
+			Camera camera = CameraECSAdapter::createFromComponents(&cameraTransformComponent, cameraComponent);
 
 			// bake irradiance volume
 			{
