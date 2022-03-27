@@ -20,6 +20,8 @@ public:
 		rg::ResourceViewHandle m_renderTargetHandle;
 		bool m_clear;
 		ImDrawData *m_imGuiDrawData;
+		size_t m_managedReadResourceCount; // graph managed resources that need to be in READ_RESOURCE / PIXEL_SHADER state for imgui
+		rg::ResourceViewHandle *m_managedReadResources; // graph managed resources that need to be in READ_RESOURCE / PIXEL_SHADER state for imgui
 	};
 
 	explicit ImGuiPass(gal::GraphicsDevice *device, gal::DescriptorSetLayout *bindlessSetLayout);

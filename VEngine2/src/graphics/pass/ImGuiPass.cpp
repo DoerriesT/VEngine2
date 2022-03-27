@@ -5,6 +5,7 @@
 #include <EASTL/iterator.h> // eastl::size()
 #define PROFILING_GPU_ENABLE
 #include "profiling/Profiling.h"
+#include "utility/Memory.h"
 
 namespace
 {
@@ -68,11 +69,17 @@ void ImGuiPass::record(rg::RenderGraph *graph, const Data &data)
 		return;
 	}
 
-	rg::ResourceUsageDesc usageDescs[] =
+	// allocate memory for usage descs
+	const size_t usageDescCount = 1 + data.m_managedReadResourceCount;
+	rg::ResourceUsageDesc *usageDescs = ALLOC_A_T(rg::ResourceUsageDesc, usageDescCount);
+
+	usageDescs[0] = { data.m_renderTargetHandle, {gal::ResourceState::WRITE_COLOR_ATTACHMENT} };
+	for (size_t i = 0; i < data.m_managedReadResourceCount; ++i)
 	{
-		{data.m_renderTargetHandle, {gal::ResourceState::WRITE_COLOR_ATTACHMENT}},
-	};
-	graph->addPass("ImGui", rg::QueueType::GRAPHICS, eastl::size(usageDescs), usageDescs, [=](gal::CommandList *cmdList, const rg::Registry &registry)
+		usageDescs[1 + i] = { data.m_managedReadResources[i], {gal::ResourceState::READ_RESOURCE, gal::PipelineStageFlags::PIXEL_SHADER_BIT} };
+	}
+
+	graph->addPass("ImGui", rg::QueueType::GRAPHICS, usageDescCount, usageDescs, [=](gal::CommandList *cmdList, const rg::Registry &registry)
 		{
 			GAL_SCOPED_GPU_LABEL(cmdList, "ImGui");
 			PROFILING_GPU_ZONE_SCOPED_N(data.m_profilingCtx, cmdList, "ImGuiPass");

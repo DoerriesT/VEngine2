@@ -684,7 +684,7 @@ DescriptorSetLayoutBinding gal::Initializers::bindlessDescriptorSetLayoutBinding
 	return binding;
 }
 
-const PipelineColorBlendAttachmentState GraphicsPipelineBuilder::s_defaultBlendAttachment =
+const PipelineColorBlendAttachmentState GraphicsPipelineBuilder::k_defaultBlendAttachment =
 {
 	false,
 	BlendFactor::ZERO,

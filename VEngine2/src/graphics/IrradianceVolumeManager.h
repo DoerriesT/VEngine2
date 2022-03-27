@@ -139,4 +139,6 @@ private:
 	uint32_t m_processedProbes = 0;
 	uint32_t m_totalProbes = 0;
 	uint32_t m_targetBounces = 3;
+
+	void addToDeletionQueue(const InternalIrradianceVolume &volume, uint64_t frame) noexcept;
 };

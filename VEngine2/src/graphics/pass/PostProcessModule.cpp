@@ -315,7 +315,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 			builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
 			builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
 			builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
-			builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
+			builder.setColorBlendAttachment(GraphicsPipelineBuilder::k_defaultBlendAttachment);
 			builder.setColorAttachmentFormat(Format::R8_UNORM);
 			builder.setPolygonModeCullMode(gal::PolygonMode::FILL, isAlphaTested ? gal::CullModeFlags::NONE : gal::CullModeFlags::BACK_BIT, gal::FrontFace::COUNTER_CLOCKWISE);
 
@@ -435,7 +435,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		builder.setFragmentShader("assets/shaders/debugNormals_ps");
 		builder.setVertexBindingDescriptions(bindingDescCount, bindingDescs);
 		builder.setVertexAttributeDescriptions(attributeDescCount, attributeDescs);
-		builder.setColorBlendAttachment(GraphicsPipelineBuilder::s_defaultBlendAttachment);
+		builder.setColorBlendAttachment(GraphicsPipelineBuilder::k_defaultBlendAttachment);
 		builder.setDepthTest(true, false, CompareOp::GREATER_OR_EQUAL);
 		builder.setDynamicState(DynamicStateFlags::VIEWPORT_BIT | DynamicStateFlags::SCISSOR_BIT);
 		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
@@ -475,6 +475,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 		builder.setDepthTest(true, true, CompareOp::GREATER_OR_EQUAL);
 		builder.setDepthStencilAttachmentFormat(Format::D32_SFLOAT);
 		builder.setColorAttachmentFormat(Format::B8G8R8A8_UNORM);
+		builder.setColorBlendAttachment(GraphicsPipelineBuilder::k_defaultBlendAttachment);
 
 		DescriptorSetLayoutBinding usedBindlessBindings[] =
 		{
@@ -522,7 +523,7 @@ PostProcessModule::PostProcessModule(gal::GraphicsDevice *device, gal::Descripto
 			builder.setInputAssemblyState(isTriangle ? PrimitiveTopology::TRIANGLE_LIST : PrimitiveTopology::LINE_LIST, false);
 			builder.setVertexBindingDescription(bindingDesc);
 			builder.setVertexAttributeDescription(attributeDesc);
-			builder.setColorBlendAttachment(isTriangle ? blendState : GraphicsPipelineBuilder::s_defaultBlendAttachment);
+			builder.setColorBlendAttachment(isTriangle ? blendState : GraphicsPipelineBuilder::k_defaultBlendAttachment);
 			if (visibility != DebugDrawVisibility::Always)
 			{
 				builder.setDepthTest(true, false, visibility == DebugDrawVisibility::Visible ? CompareOp::GREATER_OR_EQUAL : CompareOp::LESS);

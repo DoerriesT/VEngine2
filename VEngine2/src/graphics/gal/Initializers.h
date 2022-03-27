@@ -57,7 +57,7 @@ namespace gal
 	class GraphicsPipelineBuilder
 	{
 	public:
-		static const PipelineColorBlendAttachmentState s_defaultBlendAttachment;
+		static const PipelineColorBlendAttachmentState k_defaultBlendAttachment;
 
 		explicit GraphicsPipelineBuilder(GraphicsPipelineCreateInfo &createInfo);
 		void setVertexShader(const char *path);

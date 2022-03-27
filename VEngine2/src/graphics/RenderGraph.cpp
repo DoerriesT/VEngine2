@@ -647,12 +647,50 @@ void rg::RenderGraph::createSynchronization() noexcept
 
 			// for each usage...
 			const size_t usageCount = m_subresourceUsages[subresourceUsageIdx].size();
-			for (size_t usageIdx = 0; usageIdx < usageCount; ++usageIdx)
+			for (size_t usageIdx = 0; usageIdx < usageCount;)
 			{
 				const auto &subresUsage = m_subresourceUsages[subresourceUsageIdx][usageIdx];
 				auto &passData = m_passData[subresUsage.m_passHandle];
 
 				UsageInfo curUsageInfo{ subresUsage.m_passHandle, passData.m_queue, subresUsage.m_initialResourceState };
+
+				// look ahead and try to combine READ_* states
+				size_t nextUsageIdx = usageIdx + 1;
+				ResourceState combinableImageReadStates = ResourceState::READ_RESOURCE | ResourceState::READ_DEPTH_STENCIL;
+				ResourceState combinableBufferReadStates = ResourceState::READ_RESOURCE | ResourceState::READ_CONSTANT_BUFFER | ResourceState::READ_VERTEX_BUFFER | ResourceState::READ_INDEX_BUFFER | ResourceState::READ_INDIRECT_BUFFER | ResourceState::READ_TRANSFER;
+
+				const bool hasNoCustomFinalState = curUsageInfo.m_stateAndStage.m_resourceState == subresUsage.m_finalResourceState.m_resourceState &&
+					curUsageInfo.m_stateAndStage.m_stageMask == subresUsage.m_finalResourceState.m_stageMask;
+
+				// is the current state even READ combinable? custom final state breaks this too
+				
+				if (hasNoCustomFinalState &&
+					(resDesc.m_image && (curUsageInfo.m_stateAndStage.m_resourceState & combinableImageReadStates) != 0 ||
+					!resDesc.m_image && (curUsageInfo.m_stateAndStage.m_resourceState & combinableBufferReadStates) != 0))
+				{
+					for (; nextUsageIdx < usageCount; ++nextUsageIdx)
+					{
+						const auto &nextSubresUsage = m_subresourceUsages[subresourceUsageIdx][nextUsageIdx];
+						auto &nextPassData = m_passData[nextSubresUsage.m_passHandle];
+						UsageInfo nextUsageInfo{ nextSubresUsage.m_passHandle, nextPassData.m_queue, nextSubresUsage.m_initialResourceState };
+
+						const bool sameQueue = nextPassData.m_queue == passData.m_queue;
+
+						const bool noCustomFinalState = nextUsageInfo.m_stateAndStage.m_resourceState == nextSubresUsage.m_finalResourceState.m_resourceState &&
+							nextUsageInfo.m_stateAndStage.m_stageMask == nextSubresUsage.m_finalResourceState.m_stageMask;
+
+						const bool combinable = (resDesc.m_image && (nextUsageInfo.m_stateAndStage.m_resourceState & combinableImageReadStates) != 0 ||
+							!resDesc.m_image && (nextUsageInfo.m_stateAndStage.m_resourceState & combinableBufferReadStates) != 0);
+
+						if (!sameQueue || !combinable || !noCustomFinalState)
+						{
+							break;
+						}
+
+						curUsageInfo.m_stateAndStage.m_stageMask |= nextUsageInfo.m_stateAndStage.m_stageMask;
+						curUsageInfo.m_stateAndStage.m_resourceState |= nextUsageInfo.m_stateAndStage.m_resourceState;
+					}
+				}
 
 				Barrier barrier{};
 				barrier.m_image = resDesc.m_image ? frameResources.m_resources[resourceIdx].m_image : nullptr;
@@ -702,7 +740,12 @@ void rg::RenderGraph::createSynchronization() noexcept
 
 				// update prevUsageInfo
 				prevUsageInfo = curUsageInfo;
-				prevUsageInfo.m_stateAndStage = subresUsage.m_finalResourceState;
+				if (!hasNoCustomFinalState)
+				{
+					prevUsageInfo.m_stateAndStage = subresUsage.m_finalResourceState;
+				}
+
+				usageIdx = nextUsageIdx;
 			}
 		}
 	}

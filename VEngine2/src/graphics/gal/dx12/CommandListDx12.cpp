@@ -8,6 +8,7 @@
 #include "utility/TLSFAllocator.h"
 #include "utility/Utility.h"
 #include "utility/allocator/DefaultAllocator.h"
+#include "utility/WideNarrowStringConversion.h"
 #define USE_PIX
 #include <WinPixEventRuntime/pix3.h>
 
@@ -1221,12 +1222,30 @@ void gal::CommandListDx12::endRenderPass()
 
 void gal::CommandListDx12::insertDebugLabel(const char *label)
 {
-	PIXSetMarker(m_commandList, PIX_COLOR(0, 255, 0), label);
+	const size_t labelLen = strlen(label);
+	wchar_t *wLabel = ALLOC_A_T(wchar_t, labelLen + 1);
+	if (widen(label, labelLen + 1, wLabel))
+	{
+		PIXSetMarker(m_commandList, PIX_COLOR(0, 255, 0), wLabel);
+	}
+	else
+	{
+		assert(false);
+	}
 }
 
 void gal::CommandListDx12::beginDebugLabel(const char *label)
 {
-	PIXBeginEvent(m_commandList, PIX_COLOR(0, 255, 0), label);
+	const size_t labelLen = strlen(label);
+	wchar_t *wLabel = ALLOC_A_T(wchar_t, labelLen + 1);
+	if (widen(label, labelLen + 1, wLabel))
+	{
+		PIXBeginEvent(m_commandList, PIX_COLOR(0, 255, 0), wLabel);
+	}
+	else
+	{
+		assert(false);
+	}
 }
 
 void gal::CommandListDx12::endDebugLabel()

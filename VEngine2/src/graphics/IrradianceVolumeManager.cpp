@@ -64,8 +64,8 @@ IrradianceVolumeManager::IrradianceVolumeManager(gal::GraphicsDevice *device, Re
 	};
 	PipelineColorBlendAttachmentState blendStates[]
 	{
-		GraphicsPipelineBuilder::s_defaultBlendAttachment,
-		GraphicsPipelineBuilder::s_defaultBlendAttachment,
+		GraphicsPipelineBuilder::k_defaultBlendAttachment,
+		GraphicsPipelineBuilder::k_defaultBlendAttachment,
 	};
 	const uint32_t renderTargetFormatCount = static_cast<uint32_t>(eastl::size(renderTargetFormats));
 
@@ -339,6 +339,21 @@ IrradianceVolumeManager::~IrradianceVolumeManager() noexcept
 	m_device->destroyImage(m_depthBufferImage);
 	m_device->destroyImageView(m_depthBufferImageView);
 
+	for (auto &v : m_volumes)
+	{
+		m_device->destroyImage(v.m_diffuseImage);
+		m_device->destroyImage(v.m_visibilityImage);
+		m_device->destroyImage(v.m_averageDiffuseImage);
+		m_device->destroyImageView(v.m_diffuseImageView);
+		m_device->destroyImageView(v.m_visibilityImageView);
+		m_device->destroyImageView(v.m_averageDiffuseImageView);
+		m_viewRegistry->destroyHandle(v.m_diffuseImageViewHandle);
+		m_viewRegistry->destroyHandle(v.m_visibilityImageViewHandle);
+		m_viewRegistry->destroyHandle(v.m_averageDiffuseImageViewHandle);
+		m_viewRegistry->destroyHandle(v.m_averageDiffuseImageRWViewHandle);
+	}
+	m_volumes.clear();
+
 	while (!m_deletionQueue.empty())
 	{
 		auto &oldResources = m_deletionQueue.front();
@@ -369,20 +384,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 			}
 
 			// put old resources in deletion queue
-			DeletionQueueItem qItem{};
-			qItem.m_diffuseImage = v.m_diffuseImage;
-			qItem.m_diffuseImageView = v.m_diffuseImageView;
-			qItem.m_diffuseImageViewHandle = v.m_diffuseImageViewHandle;
-			qItem.m_visibilityImage = v.m_visibilityImage;
-			qItem.m_visibilityImageView = v.m_visibilityImageView;
-			qItem.m_visibilityImageViewHandle = v.m_visibilityImageViewHandle;
-			qItem.m_averageDiffuseImage = v.m_averageDiffuseImage;
-			qItem.m_averageDiffuseImageView = v.m_averageDiffuseImageView;
-			qItem.m_averageDiffuseImageViewHandle = v.m_averageDiffuseImageViewHandle;
-			qItem.m_averageDiffuseImageRWViewHandle = v.m_averageDiffuseImageRWViewHandle;
-			qItem.m_frameToFreeIn = data.m_frame + 2;
-
-			m_deletionQueue.push(qItem);
+			addToDeletionQueue(v, data.m_frame);
 		}
 
 		m_curBounce = 0;
@@ -448,20 +450,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 							createTextures = true;
 
 							// put old resources in deletion queue
-							DeletionQueueItem qItem{};
-							qItem.m_diffuseImage = oldVolume.m_diffuseImage;
-							qItem.m_diffuseImageView = oldVolume.m_diffuseImageView;
-							qItem.m_diffuseImageViewHandle = oldVolume.m_diffuseImageViewHandle;
-							qItem.m_visibilityImage = oldVolume.m_visibilityImage;
-							qItem.m_visibilityImageView = oldVolume.m_visibilityImageView;
-							qItem.m_visibilityImageViewHandle = oldVolume.m_visibilityImageViewHandle;
-							qItem.m_averageDiffuseImage = oldVolume.m_averageDiffuseImage;
-							qItem.m_averageDiffuseImageView = oldVolume.m_averageDiffuseImageView;
-							qItem.m_averageDiffuseImageViewHandle = oldVolume.m_averageDiffuseImageViewHandle;
-							qItem.m_averageDiffuseImageRWViewHandle = oldVolume.m_averageDiffuseImageRWViewHandle;
-							qItem.m_frameToFreeIn = data.m_frame + 2;
-
-							m_deletionQueue.push(qItem);
+							addToDeletionQueue(oldVolume, data.m_frame);
 						}
 						//else
 						//{
@@ -618,20 +607,7 @@ void IrradianceVolumeManager::update(rg::RenderGraph *graph, const Data &data) n
 				else
 				{
 					// put old resources in deletion queue
-					DeletionQueueItem qItem{};
-					qItem.m_diffuseImage = volume.m_diffuseImage;
-					qItem.m_diffuseImageView = volume.m_diffuseImageView;
-					qItem.m_diffuseImageViewHandle = volume.m_diffuseImageViewHandle;
-					qItem.m_visibilityImage = volume.m_visibilityImage;
-					qItem.m_visibilityImageView = volume.m_visibilityImageView;
-					qItem.m_visibilityImageViewHandle = volume.m_visibilityImageViewHandle;
-					qItem.m_averageDiffuseImage = volume.m_averageDiffuseImage;
-					qItem.m_averageDiffuseImageView = volume.m_averageDiffuseImageView;
-					qItem.m_averageDiffuseImageViewHandle = volume.m_averageDiffuseImageViewHandle;
-					qItem.m_averageDiffuseImageRWViewHandle = volume.m_averageDiffuseImageRWViewHandle;
-					qItem.m_frameToFreeIn = data.m_frame + 2;
-
-					m_deletionQueue.push(qItem);
+					addToDeletionQueue(volume, data.m_frame);
 				}
 			}
 
@@ -1147,4 +1123,22 @@ bool IrradianceVolumeManager::isBaking() const noexcept
 uint32_t IrradianceVolumeManager::getTotalProbeCount() const noexcept
 {
 	return m_totalProbes;
+}
+
+void IrradianceVolumeManager::addToDeletionQueue(const InternalIrradianceVolume &volume, uint64_t frame) noexcept
+{
+	DeletionQueueItem qItem{};
+	qItem.m_diffuseImage = volume.m_diffuseImage;
+	qItem.m_diffuseImageView = volume.m_diffuseImageView;
+	qItem.m_diffuseImageViewHandle = volume.m_diffuseImageViewHandle;
+	qItem.m_visibilityImage = volume.m_visibilityImage;
+	qItem.m_visibilityImageView = volume.m_visibilityImageView;
+	qItem.m_visibilityImageViewHandle = volume.m_visibilityImageViewHandle;
+	qItem.m_averageDiffuseImage = volume.m_averageDiffuseImage;
+	qItem.m_averageDiffuseImageView = volume.m_averageDiffuseImageView;
+	qItem.m_averageDiffuseImageViewHandle = volume.m_averageDiffuseImageViewHandle;
+	qItem.m_averageDiffuseImageRWViewHandle = volume.m_averageDiffuseImageRWViewHandle;
+	qItem.m_frameToFreeIn = frame + 2;
+
+	m_deletionQueue.push(qItem);
 }

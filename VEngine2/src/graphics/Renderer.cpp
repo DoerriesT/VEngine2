@@ -346,10 +346,6 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 			}
 			else
 			{
-				// have the view result image be transitioned to READ_RESOURCE
-				rg::ResourceUsageDesc viewResultTransitionUsageDesc = { renderViewResultImageViewHandle, {gal::ResourceState::READ_RESOURCE, gal::PipelineStageFlags::PIXEL_SHADER_BIT} };
-				m_renderGraph->addPass("View Image Transition", rg::QueueType::GRAPHICS, 1, &viewResultTransitionUsageDesc, [=](gal::CommandList *, const rg::Registry &) {});
-
 				// imgui
 				{
 					ImGuiPass::Data imguiPassData{};
@@ -362,6 +358,8 @@ void Renderer::render(float deltaTime, ECS *ecs, uint64_t cameraEntity, float fr
 					imguiPassData.m_renderTargetHandle = swapchainViewHandle;
 					imguiPassData.m_clear = true;
 					imguiPassData.m_imGuiDrawData = ImGui::GetDrawData();
+					imguiPassData.m_managedReadResourceCount = 1;
+					imguiPassData.m_managedReadResources = &renderViewResultImageViewHandle;
 
 					m_imguiPass->record(m_renderGraph, imguiPassData);
 				}

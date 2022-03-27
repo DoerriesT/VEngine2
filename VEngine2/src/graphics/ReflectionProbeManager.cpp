@@ -59,8 +59,8 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 		};
 		PipelineColorBlendAttachmentState blendStates[]
 		{
-			GraphicsPipelineBuilder::s_defaultBlendAttachment,
-			GraphicsPipelineBuilder::s_defaultBlendAttachment,
+			GraphicsPipelineBuilder::k_defaultBlendAttachment,
+			GraphicsPipelineBuilder::k_defaultBlendAttachment,
 		};
 		const uint32_t renderTargetFormatCount = static_cast<uint32_t>(eastl::size(renderTargetFormats));
 
@@ -408,10 +408,15 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 			imageCreateInfo.m_format = Format::R16G16B16A16_SFLOAT;
 			imageCreateInfo.m_usageFlags = ImageUsageFlags::TEXTURE_BIT | ImageUsageFlags::RW_TEXTURE_BIT;
 			imageCreateInfo.m_optimizedClearValue.m_color = { };
+			imageCreateInfo.m_createFlags = ImageCreateFlags::CUBE_COMPATIBLE_BIT;
 			imageCreateInfo.m_levels = k_numPrefilterMips;
 
 			m_device->createImage(imageCreateInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_probeTmpLitImage);
 			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeAlbedoRoughnessArrayImage, "Reflection Probe Tmp Lit Image");
+
+			// reset
+			imageCreateInfo.m_createFlags = {};
+			imageCreateInfo.m_levels = 1;
 
 			// cube view
 			{
@@ -487,7 +492,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 
 			Barrier barriers[]
 			{
-				Initializers::imageBarrier(m_probeArrayImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::PIXEL_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE, {0, 1, 0, 6 * k_cacheSize}),
+				Initializers::imageBarrier(m_probeArrayImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::PIXEL_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE, {0, k_numMips, 0, 6 * k_cacheSize}),
 				Initializers::imageBarrier(m_probeDepthBufferImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::EARLY_FRAGMENT_TESTS_BIT | PipelineStageFlags::LATE_FRAGMENT_TESTS_BIT, ResourceState::UNDEFINED, ResourceState::WRITE_DEPTH_STENCIL, {0, 1, 0, 6}),
 				Initializers::imageBarrier(m_probeAlbedoRoughnessArrayImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE, {0, 1, 0, 6 * k_cacheSize}),
 				Initializers::imageBarrier(m_probeNormalDepthArrayImage, PipelineStageFlags::TOP_OF_PIPE_BIT, PipelineStageFlags::COMPUTE_SHADER_BIT, ResourceState::UNDEFINED, ResourceState::READ_RESOURCE, {0, 1, 0, 6 * k_cacheSize}),
@@ -1229,17 +1234,6 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 			cmdList->bindDescriptorSets(m_ffxDownsamplePipeline, 0, 2, sets, 1, &constsAddress);
 
 			cmdList->dispatch(dispatchThreadGroupCountXY[0], dispatchThreadGroupCountXY[1], 6);
-
-			// transition tmp image mips to READ_RESOURCE
-			{
-				gal::Barrier barrier = Initializers::imageBarrier(m_probeTmpLitImage,
-					PipelineStageFlags::COMPUTE_SHADER_BIT,
-					PipelineStageFlags::COMPUTE_SHADER_BIT,
-					ResourceState::RW_RESOURCE_WRITE_ONLY,
-					ResourceState::READ_RESOURCE,
-					{ 1, k_numPrefilterMips - 1, 0, 6 });
-				cmdList->barrier(1, &barrier);
-			}
 		});
 
 	// filter
@@ -1251,13 +1245,26 @@ void ReflectionProbeManager::relightProbe(rg::RenderGraph *graph, const Data &da
 
 			// transition result image to RW_RESOURCE
 			{
-				gal::Barrier barrier = Initializers::imageBarrier(m_probeArrayImage,
-					PipelineStageFlags::PIXEL_SHADER_BIT,
-					PipelineStageFlags::COMPUTE_SHADER_BIT,
-					ResourceState::READ_RESOURCE,
-					ResourceState::RW_RESOURCE_WRITE_ONLY,
-					{ 0, k_numMips, (uint32_t)probeIdx * 6, 6 });
-				cmdList->barrier(1, &barrier);
+				gal::Barrier barriers[]
+				{
+					// transition tmp image mips to READ_RESOURCE
+					Initializers::imageBarrier(m_probeTmpLitImage,
+						PipelineStageFlags::COMPUTE_SHADER_BIT,
+						PipelineStageFlags::COMPUTE_SHADER_BIT,
+						ResourceState::RW_RESOURCE_WRITE_ONLY,
+						ResourceState::READ_RESOURCE,
+						{ 1, k_numPrefilterMips - 1, 0, 6 }),
+
+					// transition result image to RW_RESOURCE
+					Initializers::imageBarrier(m_probeArrayImage,
+						PipelineStageFlags::PIXEL_SHADER_BIT,
+						PipelineStageFlags::COMPUTE_SHADER_BIT,
+						ResourceState::READ_RESOURCE,
+						ResourceState::RW_RESOURCE_WRITE_ONLY,
+						{ 0, k_numMips, (uint32_t)probeIdx * 6, 6 })
+				};
+				
+				cmdList->barrier(2, barriers);
 			}
 
 			cmdList->bindPipeline(m_probeFilterPipeline);

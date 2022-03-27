@@ -149,10 +149,10 @@ ForwardModule::ForwardModule(GraphicsDevice *device, DescriptorSetLayout *offset
 	};
 	PipelineColorBlendAttachmentState blendStates[]
 	{
-		GraphicsPipelineBuilder::s_defaultBlendAttachment,
-		GraphicsPipelineBuilder::s_defaultBlendAttachment,
-		GraphicsPipelineBuilder::s_defaultBlendAttachment,
-		GraphicsPipelineBuilder::s_defaultBlendAttachment,
+		GraphicsPipelineBuilder::k_defaultBlendAttachment,
+		GraphicsPipelineBuilder::k_defaultBlendAttachment,
+		GraphicsPipelineBuilder::k_defaultBlendAttachment,
+		GraphicsPipelineBuilder::k_defaultBlendAttachment,
 	};
 	const uint32_t renderTargetFormatCount = static_cast<uint32_t>(eastl::size(renderTargetFormats));
 
