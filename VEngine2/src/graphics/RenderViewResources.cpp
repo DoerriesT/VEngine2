@@ -73,7 +73,7 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 		createInfo.m_width = width;
 		createInfo.m_height = height;
 		createInfo.m_format = gal::Format::R16G16B16A16_SFLOAT;
-		createInfo.m_usageFlags = gal::ImageUsageFlags::COLOR_ATTACHMENT_BIT | gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::RW_TEXTURE_BIT | gal::ImageUsageFlags::TRANSFER_SRC_BIT;
+		createInfo.m_usageFlags = gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::RW_TEXTURE_BIT;
 
 		m_device->createImage(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_temporalAAImages[i]);
 		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_temporalAAImages[i], i == 0 ? "Temporal AA Image 0" : "Temporal AA Image 1");

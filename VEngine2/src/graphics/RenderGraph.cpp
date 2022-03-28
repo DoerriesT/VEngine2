@@ -711,6 +711,22 @@ void rg::RenderGraph::createSynchronization() noexcept
 					barrier.m_flags |= BarrierFlags::FIRST_ACCESS_IN_SUBMISSION;
 				}
 
+				// split barriers
+				if (usageIdx > 0 && prevUsageInfo.m_queue == curUsageInfo.m_queue)
+				{
+					// multiple previous usages may have been merged, so we need to insert the begin-split-barrier at the end of the merged batch
+					auto actualPrevPassHandle = m_subresourceUsages[subresourceUsageIdx][usageIdx - 1].m_passHandle;
+					if ((actualPrevPassHandle + 1) < curUsageInfo.m_passHandle)
+					{
+						auto flags = barrier.m_flags;
+						barrier.m_flags |= BarrierFlags::BARRIER_BEGIN;
+						m_passData[actualPrevPassHandle + 1].m_beforeBarriers.push_back(barrier);
+
+						barrier.m_flags = flags;
+						barrier.m_flags |= BarrierFlags::BARRIER_END;
+					}
+				}
+
 				passData.m_beforeBarriers.push_back(barrier);
 
 				const size_t prevQueueIdx = prevUsageInfo.m_queue == m_queues[0] ? 0 : prevUsageInfo.m_queue == m_queues[1] ? 1 : 2;

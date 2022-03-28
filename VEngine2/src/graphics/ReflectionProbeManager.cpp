@@ -329,7 +329,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 			imageCreateInfo.m_optimizedClearValue.m_color = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 			m_device->createImage(imageCreateInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_probeNormalDepthArrayImage);
-			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeAlbedoRoughnessArrayImage, "Reflection Probe Normal/Depth Array Image");
+			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeNormalDepthArrayImage, "Reflection Probe Normal/Depth Array Image");
 
 			// array view
 			{
@@ -370,7 +370,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 			imageCreateInfo.m_optimizedClearValue.m_color = { };
 
 			m_device->createImage(imageCreateInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_probeDepthBufferImage);
-			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeAlbedoRoughnessArrayImage, "Reflection Probe Depth Buffer Image");
+			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeDepthBufferImage, "Reflection Probe Depth Buffer Image");
 
 			// array view
 			{
@@ -412,7 +412,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 			imageCreateInfo.m_levels = k_numPrefilterMips;
 
 			m_device->createImage(imageCreateInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_probeTmpLitImage);
-			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeAlbedoRoughnessArrayImage, "Reflection Probe Tmp Lit Image");
+			m_device->setDebugObjectName(ObjectType::IMAGE, m_probeTmpLitImage, "Reflection Probe Tmp Lit Image");
 
 			// reset
 			imageCreateInfo.m_createFlags = {};
@@ -462,7 +462,7 @@ ReflectionProbeManager::ReflectionProbeManager(gal::GraphicsDevice *device, Rend
 		createInfo.m_usageFlags = BufferUsageFlags::RW_BYTE_BUFFER_BIT | BufferUsageFlags::CLEAR_BIT;
 
 		m_device->createBuffer(createInfo, MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, false, &m_spdCounterBuffer);
-		m_device->setDebugObjectName(ObjectType::IMAGE, m_probeAlbedoRoughnessArrayImage, "FidelityFX SPD Counter Buffer");
+		m_device->setDebugObjectName(ObjectType::BUFFER, m_spdCounterBuffer, "FidelityFX SPD Counter Buffer");
 
 		DescriptorBufferInfo bufferInfo{};
 		bufferInfo.m_buffer = m_spdCounterBuffer;

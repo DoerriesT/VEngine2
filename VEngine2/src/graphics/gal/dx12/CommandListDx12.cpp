@@ -775,6 +775,9 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 			continue;
 		}
 
+		const bool splitBarrierBegin = (barrier.m_flags & BarrierFlags::BARRIER_BEGIN) != 0;
+		const bool splitBarrierEnd = (barrier.m_flags & BarrierFlags::BARRIER_END) != 0;
+
 		ImageCreateInfo imageDesc;
 		if (barrier.m_image)
 		{
@@ -824,7 +827,7 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 		ID3D12Resource *resouceDx = barrier.m_image ? (ID3D12Resource *)barrier.m_image->getNativeHandle() : (ID3D12Resource *)barrier.m_buffer->getNativeHandle();
 
 		// UAV barrier
-		if (beforeState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS && afterState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+		if (!splitBarrierBegin && beforeState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS && afterState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 		{
 			D3D12_RESOURCE_BARRIER uavBarrierDx{};
 			uavBarrierDx.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -891,15 +894,6 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 						barrierDx.Transition.StateBefore = beforeState;
 						barrierDx.Transition.StateAfter = newAfterState;
 
-						if ((barrier.m_flags & BarrierFlags::BARRIER_BEGIN) != 0)
-						{
-							barrierDx.Flags = D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
-						}
-						else if ((barrier.m_flags & BarrierFlags::BARRIER_END) != 0)
-						{
-							barrierDx.Flags = D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
-						}
-
 						// collapse individual barriers for each subresource into a single barrier if all subresources are transitioned
 						if (baseLayer == 0 && baseLevel == 0 && layerCount == imageDesc.m_layers && levelCount == imageDesc.m_levels)
 						{
@@ -947,6 +941,15 @@ void gal::CommandListDx12::barrier(uint32_t count, const Barrier *barriers)
 
 			if (beforeState != afterState)
 			{
+				if (splitBarrierBegin)
+				{
+					barrierDx.Flags |= D3D12_RESOURCE_BARRIER_FLAG_BEGIN_ONLY;
+				}
+				else if (splitBarrierEnd)
+				{
+					barrierDx.Flags |= D3D12_RESOURCE_BARRIER_FLAG_END_ONLY;
+				}
+
 				if (barrier.m_image)
 				{
 					const uint32_t baseLayer = barrier.m_imageSubresourceRange.m_baseArrayLayer;
