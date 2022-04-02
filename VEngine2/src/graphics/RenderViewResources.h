@@ -35,6 +35,8 @@ struct RenderViewResources
 	void resize(uint32_t width, uint32_t height) noexcept;
 
 private:
-	void create(uint32_t width, uint32_t height) noexcept;
-	void destroy() noexcept;
+	void createNonResizableResources() noexcept;
+	void createResizableResources(uint32_t width, uint32_t height) noexcept;
+	void destroyNonResizableResources() noexcept;
+	void destroyResizableResources() noexcept;
 };

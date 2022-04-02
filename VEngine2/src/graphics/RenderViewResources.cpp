@@ -8,43 +8,26 @@ RenderViewResources::RenderViewResources(gal::GraphicsDevice *device, ResourceVi
 	m_width(width),
 	m_height(height)
 {
-	create(width, height);
+	createNonResizableResources();
+	createResizableResources(width, height);
 }
 
 RenderViewResources::~RenderViewResources()
 {
-	destroy();
+	destroyNonResizableResources();
+	destroyResizableResources();
 }
 
 void RenderViewResources::resize(uint32_t width, uint32_t height) noexcept
 {
-	destroy();
+	destroyResizableResources();
 	m_width = width;
 	m_height = height;
-	create(width, height);
+	createResizableResources(width, height);
 }
 
-void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
+void RenderViewResources::createNonResizableResources() noexcept
 {
-	// result image
-	{
-		gal::ImageCreateInfo createInfo{};
-		createInfo.m_width = width;
-		createInfo.m_height = height;
-		createInfo.m_format = gal::Format::B8G8R8A8_UNORM;
-		createInfo.m_usageFlags = gal::ImageUsageFlags::COLOR_ATTACHMENT_BIT | gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::RW_TEXTURE_BIT | gal::ImageUsageFlags::TRANSFER_SRC_BIT;
-
-		m_device->createImage(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, true, &m_resultImage);
-		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_resultImage, "Render View Result Image");
-
-		m_device->createImageView(m_resultImage, &m_resultImageView);
-		m_device->setDebugObjectName(gal::ObjectType::IMAGE_VIEW, m_resultImageView, "Render View Result Image View");
-
-		m_resultImageTextureViewHandle = m_viewRegistry->createTextureViewHandle(m_resultImageView);
-
-		m_resultImageState[0] = {};
-	}
-	
 	// exposure data buffer
 	{
 		gal::BufferCreateInfo createInfo{};
@@ -64,6 +47,28 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 
 		m_device->createBuffer(createInfo, gal::MemoryPropertyFlags::HOST_VISIBLE_BIT | gal::MemoryPropertyFlags::HOST_CACHED_BIT, {}, false, &m_pickingDataReadbackBuffers[i]);
 		m_device->setDebugObjectName(gal::ObjectType::BUFFER, m_pickingDataReadbackBuffers[i], i == 0 ? "Picking Data Readback Buffer 0" : "Picking Data Readback Buffer 1");
+	}
+}
+
+void RenderViewResources::createResizableResources(uint32_t width, uint32_t height) noexcept
+{
+	// result image
+	{
+		gal::ImageCreateInfo createInfo{};
+		createInfo.m_width = width;
+		createInfo.m_height = height;
+		createInfo.m_format = gal::Format::B8G8R8A8_UNORM;
+		createInfo.m_usageFlags = gal::ImageUsageFlags::COLOR_ATTACHMENT_BIT | gal::ImageUsageFlags::TEXTURE_BIT | gal::ImageUsageFlags::RW_TEXTURE_BIT | gal::ImageUsageFlags::TRANSFER_SRC_BIT;
+
+		m_device->createImage(createInfo, gal::MemoryPropertyFlags::DEVICE_LOCAL_BIT, {}, true, &m_resultImage);
+		m_device->setDebugObjectName(gal::ObjectType::IMAGE, m_resultImage, "Render View Result Image");
+
+		m_device->createImageView(m_resultImage, &m_resultImageView);
+		m_device->setDebugObjectName(gal::ObjectType::IMAGE_VIEW, m_resultImageView, "Render View Result Image View");
+
+		m_resultImageTextureViewHandle = m_viewRegistry->createTextureViewHandle(m_resultImageView);
+
+		m_resultImageState[0] = {};
 	}
 
 	// TAA images
@@ -97,7 +102,17 @@ void RenderViewResources::create(uint32_t width, uint32_t height) noexcept
 	}
 }
 
-void RenderViewResources::destroy() noexcept
+void RenderViewResources::destroyNonResizableResources() noexcept
+{
+	m_device->destroyBuffer(m_exposureDataBuffer);
+
+	for (size_t i = 0; i < 2; ++i)
+	{
+		m_device->destroyBuffer(m_pickingDataReadbackBuffers[i]);
+	}
+}
+
+void RenderViewResources::destroyResizableResources() noexcept
 {
 	// result image
 	{
@@ -105,13 +120,6 @@ void RenderViewResources::destroy() noexcept
 		m_resultImageTextureViewHandle = {};
 		m_device->destroyImageView(m_resultImageView);
 		m_device->destroyImage(m_resultImage);
-	}
-
-	m_device->destroyBuffer(m_exposureDataBuffer);
-
-	for (size_t i = 0; i < 2; ++i)
-	{
-		m_device->destroyBuffer(m_pickingDataReadbackBuffers[i]);
 	}
 
 	for (size_t i = 0; i < 2; ++i)
