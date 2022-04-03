@@ -60,8 +60,8 @@ static AnimationGraph *setupAnimationGraph()
 	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[1] = 2;
 	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[2] = 3;
 	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[0] = 0.0f;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[1] = 2.0f;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[2] = 6.0f;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[1] = 1.0f;
+	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[2] = 4.0f;
 	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputCount = 3;
 	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_alpha = 1;
 

@@ -86,8 +86,8 @@ void ThirdPersonCameraController::update(float timeDelta, Camera &camera, Transf
 
 	// XZ movement of character
 	{
-		const float walkSpeed = 2.0f;
-		const float sprintSpeed = 6.0f;
+		const float walkSpeed = 1.0f;
+		const float sprintSpeed = 4.0f;
 		const float movementSpeed = (inputState->m_sprintAction.m_down ? sprintSpeed : walkSpeed);
 
 		glm::vec3 characterMovementDir = camera.getRightDirection() * inputState->m_moveRightAxis + camera.getForwardDirection() * inputState->m_moveForwardAxis;

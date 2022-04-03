@@ -85,7 +85,7 @@ void CharacterMovementSystem::update(float timeDelta) noexcept
 					}
 					/*else*/ if (/*!mc.m_jumping &&*/ mc.m_jumpInputAction)
 					{
-						const float jumpHeight = 2.0f;
+						const float jumpHeight = 1.0f;
 						const float jumpVelocity0 = sqrtf(2.0f * fabsf(gravity) * jumpHeight);
 
 						mc.m_velocityY = jumpVelocity0;
