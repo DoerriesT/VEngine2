@@ -203,7 +203,7 @@ void AssetBrowserWindow::importButton() noexcept
 
 			AssetType assetTypes[]
 			{
-				ScriptAssetData::k_assetType
+				ScriptAsset::k_assetType
 			};
 
 			assert(m_addAssetPopupSelectedAssetType < eastl::size(assetTypeNames));

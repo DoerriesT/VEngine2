@@ -17,11 +17,11 @@ public:
 
 private:
 	MaterialHandle m_materialHandle = {};
-	Asset<TextureAssetData> m_albedoTexture;
-	Asset<TextureAssetData> m_normalTexture;
-	Asset<TextureAssetData> m_metalnessTexture;
-	Asset<TextureAssetData> m_roughnessTexture;
-	Asset<TextureAssetData> m_occlusionTexture;
-	Asset<TextureAssetData> m_emissiveTexture;
-	Asset<TextureAssetData> m_displacementTexture;
+	Asset<TextureAsset> m_albedoTexture;
+	Asset<TextureAsset> m_normalTexture;
+	Asset<TextureAsset> m_metalnessTexture;
+	Asset<TextureAsset> m_roughnessTexture;
+	Asset<TextureAsset> m_occlusionTexture;
+	Asset<TextureAsset> m_emissiveTexture;
+	Asset<TextureAsset> m_displacementTexture;
 };

@@ -16,13 +16,13 @@ bool SkeletonImporter::importSkeletons(size_t count, const LoadedSkeleton *skele
 	{
 		eastl::string dstPath = count > 1 ? (eastl::string(baseDstPath) + "_skeleton" + eastl::to_string(i) + ".skel") : (eastl::string(baseDstPath) + ".skel");
 
-		assetMgr->createAsset(SkeletonAssetData::k_assetType, dstPath.c_str(), sourcePath);
+		assetMgr->createAsset(SkeletonAsset::k_assetType, dstPath.c_str(), sourcePath);
 
 		if (FileHandle fh = vfs.open(dstPath.c_str(), FileMode::WRITE, true))
 		{
 			const auto &skele = skeletons[i];
 
-			SkeletonAssetData::FileHeader header{};
+			SkeletonAsset::FileHeader header{};
 			header.m_fileSize = sizeof(header);
 			header.m_jointCount = (uint32_t)skele.m_joints.size();
 

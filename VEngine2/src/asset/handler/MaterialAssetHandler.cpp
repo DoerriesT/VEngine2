@@ -72,14 +72,14 @@ bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 			std::stringstream ss(fileData.data());
 			ss >> jmat;
 
-			auto getTextureAsset = [&](const std::string &filepath) -> Asset<TextureAssetData>
+			auto getTextureAsset = [&](const std::string &filepath) -> Asset<TextureAsset>
 			{
 				if (filepath.empty())
 				{
 					return {};
 				}
 
-				return s_assetManager->getAsset<TextureAssetData>(AssetID(filepath.c_str()));
+				return s_assetManager->getAsset<TextureAsset>(AssetID(filepath.c_str()));
 			};
 
 			auto *materialAssetData = static_cast<MaterialAssetData *>(assetData);

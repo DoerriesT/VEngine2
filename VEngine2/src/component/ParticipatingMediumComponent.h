@@ -27,7 +27,7 @@ struct ParticipatingMediumComponent
 	float m_heightFogStart = 0.0f;
 	float m_heightFogFalloff = 0.1f;
 	float m_maxHeight = 100.0f;
-	Asset<TextureAssetData> m_densityTexture = {};
+	Asset<TextureAsset> m_densityTexture = {};
 	float m_textureScale = 1.0f;
 	float m_textureBias[3] = {};
 	bool m_spherical = false;

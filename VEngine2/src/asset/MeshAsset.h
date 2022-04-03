@@ -7,7 +7,7 @@
 /// <summary>
 /// AssetData implementation for mesh assets.
 /// </summary>
-class MeshAssetData : public AssetData
+class MeshAsset : public AssetData
 {
 	friend class MeshAssetHandler;
 public:
@@ -60,7 +60,7 @@ public:
 		float m_uvMaxY;
 	};
 
-	explicit MeshAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
+	explicit MeshAsset(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
 	const eastl::vector<SubMeshHandle> &getSubMeshhandles() const noexcept { return m_subMeshHandles; }
 	const eastl::vector<Asset<MaterialAssetData>> &getMaterials() const noexcept { return m_materials; }
 	PhysicsConvexMeshHandle getPhysicsConvexMeshhandle() const noexcept { return m_physicsConvexMeshHandle; }

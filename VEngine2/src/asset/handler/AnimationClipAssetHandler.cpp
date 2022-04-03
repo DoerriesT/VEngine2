@@ -16,7 +16,7 @@ void AnimationClipAssetHandler::init(AssetManager *assetManager, AnimationSystem
 	{
 		s_assetManager = assetManager;
 		s_animationClipAssetHandler.m_animationSystem = animationSystem;
-		assetManager->registerAssetHandler(AnimationClipAssetData::k_assetType, &s_animationClipAssetHandler);
+		assetManager->registerAssetHandler(AnimationClipAsset::k_assetType, &s_animationClipAssetHandler);
 	}
 }
 
@@ -28,19 +28,19 @@ void AnimationClipAssetHandler::shutdown() noexcept
 
 AssetData *AnimationClipAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
 {
-	if (assetType != AnimationClipAssetData::k_assetType)
+	if (assetType != AnimationClipAsset::k_assetType)
 	{
 		Log::warn("AnimationClipAssetHandler: Tried to call createAsset() on a non-animation clip asset!");
 		return nullptr;
 	}
 
-	return new AnimationClipAssetData(assetID);
+	return new AnimationClipAsset(assetID);
 }
 
 bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *path) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != AnimationClipAssetData::k_assetType)
+	if (assetData->getAssetType() != AnimationClipAsset::k_assetType)
 	{
 		Log::warn("AnimationClipAssetHandler: Tried to call loadAssetData() on a non-animation clip asset!");
 		return false;
@@ -59,7 +59,7 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 
 		auto fileSize = VirtualFileSystem::get().size(path);
 
-		if (fileSize < sizeof(AnimationClipAssetData::FileHeader))
+		if (fileSize < sizeof(AnimationClipAsset::FileHeader))
 		{
 			assetData->setAssetStatus(AssetStatus::ERROR);
 			Log::err("AnimationClipAssetHandler: Animation clip asset data file \"%s\" has a wrong format! (Too small to contain header data)", path);
@@ -75,10 +75,10 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 			const char *data = fileData.data();
 
 			// we checked earlier that the header actually fits inside the file
-			AnimationClipAssetData::FileHeader header = *reinterpret_cast<const AnimationClipAssetData::FileHeader *>(data);
+			AnimationClipAsset::FileHeader header = *reinterpret_cast<const AnimationClipAsset::FileHeader *>(data);
 
 			// check the magic number
-			AnimationClipAssetData::FileHeader defaultHeader{};
+			AnimationClipAsset::FileHeader defaultHeader{};
 			if (memcmp(header.m_magicNumber, defaultHeader.m_magicNumber, sizeof(defaultHeader.m_magicNumber)) != 0)
 			{
 				assetData->setAssetStatus(AssetStatus::ERROR);
@@ -87,7 +87,7 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 			}
 
 			// check the version
-			if (header.m_version != AnimationClipAssetData::Version::LATEST)
+			if (header.m_version != AnimationClipAsset::Version::LATEST)
 			{
 				assetData->setAssetStatus(AssetStatus::ERROR);
 				Log::err("AnimationClipAssetHandler: Animation clip asset data file \"%s\" has unsupported version \"%u\"!", path, (unsigned)header.m_version);
@@ -166,7 +166,7 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 				curMemOffset += scaleCount * sizeof(float) * 1;
 			}
 
-			static_cast<AnimationClipAssetData *>(assetData)->m_animationClip = AnimationClip(animClipCreateInfo);
+			static_cast<AnimationClipAsset *>(assetData)->m_animationClip = AnimationClip(animClipCreateInfo);
 
 			success = true;
 		}
@@ -187,7 +187,7 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 void AnimationClipAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != AnimationClipAssetData::k_assetType)
+	if (assetData->getAssetType() != AnimationClipAsset::k_assetType)
 	{
 		Log::warn("AnimationClipAssetHandler: Tried to call destroyAsset() on a non-animation clip asset!");
 		return;

@@ -5,7 +5,7 @@
 /// <summary>
 /// AssetData implementation for skinned mesh skeletons.
 /// </summary>
-class SkeletonAssetData : public AssetData
+class SkeletonAsset : public AssetData
 {
 	friend class SkeletonAssetHandler;
 public:
@@ -25,7 +25,7 @@ public:
 		uint32_t m_jointCount;
 	};
 
-	explicit SkeletonAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
+	explicit SkeletonAsset(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
 	const Skeleton *getSkeleton() const noexcept { return &m_skeleton; }
 
 private:

@@ -16,7 +16,7 @@ void TextureAssetHandler::init(AssetManager *assetManager, Renderer *renderer) n
 	{
 		s_assetManager = assetManager;
 		s_textureAssetHandler.m_renderer = renderer;
-		assetManager->registerAssetHandler(TextureAssetData::k_assetType, &s_textureAssetHandler);
+		assetManager->registerAssetHandler(TextureAsset::k_assetType, &s_textureAssetHandler);
 	}
 }
 
@@ -28,19 +28,19 @@ void TextureAssetHandler::shutdown() noexcept
 
 AssetData *TextureAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
 {
-	if (assetType != TextureAssetData::k_assetType)
+	if (assetType != TextureAsset::k_assetType)
 	{
 		Log::warn("TextureAssetHandler: Tried to call createAsset on a non-texture asset!");
 		return nullptr;
 	}
 
-	return new TextureAssetData(assetID);
+	return new TextureAsset(assetID);
 }
 
 bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != TextureAssetData::k_assetType)
+	if (assetData->getAssetType() != TextureAsset::k_assetType)
 	{
 		Log::warn("TextureAssetHandler: Tried to call loadAssetData on a non-texture asset!");
 		return false;
@@ -65,7 +65,7 @@ bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) 
 		if (VirtualFileSystem::get().readFile(path, fileSize, fileData.data(), true))
 		{
 			auto handle = m_renderer->loadTexture(fileSize, fileData.data(), path);
-			static_cast<TextureAssetData *>(assetData)->m_textureHandle = handle;
+			static_cast<TextureAsset *>(assetData)->m_textureHandle = handle;
 			success = handle != 0;
 		}
 
@@ -85,13 +85,13 @@ bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) 
 void TextureAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != TextureAssetData::k_assetType)
+	if (assetData->getAssetType() != TextureAsset::k_assetType)
 	{
 		Log::warn("TextureAssetHandler: Tried to call destroyAsset on a non-texture asset!");
 		return;
 	}
 
-	m_renderer->destroyTexture(static_cast<TextureAssetData *>(assetData)->m_textureHandle);
+	m_renderer->destroyTexture(static_cast<TextureAsset *>(assetData)->m_textureHandle);
 
 	delete assetData;
 }

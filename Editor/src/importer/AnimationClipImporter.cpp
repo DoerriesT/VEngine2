@@ -37,11 +37,11 @@ bool AnimationClipImporter::importAnimationClips(size_t count, const LoadedAnima
 
 		eastl::string dstPath = count > 1 ? (eastl::string(baseDstPath) + "_" + cleanedName + ".anim") : eastl::string(baseDstPath) + ".anim";
 
-		assetMgr->createAsset(AnimationClipAssetData::k_assetType, dstPath.c_str(), sourcePath);
+		assetMgr->createAsset(AnimationClipAsset::k_assetType, dstPath.c_str(), sourcePath);
 
 		if (FileHandle fh = vfs.open(dstPath.c_str(), FileMode::WRITE, true))
 		{
-			AnimationClipAssetData::FileHeader header{};
+			AnimationClipAsset::FileHeader header{};
 			header.m_fileSize = sizeof(header);
 			header.m_jointCount = (uint32_t)animClip.m_jointAnimations.size();
 			header.m_duration = animClip.m_duration;

@@ -297,10 +297,10 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 
 		eastl::string dstPath = count > 1 ? (eastl::string(baseDstPath) + "_mesh" + eastl::to_string(i) + ".mesh") : (eastl::string(baseDstPath) + ".mesh");
 
-		MeshAssetData::FileHeader header{};
+		MeshAsset::FileHeader header{};
 		header.m_materialSlotCount = static_cast<uint32_t>(model.m_materials.size());
 
-		eastl::vector<MeshAssetData::FileSubMeshHeader> subMeshHeaders;
+		eastl::vector<MeshAsset::FileSubMeshHeader> subMeshHeaders;
 
 		eastl::vector<char> dataSegment;
 
@@ -500,7 +500,7 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 							}
 						}
 
-						MeshAssetData::FileSubMeshHeader subMeshHeader{};
+						MeshAsset::FileSubMeshHeader subMeshHeader{};
 						subMeshHeader.m_dataOffset = static_cast<uint32_t>(dataSegment.size());
 						subMeshHeader.m_vertexCount = static_cast<uint32_t>(indexedMesh16.positions.size());
 						subMeshHeader.m_indexCount = static_cast<uint32_t>(indexedMesh16.indices.size());
@@ -571,7 +571,7 @@ bool MeshImporter::importMeshes(size_t count, LoadedModel *models, const char *b
 			header.m_fileSize += (uint32_t)dataSegment.size();
 		}
 
-		assetMgr->createAsset(MeshAssetData::k_assetType, dstPath.c_str(), sourcePath);
+		assetMgr->createAsset(MeshAsset::k_assetType, dstPath.c_str(), sourcePath);
 
 		if (FileHandle fh = vfs.open(dstPath.c_str(), FileMode::WRITE, true))
 		{

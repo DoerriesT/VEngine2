@@ -9,7 +9,7 @@
 template<typename Stream>
 static bool serialize(ScriptComponent &c, Stream &stream) noexcept
 {
-	serializeAsset(stream, c.m_script, ScriptAssetData);
+	serializeAsset(stream, c.m_script, ScriptAsset);
 
 	return true;
 }
@@ -73,9 +73,9 @@ void ScriptComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer 
 
 	AssetID resultAssetID;
 
-	if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, c.m_script.get(), &resultAssetID))
+	if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAsset::k_assetType, c.m_script.get(), &resultAssetID))
 	{
-		c.m_script = AssetManager::get()->getAsset<ScriptAssetData>(resultAssetID);
+		c.m_script = AssetManager::get()->getAsset<ScriptAsset>(resultAssetID);
 
 		if (c.m_L)
 		{

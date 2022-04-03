@@ -17,7 +17,7 @@ void SkeletonAssetHandler::init(AssetManager *assetManager, AnimationSystem *ani
 	{
 		s_assetManager = assetManager;
 		s_skeletonAssetHandler.m_animationSystem = animationSystem;
-		assetManager->registerAssetHandler(SkeletonAssetData::k_assetType, &s_skeletonAssetHandler);
+		assetManager->registerAssetHandler(SkeletonAsset::k_assetType, &s_skeletonAssetHandler);
 	}
 }
 
@@ -29,19 +29,19 @@ void SkeletonAssetHandler::shutdown() noexcept
 
 AssetData *SkeletonAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
 {
-	if (assetType != SkeletonAssetData::k_assetType)
+	if (assetType != SkeletonAsset::k_assetType)
 	{
 		Log::warn("SkeletonAssetHandler: Tried to call createAsset() on a non-skeleton asset!");
 		return nullptr;
 	}
 
-	return new SkeletonAssetData(assetID);
+	return new SkeletonAsset(assetID);
 }
 
 bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != SkeletonAssetData::k_assetType)
+	if (assetData->getAssetType() != SkeletonAsset::k_assetType)
 	{
 		Log::warn("SkeletonAssetHandler: Tried to call loadAssetData() on a non-skeleton asset!");
 		return false;
@@ -60,7 +60,7 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 
 		auto fileSize = VirtualFileSystem::get().size(path);
 
-		if (fileSize < sizeof(SkeletonAssetData::FileHeader))
+		if (fileSize < sizeof(SkeletonAsset::FileHeader))
 		{
 			assetData->setAssetStatus(AssetStatus::ERROR);
 			Log::err("SkeletonAssetHandler: Skeleton asset data file \"%s\" has a wrong format! (Too small to contain header data)", path);
@@ -76,10 +76,10 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 			const char *data = fileData.data();
 
 			// we checked earlier that the header actually fits inside the file
-			SkeletonAssetData::FileHeader header = *reinterpret_cast<const SkeletonAssetData::FileHeader *>(data);
+			SkeletonAsset::FileHeader header = *reinterpret_cast<const SkeletonAsset::FileHeader *>(data);
 
 			// check the magic number
-			SkeletonAssetData::FileHeader defaultHeader{};
+			SkeletonAsset::FileHeader defaultHeader{};
 			if (memcmp(header.m_magicNumber, defaultHeader.m_magicNumber, sizeof(defaultHeader.m_magicNumber)) != 0)
 			{
 				assetData->setAssetStatus(AssetStatus::ERROR);
@@ -88,7 +88,7 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 			}
 
 			// check the version
-			if (header.m_version != SkeletonAssetData::Version::LATEST)
+			if (header.m_version != SkeletonAsset::Version::LATEST)
 			{
 				assetData->setAssetStatus(AssetStatus::ERROR);
 				Log::err("SkeletonAssetHandler: Skeleton asset data file \"%s\" has unsupported version \"%u\"!", path, (unsigned)header.m_version);
@@ -179,7 +179,7 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 				}
 			}
 
-			static_cast<SkeletonAssetData *>(assetData)->m_skeleton = Skeleton(skeletonCreateInfo);
+			static_cast<SkeletonAsset *>(assetData)->m_skeleton = Skeleton(skeletonCreateInfo);
 			
 			success = true;
 		}
@@ -200,7 +200,7 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 void SkeletonAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != SkeletonAssetData::k_assetType)
+	if (assetData->getAssetType() != SkeletonAsset::k_assetType)
 	{
 		Log::warn("SkeletonAssetHandler: Tried to call destroyAsset() on a non-skeleton asset!");
 		return;

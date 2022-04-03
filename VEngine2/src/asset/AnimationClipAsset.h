@@ -5,7 +5,7 @@
 /// <summary>
 /// AssetData implementation for animation clips.
 /// </summary>
-class AnimationClipAssetData : public AssetData
+class AnimationClipAsset : public AssetData
 {
 	friend class AnimationClipAssetHandler;
 public:
@@ -26,7 +26,7 @@ public:
 		float m_duration;
 	};
 
-	explicit AnimationClipAssetData(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
+	explicit AnimationClipAsset(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
 	const AnimationClip *getAnimationClip() const noexcept { return &m_animationClip; }
 
 private:

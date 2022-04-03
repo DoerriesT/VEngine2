@@ -29,7 +29,7 @@ struct PhysicsComponent
 {
 	PhysicsMobility m_mobility = PhysicsMobility::STATIC;
 	PhysicsShapeType m_physicsShapeType = PhysicsShapeType::SPHERE;
-	Asset<MeshAssetData> m_physicsMesh;
+	Asset<MeshAsset> m_physicsMesh;
 	float m_sphereRadius = 1.0f;
 	float m_planeNx = 0.0f;
 	float m_planeNy = 1.0f;

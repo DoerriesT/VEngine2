@@ -41,9 +41,9 @@ private:
 	AnimationGraph *m_graph = nullptr;
 	eastl::vector<AnimationGraphEditorNode *> m_nodes;
 	eastl::vector<AnimationGraphEditorParam *> m_params;
-	eastl::vector<Asset<AnimationClipAssetData> *> m_animClips;
+	eastl::vector<Asset<AnimationClipAsset> *> m_animClips;
 	eastl::vector<Link> m_links;
-	Asset<ScriptAssetData> m_controllerScriptAsset;
+	Asset<ScriptAsset> m_controllerScriptAsset;
 	int m_nextID = k_firstID;
 	bool m_linkNewNode = false;
 	int m_startedLinkAtNodeID = 0;
@@ -62,8 +62,8 @@ private:
 
 	size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) noexcept;
 	void deleteParameter(const AnimationGraphEditorParam *param) noexcept;
-	size_t getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) noexcept;
-	void deleteAnimationClip(const Asset<AnimationClipAssetData> *param) noexcept;
+	size_t getAnimationClipReferenceCount(const Asset<AnimationClipAsset> *animClip) noexcept;
+	void deleteAnimationClip(const Asset<AnimationClipAsset> *param) noexcept;
 
 	void destroyLink(int linkID, bool removeFromLinkList = true) noexcept;
 	void createLink(int srcNodeID, int srcPinID, int dstNodeID, int dstPinID = 0) noexcept;

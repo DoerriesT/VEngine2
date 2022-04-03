@@ -21,7 +21,7 @@ static bool serialize(ParticipatingMediumComponent &c, Stream &stream) noexcept
 	serializeFloat(stream, c.m_heightFogStart);
 	serializeFloat(stream, c.m_heightFogFalloff);
 	serializeFloat(stream, c.m_maxHeight);
-	serializeAsset(stream, c.m_densityTexture, TextureAssetData);
+	serializeAsset(stream, c.m_densityTexture, TextureAsset);
 	serializeFloat(stream, c.m_textureScale);
 	serializeFloat(stream, c.m_textureBias[0]);
 	serializeFloat(stream, c.m_textureBias[1]);
@@ -51,9 +51,9 @@ void ParticipatingMediumComponent::onGUI(ECS *ecs, EntityID entity, void *instan
 	ImGui::DragFloat("Max Height", &c.m_maxHeight, 0.1f);
 
 	AssetID resultAssetID;
-	if (ImGuiHelpers::AssetPicker("Density Texture", TextureAssetData::k_assetType, c.m_densityTexture.get(), &resultAssetID))
+	if (ImGuiHelpers::AssetPicker("Density Texture", TextureAsset::k_assetType, c.m_densityTexture.get(), &resultAssetID))
 	{
-		c.m_densityTexture = AssetManager::get()->getAsset<TextureAssetData>(resultAssetID);
+		c.m_densityTexture = AssetManager::get()->getAsset<TextureAsset>(resultAssetID);
 	}
 
 	ImGui::DragFloat("Density Texture Scale", &c.m_textureScale, 0.1f, 0.0f, FLT_MAX);

@@ -19,7 +19,7 @@ static bool serialize(PhysicsComponent &c, Stream &stream) noexcept
 	serializeUInt32(stream, typeInt);
 	c.m_physicsShapeType = static_cast<PhysicsShapeType>(typeInt);
 
-	serializeAsset(stream, c.m_physicsMesh, MeshAssetData);
+	serializeAsset(stream, c.m_physicsMesh, MeshAsset);
 	serializeFloat(stream, c.m_sphereRadius);
 	serializeFloat(stream, c.m_planeNx);
 	serializeFloat(stream, c.m_planeNy);
@@ -179,9 +179,9 @@ void PhysicsComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Renderer
 	case PhysicsShapeType::TRIANGLE_MESH:
 	{
 		AssetID resultAssetID;
-		if (ImGuiHelpers::AssetPicker("Physics Mesh Asset", MeshAssetData::k_assetType, c.m_physicsMesh.get(), &resultAssetID))
+		if (ImGuiHelpers::AssetPicker("Physics Mesh Asset", MeshAsset::k_assetType, c.m_physicsMesh.get(), &resultAssetID))
 		{
-			c.m_physicsMesh = AssetManager::get()->getAsset<MeshAssetData>(resultAssetID);
+			c.m_physicsMesh = AssetManager::get()->getAsset<MeshAsset>(resultAssetID);
 		}
 	}
 		break;

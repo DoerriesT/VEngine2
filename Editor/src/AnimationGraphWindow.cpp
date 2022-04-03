@@ -49,8 +49,8 @@ struct AnimationGraphEditorNode
 	virtual void computeNodePosition(int treeDepth, int siblingIndex) const noexcept = 0;
 	virtual size_t getParameterReferenceCount(const AnimationGraphEditorParam *param) const noexcept = 0;
 	virtual void deleteParameter(const AnimationGraphEditorParam *param) noexcept = 0;
-	virtual size_t getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) const noexcept { return 0; }
-	virtual void deleteAnimationClip(const Asset<AnimationClipAssetData> *animClip) noexcept {}
+	virtual size_t getAnimationClipReferenceCount(const Asset<AnimationClipAsset> *animClip) const noexcept { return 0; }
+	virtual void deleteAnimationClip(const Asset<AnimationClipAsset> *animClip) noexcept {}
 	virtual void clearInputPin(size_t pinIndex) noexcept = 0;
 	virtual void setInputPin(size_t pinIndex, AnimationGraphEditorNode *inputNode) noexcept = 0;
 	virtual bool findLoop(const AnimationGraphEditorNode *searchNode) const noexcept = 0;
@@ -58,7 +58,7 @@ struct AnimationGraphEditorNode
 
 struct AnimationGraphAnimClipEditorNode : AnimationGraphEditorNode
 {
-	Asset<AnimationClipAssetData> *m_animClip;
+	Asset<AnimationClipAsset> *m_animClip;
 	AnimationGraphEditorParam *m_loopParam;
 
 	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
@@ -138,12 +138,12 @@ struct AnimationGraphAnimClipEditorNode : AnimationGraphEditorNode
 		}
 	}
 
-	size_t getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) const noexcept override
+	size_t getAnimationClipReferenceCount(const Asset<AnimationClipAsset> *animClip) const noexcept override
 	{
 		return (animClip == m_animClip) ? 1 : 0;
 	}
 
-	void deleteAnimationClip(const Asset<AnimationClipAssetData> *animClip) noexcept override
+	void deleteAnimationClip(const Asset<AnimationClipAsset> *animClip) noexcept override
 	{
 		if (animClip == m_animClip)
 		{
@@ -684,9 +684,9 @@ void AnimationGraphWindow::draw(AnimationGraph *graph) noexcept
 					// controller script
 					{
 						AssetID resultAssetID;
-						if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAssetData::k_assetType, m_controllerScriptAsset.get(), &resultAssetID))
+						if (ImGuiHelpers::AssetPicker("Script Asset", ScriptAsset::k_assetType, m_controllerScriptAsset.get(), &resultAssetID))
 						{
-							m_controllerScriptAsset = AssetManager::get()->getAsset<ScriptAssetData>(resultAssetID);
+							m_controllerScriptAsset = AssetManager::get()->getAsset<ScriptAsset>(resultAssetID);
 						}
 					}
 
@@ -773,7 +773,7 @@ void AnimationGraphWindow::importGraph(AnimationGraph *graph) noexcept
 		const auto *clips = graph->getAnimationClipAssets();
 		for (size_t i = 0; i < clipCount; ++i)
 		{
-			m_animClips.push_back(new Asset<AnimationClipAssetData>(clips[i]));
+			m_animClips.push_back(new Asset<AnimationClipAsset>(clips[i]));
 		}
 
 		m_controllerScriptAsset = graph->getControllerScript();
@@ -841,7 +841,7 @@ void AnimationGraphWindow::exportGraph(AnimationGraph *graph) noexcept
 			params.push_back(m_params[i]->m_param);
 		}
 
-		eastl::vector<Asset<AnimationClipAssetData>> clips;
+		eastl::vector<Asset<AnimationClipAsset>> clips;
 		clips.reserve(m_animClips.size());
 		for (size_t i = 0; i < m_animClips.size(); ++i)
 		{
@@ -1202,13 +1202,13 @@ void AnimationGraphWindow::drawParams() noexcept
 
 void AnimationGraphWindow::drawAnimationClips() noexcept
 {
-	Asset<AnimationClipAssetData> *clipToDelete = nullptr;
+	Asset<AnimationClipAsset> *clipToDelete = nullptr;
 
 	ImGui::BeginChild("##AnimClips");
 	{
 		if (ImGui::Button("Add Animation Clip"))
 		{
-			m_animClips.push_back(new Asset<AnimationClipAssetData>());
+			m_animClips.push_back(new Asset<AnimationClipAsset>());
 		}
 
 		ImGui::Separator();
@@ -1258,9 +1258,9 @@ void AnimationGraphWindow::drawAnimationClips() noexcept
 			{
 				AssetID resultAssetID;
 
-				if (ImGuiHelpers::AssetPicker("Animation Clip Asset", AnimationClipAssetData::k_assetType, clip->get(), &resultAssetID))
+				if (ImGuiHelpers::AssetPicker("Animation Clip Asset", AnimationClipAsset::k_assetType, clip->get(), &resultAssetID))
 				{
-					*clip = AssetManager::get()->getAsset<AnimationClipAssetData>(resultAssetID);
+					*clip = AssetManager::get()->getAsset<AnimationClipAsset>(resultAssetID);
 				}
 			}
 			ImGui::PopID();
@@ -1317,7 +1317,7 @@ void AnimationGraphWindow::deleteParameter(const AnimationGraphEditorParam *para
 	m_params.erase(eastl::remove(m_params.begin(), m_params.end(), param), m_params.end());
 }
 
-size_t AnimationGraphWindow::getAnimationClipReferenceCount(const Asset<AnimationClipAssetData> *animClip) noexcept
+size_t AnimationGraphWindow::getAnimationClipReferenceCount(const Asset<AnimationClipAsset> *animClip) noexcept
 {
 	size_t refCount = 0;
 	for (const auto *n : m_nodes)
@@ -1327,7 +1327,7 @@ size_t AnimationGraphWindow::getAnimationClipReferenceCount(const Asset<Animatio
 	return refCount;
 }
 
-void AnimationGraphWindow::deleteAnimationClip(const Asset<AnimationClipAssetData> *animClip) noexcept
+void AnimationGraphWindow::deleteAnimationClip(const Asset<AnimationClipAsset> *animClip) noexcept
 {
 	for (auto *n : m_nodes)
 	{

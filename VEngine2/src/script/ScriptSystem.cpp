@@ -38,7 +38,7 @@ void ScriptSystem::update(float deltaTime) noexcept
 						lua_close(sc.m_L);
 						sc.m_L = nullptr;
 					}
-					sc.m_script = AssetManager::get()->getAsset<ScriptAssetData>(sc.m_script->getAssetID());
+					sc.m_script = AssetManager::get()->getAsset<ScriptAsset>(sc.m_script->getAssetID());
 				}
 
 				if (!sc.m_script.isLoaded())

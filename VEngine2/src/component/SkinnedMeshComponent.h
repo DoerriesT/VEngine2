@@ -17,8 +17,8 @@ class SerializationReadStream;
 
 struct SkinnedMeshComponent
 {
-	Asset<MeshAssetData> m_mesh;
-	Asset<SkeletonAssetData> m_skeleton;
+	Asset<MeshAsset> m_mesh;
+	Asset<SkeletonAsset> m_skeleton;
 	AnimationGraph *m_animationGraph;
 	eastl::vector<glm::mat4> m_matrixPalette;
 	eastl::vector<glm::mat4> m_prevMatrixPalette;

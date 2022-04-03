@@ -121,8 +121,8 @@ public:
 		size_t parameterCount, 
 		const AnimationGraphParameter *parameters, 
 		size_t animationClipCount, 
-		const Asset<AnimationClipAssetData> *animationClips,
-		const Asset<ScriptAssetData> &controllerScript) noexcept;
+		const Asset<AnimationClipAsset> *animationClips,
+		const Asset<ScriptAsset> &controllerScript) noexcept;
 	AnimationGraph(const AnimationGraph &other) noexcept;
 	AnimationGraph(AnimationGraph &&other) noexcept;
 	AnimationGraph &operator=(const AnimationGraph &other) noexcept;
@@ -143,8 +143,8 @@ public:
 	size_t getParameterCount() const noexcept;
 	const AnimationGraphParameter *getParameters() const noexcept;
 	size_t getAnimationClipAssetCount() const noexcept;
-	const Asset<AnimationClipAssetData> *getAnimationClipAssets() const noexcept;
-	Asset<ScriptAssetData> getControllerScript() const noexcept;
+	const Asset<AnimationClipAsset> *getAnimationClipAssets() const noexcept;
+	Asset<ScriptAsset> getControllerScript() const noexcept;
 	size_t getRootNodeIndex() const noexcept;
 	bool isValid() const noexcept;
 	bool isLoaded() noexcept;
@@ -155,9 +155,9 @@ private:
 	size_t m_nodeCount = 0;
 	AnimationGraphParameter *m_parameters = nullptr;
 	size_t m_parameterCount = 0;
-	Asset<AnimationClipAssetData> *m_animationClipAssets = nullptr;
+	Asset<AnimationClipAsset> *m_animationClipAssets = nullptr;
 	size_t m_animationClipCount;
-	Asset<ScriptAssetData> m_controllerScript;
+	Asset<ScriptAsset> m_controllerScript;
 	lua_State *m_scriptLuaState = nullptr;
 	float m_phase = 0.0f;
 	bool m_isValid = false;

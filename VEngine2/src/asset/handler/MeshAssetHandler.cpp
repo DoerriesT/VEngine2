@@ -21,7 +21,7 @@ void MeshAssetHandler::init(AssetManager *assetManager, Renderer *renderer, Phys
 		s_assetManager = assetManager;
 		s_meshAssetHandler.m_renderer = renderer;
 		s_meshAssetHandler.m_physics = physics;
-		assetManager->registerAssetHandler(MeshAssetData::k_assetType, &s_meshAssetHandler);
+		assetManager->registerAssetHandler(MeshAsset::k_assetType, &s_meshAssetHandler);
 	}
 }
 
@@ -33,19 +33,19 @@ void MeshAssetHandler::shutdown() noexcept
 
 AssetData *MeshAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
 {
-	if (assetType != MeshAssetData::k_assetType)
+	if (assetType != MeshAsset::k_assetType)
 	{
 		Log::warn("MeshAssetHandler: Tried to call createAsset on a non-mesh asset!");
 		return nullptr;
 	}
 
-	return new MeshAssetData(assetID);
+	return new MeshAsset(assetID);
 }
 
 bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != MeshAssetData::k_assetType)
+	if (assetData->getAssetType() != MeshAsset::k_assetType)
 	{
 		Log::warn("MeshAssetHandler: Tried to call loadAssetData on a non-mesh asset!");
 		return false;
@@ -55,7 +55,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 	// load asset
 	{
-		auto *meshAssetData = static_cast<MeshAssetData *>(assetData);
+		auto *meshAssetData = static_cast<MeshAsset *>(assetData);
 
 		// load mesh
 		{
@@ -68,7 +68,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 			auto fileSize = VirtualFileSystem::get().size(path);
 
-			if (fileSize < sizeof(MeshAssetData::FileHeader))
+			if (fileSize < sizeof(MeshAsset::FileHeader))
 			{
 				assetData->setAssetStatus(AssetStatus::ERROR);
 				Log::err("MeshAssetHandler: Mesh asset data file \"%s\" has a wrong format! (Too small to contain header data)", path);
@@ -82,10 +82,10 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 				const char *data = fileData.data();
 
 				// we checked earlier that the header actually fits inside the file
-				MeshAssetData::FileHeader header = *reinterpret_cast<const MeshAssetData::FileHeader *>(data);
+				MeshAsset::FileHeader header = *reinterpret_cast<const MeshAsset::FileHeader *>(data);
 
 				// check the magic number
-				MeshAssetData::FileHeader defaultHeader{};
+				MeshAsset::FileHeader defaultHeader{};
 				if (memcmp(header.m_magicNumber, defaultHeader.m_magicNumber, sizeof(defaultHeader.m_magicNumber)) != 0)
 				{
 					assetData->setAssetStatus(AssetStatus::ERROR);
@@ -94,7 +94,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 				}
 
 				// check the version
-				if (header.m_version != MeshAssetData::Version::LATEST)
+				if (header.m_version != MeshAsset::Version::LATEST)
 				{
 					assetData->setAssetStatus(AssetStatus::ERROR);
 					Log::err("MeshAssetHandler: Mesh asset data file \"%s\" has unsupported version \"%u\"!", path, (unsigned)header.m_version);
@@ -175,7 +175,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 					for (size_t i = 0; i < header.m_subMeshCount; ++i)
 					{
-						const auto &subMeshHeader = *reinterpret_cast<const MeshAssetData::FileSubMeshHeader *>(data);
+						const auto &subMeshHeader = *reinterpret_cast<const MeshAsset::FileSubMeshHeader *>(data);
 						data += sizeof(subMeshHeader);
 
 						SubMeshCreateInfo subMesh{};
@@ -263,7 +263,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 void MeshAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != MeshAssetData::k_assetType)
+	if (assetData->getAssetType() != MeshAsset::k_assetType)
 	{
 		Log::warn("MeshAssetHandler: Tried to call destroyAsset on a non-mesh asset!");
 		return;

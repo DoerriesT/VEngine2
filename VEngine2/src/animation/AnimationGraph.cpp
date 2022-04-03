@@ -15,8 +15,8 @@ AnimationGraph::AnimationGraph(
 	size_t parameterCount, 
 	const AnimationGraphParameter *parameters, 
 	size_t animationClipCount,
-	const Asset<AnimationClipAssetData> *animationClips,
-	const Asset<ScriptAssetData> &controllerScript
+	const Asset<AnimationClipAsset> *animationClips,
+	const Asset<ScriptAsset> &controllerScript
 ) noexcept
 	:m_rootNodeIndex(rootNodeIndex),
 	m_nodeCount(nodeCount),
@@ -30,7 +30,7 @@ AnimationGraph::AnimationGraph(
 	m_parameters = new AnimationGraphParameter[m_parameterCount];
 	memcpy(m_parameters, parameters, sizeof(m_parameters[0]) * m_parameterCount);
 
-	m_animationClipAssets = new Asset<AnimationClipAssetData>[m_animationClipCount];
+	m_animationClipAssets = new Asset<AnimationClipAsset>[m_animationClipCount];
 	for (size_t i = 0; i < m_animationClipCount; ++i)
 	{
 		m_animationClipAssets[i] = animationClips[i];
@@ -55,7 +55,7 @@ AnimationGraph::AnimationGraph(const AnimationGraph &other) noexcept
 	m_parameters = new AnimationGraphParameter[m_parameterCount];
 	memcpy(m_parameters, other.m_parameters, sizeof(m_parameters[0]) * m_parameterCount);
 
-	m_animationClipAssets = new Asset<AnimationClipAssetData>[m_animationClipCount];
+	m_animationClipAssets = new Asset<AnimationClipAsset>[m_animationClipCount];
 	for (size_t i = 0; i < m_animationClipCount; ++i)
 	{
 		m_animationClipAssets[i] = other.m_animationClipAssets[i];
@@ -109,7 +109,7 @@ AnimationGraph &AnimationGraph::operator=(const AnimationGraph &other) noexcept
 		m_parameters = new AnimationGraphParameter[m_parameterCount];
 		memcpy(m_parameters, other.m_parameters, sizeof(m_parameters[0]) * m_parameterCount);
 		
-		m_animationClipAssets = new Asset<AnimationClipAssetData> [m_animationClipCount];
+		m_animationClipAssets = new Asset<AnimationClipAsset> [m_animationClipCount];
 		for (size_t i = 0; i < m_animationClipCount; ++i)
 		{
 			m_animationClipAssets[i] = other.m_animationClipAssets[i];
@@ -176,7 +176,7 @@ void AnimationGraph::preEvaluate(ECS *ecs, EntityID entity, float deltaTime) noe
 			lua_close(m_scriptLuaState);
 			m_scriptLuaState = nullptr;
 		}
-		m_controllerScript = AssetManager::get()->getAsset<ScriptAssetData>(m_controllerScript->getAssetID());
+		m_controllerScript = AssetManager::get()->getAsset<ScriptAsset>(m_controllerScript->getAssetID());
 		m_allAssetsLoaded = !m_controllerScript.isLoaded() ? false : m_allAssetsLoaded;
 	}
 
@@ -385,12 +385,12 @@ size_t AnimationGraph::getAnimationClipAssetCount() const noexcept
 	return m_animationClipCount;
 }
 
-const Asset<AnimationClipAssetData> *AnimationGraph::getAnimationClipAssets() const noexcept
+const Asset<AnimationClipAsset> *AnimationGraph::getAnimationClipAssets() const noexcept
 {
 	return m_animationClipAssets;
 }
 
-Asset<ScriptAssetData> AnimationGraph::getControllerScript() const noexcept
+Asset<ScriptAsset> AnimationGraph::getControllerScript() const noexcept
 {
 	return m_controllerScript;
 }

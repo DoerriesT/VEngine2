@@ -9,8 +9,8 @@
 template<typename Stream>
 static bool serialize(SkinnedMeshComponent &c, Stream &stream) noexcept
 {
-	serializeAsset(stream, c.m_mesh, MeshAssetData);
-	serializeAsset(stream, c.m_skeleton, SkeletonAssetData);
+	serializeAsset(stream, c.m_mesh, MeshAsset);
+	serializeAsset(stream, c.m_skeleton, SkeletonAsset);
 	serializeFloat(stream, c.m_boundingSphereSizeFactor);
 
 	return true;
@@ -22,14 +22,14 @@ void SkinnedMeshComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Rend
 
 	AssetID resultAssetID;
 
-	if (ImGuiHelpers::AssetPicker("Mesh Asset", MeshAssetData::k_assetType, c.m_mesh.get(), &resultAssetID))
+	if (ImGuiHelpers::AssetPicker("Mesh Asset", MeshAsset::k_assetType, c.m_mesh.get(), &resultAssetID))
 	{
-		c.m_mesh = AssetManager::get()->getAsset<MeshAssetData>(resultAssetID);
+		c.m_mesh = AssetManager::get()->getAsset<MeshAsset>(resultAssetID);
 	}
 
-	if (ImGuiHelpers::AssetPicker("Skeleton Asset", SkeletonAssetData::k_assetType, c.m_skeleton.get(), &resultAssetID))
+	if (ImGuiHelpers::AssetPicker("Skeleton Asset", SkeletonAsset::k_assetType, c.m_skeleton.get(), &resultAssetID))
 	{
-		c.m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(resultAssetID);
+		c.m_skeleton = AssetManager::get()->getAsset<SkeletonAsset>(resultAssetID);
 	}
 
 	ImGui::DragFloat("Bounding Sphere Size Factor", &c.m_boundingSphereSizeFactor, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);

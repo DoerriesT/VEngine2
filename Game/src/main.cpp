@@ -37,11 +37,11 @@
 
 static AnimationGraph *setupAnimationGraph()
 {
-	Asset<AnimationClipAssetData> animClips[]
+	Asset<AnimationClipAsset> animClips[]
 	{
-		AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/idle.anim")),
-		AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walk0.anim")),
-		AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/run.anim"))
+		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/idle.anim")),
+		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/walk0.anim")),
+		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/run.anim"))
 	};
 
 	AnimationGraphParameter params[2];
@@ -80,7 +80,7 @@ static AnimationGraph *setupAnimationGraph()
 	nodes[3].m_nodeData.m_clipNodeData.m_animClip = 2;
 	nodes[3].m_nodeData.m_clipNodeData.m_loop = 0;
 
-	return new AnimationGraph(0, eastl::size(nodes), nodes, eastl::size(params), params, eastl::size(animClips), animClips, AssetManager::get()->getAsset<ScriptAssetData>(SID("scripts/anim_graph.lua")));
+	return new AnimationGraph(0, eastl::size(nodes), nodes, eastl::size(params), params, eastl::size(animClips), animClips, AssetManager::get()->getAsset<ScriptAsset>(SID("scripts/anim_graph.lua")));
 }
 
 class DummyGameLogic : public IGameLogic
@@ -110,8 +110,8 @@ public:
 
 		// player character
 		{
-			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character.mesh"));
-			m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
+			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAsset>(SID("meshes/character.mesh"));
+			m_skeleton = AssetManager::get()->getAsset<SkeletonAsset>(SID("meshes/character.skel"));
 
 			m_customAnimGraph = setupAnimationGraph();
 
@@ -151,7 +151,7 @@ public:
 		// sponza
 		EntityID sponzaEntity = {};
 		{
-			m_sponzaAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/sponza.mesh"));
+			m_sponzaAsset = AssetManager::get()->getAsset<MeshAsset>(SID("meshes/sponza.mesh"));
 
 			Transform transform{};
 			transform.m_translation = glm::vec3(0.65f, 0.0f, 0.35f);
@@ -171,11 +171,11 @@ public:
 
 		//// cesium man
 		//{
-		//	m_cesiumManAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/character"));
-		//	m_skeleton = AssetManager::get()->getAsset<SkeletonAssetData>(SID("meshes/character.skel"));
-		//	m_idleClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/idle.anim"));
-		//	m_walkClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/walking.anim"));
-		//	m_runClip = AssetManager::get()->getAsset<AnimationClipAssetData>(SID("meshes/running0.anim"));
+		//	m_cesiumManAsset = AssetManager::get()->getAsset<MeshAsset>(SID("meshes/character"));
+		//	m_skeleton = AssetManager::get()->getAsset<SkeletonAsset>(SID("meshes/character.skel"));
+		//	m_idleClip = AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/idle.anim"));
+		//	m_walkClip = AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/walking.anim"));
+		//	m_runClip = AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/running0.anim"));
 		//
 		//	m_customAnimGraph = new CustomAnimGraph(m_idleClip, m_walkClip, m_runClip);
 		//
@@ -200,7 +200,7 @@ public:
 
 		// mesh
 		{
-			m_meshAsset = AssetManager::get()->getAsset<MeshAssetData>(SID("meshes/uvsphere.mesh"));
+			m_meshAsset = AssetManager::get()->getAsset<MeshAsset>(SID("meshes/uvsphere.mesh"));
 
 			//for (int i = 0; i < 10; ++i)
 			//{
@@ -491,10 +491,10 @@ private:
 	Engine *m_engine = nullptr;
 	FPSCameraController *m_fpsCameraController = nullptr;
 	ThirdPersonCameraController *m_thirdPersonCameraController = nullptr;
-	Asset<MeshAssetData> m_meshAsset;
-	Asset<MeshAssetData> m_sponzaAsset;
-	Asset<MeshAssetData> m_cesiumManAsset;
-	Asset<SkeletonAssetData> m_skeleton;
+	Asset<MeshAsset> m_meshAsset;
+	Asset<MeshAsset> m_sponzaAsset;
+	Asset<MeshAsset> m_cesiumManAsset;
+	Asset<SkeletonAsset> m_skeleton;
 	EntityID m_cameraEntity;
 	EntityID m_manEntity;
 	EntityID m_playerEntity;

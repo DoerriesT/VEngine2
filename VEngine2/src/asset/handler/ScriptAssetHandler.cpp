@@ -12,7 +12,7 @@ void ScriptAssetHandler::init(AssetManager *assetManager) noexcept
 	if (s_assetManager == nullptr)
 	{
 		s_assetManager = assetManager;
-		assetManager->registerAssetHandler(ScriptAssetData::k_assetType, &s_scriptAssetHandler);
+		assetManager->registerAssetHandler(ScriptAsset::k_assetType, &s_scriptAssetHandler);
 	}
 }
 
@@ -24,19 +24,19 @@ void ScriptAssetHandler::shutdown() noexcept
 
 AssetData *ScriptAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
 {
-	if (assetType != ScriptAssetData::k_assetType)
+	if (assetType != ScriptAsset::k_assetType)
 	{
 		Log::warn("ScriptAssetHandler: Tried to call createAsset on a non-script asset!");
 		return nullptr;
 	}
 
-	return new ScriptAssetData(assetID);
+	return new ScriptAsset(assetID);
 }
 
 bool ScriptAssetHandler::loadAssetData(AssetData *assetData, const char *path) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != ScriptAssetData::k_assetType)
+	if (assetData->getAssetType() != ScriptAsset::k_assetType)
 	{
 		Log::warn("ScriptAssetHandler: Tried to call loadAssetData on a non-script asset!");
 		return false;
@@ -59,7 +59,7 @@ bool ScriptAssetHandler::loadAssetData(AssetData *assetData, const char *path) n
 		if (VirtualFileSystem::get().readFile(path, fileSize + 1, fileData, true))
 		{
 			fileData[fileSize] = '\0';
-			static_cast<ScriptAssetData *>(assetData)->m_scriptString = fileData;
+			static_cast<ScriptAsset *>(assetData)->m_scriptString = fileData;
 		}
 		else
 		{
@@ -78,12 +78,12 @@ bool ScriptAssetHandler::loadAssetData(AssetData *assetData, const char *path) n
 void ScriptAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != ScriptAssetData::k_assetType)
+	if (assetData->getAssetType() != ScriptAsset::k_assetType)
 	{
 		Log::warn("ScriptAssetHandler: Tried to call destroyAsset on a non-script asset!");
 		return;
 	}
 
-	delete[] static_cast<ScriptAssetData *>(assetData)->m_scriptString;
+	delete[] static_cast<ScriptAsset *>(assetData)->m_scriptString;
 	delete assetData;
 }

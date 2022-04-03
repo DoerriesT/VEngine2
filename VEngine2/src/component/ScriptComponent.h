@@ -11,7 +11,7 @@ class SerializationReadStream;
 
 struct ScriptComponent
 {
-	Asset<ScriptAssetData> m_script;
+	Asset<ScriptAsset> m_script;
 	lua_State *m_L = nullptr;
 
 	ScriptComponent() = default;
