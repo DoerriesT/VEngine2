@@ -1151,6 +1151,7 @@
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\libs\EASTL.natvis" />
+    <Natvis Include="..\libs\D3D12MemAlloc.natvis" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\ecs\ECS.inl">

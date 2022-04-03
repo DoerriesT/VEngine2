@@ -582,6 +582,7 @@
     <ClCompile Include="src\window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Natvis Include="..\libs\D3D12MemAlloc.natvis" />
     <Natvis Include="..\libs\EASTL.natvis" />
   </ItemGroup>
   <ItemGroup>
