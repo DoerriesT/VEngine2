@@ -26,11 +26,11 @@ void TextureAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *TextureAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *TextureAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != TextureAsset::k_assetType)
 	{
-		Log::warn("TextureAssetHandler: Tried to call createAsset on a non-texture asset!");
+		Log::warn("TextureAssetHandler: Tried to call createEmptyAssetData on a non-texture asset!");
 		return nullptr;
 	}
 
@@ -82,12 +82,12 @@ bool TextureAssetHandler::loadAssetData(AssetData *assetData, const char *path) 
 	return true;
 }
 
-void TextureAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void TextureAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != TextureAsset::k_assetType)
 	{
-		Log::warn("TextureAssetHandler: Tried to call destroyAsset on a non-texture asset!");
+		Log::warn("TextureAssetHandler: Tried to call destroyAssetData on a non-texture asset!");
 		return;
 	}
 

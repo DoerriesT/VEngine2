@@ -30,11 +30,11 @@ void MaterialAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *MaterialAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *MaterialAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != MaterialAssetData::k_assetType)
 	{
-		Log::warn("MaterialAssetHandler: Tried to call createAsset on a non-material asset!");
+		Log::warn("MaterialAssetHandler: Tried to call createEmptyAssetData on a non-material asset!");
 		return nullptr;
 	}
 
@@ -136,12 +136,12 @@ bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 	return true;
 }
 
-void MaterialAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void MaterialAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != MaterialAssetData::k_assetType)
 	{
-		Log::warn("MaterialAssetHandler: Tried to call destroyAsset on a non-material asset!");
+		Log::warn("MaterialAssetHandler: Tried to call destroyAssetData on a non-material asset!");
 		return;
 	}
 

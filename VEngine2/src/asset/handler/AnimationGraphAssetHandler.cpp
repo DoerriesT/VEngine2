@@ -24,11 +24,11 @@ void AnimationGraphAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *AnimationGraphAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *AnimationGraphAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != AnimationGraphAsset::k_assetType)
 	{
-		Log::warn("AnimationGraphAssetHandler: Tried to call createAsset() on a non-animation graph asset!");
+		Log::warn("AnimationGraphAssetHandler: Tried to call createEmptyAssetData() on a non-animation graph asset!");
 		return nullptr;
 	}
 
@@ -181,19 +181,14 @@ bool AnimationGraphAssetHandler::loadAssetData(AssetData *assetData, const char 
 	return true;
 }
 
-void AnimationGraphAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void AnimationGraphAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != AnimationGraphAsset::k_assetType)
 	{
-		Log::warn("AnimationGraphAssetHandler: Tried to call destroyAsset() on a non-animation graph asset!");
+		Log::warn("AnimationGraphAssetHandler: Tried to call destroyAssetData() on a non-animation graph asset!");
 		return;
 	}
 
 	delete assetData;
-}
-
-bool AnimationGraphAssetHandler::saveAssetData(AssetData *assetData, const char *path) noexcept
-{
-	return false;
 }

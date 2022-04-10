@@ -22,11 +22,11 @@ void ScriptAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *ScriptAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *ScriptAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != ScriptAsset::k_assetType)
 	{
-		Log::warn("ScriptAssetHandler: Tried to call createAsset on a non-script asset!");
+		Log::warn("ScriptAssetHandler: Tried to call createEmptyAssetData on a non-script asset!");
 		return nullptr;
 	}
 
@@ -75,12 +75,12 @@ bool ScriptAssetHandler::loadAssetData(AssetData *assetData, const char *path) n
 	return true;
 }
 
-void ScriptAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void ScriptAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != ScriptAsset::k_assetType)
 	{
-		Log::warn("ScriptAssetHandler: Tried to call destroyAsset on a non-script asset!");
+		Log::warn("ScriptAssetHandler: Tried to call destroyAssetData on a non-script asset!");
 		return;
 	}
 

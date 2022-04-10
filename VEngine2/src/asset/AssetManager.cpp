@@ -88,7 +88,7 @@ void AssetManager::shutdown()
 
 		// destroy asset data
 		AssetHandler *handler = handlerIt->second;
-		handler->destroyAsset(assetID, assetType, assetData);
+		handler->destroyAssetData(assetData);
 	}
 
 	delete s_instance;
@@ -181,7 +181,7 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 		}
 
 		// load asset
-		assetData = handler->createAsset(assetID, assetType);
+		assetData = handler->createEmptyAssetData(assetID, assetType);
 
 		if (!assetData)
 		{
@@ -199,7 +199,7 @@ AssetData *AssetManager::getAssetData(const AssetID &assetID, const AssetType &a
 			LOCK_HOLDER(m_assetMutex);
 			m_assetMap.erase(assetID);
 		}
-		handler->destroyAsset(assetID, assetType, assetData);
+		handler->destroyAssetData(assetData);
 		Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
 		return nullptr;
 	}
@@ -249,7 +249,7 @@ void AssetManager::unloadAsset(const AssetID &assetID, const AssetType &assetTyp
 
 	// destroy asset data 
 	// (doesn't matter if the asset was not in the map, which might happen with old versions of reloaded assets)
-	handler->destroyAsset(assetID, assetType, assetData);
+	handler->destroyAssetData(assetData);
 
 	Log::info("Successfully unloaded asset \"%s\".", assetIDCopy.m_string);
 }
@@ -324,7 +324,7 @@ void AssetManager::reloadAsset(const AssetID &assetID, const AssetType &assetTyp
 		}
 
 		// load asset
-		newAssetData = handler->createAsset(assetID, assetType);
+		newAssetData = handler->createEmptyAssetData(assetID, assetType);
 		{
 			if (!newAssetData)
 			{
@@ -334,7 +334,7 @@ void AssetManager::reloadAsset(const AssetID &assetID, const AssetType &assetTyp
 
 			if (!handler->loadAssetData(newAssetData, (eastl::string("/assets/") + assetID.m_string).c_str()))
 			{
-				handler->destroyAsset(assetID, assetType, newAssetData);
+				handler->destroyAssetData(newAssetData);
 				Log::warn("Failed to load asset \"%s\"!", assetID.m_string);
 				return;
 			}

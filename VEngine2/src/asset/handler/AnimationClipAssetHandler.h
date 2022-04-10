@@ -15,9 +15,9 @@ public:
 	/// <param name="assetManager">The AssetManager to register this AssetHandler with.</param>
 	static void init(AssetManager *assetManager) noexcept;
 	static void shutdown() noexcept;
-	AssetData *createAsset(const AssetID &assetID, const AssetType &assetType) noexcept override;
+	AssetData *createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept override;
 	bool loadAssetData(AssetData *assetData, const char *path) noexcept override;
-	void destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept override;
+	void destroyAssetData(AssetData *assetData) noexcept override;
 
 private:
 };

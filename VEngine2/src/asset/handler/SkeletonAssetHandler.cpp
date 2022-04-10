@@ -26,11 +26,11 @@ void SkeletonAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *SkeletonAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *SkeletonAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != SkeletonAsset::k_assetType)
 	{
-		Log::warn("SkeletonAssetHandler: Tried to call createAsset() on a non-skeleton asset!");
+		Log::warn("SkeletonAssetHandler: Tried to call createEmptyAssetData() on a non-skeleton asset!");
 		return nullptr;
 	}
 
@@ -196,12 +196,12 @@ bool SkeletonAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 	return true;
 }
 
-void SkeletonAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void SkeletonAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != SkeletonAsset::k_assetType)
 	{
-		Log::warn("SkeletonAssetHandler: Tried to call destroyAsset() on a non-skeleton asset!");
+		Log::warn("SkeletonAssetHandler: Tried to call destroyAssetData() on a non-skeleton asset!");
 		return;
 	}
 

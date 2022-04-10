@@ -24,11 +24,11 @@ void AnimationClipAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *AnimationClipAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *AnimationClipAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != AnimationClipAsset::k_assetType)
 	{
-		Log::warn("AnimationClipAssetHandler: Tried to call createAsset() on a non-animation clip asset!");
+		Log::warn("AnimationClipAssetHandler: Tried to call createEmptyAssetData() on a non-animation clip asset!");
 		return nullptr;
 	}
 
@@ -182,12 +182,12 @@ bool AnimationClipAssetHandler::loadAssetData(AssetData *assetData, const char *
 	return true;
 }
 
-void AnimationClipAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void AnimationClipAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != AnimationClipAsset::k_assetType)
 	{
-		Log::warn("AnimationClipAssetHandler: Tried to call destroyAsset() on a non-animation clip asset!");
+		Log::warn("AnimationClipAssetHandler: Tried to call destroyAssetData() on a non-animation clip asset!");
 		return;
 	}
 

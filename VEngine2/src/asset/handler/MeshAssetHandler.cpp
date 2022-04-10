@@ -31,11 +31,11 @@ void MeshAssetHandler::shutdown() noexcept
 	s_assetManager = nullptr;
 }
 
-AssetData *MeshAssetHandler::createAsset(const AssetID &assetID, const AssetType &assetType) noexcept
+AssetData *MeshAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
 	if (assetType != MeshAsset::k_assetType)
 	{
-		Log::warn("MeshAssetHandler: Tried to call createAsset on a non-mesh asset!");
+		Log::warn("MeshAssetHandler: Tried to call createEmptyAssetData on a non-mesh asset!");
 		return nullptr;
 	}
 
@@ -260,12 +260,12 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 	return true;
 }
 
-void MeshAssetHandler::destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept
+void MeshAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
 	if (assetData->getAssetType() != MeshAsset::k_assetType)
 	{
-		Log::warn("MeshAssetHandler: Tried to call destroyAsset on a non-mesh asset!");
+		Log::warn("MeshAssetHandler: Tried to call destroyAssetData on a non-mesh asset!");
 		return;
 	}
 
