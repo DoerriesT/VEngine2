@@ -7,4 +7,5 @@ public:
 	virtual AssetData *createAsset(const AssetID &assetID, const AssetType &assetType) noexcept = 0;
 	virtual bool loadAssetData(AssetData *assetData, const char *path) noexcept = 0;
 	virtual void destroyAsset(const AssetID &assetID, const AssetType &assetType, AssetData *assetData) noexcept = 0;
+	virtual bool saveAssetData(AssetData *assetData, const char *path) noexcept { return false; }
 };

@@ -11,12 +11,11 @@
 static AssetManager *s_assetManager = nullptr;
 static SkeletonAssetHandler s_skeletonAssetHandler;
 
-void SkeletonAssetHandler::init(AssetManager *assetManager, AnimationSystem *animationSystem) noexcept
+void SkeletonAssetHandler::init(AssetManager *assetManager) noexcept
 {
 	if (s_assetManager == nullptr)
 	{
 		s_assetManager = assetManager;
-		s_skeletonAssetHandler.m_animationSystem = animationSystem;
 		assetManager->registerAssetHandler(SkeletonAsset::k_assetType, &s_skeletonAssetHandler);
 	}
 }

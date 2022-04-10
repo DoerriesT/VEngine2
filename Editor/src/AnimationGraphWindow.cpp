@@ -3,13 +3,14 @@
 #include <graphics/imgui/imnodes.h>
 #include <animation/AnimationGraph.h>
 #include <utility/memory.h>
+#include <utility/Utility.h>
 #include <input/InputTokens.h>
 #include <Log.h>
 #include <graphics/imgui/gui_helpers.h>
 #include <asset/AssetManager.h>
 
 template<typename T>
-static T convertIdxToPtr(size_t idx, const eastl::vector<T> &v)
+static T convertIdxToPtr(uint32_t idx, const eastl::vector<T> &v)
 {
 	if (idx == -1 || idx >= v.size())
 	{
@@ -22,7 +23,7 @@ static T convertIdxToPtr(size_t idx, const eastl::vector<T> &v)
 };
 
 template<typename T>
-static size_t convertPtrToIdx(T ptr, const eastl::vector<T> &v)
+static uint32_t convertPtrToIdx(T ptr, const eastl::vector<T> &v)
 {
 	if (!ptr)
 	{
@@ -31,7 +32,7 @@ static size_t convertPtrToIdx(T ptr, const eastl::vector<T> &v)
 	else
 	{
 		auto it = eastl::find(v.begin(), v.end(), ptr);
-		return it != v.end() ? (it - v.begin()) : -1;
+		return it != v.end() ? static_cast<uint32_t>(it - v.begin()) : -1;
 	}
 };
 
@@ -63,7 +64,7 @@ struct AnimationGraphAnimClipEditorNode : AnimationGraphEditorNode
 
 	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
 	{
-		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::ANIM_CLIP);
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::AnimClip);
 		m_animClip = convertIdxToPtr(runtimeNode.m_nodeData.m_clipNodeData.m_animClip, window->m_animClips);
 		m_loopParam = convertIdxToPtr(runtimeNode.m_nodeData.m_clipNodeData.m_loop, window->m_params);
 	}
@@ -71,7 +72,7 @@ struct AnimationGraphAnimClipEditorNode : AnimationGraphEditorNode
 	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
 	{
 		AnimationGraphNode result{};
-		result.m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
+		result.m_nodeType = AnimationGraphNodeType::AnimClip;
 		result.m_nodeData.m_clipNodeData.m_animClip = convertPtrToIdx(m_animClip, window->m_animClips);
 		result.m_nodeData.m_clipNodeData.m_loop = convertPtrToIdx(m_loopParam, window->m_params);
 		return result;
@@ -114,7 +115,7 @@ struct AnimationGraphAnimClipEditorNode : AnimationGraphEditorNode
 
 			m_animClip = newClip;
 
-			window->drawParamComboBox("Loop", m_loopParam, AnimationGraphParameter::Type::BOOL);
+			window->drawParamComboBox("Loop", m_loopParam, AnimationGraphParameter::Type::Bool);
 		}
 		ImNodes::EndNode();
 	}
@@ -177,7 +178,7 @@ struct AnimationGraphLerpEditorNode : AnimationGraphEditorNode
 
 	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
 	{
-		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::LERP);
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::Lerp);
 		m_inputA = convertIdxToPtr(runtimeNode.m_nodeData.m_lerpNodeData.m_inputA, window->m_nodes);
 		m_inputB = convertIdxToPtr(runtimeNode.m_nodeData.m_lerpNodeData.m_inputB, window->m_nodes);
 		m_alphaParam = convertIdxToPtr(runtimeNode.m_nodeData.m_lerpNodeData.m_alpha, window->m_params);
@@ -189,7 +190,7 @@ struct AnimationGraphLerpEditorNode : AnimationGraphEditorNode
 	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
 	{
 		AnimationGraphNode result{};
-		result.m_nodeType = AnimationGraphNodeType::LERP;
+		result.m_nodeType = AnimationGraphNodeType::Lerp;
 		result.m_nodeData.m_lerpNodeData.m_inputA = convertPtrToIdx(m_inputA, window->m_nodes);
 		result.m_nodeData.m_lerpNodeData.m_inputB = convertPtrToIdx(m_inputB, window->m_nodes);
 		result.m_nodeData.m_lerpNodeData.m_alpha = convertPtrToIdx(m_alphaParam, window->m_params);
@@ -218,7 +219,7 @@ struct AnimationGraphLerpEditorNode : AnimationGraphEditorNode
 			ImGui::TextUnformatted("Y");
 			ImNodes::EndInputAttribute();
 
-			window->drawParamComboBox("Alpha", m_alphaParam, AnimationGraphParameter::Type::FLOAT);
+			window->drawParamComboBox("Alpha", m_alphaParam, AnimationGraphParameter::Type::Float);
 		}
 		ImNodes::EndNode();
 	}
@@ -294,7 +295,7 @@ struct AnimationGraphLerp1DArrayEditorNode : AnimationGraphEditorNode
 
 	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
 	{
-		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::LERP_1D_ARRAY);
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::Lerp1DArray);
 		m_inputCount = runtimeNode.m_nodeData.m_lerp1DArrayNodeData.m_inputCount;
 
 		for (size_t i = 0; i < k_maxInputs; ++i)
@@ -312,7 +313,7 @@ struct AnimationGraphLerp1DArrayEditorNode : AnimationGraphEditorNode
 	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
 	{
 		AnimationGraphNode result{};
-		result.m_nodeType = AnimationGraphNodeType::LERP_1D_ARRAY;
+		result.m_nodeType = AnimationGraphNodeType::Lerp1DArray;
 
 		for (size_t i = 0; i < m_inputCount; ++i)
 		{
@@ -372,7 +373,7 @@ struct AnimationGraphLerp1DArrayEditorNode : AnimationGraphEditorNode
 				prevMaxKey = m_inputKeys[i];
 			}
 
-			window->drawParamComboBox("Alpha", m_alphaParam, AnimationGraphParameter::Type::FLOAT);
+			window->drawParamComboBox("Alpha", m_alphaParam, AnimationGraphParameter::Type::Float);
 
 			int newInputCount = (int)inputCount;
 			ImGui::PushItemWidth(200.0f);
@@ -479,7 +480,7 @@ struct AnimationGraphLerp2DEditorNode : AnimationGraphEditorNode
 
 	void setFromRuntimeData(AnimationGraphWindow *window, const AnimationGraphNode &runtimeNode) noexcept override
 	{
-		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::LERP_2D);
+		assert(runtimeNode.m_nodeType == AnimationGraphNodeType::Lerp2D);
 		m_inputTL = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputTL, window->m_nodes);
 		m_inputTR = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputTR, window->m_nodes);
 		m_inputBL = convertIdxToPtr(runtimeNode.m_nodeData.m_lerp2DNodeData.m_inputBL, window->m_nodes);
@@ -496,7 +497,7 @@ struct AnimationGraphLerp2DEditorNode : AnimationGraphEditorNode
 	AnimationGraphNode createRuntimeData(AnimationGraphWindow *window) const noexcept
 	{
 		AnimationGraphNode result{};
-		result.m_nodeType = AnimationGraphNodeType::LERP_2D;
+		result.m_nodeType = AnimationGraphNodeType::Lerp2D;
 		result.m_nodeData.m_lerp2DNodeData.m_inputTL = convertPtrToIdx(m_inputTL, window->m_nodes);
 		result.m_nodeData.m_lerp2DNodeData.m_inputTR = convertPtrToIdx(m_inputTR, window->m_nodes);
 		result.m_nodeData.m_lerp2DNodeData.m_inputBL = convertPtrToIdx(m_inputBL, window->m_nodes);
@@ -534,8 +535,8 @@ struct AnimationGraphLerp2DEditorNode : AnimationGraphEditorNode
 			ImGui::TextUnformatted("BR");
 			ImNodes::EndInputAttribute();
 
-			window->drawParamComboBox("Alpha X", m_alphaXParam, AnimationGraphParameter::Type::FLOAT);
-			window->drawParamComboBox("Alpha Y", m_alphaYParam, AnimationGraphParameter::Type::FLOAT);
+			window->drawParamComboBox("Alpha X", m_alphaXParam, AnimationGraphParameter::Type::Float);
+			window->drawParamComboBox("Alpha Y", m_alphaYParam, AnimationGraphParameter::Type::Float);
 		}
 		ImNodes::EndNode();
 	}
@@ -787,13 +788,13 @@ void AnimationGraphWindow::importGraph(AnimationGraph *graph) noexcept
 
 			switch (nodes[i].m_nodeType)
 			{
-			case AnimationGraphNodeType::ANIM_CLIP:
+			case AnimationGraphNodeType::AnimClip:
 				editorNode = new AnimationGraphAnimClipEditorNode(); break;
-			case AnimationGraphNodeType::LERP:
+			case AnimationGraphNodeType::Lerp:
 				editorNode = new AnimationGraphLerpEditorNode(); break;
-			case AnimationGraphNodeType::LERP_1D_ARRAY:
+			case AnimationGraphNodeType::Lerp1DArray:
 				editorNode = new AnimationGraphLerp1DArrayEditorNode(); break;
-			case AnimationGraphNodeType::LERP_2D:
+			case AnimationGraphNodeType::Lerp2D:
 				editorNode = new AnimationGraphLerp2DEditorNode(); break;
 			default:
 				assert(false);
@@ -867,7 +868,46 @@ void AnimationGraphWindow::exportGraph(AnimationGraph *graph) noexcept
 			}
 		}
 
-		*graph = AnimationGraph(rootNodeIdx, nodes.size(), nodes.data(), params.size(), params.data(), clips.size(), clips.data(), m_controllerScriptAsset);
+		// compute required size of single memory allocation
+		size_t requiredMemorySize = 0;
+
+		// nodes
+		const size_t nodesOffset = requiredMemorySize;
+		requiredMemorySize += nodes.size() * sizeof(nodes[0]);
+
+		// params
+		requiredMemorySize = util::alignPow2Up(requiredMemorySize, alignof(AnimationGraphParameter));
+		const size_t paramsOffset = requiredMemorySize;
+		requiredMemorySize += params.size() * sizeof(params[0]);
+
+		// clips
+		requiredMemorySize = util::alignPow2Up(requiredMemorySize, alignof(Asset<AnimationClipAsset>));
+		const size_t clipsOffset = requiredMemorySize;
+		requiredMemorySize += clips.size() * sizeof(clips[0]);
+
+		// do a single allocation for all graph data
+		char *memory = new char[requiredMemorySize];
+
+		// memcpy/placement new the graph data into the single allocation
+		memcpy(memory + nodesOffset, nodes.data(), nodes.size() * sizeof(nodes[0]));
+		memcpy(memory + paramsOffset, params.data(), params.size() * sizeof(params[0]));
+		for (size_t i = 0; i < clips.size(); ++i)
+		{
+			new (memory + clipsOffset + i * sizeof(clips[0])) Asset<AnimationClipAsset>(clips[i]);
+		}
+
+		AnimationGraphCreateInfo graphCreateInfo{};
+		graphCreateInfo.m_rootNodeIndex = static_cast<uint32_t>(rootNodeIdx);
+		graphCreateInfo.m_nodeCount = static_cast<uint32_t>(nodes.size());
+		graphCreateInfo.m_parameterCount = static_cast<uint32_t>(params.size());
+		graphCreateInfo.m_animationClipCount = static_cast<uint32_t>(clips.size());
+		graphCreateInfo.m_nodes = reinterpret_cast<AnimationGraphNode *>(memory + nodesOffset);
+		graphCreateInfo.m_parameters = reinterpret_cast<AnimationGraphParameter *>(memory + paramsOffset);
+		graphCreateInfo.m_animationClips = reinterpret_cast<Asset<AnimationClipAsset> *>(memory + clipsOffset);
+		graphCreateInfo.m_controllerScript = m_controllerScriptAsset;
+		graphCreateInfo.m_memory = memory;
+
+		*graph = AnimationGraph(graphCreateInfo);
 	}
 }
 
@@ -1023,13 +1063,13 @@ void AnimationGraphWindow::drawNodeEditor() noexcept
 
 					switch (static_cast<AnimationGraphNodeType>(i))
 					{
-					case AnimationGraphNodeType::ANIM_CLIP:
+					case AnimationGraphNodeType::AnimClip:
 						editorNode = new AnimationGraphAnimClipEditorNode(); break;
-					case AnimationGraphNodeType::LERP:
+					case AnimationGraphNodeType::Lerp:
 						editorNode = new AnimationGraphLerpEditorNode(); break;
-					case AnimationGraphNodeType::LERP_1D_ARRAY:
+					case AnimationGraphNodeType::Lerp1DArray:
 						editorNode = new AnimationGraphLerp1DArrayEditorNode(); break;
-					case AnimationGraphNodeType::LERP_2D:
+					case AnimationGraphNodeType::Lerp2D:
 						editorNode = new AnimationGraphLerp2DEditorNode(); break;
 					default:
 						assert(false);
@@ -1069,7 +1109,7 @@ void AnimationGraphWindow::drawParams() noexcept
 		if (ImGui::Button("Add Parameter"))
 		{
 			AnimationGraphEditorParam param;
-			param.m_param.m_type = AnimationGraphParameter::Type::FLOAT;
+			param.m_param.m_type = AnimationGraphParameter::Type::Float;
 			param.m_param.m_data.f = 0.0f;
 			param.m_param.m_name = SID("New Parameter");
 			strcpy_s(param.m_nameScratchMem, param.m_param.m_name.m_string);
@@ -1154,14 +1194,14 @@ void AnimationGraphWindow::drawParams() noexcept
 					AnimationGraphParameter::Data newVal;
 					switch (newType)
 					{
-					case AnimationGraphParameter::Type::FLOAT:
-						newVal.f = oldType == AnimationGraphParameter::Type::INT ? (float)param->m_param.m_data.i : (float)param->m_param.m_data.b;
+					case AnimationGraphParameter::Type::Float:
+						newVal.f = oldType == AnimationGraphParameter::Type::Int ? (float)param->m_param.m_data.i : (float)param->m_param.m_data.b;
 						break;
-					case AnimationGraphParameter::Type::INT:
-						newVal.i = oldType == AnimationGraphParameter::Type::BOOL ? (int32_t)param->m_param.m_data.b : (int32_t)param->m_param.m_data.f;
+					case AnimationGraphParameter::Type::Int:
+						newVal.i = oldType == AnimationGraphParameter::Type::Bool ? (int32_t)param->m_param.m_data.b : (int32_t)param->m_param.m_data.f;
 						break;
-					case AnimationGraphParameter::Type::BOOL:
-						newVal.b = oldType == AnimationGraphParameter::Type::FLOAT ? (param->m_param.m_data.f != 0.0f) : (bool)param->m_param.m_data.i;
+					case AnimationGraphParameter::Type::Bool:
+						newVal.b = oldType == AnimationGraphParameter::Type::Float ? (param->m_param.m_data.f != 0.0f) : (bool)param->m_param.m_data.i;
 						break;
 					default:
 						assert(false);
@@ -1175,13 +1215,13 @@ void AnimationGraphWindow::drawParams() noexcept
 				// display type
 				switch (param->m_param.m_type)
 				{
-				case AnimationGraphParameter::Type::FLOAT:
+				case AnimationGraphParameter::Type::Float:
 					ImGui::InputFloat("Value", &param->m_param.m_data.f);
 					break;
-				case AnimationGraphParameter::Type::INT:
+				case AnimationGraphParameter::Type::Int:
 					ImGui::InputInt("Value", &param->m_param.m_data.i);
 					break;
-				case AnimationGraphParameter::Type::BOOL:
+				case AnimationGraphParameter::Type::Bool:
 					ImGui::Checkbox("Value", &param->m_param.m_data.b);
 					break;
 				default:

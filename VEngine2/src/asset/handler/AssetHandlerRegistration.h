@@ -2,10 +2,9 @@
 
 class Renderer;
 class Physics;
-class AnimationSystem;
 
 namespace AssetHandlerRegistration
 {
-	void createAndRegisterHandlers(Renderer *renderer, Physics *physics, AnimationSystem *animation) noexcept;
+	void createAndRegisterHandlers(Renderer *renderer, Physics *physics) noexcept;
 	void shutdownHandlers() noexcept;
 }

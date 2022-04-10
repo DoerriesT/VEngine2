@@ -177,7 +177,7 @@ void Editor::update(float deltaTime) noexcept
 		{
 			if (count > 0)
 			{
-				animGraph = skinnedMeshC->m_animationGraph;
+				//animGraph = skinnedMeshC->m_animationGraph;
 			}
 		});
 

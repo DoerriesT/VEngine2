@@ -3,6 +3,8 @@
 #include "asset/MeshAsset.h"
 #include "asset/SkeletonAsset.h"
 #include "asset/AnimationClipAsset.h"
+#include "asset/AnimationGraphAsset.h"
+#include "animation/AnimationGraphInstance.h"
 #include <EASTL/vector.h>
 #include <glm/mat4x4.hpp>
 #include "ecs/ECSCommon.h"
@@ -19,7 +21,8 @@ struct SkinnedMeshComponent
 {
 	Asset<MeshAsset> m_mesh;
 	Asset<SkeletonAsset> m_skeleton;
-	AnimationGraph *m_animationGraph;
+	Asset<AnimationGraphAsset> m_animationGraph;
+	AnimationGraphInstance m_animationGraphInstance;
 	eastl::vector<glm::mat4> m_matrixPalette;
 	eastl::vector<glm::mat4> m_prevMatrixPalette;
 	eastl::vector<glm::mat4> m_curRenderMatrixPalette;

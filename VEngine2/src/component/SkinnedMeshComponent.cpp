@@ -11,6 +11,7 @@ static bool serialize(SkinnedMeshComponent &c, Stream &stream) noexcept
 {
 	serializeAsset(stream, c.m_mesh, MeshAsset);
 	serializeAsset(stream, c.m_skeleton, SkeletonAsset);
+	serializeAsset(stream, c.m_animationGraph, AnimationGraphAsset);
 	serializeFloat(stream, c.m_boundingSphereSizeFactor);
 
 	return true;
@@ -30,6 +31,12 @@ void SkinnedMeshComponent::onGUI(ECS *ecs, EntityID entity, void *instance, Rend
 	if (ImGuiHelpers::AssetPicker("Skeleton Asset", SkeletonAsset::k_assetType, c.m_skeleton.get(), &resultAssetID))
 	{
 		c.m_skeleton = AssetManager::get()->getAsset<SkeletonAsset>(resultAssetID);
+	}
+
+	if (ImGuiHelpers::AssetPicker("Animation Graph Asset", AnimationGraphAsset::k_assetType, c.m_animationGraph.get(), &resultAssetID))
+	{
+		c.m_animationGraph = AssetManager::get()->getAsset<AnimationGraphAsset>(resultAssetID);
+		c.m_animationGraphInstance = AnimationGraphInstance(c.m_animationGraph);
 	}
 
 	ImGui::DragFloat("Bounding Sphere Size Factor", &c.m_boundingSphereSizeFactor, 0.01f, 0.0f, FLT_MAX, "%.3f", ImGuiSliderFlags_AlwaysClamp);

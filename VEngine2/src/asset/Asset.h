@@ -188,3 +188,15 @@ inline Asset<T>::operator bool() const noexcept
 {
 	return m_assetData != nullptr;
 }
+
+template<typename T>
+inline bool operator==(const Asset<T> &lhs, const Asset<T> &rhs) noexcept
+{
+	return (!lhs && !rhs) || (lhs && rhs && (lhs->getAssetID() == rhs->getAssetID()) && (lhs->getAssetType() == rhs->getAssetType()));
+}
+
+template<typename T>
+inline bool operator!=(const Asset<T> &lhs, const Asset<T> &rhs) noexcept
+{
+	return !(lhs == rhs);
+}

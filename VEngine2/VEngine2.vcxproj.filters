@@ -549,7 +549,7 @@
     <ClInclude Include="src\ecs\ECSLua.h">
       <Filter>src\ecs</Filter>
     </ClInclude>
-    <ClInclude Include="src\animation\AnimationGraphLua.h">
+    <ClInclude Include="src\animation\AnimationGraphInstanceLua.h">
       <Filter>src\animation</Filter>
     </ClInclude>
     <ClInclude Include="src\asset\ScriptAsset.h">
@@ -647,6 +647,15 @@
     </ClInclude>
     <ClInclude Include="src\TransformHierarchy.h">
       <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\AnimationGraphAsset.h">
+      <Filter>src\asset</Filter>
+    </ClInclude>
+    <ClInclude Include="src\animation\AnimationGraphInstance.h">
+      <Filter>src\animation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\asset\handler\AnimationGraphAssetHandler.h">
+      <Filter>src\asset\handler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1067,7 +1076,7 @@
     <ClCompile Include="src\ecs\ECSLua.cpp">
       <Filter>src\ecs</Filter>
     </ClCompile>
-    <ClCompile Include="src\animation\AnimationGraphLua.cpp">
+    <ClCompile Include="src\animation\AnimationGraphInstanceLua.cpp">
       <Filter>src\animation</Filter>
     </ClCompile>
     <ClCompile Include="src\asset\handler\ScriptAssetHandler.cpp">
@@ -1147,6 +1156,12 @@
     </ClCompile>
     <ClCompile Include="src\TransformHierarchy.cpp">
       <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\animation\AnimationGraphInstance.cpp">
+      <Filter>src\animation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\asset\handler\AnimationGraphAssetHandler.cpp">
+      <Filter>src\asset\handler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

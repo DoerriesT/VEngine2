@@ -63,7 +63,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 						}
 
 						// early out if the graph is invalid
-						if (!smc.m_animationGraph || !smc.m_animationGraph->isValid() || !smc.m_animationGraph->isLoaded())
+						if (!smc.m_animationGraph || !smc.m_animationGraph.isLoaded() || !smc.m_animationGraph->getAnimationGraph()->isValid())
 						{
 							for (size_t j = 0; j < jointCount; ++j)
 							{
@@ -73,7 +73,11 @@ void AnimationSystem::update(float deltaTime) noexcept
 							continue;
 						}
 
-						smc.m_animationGraph->preEvaluate(m_ecs, entities[entityIdx], deltaTime);
+						smc.m_animationGraphInstance.setGraphAsset(smc.m_animationGraph);
+						auto *graphInstance = &smc.m_animationGraphInstance;
+
+
+						graphInstance->preEvaluate(m_ecs, entities[entityIdx], deltaTime);
 
 						PROFILING_ZONE_END(profilingZoneAnimatePrepare);
 
@@ -83,7 +87,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 							PROFILING_ZONE_SCOPED_N("Compute Local Poses");
 							for (size_t j = startIdx; j < endIdx; ++j)
 							{
-								JointPose pose = smc.m_animationGraph->evaluate(j);
+								JointPose pose = graphInstance->evaluate(j);
 
 								glm::mat4 localPose =
 									glm::translate(glm::make_vec3(pose.m_trans))
@@ -96,7 +100,7 @@ void AnimationSystem::update(float deltaTime) noexcept
 
 						job::parallelFor(jointCount, 1, computeLocalPoses);
 
-						smc.m_animationGraph->updatePhase(deltaTime);
+						graphInstance->updatePhase(deltaTime);
 
 						PROFILING_ZONE_SCOPED_N("Compute Global Pose");
 

@@ -222,15 +222,18 @@
   <ItemGroup>
     <ClInclude Include="src\animation\AnimationClip.h" />
     <ClInclude Include="src\animation\AnimationGraph.h" />
-    <ClInclude Include="src\animation\AnimationGraphLua.h" />
+    <ClInclude Include="src\animation\AnimationGraphInstance.h" />
+    <ClInclude Include="src\animation\AnimationGraphInstanceLua.h" />
     <ClInclude Include="src\animation\AnimationSystem.h" />
     <ClInclude Include="src\animation\JointPose.h" />
     <ClInclude Include="src\animation\Skeleton.h" />
     <ClInclude Include="src\asset\AnimationClipAsset.h" />
+    <ClInclude Include="src\asset\AnimationGraphAsset.h" />
     <ClInclude Include="src\asset\Asset.h" />
     <ClInclude Include="src\asset\AssetMetaDataRegistry.h" />
     <ClInclude Include="src\asset\AssetManager.h" />
     <ClInclude Include="src\asset\handler\AnimationClipAssetHandler.h" />
+    <ClInclude Include="src\asset\handler\AnimationGraphAssetHandler.h" />
     <ClInclude Include="src\asset\handler\AssetHandler.h" />
     <ClInclude Include="src\asset\handler\AssetHandlerRegistration.h" />
     <ClInclude Include="src\asset\handler\MaterialAssetHandler.h" />
@@ -416,7 +419,8 @@
   <ItemGroup>
     <ClCompile Include="src\animation\AnimationClip.cpp" />
     <ClCompile Include="src\animation\AnimationGraph.cpp" />
-    <ClCompile Include="src\animation\AnimationGraphLua.cpp" />
+    <ClCompile Include="src\animation\AnimationGraphInstance.cpp" />
+    <ClCompile Include="src\animation\AnimationGraphInstanceLua.cpp" />
     <ClCompile Include="src\animation\AnimationSystem.cpp" />
     <ClCompile Include="src\animation\JointPose.cpp" />
     <ClCompile Include="src\animation\Skeleton.cpp" />
@@ -424,6 +428,7 @@
     <ClCompile Include="src\asset\AssetManager.cpp" />
     <ClCompile Include="src\asset\AssetMetaDataRegistry.cpp" />
     <ClCompile Include="src\asset\handler\AnimationClipAssetHandler.cpp" />
+    <ClCompile Include="src\asset\handler\AnimationGraphAssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\AssetHandler.cpp" />
     <ClCompile Include="src\asset\handler\AssetHandlerRegistration.cpp" />
     <ClCompile Include="src\asset\handler\MaterialAssetHandler.cpp" />

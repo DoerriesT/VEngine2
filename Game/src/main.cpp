@@ -35,53 +35,53 @@
 #include <profiling/Profiling.h>
 #include <TransformHierarchy.h>
 
-static AnimationGraph *setupAnimationGraph()
-{
-	Asset<AnimationClipAsset> animClips[]
-	{
-		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/idle.anim")),
-		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/walk0.anim")),
-		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/run.anim"))
-	};
-
-	AnimationGraphParameter params[2];
-	params[0].m_type = AnimationGraphParameter::Type::BOOL;
-	params[0].m_data.b = true;
-	params[0].m_name = SID("loop");
-	params[1].m_type = AnimationGraphParameter::Type::FLOAT;
-	params[1].m_data.f = 0.0f;
-	params[1].m_name = SID("speed");
-
-	AnimationGraphNode nodes[4] = {};
-
-	// 1D array lerp node
-	nodes[0].m_nodeType = AnimationGraphNodeType::LERP_1D_ARRAY;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[0] = 1;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[1] = 2;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[2] = 3;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[0] = 0.0f;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[1] = 1.0f;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[2] = 4.0f;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputCount = 3;
-	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_alpha = 1;
-
-	// idle clip node
-	nodes[1].m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
-	nodes[1].m_nodeData.m_clipNodeData.m_animClip = 0;
-	nodes[1].m_nodeData.m_clipNodeData.m_loop = 0;
-
-	// walk clip node
-	nodes[2].m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
-	nodes[2].m_nodeData.m_clipNodeData.m_animClip = 1;
-	nodes[2].m_nodeData.m_clipNodeData.m_loop = 0;
-
-	// run clip node
-	nodes[3].m_nodeType = AnimationGraphNodeType::ANIM_CLIP;
-	nodes[3].m_nodeData.m_clipNodeData.m_animClip = 2;
-	nodes[3].m_nodeData.m_clipNodeData.m_loop = 0;
-
-	return new AnimationGraph(0, eastl::size(nodes), nodes, eastl::size(params), params, eastl::size(animClips), animClips, AssetManager::get()->getAsset<ScriptAsset>(SID("scripts/anim_graph.lua")));
-}
+//static AnimationGraph *setupAnimationGraph()
+//{
+//	Asset<AnimationClipAsset> animClips[]
+//	{
+//		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/idle.anim")),
+//		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/walk0.anim")),
+//		AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/run.anim"))
+//	};
+//
+//	AnimationGraphParameter params[2];
+//	params[0].m_type = AnimationGraphParameter::Type::Bool;
+//	params[0].m_data.b = true;
+//	params[0].m_name = SID("loop");
+//	params[1].m_type = AnimationGraphParameter::Type::Float;
+//	params[1].m_data.f = 0.0f;
+//	params[1].m_name = SID("speed");
+//
+//	AnimationGraphNode nodes[4] = {};
+//
+//	// 1D array lerp node
+//	nodes[0].m_nodeType = AnimationGraphNodeType::Lerp1DArray;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[0] = 1;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[1] = 2;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[2] = 3;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[0] = 0.0f;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[1] = 1.0f;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[2] = 4.0f;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputCount = 3;
+//	nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_alpha = 1;
+//
+//	// idle clip node
+//	nodes[1].m_nodeType = AnimationGraphNodeType::AnimClip;
+//	nodes[1].m_nodeData.m_clipNodeData.m_animClip = 0;
+//	nodes[1].m_nodeData.m_clipNodeData.m_loop = 0;
+//
+//	// walk clip node
+//	nodes[2].m_nodeType = AnimationGraphNodeType::AnimClip;
+//	nodes[2].m_nodeData.m_clipNodeData.m_animClip = 1;
+//	nodes[2].m_nodeData.m_clipNodeData.m_loop = 0;
+//
+//	// run clip node
+//	nodes[3].m_nodeType = AnimationGraphNodeType::AnimClip;
+//	nodes[3].m_nodeData.m_clipNodeData.m_animClip = 2;
+//	nodes[3].m_nodeData.m_clipNodeData.m_loop = 0;
+//
+//	return new AnimationGraph(0, eastl::size(nodes), nodes, eastl::size(params), params, eastl::size(animClips), animClips, AssetManager::get()->getAsset<ScriptAsset>(SID("scripts/anim_graph.lua")));
+//}
 
 class DummyGameLogic : public IGameLogic
 {
@@ -113,8 +113,6 @@ public:
 			m_cesiumManAsset = AssetManager::get()->getAsset<MeshAsset>(SID("meshes/character.mesh"));
 			m_skeleton = AssetManager::get()->getAsset<SkeletonAsset>(SID("meshes/character.skel"));
 
-			m_customAnimGraph = setupAnimationGraph();
-
 			Transform transform{};
 			transform.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
 			transform.m_scale = glm::vec3(0.01f);
@@ -124,7 +122,7 @@ public:
 			SkinnedMeshComponent meshC{};
 			meshC.m_mesh = m_cesiumManAsset;
 			meshC.m_skeleton = m_skeleton;
-			meshC.m_animationGraph = m_customAnimGraph;
+			meshC.m_animationGraph = {};
 			meshC.m_boundingSphereSizeFactor = 100.0f;
 
 			CharacterControllerComponent ccC{};
@@ -168,35 +166,6 @@ public:
 
 			sponzaEntity = m_engine->getECS()->createEntity<EntityMetaComponent, TransformComponent, MeshComponent, PhysicsComponent>(EntityMetaComponent("Sponza"), transC, meshC, physicsC);
 		}
-
-		//// cesium man
-		//{
-		//	m_cesiumManAsset = AssetManager::get()->getAsset<MeshAsset>(SID("meshes/character"));
-		//	m_skeleton = AssetManager::get()->getAsset<SkeletonAsset>(SID("meshes/character.skel"));
-		//	m_idleClip = AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/idle.anim"));
-		//	m_walkClip = AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/walking.anim"));
-		//	m_runClip = AssetManager::get()->getAsset<AnimationClipAsset>(SID("meshes/running0.anim"));
-		//
-		//	m_customAnimGraph = new CustomAnimGraph(m_idleClip, m_walkClip, m_runClip);
-		//
-		//	TransformComponent transC{};
-		//	transC.m_rotation = glm::quat(glm::vec3(glm::half_pi<float>(), 0.0f, 0.0f));
-		//	transC.m_scale = glm::vec3(0.01f);
-		//
-		//	SkinnedMeshComponent meshC{};
-		//	meshC.m_mesh = m_cesiumManAsset;
-		//	meshC.m_skeleton = m_skeleton;
-		//	meshC.m_animationGraph = m_customAnimGraph;
-		//
-		//	//PhysicsComponent physicsC{};
-		//	//physicsC.m_mobility = PhysicsMobility::DYNAMIC;
-		//	//physicsC.m_physicsShapeType = PhysicsShapeType::CONVEX_MESH;
-		//	//physicsC.m_convexMeshHandle = m_cesiumManAsset->getPhysicsConvexMeshhandle();
-		//	//physicsC.m_materialHandle = m_physicsMaterial;
-		//
-		//	m_manEntity = m_engine->getECS()->createEntity<TransformComponent, SkinnedMeshComponent>(transC, meshC);
-		//	m_engine->getLevel()->addEntity(m_manEntity, "Cesium Man");
-		//}
 
 		// mesh
 		{
@@ -448,20 +417,6 @@ public:
 				createPhysicsObject(pos, velocity, PhysicsMobility::DYNAMIC);
 			}
 		}
-
-
-		//auto *manTc = m_engine->getECS()->getComponent<TransformComponent>(m_manEntity);
-		//glm::vec3 rootMotion = glm::vec3(0.0f, 0.0f, 1.0f) * 0.01f * m_customAnimGraph->getRootMotionSpeed();
-		//manTc->m_translation += rootMotion;
-
-		//ImGui::Begin("Custom Animation Graph Controls");
-		//
-		//ImGui::SliderFloat("Phase", &m_customAnimGraph->m_phase, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		//ImGui::SliderFloat("Speed", &m_customAnimGraph->m_speed, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-		//ImGui::Checkbox("Active", &m_customAnimGraph->m_active);
-		//ImGui::Checkbox("Paused", &m_customAnimGraph->m_paused);
-		//
-		//ImGui::End();
 	}
 
 	void shutdown() noexcept override
@@ -472,9 +427,6 @@ public:
 		//}
 
 		m_engine->getECS()->clear();
-
-		delete m_customAnimGraph;
-		m_customAnimGraph = nullptr;
 
 		delete m_fpsCameraController;
 		m_fpsCameraController = nullptr;
@@ -499,7 +451,6 @@ private:
 	EntityID m_manEntity;
 	EntityID m_playerEntity;
 	PhysicsMaterialHandle m_physicsMaterial = {};
-	AnimationGraph *m_customAnimGraph = {};
 	bool m_playing = true;
 
 	void createPhysicsObject(const glm::vec3 &pos, const glm::vec3 &vel, PhysicsMobility mobility)

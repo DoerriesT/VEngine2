@@ -2,7 +2,6 @@
 #include <assert.h>
 #include "Log.h"
 #include "utility/Utility.h"
-#include "animation/AnimationSystem.h"
 #include "asset/AnimationClipAsset.h"
 #include "asset/AssetManager.h"
 #include "filesystem/VirtualFileSystem.h"
@@ -10,12 +9,11 @@
 static AssetManager *s_assetManager = nullptr;
 static AnimationClipAssetHandler s_animationClipAssetHandler;
 
-void AnimationClipAssetHandler::init(AssetManager *assetManager, AnimationSystem *animationSystem) noexcept
+void AnimationClipAssetHandler::init(AssetManager *assetManager) noexcept
 {
 	if (s_assetManager == nullptr)
 	{
 		s_assetManager = assetManager;
-		s_animationClipAssetHandler.m_animationSystem = animationSystem;
 		assetManager->registerAssetHandler(AnimationClipAsset::k_assetType, &s_animationClipAssetHandler);
 	}
 }
