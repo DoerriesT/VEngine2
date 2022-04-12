@@ -20,7 +20,7 @@ void MaterialAssetHandler::init(AssetManager *assetManager, Renderer *renderer) 
 	{
 		s_assetManager = assetManager;
 		s_materialAssetHandler.m_renderer = renderer;
-		assetManager->registerAssetHandler(MaterialAssetData::k_assetType, &s_materialAssetHandler);
+		assetManager->registerAssetHandler(MaterialAsset::k_assetType, &s_materialAssetHandler);
 	}
 }
 
@@ -32,19 +32,19 @@ void MaterialAssetHandler::shutdown() noexcept
 
 AssetData *MaterialAssetHandler::createEmptyAssetData(const AssetID &assetID, const AssetType &assetType) noexcept
 {
-	if (assetType != MaterialAssetData::k_assetType)
+	if (assetType != MaterialAsset::k_assetType)
 	{
 		Log::warn("MaterialAssetHandler: Tried to call createEmptyAssetData on a non-material asset!");
 		return nullptr;
 	}
 
-	return new MaterialAssetData(assetID);
+	return new MaterialAsset(assetID);
 }
 
 bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != MaterialAssetData::k_assetType)
+	if (assetData->getAssetType() != MaterialAsset::k_assetType)
 	{
 		Log::warn("MaterialAssetHandler: Tried to call loadAssetData on a non-material asset!");
 		return false;
@@ -82,7 +82,7 @@ bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 				return s_assetManager->getAsset<TextureAsset>(AssetID(filepath.c_str()));
 			};
 
-			auto *materialAssetData = static_cast<MaterialAssetData *>(assetData);
+			auto *materialAssetData = static_cast<MaterialAsset *>(assetData);
 			materialAssetData->m_albedoTexture = getTextureAsset(jmat["albedoTexture"].get<std::string>());
 			materialAssetData->m_normalTexture = getTextureAsset(jmat["normalTexture"].get<std::string>());
 			materialAssetData->m_metalnessTexture = getTextureAsset(jmat["metalnessTexture"].get<std::string>());
@@ -118,7 +118,7 @@ bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 			Log::warn("TextureAssetHandler: Failed to load texture asset!");
 			assetData->setAssetStatus(AssetStatus::ERROR);
 
-			auto *materialAssetData = static_cast<MaterialAssetData *>(assetData);
+			auto *materialAssetData = static_cast<MaterialAsset *>(assetData);
 			materialAssetData->m_albedoTexture.release();
 			materialAssetData->m_normalTexture.release();
 			materialAssetData->m_metalnessTexture.release();
@@ -139,7 +139,7 @@ bool MaterialAssetHandler::loadAssetData(AssetData *assetData, const char *path)
 void MaterialAssetHandler::destroyAssetData(AssetData *assetData) noexcept
 {
 	assert(assetData);
-	if (assetData->getAssetType() != MaterialAssetData::k_assetType)
+	if (assetData->getAssetType() != MaterialAsset::k_assetType)
 	{
 		Log::warn("MaterialAssetHandler: Tried to call destroyAssetData on a non-material asset!");
 		return;

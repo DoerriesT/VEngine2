@@ -121,7 +121,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 				data += sizeof(header);
 
 				// materials
-				eastl::fixed_vector<Asset<MaterialAssetData>, 16> materialAssets;
+				eastl::fixed_vector<Asset<MaterialAsset>, 16> materialAssets;
 				{
 					materialAssets.resize(header.m_materialSlotCount);
 
@@ -140,7 +140,7 @@ bool MeshAssetHandler::loadAssetData(AssetData *assetData, const char *path) noe
 
 						assert(strLen);
 
-						materialAssets[i] = s_assetManager->getAsset<MaterialAssetData>(AssetID(dataSegment + curFileOffset));
+						materialAssets[i] = s_assetManager->getAsset<MaterialAsset>(AssetID(dataSegment + curFileOffset));
 
 						curFileOffset += strLen + 1; // dont forget the null terminator
 					}

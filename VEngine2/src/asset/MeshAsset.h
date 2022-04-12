@@ -62,7 +62,7 @@ public:
 
 	explicit MeshAsset(const AssetID &assetID) noexcept : AssetData(assetID, k_assetType) {}
 	const eastl::vector<SubMeshHandle> &getSubMeshhandles() const noexcept { return m_subMeshHandles; }
-	const eastl::vector<Asset<MaterialAssetData>> &getMaterials() const noexcept { return m_materials; }
+	const eastl::vector<Asset<MaterialAsset>> &getMaterials() const noexcept { return m_materials; }
 	PhysicsConvexMeshHandle getPhysicsConvexMeshhandle() const noexcept { return m_physicsConvexMeshHandle; }
 	PhysicsTriangleMeshHandle getPhysicsTriangleMeshhandle() const noexcept { return m_physicsTriangleMeshHandle; }
 	bool isSkinned() const noexcept { return m_isSkinned; }
@@ -71,7 +71,7 @@ public:
 
 private:
 	eastl::vector<SubMeshHandle> m_subMeshHandles;
-	eastl::vector<Asset<MaterialAssetData>> m_materials;
+	eastl::vector<Asset<MaterialAsset>> m_materials;
 	PhysicsConvexMeshHandle m_physicsConvexMeshHandle = {};
 	PhysicsTriangleMeshHandle m_physicsTriangleMeshHandle = {};
 	size_t m_matrixPaletteSize = 0;

@@ -60,7 +60,7 @@ bool MaterialImporter::importMaterials(size_t count, LoadedMaterial *materials, 
 		fileData << std::setw(4) << j << std::endl;
 		auto fileDataStr = fileData.str();
 
-		auto assetID = assetMgr->createAsset(MaterialAssetData::k_assetType, dstPath.c_str(), sourcePath);
+		auto assetID = assetMgr->createAsset(MaterialAsset::k_assetType, dstPath.c_str(), sourcePath);
 		resultAssetIDs[i] = assetID;
 
 		if (FileHandle fh = vfs.open(dstPath.c_str(), FileMode::WRITE, true))
