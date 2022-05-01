@@ -159,6 +159,8 @@ void AnimationGraphInstance::setGraphAsset(const Asset<AnimationGraphAsset> &gra
 			m_parameterCount = graph->getParameterCount();
 			m_animationClipCount = graph->getAnimationClipAssetCount();
 			m_nodes = graph->getNodes();
+			m_parameters.clear();
+			m_parameters.insert(m_parameters.end(), graph->getParameters(), graph->getParameters() + m_parameterCount);
 			m_animationClipAssets = graph->getAnimationClipAssets();
 			m_controllerScript = graph->getControllerScript();
 		}

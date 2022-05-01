@@ -88,6 +88,98 @@ class DummyGameLogic : public IGameLogic
 public:
 	void init(Engine *engine) noexcept override
 	{
+#if 0
+		{
+			const char *animClipAssetPaths[]
+			{
+				"meshes/idle.anim",
+				"meshes/walk0.anim",
+				"meshes/run.anim",
+			};
+
+			const char *controllerScriptPath = "scripts/anim_graph.lua";
+
+			AnimationGraphParameter params[2];
+			params[0].m_type = AnimationGraphParameter::Type::Bool;
+			params[0].m_data.b = true;
+			params[0].m_name = SID("loop");
+			params[1].m_type = AnimationGraphParameter::Type::Float;
+			params[1].m_data.f = 0.0f;
+			params[1].m_name = SID("speed");
+
+			AnimationGraphNode nodes[4] = {};
+
+			// 1D array lerp node
+			nodes[0].m_nodeType = AnimationGraphNodeType::Lerp1DArray;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[0] = 1;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[1] = 2;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputs[2] = 3;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[0] = 0.0f;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[1] = 1.0f;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputKeys[2] = 4.0f;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_inputCount = 3;
+			nodes[0].m_nodeData.m_lerp1DArrayNodeData.m_alpha = 1;
+
+			// idle clip node
+			nodes[1].m_nodeType = AnimationGraphNodeType::AnimClip;
+			nodes[1].m_nodeData.m_clipNodeData.m_animClip = 0;
+			nodes[1].m_nodeData.m_clipNodeData.m_loop = 0;
+
+			// walk clip node
+			nodes[2].m_nodeType = AnimationGraphNodeType::AnimClip;
+			nodes[2].m_nodeData.m_clipNodeData.m_animClip = 1;
+			nodes[2].m_nodeData.m_clipNodeData.m_loop = 0;
+
+			// run clip node
+			nodes[3].m_nodeType = AnimationGraphNodeType::AnimClip;
+			nodes[3].m_nodeData.m_clipNodeData.m_animClip = 2;
+			nodes[3].m_nodeData.m_clipNodeData.m_loop = 0;
+
+
+
+			auto &vfs = VirtualFileSystem::get();
+
+			if (FileHandle fh = vfs.open("/assets/anims/character_anim_graph.animgraph", FileMode::WRITE, true))
+			{
+				AnimationGraphAsset::FileHeader header{};
+				header.m_fileSize = sizeof(header);
+				header.m_fileSize += strlen(controllerScriptPath) + 1;
+				header.m_fileSize += sizeof(nodes);
+				for (auto &p : params)
+				{
+					header.m_fileSize += sizeof(p.m_type);
+					header.m_fileSize += sizeof(p.m_data);
+					header.m_fileSize += strlen(p.m_name.m_string) + 1;
+				}
+				for (auto &c : animClipAssetPaths)
+				{
+					header.m_fileSize += strlen(c) + 1;
+				}
+
+				header.m_rootNodeIndex = 0;
+				header.m_nodeCount = 4;
+				header.m_parameterCount = 2;
+				header.m_animationClipAssetCount = 3;
+
+				vfs.write(fh, sizeof(header), &header);
+				vfs.write(fh, strlen(controllerScriptPath) + 1, controllerScriptPath);
+				vfs.write(fh, sizeof(nodes), &nodes);
+				for (auto &p : params)
+				{
+					vfs.write(fh, sizeof(p.m_type), &p.m_type);
+					vfs.write(fh, sizeof(p.m_data), &p.m_data);
+					vfs.write(fh, strlen(p.m_name.m_string) + 1, p.m_name.m_string);
+				}
+				for (auto &c : animClipAssetPaths)
+				{
+					vfs.write(fh, strlen(c) + 1, c);
+				}
+
+				vfs.close(fh);
+			}
+		}
+#endif
+
 		m_engine = engine;
 		m_fpsCameraController = new FPSCameraController(m_engine->getECS());
 		m_thirdPersonCameraController = new ThirdPersonCameraController(m_engine->getECS());
@@ -122,7 +214,7 @@ public:
 			SkinnedMeshComponent meshC{};
 			meshC.m_mesh = m_cesiumManAsset;
 			meshC.m_skeleton = m_skeleton;
-			meshC.m_animationGraph = {};
+			meshC.m_animationGraph = AssetManager::get()->getAsset<AnimationGraphAsset>(SID("anims/character_anim_graph.animgraph"));
 			meshC.m_boundingSphereSizeFactor = 100.0f;
 
 			CharacterControllerComponent ccC{};

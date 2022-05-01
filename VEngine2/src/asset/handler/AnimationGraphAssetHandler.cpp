@@ -147,8 +147,20 @@ bool AnimationGraphAssetHandler::loadAssetData(AssetData *assetData, const char 
 				// memcpy/placement new the graph data into the single allocation
 				memcpy(memory + nodesOffset, data, nodesSize);
 				data += nodesSize;
-				memcpy(memory + paramsOffset, data, paramsSize);
-				data += paramsSize;
+
+				for (size_t i = 0; i < header.m_parameterCount; ++i)
+				{
+					AnimationGraphParameter param;
+					param.m_type = *reinterpret_cast<const AnimationGraphParameter::Type *>(data);
+					data += sizeof(AnimationGraphParameter::Type);
+					param.m_data = *reinterpret_cast<const AnimationGraphParameter::Data *>(data);
+					data += sizeof(AnimationGraphParameter::Data);
+					param.m_name = AssetID(data);
+					data += strlen(data) + 1;
+					
+					memcpy(memory + paramsOffset + i * sizeof(AnimationGraphParameter), &param, sizeof(param));
+				}
+				
 				for (size_t i = 0; i < header.m_animationClipAssetCount; ++i)
 				{
 					char *ptr = memory + clipsOffset + i * sizeof(Asset<AnimationClipAsset>);

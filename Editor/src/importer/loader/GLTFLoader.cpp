@@ -416,7 +416,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 						{
 							position = globalTransform * glm::vec4(position, 1.0f);
 						}
-						
+
 						position *= scale;
 
 						// normal
@@ -430,7 +430,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 							{
 								normal = normalTransform * normal;
 							}
-							
+
 						}
 
 
