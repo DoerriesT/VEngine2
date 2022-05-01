@@ -302,7 +302,7 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 		visitedNodes[nodeIdx] = true;
 
 
-		glm::mat4 normalTransform = glm::transpose(glm::inverse(globalTransform));
+		glm::mat3 normalTransform = glm::transpose(glm::inverse(glm::mat3(globalTransform)));
 
 		bool skipMesh = false;
 
@@ -388,6 +388,8 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 					jointsAccessor = attributeIt->second;
 				}
 
+				const bool skinned = node.skin != -1;
+
 				LoadedModel::Mesh rawMesh{};
 				rawMesh.m_name = gltfMesh.name.c_str() + eastl::to_string(i);
 				rawMesh.m_materialIndex = primitive.material == -1 ? 0 : primitive.material;
@@ -410,7 +412,11 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 						glm::vec3 position = glm::vec3();
 						res = getFloatBufferData(gltfModel, positionsAccessor, index, 3, &position[0]);
 						assert(res);
-						//position = globalTransform * glm::vec4(position, 1.0f);
+						if (!skinned)
+						{
+							position = globalTransform * glm::vec4(position, 1.0f);
+						}
+						
 						position *= scale;
 
 						// normal
@@ -419,7 +425,12 @@ static void loadNodes(size_t nodeIdx, const glm::mat4 &parentTransform, const ti
 						{
 							res = getFloatBufferData(gltfModel, normalsAccessor, index, 3, &normal[0]);
 							assert(res);
-							normal = glm::normalize(normal);// normalTransform *glm::vec4(glm::normalize(normal), 0.0f);
+							normal = glm::normalize(normal);
+							if (!skinned)
+							{
+								normal = normalTransform * normal;
+							}
+							
 						}
 
 
@@ -521,7 +532,7 @@ static int findSkeletonRootNodeIndexAndTransform(const tinygltf::Model &model, g
 	}
 
 	int rootIndex = -1;
-	
+
 	if (model.skins[0].skeleton != -1)
 	{
 		rootIndex = model.skins[0].skeleton;
@@ -559,7 +570,7 @@ static int findSkeletonRootNodeIndexAndTransform(const tinygltf::Model &model, g
 			}
 		}
 	}
-	
+
 	if (rootIndex != -1)
 	{
 		glm::mat4 curTrans = glm::identity<glm::mat4>();
@@ -941,6 +952,6 @@ bool GLTFLoader::loadModel(const char *filepath, bool mergeByMaterial, bool inve
 			}
 		}
 	}
-	
+
 	return true;
 }
